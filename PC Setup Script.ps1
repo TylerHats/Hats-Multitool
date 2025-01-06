@@ -34,8 +34,10 @@ Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
 
 # Set QiSupport local account password
-Log-Message "Setting QiSupport Password..."
-Net User QiSupport sc@rySea72 | Out-File -Append -FilePath $logPath
+Log-Message "Setting Local Admin Password (Only for existing user accounts)..."
+$AdminUser = Read-Host "Please enter the local admin username"
+$AdminPass = Read-Host "Please enter the local admin password"
+Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
