@@ -19,7 +19,7 @@ function Show-ProgressBar {
 }
 
 # Step 1: Get all available updates
-$updates = Get-WindowsUpdate
+$updates = Get-WindowsUpdate | Where-Object { $_.Title -notlike "*Cumulative*" }
 
 # Check if there are any updates to install
 if ($updates.Count -eq 0) {
