@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v1.1
+# Windows Update PS Script Module - Tyler Hatfield - v1.2
 # Define noUpdates Function
 function noUpdatesEnd {
 	Read-Host "Press enter to exit the script" 
@@ -19,7 +19,7 @@ function Show-ProgressBar {
 }
 
 # Step 1: Get all available updates
-$updates = Get-WindowsUpdate
+$updates = Get-WindowsUpdate | Where-Object { $_.Title -notlike "*Cumulative*" }
 
 # Check if there are any updates to install
 if ($updates.Count -eq 0) {

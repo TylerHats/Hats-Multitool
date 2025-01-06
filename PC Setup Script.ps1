@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.7
+# PC Setup Script - Tyler Hatfield - v1.8
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -19,30 +19,32 @@ $serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
 
 # Set time zone and sync
 Log-Message "Setting Time Zone to Eastern Standard Time..."
-Set-TimeZone -Name "Eastern Standard Time" >> $logPath
-Start-Service -Name w32time >> $logPath
-w32tm /resync >> $logPath
+Set-TimeZone -Name "Eastern Standard Time" | Out-File -Append -FilePath $logPath
+if ((Get-Service -Name w32time).Status -ne 'Running') {
+    Start-Service -Name w32time | Out-File -Append -FilePath $logPath
+}
+w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
-Install-PackageProvider -Name NuGet -Force >> $logPath
-Install-Module -Name PSWindowsUpdate -Force >> $logPath
-Set-ExecutionPolicy Bypass -force >> $logPath
-Set-DODownloadMode -DownloadMode 3 >> $logPath
+Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
+Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
+Set-ExecutionPolicy Bypass -force | Out-File -Append -FilePath $logPath
+Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
 
 # Set QiSupport local account password
 Log-Message "Setting QiSupport Password..."
-Net User QiSupport sc@rySea72 >> $logPath
+Net User QiSupport sc@rySea72 | Out-File -Append -FilePath $logPath
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-WinGet Source Update >> $logPath
-WinGet Upgrade --id Microsoft.Appinstaller --scope machine --accept-package-agreements --accept-source-agreements >> $logPath
-WinGet uninstall --id Microsoft.Teams.Free >> $logPath
-WinGet uninstall --id Microsoft.Teams >> $logPath
-winget uninstall "Teams Machine-Wide Installer" >> $logPath
-WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source-agreements >> $logPath
+WinGet Source Update | Out-File -Append -FilePath $logPath
+WinGet Upgrade --id Microsoft.Appinstaller --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+WinGet uninstall --id Microsoft.Teams.Free | Out-File -Append -FilePath $logPath
+WinGet uninstall --id Microsoft.Teams | Out-File -Append -FilePath $logPath
+winget uninstall "Teams Machine-Wide Installer" | Out-File -Append -FilePath $logPath
+WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -126,10 +128,29 @@ $okButton.Add_Click({
         if ($program -ne $null) {
             Log-Message "Installing $($program.Name)..."
             try {
-                Start-Process -FilePath "winget" -ArgumentList "install -e --id $($program.WingetID) --scope machine --accept-package-agreements --accept-source-agreements >> $logPath" -NoNewWindow -Wait
-                $message = "$($program.Name): Installed successfully."
-                Log-Message $message -ForegroundColor Green
-                $message | Out-File -FilePath $logPath -Append
+                # Corrected WinGet command execution
+                $wingetArgs = @(
+                    "install",
+                    "-e",  # Exact match flag
+                    "--id", $program.WingetID,
+                    "--scope", "machine",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements"
+                )
+
+                # Use Start-Process with the correct arguments
+                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait
+
+                # Capture the result
+                if ($process.ExitCode -eq 0) {
+                    $message = "$($program.Name): Installed successfully."
+                    Log-Message $message -ForegroundColor Green
+                    $message | Out-File -FilePath $logPath -Append
+                } else {
+                    $message = "$($program.Name): Installation failed with exit code $($process.ExitCode)."
+                    Log-Message $message -ForegroundColor Red
+                    $message | Out-File -FilePath $logPath -Append
+                }
             } catch {
                 $message = "$($program.Name): Installation failed. Error: $_"
                 Log-Message $message -ForegroundColor Red
@@ -153,13 +174,13 @@ $Rename = Read-Host "Would you like to change the PC name? y/n"
 if ($Rename -eq "y" -or $Rename -eq "Y") {
     Log-Message "The serial number is: $serialNumber"
     $PCName = Read-Host "Enter the new PC name and press Enter"
-    Rename-Computer -NewName $PCName >> $logPath
+    Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
 }
 $Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
 if ($Domain -eq "y" -or $Domain -eq "Y") {
     $DomainName = Read-Host "Enter the domain address and press Enter"
     $DomainUser = Read-Host "Enter the domain username and press Enter"
-    Add-Computer -DomainName $DomainName -Credential $DomainUser >> $logPath
+    Add-Computer -DomainName $DomainName -Credential $DomainUser | Out-File -Append -FilePath $logPath
 }
 
 # Reminders/Closing
