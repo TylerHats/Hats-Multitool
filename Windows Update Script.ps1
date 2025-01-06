@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v1.1
+# Windows Update PS Script Module - Tyler Hatfield - v1.2
 # Define noUpdates Function
 function noUpdatesEnd {
 	Read-Host "Press enter to exit the script" 

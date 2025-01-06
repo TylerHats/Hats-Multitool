@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.7
+# PC Setup Script - Tyler Hatfield - v1.8
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
