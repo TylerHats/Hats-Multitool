@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.8
+# PC Setup Script - Tyler Hatfield - v1.9
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -33,11 +33,35 @@ Set-ExecutionPolicy Bypass -force | Out-File -Append -FilePath $logPath
 Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
 
-# Set QiSupport local account password
-Log-Message "Setting Local Admin Password (Only for existing user accounts)..."
-$AdminUser = Read-Host "Please enter the local admin username"
-$AdminPass = Read-Host "Please enter the local admin password"
-Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
+# Set/Create local admin account
+Log-Message "Setup Local Admin Account(s)..."
+$RepeatFunction = 1
+While ($RepeatFunction -eq 1) {
+	$AdminUser = Read-Host "Please enter the local admin Username"
+	$AdminPass = Read-Host "Please enter the local admin Password"
+	$UExists = Get-LocalUser -Name $AdminUser -ErrorAction SilentlyContinue
+	if (-not $UExists) {
+		$MakeUser = Read-Host "The specified user does not exist, create account now? (y/N)"
+		if ($MakeUser -eq "y" -or $MakeUser -eq "Y") {
+			Net User $AdminUser $AdminPass /add | Out-File -Append -FilePath $logPath
+		} else {
+			Log-Message "Skipping account creation."
+		}
+	}
+	$IsAdmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^$AdminUser$" })
+	if ($UExists -and -not $IsAdmin) {
+		$MakeAdmin = Read-Host "The specified user is not a local admin, elevate now? (y/N)"
+		if ($MakeAdmin -eq "y" -or $MakeAdmin -eq "Y") {
+			Net Localgroup Administrators $AdminUser /add | Out-File -Append -FilePath $logPath
+		} else {
+			Log-Message "Skipping account elevation."
+		}
+	}
+	$RFQ = Read-Host "Repeat this segment to add, edit or test another user account? (y/N)"
+	if ($RFQ -ne "Y" -or $RFQ -ne "y") {
+		$RepeatFunction = 0
+	}
+}
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
@@ -147,16 +171,13 @@ $okButton.Add_Click({
                 if ($process.ExitCode -eq 0) {
                     $message = "$($program.Name): Installed successfully."
                     Log-Message $message -ForegroundColor Green
-                    $message | Out-File -FilePath $logPath -Append
                 } else {
                     $message = "$($program.Name): Installation failed with exit code $($process.ExitCode)."
                     Log-Message $message -ForegroundColor Red
-                    $message | Out-File -FilePath $logPath -Append
                 }
             } catch {
                 $message = "$($program.Name): Installation failed. Error: $_"
                 Log-Message $message -ForegroundColor Red
-                $message | Out-File -FilePath $logPath -Append
             }
         }
         $progressBar.Value += 1
