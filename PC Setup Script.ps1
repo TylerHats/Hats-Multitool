@@ -165,7 +165,7 @@ $okButton.Add_Click({
                 )
 
                 # Use Start-Process with the correct arguments
-                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait
+                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
 
                 # Capture the result
                 if ($process.ExitCode -eq 0) {
@@ -205,6 +205,9 @@ if ($Domain -eq "y" -or $Domain -eq "Y") {
     $DomainUser = Read-Host "Enter the domain username and press Enter"
     Add-Computer -DomainName $DomainName -Credential $DomainUser | Out-File -Append -FilePath $logPath
 }
+
+# Final setup options
+#ADD Option to set REG keys to enable numlock at login and after login regardless of BIOS setting
 
 # Reminders/Closing
 Log-Message "Script setup is complete!"
