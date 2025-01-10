@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.9
+# PC Setup Script - Tyler Hatfield - v1.10
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -34,11 +34,11 @@ Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
 
 # Set/Create local admin account
-Log-Message "Setup Local Admin Account(s)..."
+Log-Message "Setup Local Account(s)..."
 $RepeatFunction = 1
 While ($RepeatFunction -eq 1) {
-	$AdminUser = Read-Host "Please enter the local admin Username"
-	$AdminPass = Read-Host "Please enter the local admin Password"
+	$AdminUser = Read-Host "Please enter a username"
+	$AdminPass = Read-Host "Please enter a password (Leave blank if you don't intend to change the password of an existing account.)"
 	$UExists = Get-LocalUser -Name $AdminUser -ErrorAction SilentlyContinue
 	if (-not $UExists) {
 		$MakeUser = Read-Host "The specified user does not exist, create account now? (y/N)"
@@ -46,6 +46,11 @@ While ($RepeatFunction -eq 1) {
 			Net User $AdminUser $AdminPass /add | Out-File -Append -FilePath $logPath
 		} else {
 			Log-Message "Skipping account creation."
+		}
+	} else {
+		$UpdateUser = Read-Host "Update the user's password? (y/N)"
+		if ($UpdateUser.ToLower() -eq "y" -or $UpdateUser.ToLower() -eq "yes") {
+			Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
 		}
 	}
 	$IsAdmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^$AdminUser$" })
@@ -58,7 +63,7 @@ While ($RepeatFunction -eq 1) {
 		}
 	}
 	$RFQ = Read-Host "Repeat this segment to add, edit or test another user account? (y/N)"
-	if ($RFQ -ne "Y" -or $RFQ -ne "y") {
+	if ($RFQ.ToLower() -eq "y" -or $RFQ.ToLower() -eq "yes") {
 		$RepeatFunction = 0
 	}
 }
@@ -71,6 +76,24 @@ WinGet uninstall --id Microsoft.Teams.Free | Out-File -Append -FilePath $logPath
 WinGet uninstall --id Microsoft.Teams | Out-File -Append -FilePath $logPath
 winget uninstall "Teams Machine-Wide Installer" | Out-File -Append -FilePath $logPath
 WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+
+# Remove commond Windows bloat
+$RemoveBloat = Read-Host "Would you like to remove common Windows bloat programs? (y/N)"
+if ($RemoveBloat.ToLower() -eq "y" -or $RemoveBloat.ToLower() -eq "yes") {
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingfinance*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingnews*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingsports*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*gethelp*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*getstarted*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*mixedreality*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*people*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*solitaire*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*wallet*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsfeedback*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsmaps*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*xbox*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*zunevideo*" | Remove-AppxPackage -AllUsers
+}
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
