@@ -230,7 +230,14 @@ if ($Domain -eq "y" -or $Domain -eq "Y") {
 }
 
 # Final setup options
-#ADD Option to set REG keys to enable numlock at login and after login regardless of BIOS setting
+$regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
+if (Test-Path $regPath) {
+    # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default)
+    Set-ItemProperty -Path $regPath -Name "InitialKeyboardIndicators" -Value "2"
+    Log-Message "InitialKeyboardIndicators set to 2 successfully." "Success"
+} else {
+    Log-Message "Registry path $regPath does not exist." "Error"
+}
 
 # Reminders/Closing
 Log-Message "Script setup is complete!"
