@@ -53,7 +53,8 @@ While ($RepeatFunction -eq 1) {
 			Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
 		}
 	}
-	$IsAdmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^$AdminUser$" })
+	$LocalUserCheck = "$env:COMPUTERNAME\$AdminUser"
+	$IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
 	if ($UExists -and -not $IsAdmin) {
 		$MakeAdmin = Read-Host "The specified user is not a local admin, elevate now? (y/N)"
 		if ($MakeAdmin -eq "y" -or $MakeAdmin -eq "Y") {
@@ -70,11 +71,12 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-WinGet Source Update | Out-File -Append -FilePath $logPath
+Winget Source Update --accept-source-agreements | Out-File -Append -FilePath $logPath
 WinGet Upgrade --id Microsoft.Appinstaller --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 WinGet uninstall --id Microsoft.Teams.Free | Out-File -Append -FilePath $logPath
 WinGet uninstall --id Microsoft.Teams | Out-File -Append -FilePath $logPath
 winget uninstall "Teams Machine-Wide Installer" | Out-File -Append -FilePath $logPath
+Log-Message "Updating System Packages and Apps (This may take some time)..."
 WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
