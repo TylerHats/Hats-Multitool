@@ -63,7 +63,7 @@ While ($RepeatFunction -eq 1) {
 		}
 	}
 	$RFQ = Read-Host "Repeat this segment to add, edit or test another user account? (y/N)"
-	if ($RFQ.ToLower() -eq "y" -or $RFQ.ToLower() -eq "yes") {
+	if (-not ($RFQ.ToLower() -eq "y" -or $RFQ.ToLower() -eq "yes")) {
 		$RepeatFunction = 0
 	}
 }
@@ -224,16 +224,16 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 }
 $Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
 if ($Domain -eq "y" -or $Domain -eq "Y") {
-    $DomainName = Read-Host "Enter the domain address and press Enter"
-    $DomainUser = Read-Host "Enter the domain username and press Enter"
-    Add-Computer -DomainName $DomainName -Credential $DomainUser | Out-File -Append -FilePath $logPath
+    $DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
+    $DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
+    Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 }
 
 # Final setup options
 $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
-if (Test-Path $regPath) {
+if (Test-Path $regPathNumLock) {
     # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default)
-    Set-ItemProperty -Path $regPath -Name "InitialKeyboardIndicators" -Value "2"
+    Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
     Log-Message "InitialKeyboardIndicators set to 2 successfully." "Success"
 } else {
     Log-Message "Registry path $regPath does not exist." "Error"

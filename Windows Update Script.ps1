@@ -22,13 +22,13 @@ function Show-ProgressBar {
 $updates = Get-WindowsUpdate | Where-Object { 
     $_.Title -notlike "*Cumulative*" -and
     $_.Title -notlike "*Feature Update*" -and
-    $_.Title -notlike "*Upgrade*" -and
+    $_.Title -notlike "*Upgrade*"
 }
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
 
 # Check if there are any updates to install
-if ($updates.Count -eq 0) {
+if (-not $updates -or $updates.Count -eq 0) {
     Write-Host "No updates available."
     noUpdatesEnd
 }
@@ -46,15 +46,20 @@ foreach ($update in $updates) {
 # Step 3: Proceed with installing updates
 Write-Host "`nDownloading completed. Installing updates..."
 
-$counter = 0
-foreach ($update in $updates) {
-    $counter++
-    Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
+try {
+	Install-WindowsUpdate -Updates $updates -AcceptAll -IgnoreReboot -Verbose
+} catch {
+	Write-Host "Batch installation failed, attempting indevidual installation"
+	$counter = 0
+	foreach ($update in $updates) {
+		$counter++
+		Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
 
-    # Install each update (no re-scan after installation)
-    Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
+		# Install each update (no re-scan after installation)
+		Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
 
-    Start-Sleep -Seconds 2  # Simulate installation time (adjust as needed)
+		Start-Sleep -Seconds 2  # Simulate installation time (adjust as needed)
+	}
 }
 
 # Check if a reboot is required after installation
