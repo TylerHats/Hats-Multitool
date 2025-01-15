@@ -62,6 +62,8 @@ While ($RepeatFunction -eq 1) {
 		} else {
 			Log-Message "Skipping account elevation."
 		}
+	} else {
+		Log-Message "Skipping account elevation, user account is already a local administrator."
 	}
 	$RFQ = Read-Host "Repeat this segment to add, edit or test another user account? (y/N)"
 	if (-not ($RFQ.ToLower() -eq "y" -or $RFQ.ToLower() -eq "yes")) {
@@ -82,19 +84,19 @@ WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source
 # Remove commond Windows bloat
 $RemoveBloat = Read-Host "Would you like to remove common Windows bloat programs? (y/N)"
 if ($RemoveBloat.ToLower() -eq "y" -or $RemoveBloat.ToLower() -eq "yes") {
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingfinance*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingnews*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingsports*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*gethelp*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*getstarted*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*mixedreality*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*people*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*solitaire*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*wallet*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsfeedback*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsmaps*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*xbox*" | Remove-AppxPackage -AllUsers
-	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*zunevideo*" | Remove-AppxPackage -AllUsers
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingfinance*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingnews*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingsports*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*gethelp*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*getstarted*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*mixedreality*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*people*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*solitaire*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*wallet*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsfeedback*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*windowsmaps*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*xbox*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
+	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*zunevideo*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
 }
 
 # Install programs based on selections, prepare Windows "Form"
@@ -222,13 +224,21 @@ $Rename = Read-Host "Would you like to change the PC name? y/n"
 if ($Rename -eq "y" -or $Rename -eq "Y") {
     Log-Message "The serial number is: $serialNumber"
     $PCName = Read-Host "Enter the new PC name and press Enter"
-    Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
-}
-$Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
-if ($Domain -eq "y" -or $Domain -eq "Y") {
-    $DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
-    $DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
-    Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
+	$Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
+	if ($Domain -eq "y" -or $Domain -eq "Y") {
+		$DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
+		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
+		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
+	} else {
+		Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
+	}
+} else {
+	$Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
+	if ($Domain -eq "y" -or $Domain -eq "Y") {
+		$DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
+		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
+		Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
+	}
 }
 
 # Final setup options
@@ -236,7 +246,7 @@ $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
 if (Test-Path $regPathNumLock) {
     # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default)
     Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
-    Log-Message "InitialKeyboardIndicators set to 2 successfully." "Success"
+    Log-Message "Enabled NUM Lock at boot by default." "Success"
 } else {
     Log-Message "Registry path $regPath does not exist." "Error"
 }
