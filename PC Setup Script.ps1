@@ -111,6 +111,7 @@ $form.StartPosition = 'CenterScreen'
 $checkboxHeight = 30    # Height of each checkbox
 $progressBarHeight = 70 # Height of the progress bar
 $buttonHeight = 80      # Height of the OK button
+$labelHeight = 30       # Height of text labels
 $padding = 20           # Padding around the elements
 
 # Calculate total height based on the number of programs
@@ -122,23 +123,50 @@ $programs = @(
     @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
-    @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' }
+    @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' },
+    @{ Name = 'Outlook Classic': WingetID = '9NRX63209R7B' }
+)
+
+$closedPrograms = @(
+    @{ Name = 'Sophos Connect'; Params = '' }
 )
 
 # Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + $padding
+$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + ($labelHeight * 2)
 $form.Size = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
-# Prepare Checkboxes
+# Prepare WinGet Checkboxes
 $checkboxes = @{ }
 $y = 20
+$label = New-Object System.Windows.Forms.Label
+$label.Text = "WinGet Programs:"
+$label.Location = New-Object System.Drawing.Point(20, $y)
+$label.AutoSize = $true
+$y += $labelHeight
 foreach ($program in $programs) {
     $checkbox = New-Object System.Windows.Forms.CheckBox
     $checkbox.Location = New-Object System.Drawing.Point(20, $y)
     $checkbox.Text = $program.Name
     $form.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
+    $y += $checkboxHeight
+}
+
+# Prepare Closed Source Checkboxes
+$y += 20
+$closedCheckboxes = @{ }
+$labelClosed = New-Object System.Windows.Forms.Label
+$labelClosed.Text = "Closed Source Programs:"
+$labelClosed.Location = New-Object System.Drawing.Point(20, $y)
+$labelClosed.AutoSize = $true
+$y += $labelHeight
+foreach ($program in $closedPrograms) {
+    $closedCheckbox = New-Object System.Windows.Forms.Checkbox
+    $closedCheckbox.Location = New-Object System.Drawing.Point(20, $y)
+    $closedCheckbox.Text = $program.Name
+    $form.Controls.Add($closedCheckbox)
+    $closedCheckboxes[$program.Name] = $closedCheckbox
     $y += $checkboxHeight
 }
 
