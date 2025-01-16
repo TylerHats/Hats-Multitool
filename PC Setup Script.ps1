@@ -127,7 +127,8 @@ $programs = @(
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' },
-    @{ Name = 'Outlook Classic'; WingetID = '9NRX63209R7B' }
+    @{ Name = 'Outlook Classic (In testing)'; WingetID = '9NRX63209R7B' },
+    @{ Name = 'Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'}
 )
 
 $closedPrograms = @(
