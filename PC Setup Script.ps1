@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.11
+# PC Setup Script - Tyler Hatfield - v1.12
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -301,3 +301,9 @@ Log-Message "Please install the agent and make any remaining changes needed."
 Log-Message "Confirm Windows Updates have completed in the minimzied window and restart if needed."
 Log-Message "Press enter to exit the script." "Success"
 Read-Host
+
+# Post execution cleanup
+$folderToDelete = $PSScriptRoot
+$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
+Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+exit
