@@ -60,7 +60,8 @@ While ($RepeatFunction -eq 1) {
 	$LocalUserCheck = "$env:COMPUTERNAME\$AdminUser"
 	$IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
 	if ($UExists -and -not $IsAdmin) {
-		$MakeAdmin = Read-Host "The specified user is not a local admin, elevate now? (y/N)"
+        Log-Message "The specified user is not a local admin, elevate now? (y/N)" "Prompt"
+		$MakeAdmin = Read-Host
 		if ($MakeAdmin -eq "y" -or $MakeAdmin -eq "Y") {
 			Net Localgroup Administrators $AdminUser /add | Out-File -Append -FilePath $logPath
 		} else {
@@ -257,22 +258,28 @@ $form.ShowDialog() | Out-null
 
 # Rename PC and join to domain (if needed)
 Log-Message "The PC is currently named: $env:computername"
-$Rename = Read-Host "Would you like to change the PC name? y/n"
+Log-Message "Would you like to change the PC name? y/n" "Prompt"
+$Rename = Read-Host
 if ($Rename -eq "y" -or $Rename -eq "Y") {
     Log-Message "The serial number is: $serialNumber"
-    $PCName = Read-Host "Enter the new PC name and press Enter"
-	$Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
+    Log-Message "Enter the new PC name and press Enter" "Prompt"
+    $PCName = Read-Host
+    Log-Message "Would you like to join this PC to an Active Directory Domain? y/n" "Prompt"
+	$Domain = Read-Host
 	if ($Domain -eq "y" -or $Domain -eq "Y") {
-		$DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
+        Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local)" "Prompt"
+		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
 		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 	} else {
 		Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
 	}
 } else {
-	$Domain = Read-Host "Would you like to join this PC to an Active Directory Domain? y/n"
+    Log-Message "Would you like to join this PC to an Active Directory Domain? y/n" "Prompt"
+	$Domain = Read-Host
 	if ($Domain -eq "y" -or $Domain -eq "Y") {
-		$DomainName = Read-Host "Enter the domain address and press Enter (Include the suffix, Ex: .local)"
+        Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local)" "Prompt"
+		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
 		Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 	}
@@ -292,4 +299,5 @@ if (Test-Path $regPathNumLock) {
 Log-Message "Script setup is complete!"
 Log-Message "Please install the agent and make any remaining changes needed."
 Log-Message "Confirm Windows Updates have completed in the minimzied window and restart if needed."
-Read-Host "Press enter to exit script"
+Log-Message "Press enter to exit the script." "Success"
+Read-Host
