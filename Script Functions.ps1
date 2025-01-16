@@ -1,4 +1,4 @@
-# Script Functions File - Tyler Hatfield - v1.1
+# Script Functions File - Tyler Hatfield - v1.2
 
 # Log-Message takes a string or command output and sends it both to the registered $logPath and the PS consol
 function Log-Message {
