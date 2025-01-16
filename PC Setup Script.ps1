@@ -121,7 +121,8 @@ $programs = @(
     @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox' },
     @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
-    @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' }
+    @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
+    @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' }
 )
 
 # Adjust form size based on the number of programs
