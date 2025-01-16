@@ -37,18 +37,22 @@ Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
 Log-Message "Setup Local Account(s)..."
 $RepeatFunction = 1
 While ($RepeatFunction -eq 1) {
-	$AdminUser = Read-Host "Please enter a username"
-	$AdminPass = Read-Host "Please enter a password (Leave blank if you don't intend to change the password of an existing account.)"
+    Log-Message "Please enter a username:" "Prompt"
+	$AdminUser = Read-Host
+    Log-Message "Please enter a password or leave blank to skip:" "Prompt"
+	$AdminPass = Read-Host
 	$UExists = Get-LocalUser -Name $AdminUser -ErrorAction SilentlyContinue
 	if (-not $UExists) {
-		$MakeUser = Read-Host "The specified user does not exist, create account now? (y/N)"
+		Log-Message "The specified user does not exist, create account now? (y/N)" "Prompt"
+        $MakeUser = Read-Host
 		if ($MakeUser -eq "y" -or $MakeUser -eq "Y") {
 			Net User $AdminUser $AdminPass /add | Out-File -Append -FilePath $logPath
 		} else {
 			Log-Message "Skipping account creation."
 		}
 	} else {
-		$UpdateUser = Read-Host "Update the user's password? (y/N)"
+        Log-Message "Update the user's password? (y/N)" "Prompt"
+		$UpdateUser = Read-Host
 		if ($UpdateUser.ToLower() -eq "y" -or $UpdateUser.ToLower() -eq "yes") {
 			Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
 		}
@@ -62,10 +66,11 @@ While ($RepeatFunction -eq 1) {
 		} else {
 			Log-Message "Skipping account elevation."
 		}
-	} else {
+	} elseif ($UExists -and $IsAdmin) {
 		Log-Message "Skipping account elevation, user account is already a local administrator."
 	}
-	$RFQ = Read-Host "Repeat this segment to add, edit or test another user account? (y/N)"
+    Log-Message "Repeat this segment to add, edit or test another user account? (y/N)" "Prompt"
+	$RFQ = Read-Host
 	if (-not ($RFQ.ToLower() -eq "y" -or $RFQ.ToLower() -eq "yes")) {
 		$RepeatFunction = 0
 	}
@@ -75,14 +80,12 @@ While ($RepeatFunction -eq 1) {
 Log-Message "Updating WinGet and App Installer..."
 Winget Source Update --accept-source-agreements | Out-File -Append -FilePath $logPath
 WinGet Upgrade --id Microsoft.Appinstaller --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
-WinGet uninstall --id Microsoft.Teams.Free | Out-File -Append -FilePath $logPath
-WinGet uninstall --id Microsoft.Teams | Out-File -Append -FilePath $logPath
-winget uninstall "Teams Machine-Wide Installer" | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
 WinGet Upgrade --ALL --scope machine --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
-$RemoveBloat = Read-Host "Would you like to remove common Windows bloat programs? (y/N)"
+Log-Message "Would you like to remove common Windows bloat programs? (y/N)" "Prompt"
+$RemoveBloat = Read-Host
 if ($RemoveBloat.ToLower() -eq "y" -or $RemoveBloat.ToLower() -eq "yes") {
 	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingfinance*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
 	Get-AppxPackage -AllUsers -PackageTypeFilter Bundle -Name "*bingnews*" | Remove-AppxPackage -AllUsers -Verbose | Out-File -Append -FilePath $logPath
@@ -124,15 +127,15 @@ $programs = @(
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' },
-    @{ Name = 'Outlook Classic': WingetID = '9NRX63209R7B' }
+    @{ Name = 'Outlook Classic'; WingetID = '9NRX63209R7B' }
 )
 
 $closedPrograms = @(
-    @{ Name = 'Sophos Connect'; Params = '' }
+    @{ Name = 'Demo (Do not use)'; Params = '' }
 )
 
 # Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + ($labelHeight * 2)
+$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 3) + ($labelHeight * 2)
 $form.Size = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
@@ -143,11 +146,13 @@ $label = New-Object System.Windows.Forms.Label
 $label.Text = "WinGet Programs:"
 $label.Location = New-Object System.Drawing.Point(20, $y)
 $label.AutoSize = $true
+$form.Controls.Add($label)
 $y += $labelHeight
 foreach ($program in $programs) {
     $checkbox = New-Object System.Windows.Forms.CheckBox
     $checkbox.Location = New-Object System.Drawing.Point(20, $y)
     $checkbox.Text = $program.Name
+    $checkbox.AutoSize = $true
     $form.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
     $y += $checkboxHeight
@@ -160,11 +165,13 @@ $labelClosed = New-Object System.Windows.Forms.Label
 $labelClosed.Text = "Closed Source Programs:"
 $labelClosed.Location = New-Object System.Drawing.Point(20, $y)
 $labelClosed.AutoSize = $true
+$form.Controls.Add($labelClosed)
 $y += $labelHeight
 foreach ($program in $closedPrograms) {
-    $closedCheckbox = New-Object System.Windows.Forms.Checkbox
+    $closedCheckbox = New-Object System.Windows.Forms.CheckBox
     $closedCheckbox.Location = New-Object System.Drawing.Point(20, $y)
     $closedCheckbox.Text = $program.Name
+    $closedCheckbox.AutoSize = $true
     $form.Controls.Add($closedCheckbox)
     $closedCheckboxes[$program.Name] = $closedCheckbox
     $y += $checkboxHeight
@@ -277,7 +284,7 @@ if (Test-Path $regPathNumLock) {
     Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
     Log-Message "Enabled NUM Lock at boot by default." "Success"
 } else {
-    Log-Message "Registry path $regPath does not exist." "Error"
+    Log-Message "Registry path $regPathNumLock does not exist." "Error"
 }
 
 # Reminders/Closing
