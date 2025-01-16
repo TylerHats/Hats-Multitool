@@ -10,13 +10,13 @@ function Log-Message {
     $logMessage = "$timestamp [$level] - $message"
     $consoleMessage = "[$level] - $message"
     $logMessage | Out-File -FilePath $logPath -Append  # Write to log
-    if ($level.ToLower -eq "info") {
+    if ($level.ToLower() -eq "info") {
         Write-Host $consoleMessage  # Output to console
-    } elseif ($level.ToLower -eq "prompt") {
+    } elseif ($level.ToLower() -eq "prompt") {
         Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
-    } elseif ($level.ToLower -eq "error") {
+    } elseif ($level.ToLower() -eq "error") {
         Write-Host $consoleMessage -ForegroundColor "Red"
-    } elseif ($level.ToLower -eq "success") {
+    } elseif ($level.ToLower() -eq "success") {
         Write-Host $consoleMessage -ForegroundColor "Green"
     } else {
         Write-Host $consoleMessage
