@@ -43,6 +43,7 @@ w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-File -Append -FilePath $logPath
 Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 Set-ExecutionPolicy Bypass -force | Out-File -Append -FilePath $logPath
@@ -100,6 +101,9 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Install-Module -Name Microsoft.WinGet.Client -Force
+}
 Winget Source Update | Out-File -Append -FilePath $logPath
 WinGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
