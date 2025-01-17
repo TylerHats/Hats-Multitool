@@ -1,6 +1,8 @@
 # Windows Update PS Script Module - Tyler Hatfield - v1.4
 
 # Window and script setup
+$failedResizeU = 0
+$failedColorU = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
 	$dHeight = 40
@@ -16,7 +18,8 @@ try {
 	$failedColorU = 1
 }
 Clear-Host
-if ($failedResizeU -eq 1 -or $failedColorU -eq 1) {Write-Host "Failed to resize window and/or set background color." -ForegroundColor "Red"}
+if ($failedResizeU -eq 1) {Write-Host "Failed to resize window." -ForegroundColor "Red"}
+if ($failedColorU -eq 1) {Write-Host "Failed to change background color." -ForegroundColor "Red"}
 
 # Define noUpdates Function
 function noUpdatesEnd {
@@ -46,9 +49,10 @@ $updates = Get-WindowsUpdate | Where-Object {
     $title = $_.Title
 }
 
+echo $env:installCumulativeWU
 # Filters out updates based on key phrases in $excludeUpdates
-if (-not ($global:installCumulativeWU.ToLower() -eq "yes" -or $global:installCumulativeWU.ToLower() -eq "y")) {
-    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
+if (-not ($env:installCumulativeWU.ToLower() -eq "yes" -or $env:installCumulativeWU.ToLower() -eq "y")) {
+    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade", "Security")
     $filteredUpdates = $title | Where-Object { 
     	$currentupdate = $_
     	$containsexs = $false
@@ -62,6 +66,10 @@ if (-not ($global:installCumulativeWU.ToLower() -eq "yes" -or $global:installCum
     }
     $updates = $filteredUpdates
 }
+
+write-host "This is the readout of filtered updates"
+echo $updates
+pause
 
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
@@ -103,3 +111,20 @@ if ($rebootRequired) {
 
 Write-Host "`nUpdate process completed. Press Enter to exit:" -ForegroundColor "Green"
 Read-Host
+
+# Post execution cleanup
+$DesktopPath = [Environment]::GetFolderPath('Desktop')
+$logPathName = "PCSetupScriptLog.txt"
+$logPath = Join-Path $DesktopPath $logPathName
+$cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
+$logContents = Get-Content -Path $logPath
+if ($logContents -contains $cleanupCheckValue) {
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
+	$folderToDelete = $PSScriptRoot
+	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+	exit 0
+} else {
+	Add-Content -Path $logPath -Value $cleanupCheckValue
+	exit 0
+}

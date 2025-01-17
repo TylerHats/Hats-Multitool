@@ -8,6 +8,8 @@ if (-not $IsElevated) {
 }
 
 # Script setup
+$failedResize = 0
+$failedColor = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
 	$dHeight = 40
@@ -29,7 +31,11 @@ $logPath = Join-Path $DesktopPath $logPathName
 $WUSPath = Join-Path -Path $PSScriptRoot -ChildPath 'Windows Update Script.ps1'
 $functionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Script Functions.ps1'
 . "$functionPath"
-$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+try {
+	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+} catch {
+	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
+}
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
@@ -44,7 +50,7 @@ w32tm /resync | Out-File -Append -FilePath $logPath
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
 Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
-$global:installCumulativeWU = Read-Host
+$env:installCumulativeWU = Read-Host
 $ProgressPreference = 'SilentlyContinue'
 Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
@@ -57,7 +63,7 @@ $RepeatFunction = 1
 While ($RepeatFunction -eq 1) {
     Log-Message "Please enter a username or leave blank to skip this section:" "Prompt"
 	$AdminUser = Read-Host
-	if (-not $AdminUser -eq "") {
+	if ($AdminUser -ne "") {
 		Log-Message "Please enter a password (can be empty):" "Prompt"
 		$AdminPass = Read-Host
 		$UExists = Get-LocalUser -Name $AdminUser -ErrorAction SilentlyContinue
@@ -109,7 +115,7 @@ winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $
 if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
 winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
-winGet Upgrade --ALL --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
+winget Upgrade --ALL --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
 Log-Message "Would you like to remove common Windows bloat programs? (y/N):" "Prompt"
@@ -298,7 +304,7 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 	if ($Domain -eq "y" -or $Domain -eq "Y") {
         Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 		$DomainName = Read-Host
-		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName"
+		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 	} else {
 		Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
@@ -309,7 +315,7 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 	if ($Domain -eq "y" -or $Domain -eq "Y") {
         Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 		$DomainName = Read-Host
-		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName`:"
+		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 		Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 	}
 }
@@ -334,7 +340,15 @@ Log-Message "Press enter to exit the script." "Success"
 Read-Host
 
 # Post execution cleanup
-$folderToDelete = $PSScriptRoot
-$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
-Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-exit 0
+$cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
+$logContents = Get-Content -Path $logPath
+if ($logContents -contains $cleanupCheckValue) {
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
+	$folderToDelete = $PSScriptRoot
+	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+	exit 0
+} else {
+	Add-Content -Path $logPath -Value $cleanupCheckValue
+	exit 0
+}
