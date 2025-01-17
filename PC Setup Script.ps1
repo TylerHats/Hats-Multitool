@@ -104,7 +104,7 @@ Log-Message "Updating WinGet and App Installer..."
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Install-Module -Name Microsoft.WinGet.Client -Force
 }
-Winget Source Update | Out-File -Append -FilePath $logPath
+Winget Source Update --disable-interactivity | Out-File -Append -FilePath $logPath
 WinGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
 WinGet Upgrade --ALL --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
