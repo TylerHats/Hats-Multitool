@@ -1,4 +1,23 @@
 # Windows Update PS Script Module - Tyler Hatfield - v1.3
+
+# Window and script setup
+try {
+	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
+	$dHeight = 40
+	$rawUI = $Host.UI.RawUI
+	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
+	$rawUI.WindowSize = $newSize
+} catch {
+	$failedResizeU = 1
+}
+try {
+	$host.UI.RawUI.BackgroundColor = "Black"
+} catch {
+	$failedColorU = 1
+}
+Clear-Host
+if ($failedResizeU -eq 1 -or $failedColorU -eq 1) {Write-Host "Failed to resize window and/or set background color." -ForegroundColor "Red"}
+
 # Define noUpdates Function
 function noUpdatesEnd {
 	Read-Host "Press enter to exit the script" 
@@ -19,10 +38,11 @@ function Show-ProgressBar {
 }
 
 # Step 1: Get all available updates
+$exclusions = 'cumulative|feature update|upgrade'
+
 $updates = Get-WindowsUpdate | Where-Object { 
-    $_.Title -notlike "*Cumulative*" -and
-    $_.Title -notlike "*Feature Update*" -and
-    $_.Title -notlike "*Upgrade*"
+    $title = $_.Title.Trim().ToLower()
+	$title -notmatch $exclusions
 }
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
@@ -40,35 +60,27 @@ $counter = 0
 foreach ($update in $updates) {
     $counter++
     Show-ProgressBar -status "Downloading updates..." -percent (($counter / $totalUpdates) * 100)
-    Start-Sleep -Seconds 1  # Simulate download time for each update (adjust as needed)
 }
 
 # Step 3: Proceed with installing updates
-Write-Host "`nDownloading completed. Installing updates..."
+Write-Host "`nDownloading and installing updates..."
 
-try {
-	Install-WindowsUpdate -Updates $updates -AcceptAll -IgnoreReboot -Verbose
-} catch {
-	Write-Host "Batch installation failed, attempting indevidual installation"
-	$counter = 0
-	foreach ($update in $updates) {
-		$counter++
-		Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
-
-		# Install each update (no re-scan after installation)
-		Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
-
-		Start-Sleep -Seconds 2  # Simulate installation time (adjust as needed)
-	}
+$counter = 0
+foreach ($update in $updates) {
+	$counter++
+	Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
+	# Install each update (no re-scan after installation)
+	Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
 }
 
 # Check if a reboot is required after installation
 $rebootRequired = (Get-WindowsUpdate -IsPending).Count -gt 0
 
 if ($rebootRequired) {
-    Write-Host "`nA reboot is required to complete the installation of updates."
+    Write-Host "`nA reboot is required to complete the installation of updates." -ForegroundColor "Yellow"
     # Optional: Uncomment the following line to automatically restart the system.
     # Restart-Computer -Force
 }
 
-Write-Host "`nUpdate process completed."
+Write-Host "`nUpdate process completed. Press Enter to exit:" -ForegroundColor "Green"
+Read-Host

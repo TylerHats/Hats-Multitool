@@ -4,7 +4,7 @@
 function Log-Message {
     param(
         [string]$message,
-        [string]$level = "Info"  # Options: Info, Success, Error, Prompt
+        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "$timestamp [$level] - $message"
@@ -18,6 +18,8 @@ function Log-Message {
         Write-Host $consoleMessage -ForegroundColor "Red"
     } elseif ($level.ToLower() -eq "success") {
         Write-Host $consoleMessage -ForegroundColor "Green"
+	} elseif ($level.ToLower() -eq "skip") {
+		Write-Host $consoleMessage -ForegroundColor "Cyan"
     } else {
         Write-Host $consoleMessage
     }
