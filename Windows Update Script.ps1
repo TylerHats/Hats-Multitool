@@ -38,11 +38,12 @@ function Show-ProgressBar {
 }
 
 # Step 1: Get all available updates
-$exclusions = 'cumulative|feature update|upgrade'
-
 $updates = Get-WindowsUpdate | Where-Object { 
-    $title = $_.Title.Trim().ToLower()
-	$title -notmatch $exclusions
+    $title = $_.Title
+    # Exclude updates containing any of the undesired phrases
+    ($title -notlike "*cumulative*") -and 
+    ($title -notlike "*feature update*") -and 
+    ($title -notlike "*upgrade*")
 }
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
