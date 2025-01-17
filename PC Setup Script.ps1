@@ -307,7 +307,7 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 	if ($Domain -eq "y" -or $Domain -eq "Y") {
         Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 		$DomainName = Read-Host
-		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName:"
+		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $DomainName`:"
 		Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
 	}
 }
