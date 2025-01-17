@@ -107,10 +107,10 @@ $tempFolder = $env:TEMP
 $WinGetFile = "AppInstallerUpdate.MSIXBundle"
 $WinGetDest = Join-Path -Path $tempFolder -ChildPath $WinGetFile
 try {
-	Invoke-WEbRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
+	Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
 } catch {
 	try {
-		Invoke-WEbRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
+		Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
 	} catch {
 		Log-Message "Failed to download AppInstaller update package. Skipping..." "Error"
 	}
