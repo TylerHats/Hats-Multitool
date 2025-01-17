@@ -127,10 +127,10 @@ if (-not ($WinDownFail -eq 1)) {
 	}
 }
 $ProgressPreference = 'Continue'
-Winget Source Update --disable-interactivity | Out-File -Append -FilePath $logPath
-WinGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+winget Source Update --disable-interactivity | Out-File -Append -FilePath $logPath
+winGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
-WinGet Upgrade --ALL --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+winGet Upgrade --ALL --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
 Log-Message "Would you like to remove common Windows bloat programs? (y/N):" "Prompt"
