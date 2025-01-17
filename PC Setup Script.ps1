@@ -102,7 +102,7 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-Set-WinUserLanguageList -Language en-US -force | Out-File -Append -FilePath $logPath
+Set-WinUserLanguageList -Language en-US -force *> $null
 $WinGetSource = "https://aka.ms/getwinget"
 $WinGetFile = "AppInstallerUpdate.MSIXBundle"
 $WinGetDest = Join-Path -Path $PSScriptRoot -ChildPath $WinGetFile
