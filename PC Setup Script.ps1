@@ -43,6 +43,7 @@ w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
+$ProgressPreference = 'SilentlyContinue'
 Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-File -Append -FilePath $logPath
 Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
@@ -101,12 +102,10 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-$ProgressPreference = 'SilentlyContinue'
 Set-WinUserLanguageList -Language en-US -force | Out-File -Append -FilePath $logPath
 $WinGetSource = "https://aka.ms/getwinget"
-$tempFolder = $env:TEMP
 $WinGetFile = "AppInstallerUpdate.MSIXBundle"
-$WinGetDest = Join-Path -Path $tempFolder -ChildPath $WinGetFile
+$WinGetDest = Join-Path -Path $PSScriptRoot -ChildPath $WinGetFile
 Log-Message "Downloading AppInstaller update package (~225MBs), this may take some time..."
 try {
 	Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
