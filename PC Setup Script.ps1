@@ -101,11 +101,13 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-Set-WinUserLanguageList -Language en-US -force
+$ProgressPreference = 'SilentlyContinue'
+Set-WinUserLanguageList -Language en-US -force | Out-File -Append -FilePath $logPath
 $WinGetSource = "https://aka.ms/getwinget"
 $tempFolder = $env:TEMP
 $WinGetFile = "AppInstallerUpdate.MSIXBundle"
 $WinGetDest = Join-Path -Path $tempFolder -ChildPath $WinGetFile
+Log-Message "Downloading AppInstaller update package (~225MBs), this may take some time..."
 try {
 	Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
 } catch {
@@ -113,13 +115,18 @@ try {
 		Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
 	} catch {
 		Log-Message "Failed to download AppInstaller update package. Skipping..." "Error"
+		$WinDownFail = 1
 	}
 }
-try {
-	Add-AppxPackage -Path $WinGetDest -ForceApplicationShutdown -ForceUpdateFromAnyVersion | Out-File -Append -FilePath $logPath
-} catch {
-	Log-Message "Failed to install AppInstaller update. Skipping..." "Error"
+if (-not ($WinDownFail -eq 1)) {
+	Log-Message "Installing AppInstaller update package..."
+	try {
+		Add-AppxPackage -Path $WinGetDest -ForceApplicationShutdown -ForceUpdateFromAnyVersion | Out-File -Append -FilePath $logPath
+	} catch {
+		Log-Message "Failed to install AppInstaller update. Skipping..." "Error"
+	}
 }
+$ProgressPreference = 'Continue'
 Winget Source Update --disable-interactivity | Out-File -Append -FilePath $logPath
 WinGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
