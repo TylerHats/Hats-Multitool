@@ -313,6 +313,7 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 }
 if ($Domain -eq "y" -or $Domain -eq "Y" -or $Rename -eq "y" -or $Rename -eq "Y") {
 	Log-Message "PC rename and/or domain join complete." "Success"
+}
 
 # Final setup options
 $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
