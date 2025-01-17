@@ -25,7 +25,11 @@ function noUpdatesEnd {
 }
 
 # Import the PSWindowsUpdate module
-Import-Module PSWindowsUpdate
+try {
+    Import-Module PSWindowsUpdate
+} catch {
+    Write-Host "The PSWindowsUpdate module failed to import. Please ensure NuGet operations completed successfully in the main script before retrying." -ForegroundColor "Red"
+}
 
 # Function to display progress
 function Show-ProgressBar {
@@ -45,6 +49,7 @@ $updates = Get-WindowsUpdate | Where-Object {
     ($title -notlike "*feature update*") -and 
     ($title -notlike "*upgrade*")
 }
+
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
 

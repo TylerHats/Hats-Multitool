@@ -44,9 +44,13 @@ w32tm /resync | Out-File -Append -FilePath $logPath
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
 $ProgressPreference = 'SilentlyContinue'
-Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-File -Append -FilePath $logPath
-Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
+try {
+	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
+	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-File -Append -FilePath $logPath
+	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
+} catch {
+	Log-Message "NuGet setup contained errors, please monitor for unexpected behavior in the script." "Error"
+}
 Set-ExecutionPolicy Bypass -force | Out-File -Append -FilePath $logPath
 Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
