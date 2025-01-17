@@ -164,7 +164,7 @@ $closedPrograms = @(
 )
 
 # Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 3) + ($labelHeight * 2)
+$formHeight = ($programs.Count * $checkboxHeight) + ($closedPrograms.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + $padding + ($labelHeight * 2)
 $form.Size = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
