@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v1.3
+# Windows Update PS Script Module - Tyler Hatfield - v1.4
 
 # Window and script setup
 try {
