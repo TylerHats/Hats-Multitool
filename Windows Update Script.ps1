@@ -45,14 +45,14 @@ function Show-ProgressBar {
 }
 
 # Step 1: Get all available updates
-$updates = Get-WindowsUpdate | Where-Object { 
-    $title = $_.Title
+$updates = Get-WindowsUpdate | Where-Object {
+	$title = $_.Title
 }
 
-echo $env:installCumulativeWU
 # Filters out updates based on key phrases in $excludeUpdates
-if (-not ($env:installCumulativeWU.ToLower() -eq "yes" -or $env:installCumulativeWU.ToLower() -eq "y")) {
-    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade", "Security")
+$CWULocal = $env:installCumulativeWU
+if (-not ($CWULocal.ToLower() -eq "yes" -or $CWULocal.ToLower() -eq "y")) {
+    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
     $filteredUpdates = $title | Where-Object { 
     	$currentupdate = $_
     	$containsexs = $false
@@ -67,12 +67,11 @@ if (-not ($env:installCumulativeWU.ToLower() -eq "yes" -or $env:installCumulativ
     $updates = $filteredUpdates
 }
 
-write-host "This is the readout of filtered updates"
-echo $updates
-pause
-
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
+echo $updates
+echo $updates.Count
+pause
 
 # Check if there are any updates to install
 if (-not $updates -or $updates.Count -eq 0) {
@@ -100,16 +99,7 @@ foreach ($update in $updates) {
 	Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
 }
 
-# Check if a reboot is required after installation
-$rebootRequired = (Get-WindowsUpdate -IsPending).Count -gt 0
-
-if ($rebootRequired) {
-    Write-Host "`nA reboot is required to complete the installation of updates." -ForegroundColor "Yellow"
-    # Optional: Uncomment the following line to automatically restart the system.
-    # Restart-Computer -Force
-}
-
-Write-Host "`nUpdate process completed. Press Enter to exit:" -ForegroundColor "Green"
+Write-Host "`nUpdate process completed, please reboot the system. Press Enter to exit:" -ForegroundColor "Green"
 Read-Host
 
 # Post execution cleanup
