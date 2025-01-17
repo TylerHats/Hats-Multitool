@@ -43,17 +43,13 @@ w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
+Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
+$global:installCumulativeWU = Read-Host
 $ProgressPreference = 'SilentlyContinue'
-try {
-	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
-	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-File -Append -FilePath $logPath
-	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-} catch {
-	Log-Message "NuGet setup contained errors, please monitor for unexpected behavior in the script." "Error"
-}
-Set-ExecutionPolicy Bypass -force | Out-File -Append -FilePath $logPath
+Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
+Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
-Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`"" -WindowStyle Minimized
+Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`""
 
 # Set/Create local admin account
 Log-Message "Setup Local Account(s)..."
@@ -106,34 +102,14 @@ While ($RepeatFunction -eq 1) {
 
 # Update WinGet and set defaults
 Log-Message "Updating WinGet and App Installer..."
-Set-WinUserLanguageList -Language en-US -force *> $null
-$WinGetSource = "https://aka.ms/getwinget"
-$WinGetFile = "AppInstallerUpdate.MSIXBundle"
-$WinGetDest = Join-Path -Path $PSScriptRoot -ChildPath $WinGetFile
-Log-Message "Downloading AppInstaller update package (~225MBs), this may take some time..."
-try {
-	Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
-} catch {
-	try {
-		Invoke-WebRequest -Uri $WinGetSource -Outfile $WinGetDest -ErrorAction Stop | Out-File -Append -FilePath $logPath
-	} catch {
-		Log-Message "Failed to download AppInstaller update package. Skipping..." "Error"
-		$WinDownFail = 1
-	}
-}
-if (-not ($WinDownFail -eq 1)) {
-	Log-Message "Installing AppInstaller update package..."
-	try {
-		Add-AppxPackage -Path $WinGetDest -ForceApplicationShutdown -ForceUpdateFromAnyVersion | Out-File -Append -FilePath $logPath
-	} catch {
-		Log-Message "Failed to install AppInstaller update. Skipping..." "Error"
-	}
-}
+Set-WinUserLanguageList -Language en-US -force *>&1 | Out-File -Append -FilePath $logPath
 $ProgressPreference = 'Continue'
-winget Source Update --disable-interactivity | Out-File -Append -FilePath $logPath
-winGet Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+winget source add --name HatsRepoAdd --arg https://cdn.winget.microsoft.com/cache  *>&1 | Out-File -Append -FilePath $logPath
+winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $logPath
+if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
+winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
-winGet Upgrade --ALL --accept-package-agreements --accept-source-agreements | Out-File -Append -FilePath $logPath
+winGet Upgrade --ALL --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
 Log-Message "Would you like to remove common Windows bloat programs? (y/N):" "Prompt"

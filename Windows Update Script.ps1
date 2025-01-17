@@ -46,9 +46,8 @@ $updates = Get-WindowsUpdate | Where-Object {
     $title = $_.Title
 }
 
-$filterWU = Read-Host "Apply Cumulative updates? (y/N)" -ForegroundColor "Yellow"
 # Filters out updates based on key phrases in $excludeUpdates
-if (-not ($filterWU.ToLower() -eq "yes" -or $filterWU.ToLower() -eq "y")) {
+if (-not ($global:installCumulativeWU.ToLower() -eq "yes" -or $global:installCumulativeWU.ToLower() -eq "y")) {
     $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
     $filteredUpdates = $title | Where-Object { 
     	$currentupdate = $_
@@ -63,7 +62,6 @@ if (-not ($filterWU.ToLower() -eq "yes" -or $filterWU.ToLower() -eq "y")) {
     }
     $updates = $filteredUpdates
 }
-
 
 Write-Host "Updates to be installed:"
 $updates | ForEach-Object { Write-Host $_.Title }
