@@ -53,7 +53,7 @@ $updates = $title
 # Filters out updates based on key phrases in $excludeUpdates
 $CWULocal = $env:installCumulativeWU
 if (-not ($CWULocal.ToLower() -eq "yes" -or $CWULocal.ToLower() -eq "y")) {
-    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade", "Antivirus")
+    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
     $filteredUpdates = $title | Where-Object { 
     	$currentupdate = $_
     	$containsexs = $false
@@ -82,19 +82,6 @@ foreach ($update in $tempUpdates) {
 	}
 }
 
-$matchingUpdates | ForEach-Object { Write-Host $_.Title }
-$matchingUpdates.Count
-write-Host "Update IDs"
-foreach ($tempup in $matchingUpdates) {
-	write-host "$($tempup.UpdateID)"
-	if ($tempup -and ($tempup.PSObject.Properties.Name -contains 'UpdateID')) {
-		Write-Host "UpdateID property exists!"
-	} else {
-		Write-Host "No UpdateID property found."
-	}
-}
-pause
-
 # Check if there are any updates to install
 if (-not $matchingUpdates -or $matchingUpdates.Count -eq 0) {
     Write-Host "No updates available."
@@ -118,7 +105,8 @@ foreach ($update in $matchingUpdates) {
 	$counter++
 	Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
 	# Install each update (no re-scan after installation)
-	Install-WindowsUpdate -UpdateID $update.UpdateID -AcceptAll -IgnoreReboot -Verbose
+	Install-WindowsUpdate -Title "$update" -IgnoreReboot -Verbose
+	pause
 }
 
 Write-Host "`nUpdate process completed, please reboot the system. Press Enter to exit:" -ForegroundColor "Green"
