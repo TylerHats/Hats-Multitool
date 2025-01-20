@@ -1,8 +1,23 @@
-# Windows Update PS Script Module - Tyler Hatfield - v1.4
+# Windows Update PS Script Module - Tyler Hatfield - v2.0
 
-# Window and script setup
-$failedResizeU = 0
-$failedColorU = 0
+<# 
+.SYNOPSIS
+  Install all available Windows Updates using PSWindowsUpdate.
+  If the environment variable $env:installCumulativeWU is set to "y" or "yes",
+  skip any updates that contain "Cumulative" in their title.
+
+.DESCRIPTION
+  1. Checks if PSWindowsUpdate module is installed and imports it.
+  2. Retrieves a list of available updates.
+  3. If $env:installCumulativeWU is "y" or "yes", filters out updates with "Cumulative" in the title.
+  4. Installs remaining updates.
+  5. Optional: prompts for or forces a reboot if required (commented out below).
+
+#>
+
+# Script Setup
+$failedResize = 0
+$failedColor = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
 	$dHeight = 40
@@ -10,121 +25,63 @@ try {
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize
 } catch {
-	$failedResizeU = 1
+	$failedResize = 1
 }
 try {
 	$host.UI.RawUI.BackgroundColor = "Black"
 } catch {
-	$failedColorU = 1
+	$failedColor = 1
 }
 Clear-Host
-if ($failedResizeU -eq 1) {Write-Host "Failed to resize window." -ForegroundColor "Red"}
-if ($failedColorU -eq 1) {Write-Host "Failed to change background color." -ForegroundColor "Red"}
 
-# Define noUpdates Function
-function noUpdatesEnd {
-	Read-Host "Press enter to exit the script" 
-	exit
-}
-
-# Import the PSWindowsUpdate module
+# Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {
+    Import-Module PSWindowsUpdate -ErrorAction Stop
+}
+catch {
+    Write-Host "PSWindowsUpdate module not found. Installing now..."
+    Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
-} catch {
-    Write-Host "The PSWindowsUpdate module failed to import. Please ensure NuGet operations completed successfully in the main script before retrying." -ForegroundColor "Red"
 }
 
-# Function to display progress
-function Show-ProgressBar {
-    param(
-        [string]$status,
-        [int]$percent
-    )
-    
-    Write-Progress -PercentComplete $percent -Activity "$status" -Status "$status" -CurrentOperation "Please wait..."
+Write-Host "Checking for available Windows updates..."
+
+# Get all available updates
+$allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
+
+# Determine if we should exclude updates that contain "Cumulative"
+$excludeCumulative = $false
+if ($env:installCumulativeWU -match '^(y|yes)$') {
+    $excludeCumulative = $true
+    Write-Host "Excluding Cumulative updates..."
 }
 
-# Step 1: Get all available updates
-$updates = Get-WindowsUpdate | Where-Object {
-	$title = $_.Title
+# Filter out cumulative updates if required
+if ($excludeCumulative) {
+    $updatesToInstall = $allUpdates | Where-Object { $_.Title -notmatch 'Cumulative' }
 }
-$updates = $title
+else {
+    $updatesToInstall = $allUpdates
+}
 
-# Filters out updates based on key phrases in $excludeUpdates
-$CWULocal = $env:installCumulativeWU
-if (-not ($CWULocal.ToLower() -eq "yes" -or $CWULocal.ToLower() -eq "y")) {
-    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
-    $filteredUpdates = $title | Where-Object { 
-    	$currentupdate = $_
-    	$containsexs = $false
-    	foreach ($word in $excludeUpdates) {
-    		if ($currentupdate -like "*$word*") {
-    			$containsexs = $true
-    			break
-    		}
-    	}
-    	-not $containsexs
+if ($updatesToInstall) {
+    Write-Host "The following updates will be installed:"
+    $updatesToInstall | Format-Table Title, KB, Size -AutoSize
+    Write-Host "`nInstalling updates..."
+
+    # Install the selected updates
+    # -AcceptAll automatically accepts the EULA if necessary
+    # -AutoReboot will automatically reboot if required
+    $updatesToInstall | Install-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose
+
+    # If you prefer to confirm or handle the reboot manually, you could remove -AutoReboot 
+    # and check for a pending reboot here:
+    # Install-WindowsUpdate -Updates $updatesToInstall -AcceptAll -IgnoreReboot
+    if (Get-WURebootStatus) {
+        Write-Host "A reboot is required to apply updates, please reboot the system."
     }
-    $updates = $filteredUpdates
 }
-
-Write-Host "Updates to be installed:"
-$updates
-
-$matchingUpdates = @()
-$tempUpdates = Get-WindowsUpdate
-foreach ($update in $tempUpdates) {
-	foreach ($line in $updates) {
-		if ($($update.Title) -like "$line") {
-			$matchingUpdates += $update
-			break
-		}
-	}
+else {
+    Write-Host "No updates to install after applying the filter."
 }
-
-# Check if there are any updates to install
-if (-not $matchingUpdates -or $matchingUpdates.Count -eq 0) {
-    Write-Host "No updates available."
-    noUpdatesEnd
-}
-
-# Step 2: Show progress for downloading updates
-$totalUpdates = $matchingUpdates.Count
-$counter = 0
-
-foreach ($update in $matchingUpdates) {
-    $counter++
-    Show-ProgressBar -status "Downloading updates..." -percent (($counter / $totalUpdates) * 100)
-}
-
-# Step 3: Proceed with installing updates
-Write-Host "`nDownloading and installing updates..."
-
-$counter = 0
-foreach ($update in $matchingUpdates) {
-	$counter++
-	Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
-	# Install each update (no re-scan after installation)
-	Install-WindowsUpdate -Title "$update" -IgnoreReboot -Verbose
-	pause
-}
-
-Write-Host "`nUpdate process completed, please reboot the system. Press Enter to exit:" -ForegroundColor "Green"
-Read-Host
-
-# Post execution cleanup
-$DesktopPath = [Environment]::GetFolderPath('Desktop')
-$logPathName = "PCSetupScriptLog.txt"
-$logPath = Join-Path $DesktopPath $logPathName
-$cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
-$logContents = Get-Content -Path $logPath
-if ($logContents -contains $cleanupCheckValue) {
-	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
-	$folderToDelete = $PSScriptRoot
-	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
-	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-	exit 0
-} else {
-	Add-Content -Path $logPath -Value $cleanupCheckValue
-	exit 0
-}
+Read-Host "Press Enter to exit the script"
