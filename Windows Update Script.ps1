@@ -33,6 +33,7 @@ try {
 	$failedColor = 1
 }
 Clear-Host
+$Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {

@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.13
+# PC Setup Script - Tyler Hatfield - v1.14
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -25,6 +25,7 @@ try {
 	$failedColor = 1
 }
 Clear-Host
+$Host.UI.RawUI.WindowTitle = "Hat's Setup Script"
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $logPathName = "PCSetupScriptLog.txt"
 $logPath = Join-Path $DesktopPath $logPathName
@@ -142,7 +143,8 @@ if ($RemoveBloat.ToLower() -eq "y" -or $RemoveBloat.ToLower() -eq "yes") {
 Log-Message "Preparing Software List..."
 Add-Type -AssemblyName System.Windows.Forms
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Program List'
+$form.Text = 'Program Selection List'
+$form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.Size = New-Object System.Drawing.Size(400, 500)
 $form.StartPosition = 'CenterScreen'
 
@@ -157,14 +159,13 @@ $padding = 20           # Padding around the elements
 $programs = @(
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit' },
     @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome' },
-    @{ Name = 'MS Teams'; WingetID = 'Microsoft.Teams' },
     @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox' },
     @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' },
     @{ Name = 'Outlook Classic (In testing)'; WingetID = '9NRX63209R7B' },
-    @{ Name = 'Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'}
+    @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'}
 )
 
 $closedPrograms = @(
@@ -172,7 +173,7 @@ $closedPrograms = @(
 )
 
 # Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + ($closedPrograms.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + $padding + ($labelHeight * 2)
+$formHeight = ($programs.Count * $checkboxHeight) + ($closedPrograms.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + ($labelHeight * 2)
 $form.Size = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
@@ -181,6 +182,7 @@ $checkboxes = @{ }
 $y = 20
 $label = New-Object System.Windows.Forms.Label
 $label.Text = "WinGet Programs:"
+$label.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $label.Location = New-Object System.Drawing.Point(20, $y)
 $label.AutoSize = $true
 $form.Controls.Add($label)
@@ -189,6 +191,7 @@ foreach ($program in $programs) {
     $checkbox = New-Object System.Windows.Forms.CheckBox
     $checkbox.Location = New-Object System.Drawing.Point(20, $y)
     $checkbox.Text = $program.Name
+	$checkbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $checkbox.AutoSize = $true
     $form.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
@@ -200,6 +203,7 @@ $y += 20
 $closedCheckboxes = @{ }
 $labelClosed = New-Object System.Windows.Forms.Label
 $labelClosed.Text = "Closed Source Programs:"
+$labelClosed.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $labelClosed.Location = New-Object System.Drawing.Point(20, $y)
 $labelClosed.AutoSize = $true
 $form.Controls.Add($labelClosed)
@@ -208,6 +212,7 @@ foreach ($program in $closedPrograms) {
     $closedCheckbox = New-Object System.Windows.Forms.CheckBox
     $closedCheckbox.Location = New-Object System.Drawing.Point(20, $y)
     $closedCheckbox.Text = $program.Name
+	$closedCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $closedCheckbox.AutoSize = $true
     $form.Controls.Add($closedCheckbox)
     $closedCheckboxes[$program.Name] = $closedCheckbox
@@ -218,8 +223,10 @@ foreach ($program in $closedPrograms) {
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $y += 10
 $progressBar.Location = New-Object System.Drawing.Point(20, $y)
+$progressBar.Style = "Continuous"
 $progressBar.Size = New-Object System.Drawing.Size(340, 20)
 $progressBar.Minimum = 0
+$progressBar.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
 $form.Controls.Add($progressBar)
 
 # Add OK button
@@ -228,6 +235,7 @@ $y += 50
 $okButton.Location = New-Object System.Drawing.Point(150, $y)
 $okButton.Size = New-Object System.Drawing.Size(75, 30)
 $okButton.Text = "OK"
+$okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $form.Controls.Add($okButton)
 
 # Define a function to handle the OK button click
