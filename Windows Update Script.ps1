@@ -48,11 +48,12 @@ function Show-ProgressBar {
 $updates = Get-WindowsUpdate | Where-Object {
 	$title = $_.Title
 }
+$updates = $title
 
 # Filters out updates based on key phrases in $excludeUpdates
 $CWULocal = $env:installCumulativeWU
 if (-not ($CWULocal.ToLower() -eq "yes" -or $CWULocal.ToLower() -eq "y")) {
-    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade")
+    $excludeUpdates = @("Cumulative Update for Windows", "Feature", "Upgrade", "Antivirus")
     $filteredUpdates = $title | Where-Object { 
     	$currentupdate = $_
     	$containsexs = $false
@@ -68,22 +69,43 @@ if (-not ($CWULocal.ToLower() -eq "yes" -or $CWULocal.ToLower() -eq "y")) {
 }
 
 Write-Host "Updates to be installed:"
-$updates | ForEach-Object { Write-Host $_.Title }
-echo $updates
-echo $updates.Count
+$updates
+
+$matchingUpdates = @()
+$tempUpdates = Get-WindowsUpdate
+foreach ($update in $tempUpdates) {
+	foreach ($line in $updates) {
+		if ($($update.Title) -like "$line") {
+			$matchingUpdates += $update
+			break
+		}
+	}
+}
+
+$matchingUpdates | ForEach-Object { Write-Host $_.Title }
+$matchingUpdates.Count
+write-Host "Update IDs"
+foreach ($tempup in $matchingUpdates) {
+	write-host "$($tempup.UpdateID)"
+	if ($tempup -and ($tempup.PSObject.Properties.Name -contains 'UpdateID')) {
+		Write-Host "UpdateID property exists!"
+	} else {
+		Write-Host "No UpdateID property found."
+	}
+}
 pause
 
 # Check if there are any updates to install
-if (-not $updates -or $updates.Count -eq 0) {
+if (-not $matchingUpdates -or $matchingUpdates.Count -eq 0) {
     Write-Host "No updates available."
     noUpdatesEnd
 }
 
 # Step 2: Show progress for downloading updates
-$totalUpdates = $updates.Count
+$totalUpdates = $matchingUpdates.Count
 $counter = 0
 
-foreach ($update in $updates) {
+foreach ($update in $matchingUpdates) {
     $counter++
     Show-ProgressBar -status "Downloading updates..." -percent (($counter / $totalUpdates) * 100)
 }
@@ -92,7 +114,7 @@ foreach ($update in $updates) {
 Write-Host "`nDownloading and installing updates..."
 
 $counter = 0
-foreach ($update in $updates) {
+foreach ($update in $matchingUpdates) {
 	$counter++
 	Show-ProgressBar -status "Installing updates..." -percent (($counter / $totalUpdates) * 100)
 	# Install each update (no re-scan after installation)
