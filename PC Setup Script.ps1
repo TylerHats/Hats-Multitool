@@ -67,12 +67,12 @@ While ($RepeatFunction -eq 1) {
 	if ($AdminUser -ne "") {
 		Log-Message "Please enter a password (can be empty):" "Prompt"
 		$AdminPass = Read-Host
-		$UExists = Get-LocalUser -Name $AdminUser -ErrorAction SilentlyContinue
+		$UExists = Get-LocalUser -Name "$AdminUser" -ErrorAction SilentlyContinue
 		if (-not $UExists) {
 			Log-Message "The specified user does not exist, create account now? (y/N):" "Prompt"
 			$MakeUser = Read-Host
 			if ($MakeUser -eq "y" -or $MakeUser -eq "Y") {
-				Net User $AdminUser $AdminPass /add | Out-File -Append -FilePath $logPath
+				Net User "$AdminUser" "$AdminPass" /add | Out-File -Append -FilePath $logPath
 			} else {
 				Log-Message "Skipping account creation." "Skip"
 			}
@@ -80,7 +80,7 @@ While ($RepeatFunction -eq 1) {
 			Log-Message "Update the user's password? (y/N):" "Prompt"
 			$UpdateUser = Read-Host
 			if ($UpdateUser.ToLower() -eq "y" -or $UpdateUser.ToLower() -eq "yes") {
-				Net User $AdminUser $AdminPass | Out-File -Append -FilePath $logPath
+				Net User "$AdminUser" "$AdminPass" | Out-File -Append -FilePath $logPath
 			}
 		}
 		$LocalUserCheck = "$env:COMPUTERNAME\$AdminUser"
@@ -89,7 +89,7 @@ While ($RepeatFunction -eq 1) {
 			Log-Message "The specified user is not a local admin, elevate now? (y/N):" "Prompt"
 			$MakeAdmin = Read-Host
 			if ($MakeAdmin -eq "y" -or $MakeAdmin -eq "Y") {
-				Net Localgroup Administrators $AdminUser /add | Out-File -Append -FilePath $logPath
+				Net Localgroup Administrators "$AdminUser" /add | Out-File -Append -FilePath $logPath
 			} else {
 				Log-Message "Skipping account elevation." "Skip"
 			}
