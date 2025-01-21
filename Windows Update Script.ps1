@@ -59,7 +59,14 @@ if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
 
 # Filter out cumulative updates if required
 if ($excludeCumulative) {
-    $updatesToInstall = $allUpdates | Where-Object { $_.Title -notmatch 'Cumulative' }
+	$updatesToInstall = $allUpdates | Where-Object { $_.Title -notmatch 'Cumulative' }
+	$excludedUpdates = @()
+    foreach ($update in $allUpdates) {
+		if ($update.Title -like "*Cumulative*") { $excludedUpdates += $update.KB }
+	}
+	foreach ($ExKB in $excludedUpdates) {
+		Hide-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false | Out-Null
+	}
 }
 else {
     $updatesToInstall = $allUpdates
@@ -69,16 +76,15 @@ if ($updatesToInstall) {
     Write-Host "The following updates will be installed:"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
     Write-Host "`nInstalling updates..."
-
-    # Install the selected updates
-    # -AcceptAll automatically accepts the EULA if necessary
-    # -AutoReboot will automatically reboot if required
-    $updatesToInstall | Install-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose
-
-    # If you prefer to confirm or handle the reboot manually, you could remove -AutoReboot 
-    # and check for a pending reboot here:
-    # Install-WindowsUpdate -Updates $updatesToInstall -AcceptAll -IgnoreReboot
-    if (Get-WURebootStatus) {
+    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose
+	if ($excludeCumulative) {
+		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
+		foreach ($ExKB in $excludedUpdates) {
+			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false | Out-Null
+		}
+	}
+	$
+    if (Get-WURebootStatus -Silent) {
         Write-Host "A reboot is required to apply updates, please reboot the system."
     }
 }
