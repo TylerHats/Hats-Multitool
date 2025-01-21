@@ -52,7 +52,7 @@ $allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
 
 # Determine if we should exclude updates that contain "Cumulative"
 $excludeCumulative = $false
-if ($env:installCumulativeWU -match '^(y|yes)$') {
+if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
     $excludeCumulative = $true
     Write-Host "Excluding Cumulative updates..."
 }
