@@ -2,6 +2,8 @@
 
 **Hat's Scripts** is a PowerShell script project aimed at making new PC setups more efficient. While the scripts are generally intended for use at QualityIP, no identifiable information is ever to be contained within the script. Collaboration, bug reports and feature requests are all welcome!
 
+*The latest release of this repo is always available at:* ***HatsThings.com/go/Hats-Scripts***
+
 ## What do the scripts do?
 
 **PC Setup Script.PS1:** *This script is the brain of the operation and is what the* ***[Release](https://github.com/TylerHats/Hats-Scripts/releases)*** *executables are running. This script prepares the environment, runs all important functions and carries out setup based on your options.*
