@@ -76,7 +76,7 @@ if ($updatesToInstall) {
     Write-Host "The following updates will be installed:"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
     Write-Host "`nInstalling updates..."
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose
+    Install-WindowsUpdate -AcceptAll -IgnoreReboot | Out-Null
 	if ($excludeCumulative) {
 		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
 		foreach ($ExKB in $excludedUpdates) {
@@ -92,3 +92,17 @@ else {
     Write-Host "No updates to install after applying the filter."
 }
 Read-Host "Press Enter to exit the script"
+
+# Post execution cleanup
+$cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
+$logContents = Get-Content -Path $logPath
+if ($logContents -contains $cleanupCheckValue) {
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine) | Out-File -Append -FilePath $logPath
+	$folderToDelete = $PSScriptRoot
+	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+	exit 0
+} else {
+	Add-Content -Path $logPath -Value $cleanupCheckValue | Out-File -Append -FilePath $logPath
+	exit 0
+}

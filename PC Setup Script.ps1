@@ -116,7 +116,7 @@ winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $
 if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
 winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
 Log-Message "Updating System Packages and Apps (This may take some time)..."
-winget Upgrade --ALL --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
+& WinGet Upgrade --ALL --accept-source-agreements --accept-package-agreements *>&1 | Out-File -Append -FilePath $logPath
 
 # Remove commond Windows bloat
 Log-Message "Would you like to remove common Windows bloat programs? (y/N):" "Prompt"
@@ -351,12 +351,12 @@ Read-Host
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue) {
-	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine) | Out-File -Append -FilePath $logPath
 	$folderToDelete = $PSScriptRoot
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 	exit 0
 } else {
-	Add-Content -Path $logPath -Value $cleanupCheckValue
+	Add-Content -Path $logPath -Value $cleanupCheckValue | Out-File -Append -FilePath $logPath
 	exit 0
 }
