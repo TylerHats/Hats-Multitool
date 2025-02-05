@@ -319,7 +319,7 @@ $okButton.Add_Click({
             }
         }
         $progressBar.Value += 1
-        Start-Sleep -Milliseconds 200 # Simulate progress bar movement
+        # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
     }
 
     # Close the form once installation is complete
