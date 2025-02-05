@@ -119,6 +119,19 @@ winget source add --name HatsRepoAdd https://cdn.winget.microsoft.com/cache *>&1
 winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $logPath
 if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
 winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
+$maxWaitSeconds = 300    # 5 minutes
+$waitIntervalSeconds = 10
+$elapsedSeconds = 0
+# Loop while msiexec.exe is running
+while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
+    Log-Message "Another installation is in progress. Waiting $waitIntervalSeconds seconds before rechecking..." "Error"
+    Start-Sleep -Seconds $waitIntervalSeconds
+    $elapsedSeconds += $waitIntervalSeconds
+    if ($elapsedSeconds -ge $maxWaitSeconds) {
+        Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn't cleared. Attempting WinGet updates anyway." "Error"
+        break
+    }
+}
 Log-Message "Updating System Packages and Apps (This may take some time)..."
 & WinGet Upgrade --ALL --accept-source-agreements --accept-package-agreements *>&1 | Out-File -Append -FilePath $logPath
 
@@ -264,6 +277,19 @@ $okButton.Add_Click({
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program -ne $null) {
+			$maxWaitSeconds = 60    # 1 minute
+			$waitIntervalSeconds = 5
+			$elapsedSeconds = 0
+			# Loop while msiexec.exe is running
+			while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
+    			Log-Message "Another installation is in progress. Waiting $waitIntervalSeconds seconds before rechecking..." "Error"
+    			Start-Sleep -Seconds $waitIntervalSeconds
+    			$elapsedSeconds += $waitIntervalSeconds
+    			if ($elapsedSeconds -ge $maxWaitSeconds) {
+        			Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn't cleared. Attempting installation anyway." "Error"
+        			break
+    			}
+			}
             Log-Message "Installing $($program.Name)..."
             try {
                 # Corrected WinGet command execution
