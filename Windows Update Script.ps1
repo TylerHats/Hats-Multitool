@@ -9,7 +9,7 @@
 .DESCRIPTION
   1. Checks if PSWindowsUpdate module is installed and imports it.
   2. Retrieves a list of available updates.
-  3. If $env:installCumulativeWU is "y" or "yes", filters out updates with "Cumulative" in the title.
+  3. If $env:installCumulativeWU is "yes" or "y", does not filter out updates with "Cumulative" in the title.
   4. Installs remaining updates.
   5. Optional: prompts for or forces a reboot if required (commented out below).
 
@@ -32,6 +32,9 @@ try {
 } catch {
 	$failedColor = 1
 }
+$DesktopPath = [Environment]::GetFolderPath('Desktop')
+$logPathName = "PCSetupScriptLog.txt"
+$logPath = Join-Path $DesktopPath $logPathName
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 Write-Host "`n`n`n`n`n`n`n`n`n"
@@ -97,12 +100,12 @@ Read-Host "Press Enter to exit the script"
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue) {
-	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine) | Out-File -Append -FilePath $logPath
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
 	$folderToDelete = $PSScriptRoot
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 	exit 0
 } else {
-	Add-Content -Path $logPath -Value $cleanupCheckValue | Out-File -Append -FilePath $logPath
+	Add-Content -Path $logPath -Value $cleanupCheckValue
 	exit 0
 }

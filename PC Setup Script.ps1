@@ -55,7 +55,11 @@ $env:installCumulativeWU = Read-Host
 $ProgressPreference = 'SilentlyContinue'
 Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-Set-DODownloadMode -DownloadMode 3 | Out-File -Append -FilePath $logPath
+try {
+	Set-DODownloadMode -DownloadMode 3 *>&1 | Out-File -Append -FilePath $logPath
+} catch {
+	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "Error"
+}
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`""
 
 # Set/Create local admin account
@@ -111,7 +115,7 @@ While ($RepeatFunction -eq 1) {
 Log-Message "Updating WinGet and App Installer..."
 Set-WinUserLanguageList -Language en-US -force *>&1 | Out-File -Append -FilePath $logPath
 $ProgressPreference = 'Continue'
-winget source add --name HatsRepoAdd --arg https://cdn.winget.microsoft.com/cache  *>&1 | Out-File -Append -FilePath $logPath
+winget source add --name HatsRepoAdd https://cdn.winget.microsoft.com/cache *>&1 | Out-File -Append -FilePath $logPath
 winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $logPath
 if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
 winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
@@ -313,9 +317,9 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
         Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
-		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
+		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
 	} else {
-		Rename-Computer -NewName $PCName -Force | Out-File -Append -FilePath $logPath
+		Rename-Computer -NewName $PCName -Force *>&1 | Out-File -Append -FilePath $logPath
 	}
 } else {
     Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
@@ -324,7 +328,7 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
         Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
-		Add-Computer -DomainName $DomainName -Credential $DomainCredential | Out-File -Append -FilePath $logPath
+		Add-Computer -DomainName $DomainName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
 	}
 }
 if ($Domain -eq "y" -or $Domain -eq "Y" -or $Rename -eq "y" -or $Rename -eq "Y") {
@@ -351,12 +355,12 @@ Read-Host
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue) {
-	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine) | Out-File -Append -FilePath $logPath
+	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
 	$folderToDelete = $PSScriptRoot
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 	exit 0
 } else {
-	Add-Content -Path $logPath -Value $cleanupCheckValue | Out-File -Append -FilePath $logPath
+	Add-Content -Path $logPath -Value $cleanupCheckValue
 	exit 0
 }
