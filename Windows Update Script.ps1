@@ -34,6 +34,7 @@ try {
 }
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
+Write-Host "`n`n`n`n`n`n`n`n`n"
 
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {
@@ -76,14 +77,13 @@ if ($updatesToInstall) {
     Write-Host "The following updates will be installed:"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
     Write-Host "`nInstalling updates..."
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot | Out-Null
+    Install-WindowsUpdate -AcceptAll -IgnoreReboot
 	if ($excludeCumulative) {
 		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
 		foreach ($ExKB in $excludedUpdates) {
 			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false | Out-Null
 		}
 	}
-	$
     if (Get-WURebootStatus -Silent) {
         Write-Host "A reboot is required to apply updates, please reboot the system."
     }
