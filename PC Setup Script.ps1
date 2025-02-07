@@ -192,6 +192,7 @@ $padding = 20           # Padding around the elements
 # Calculate total height based on the number of programs
 $programs = @(
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit' },
+	@{ name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud' },
     @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome' },
     @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox' },
     @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
