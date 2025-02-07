@@ -381,8 +381,18 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+		if ($LASTEXITCODE -eq 0) { 
+			Log-Message "PC rename and domain joining successful." "Success" 
+		} else {
+			Log-Message "PC rename and domain joining failed, please complete manually." "Error" 
+		}
 	} else {
 		Rename-Computer -NewName $PCName -Force *>&1 | Out-File -Append -FilePath $logPath
+		if ($LASTEXITCODE -eq 0) { 
+			Log-Message "PC rename successful." "Success" 
+		} else {
+			Log-Message "PC rename failed, please complete manually." "Error" 
+		}
 	}
 } else {
     Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
@@ -392,10 +402,12 @@ if ($Rename -eq "y" -or $Rename -eq "Y") {
 		$DomainName = Read-Host
 		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 		Add-Computer -DomainName $DomainName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+		if ($LASTEXITCODE -eq 0) { 
+			Log-Message "Domain joining successful." "Success" 
+		} else {
+			Log-Message "Domain joining failed, please complete manually." "Error" 
+		}
 	}
-}
-if ($Domain -eq "y" -or $Domain -eq "Y" -or $Rename -eq "y" -or $Rename -eq "Y") {
-	Log-Message "PC rename and/or domain join complete." "Success"
 }
 
 # Final setup options
