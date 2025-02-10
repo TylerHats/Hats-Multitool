@@ -122,9 +122,9 @@ winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-
 $maxWaitSeconds = 120    # 2 minutes
 $waitIntervalSeconds = 60
 $elapsedSeconds = 0
+$WaitInstall = "blank"
 # Loop while msiexec.exe is running
 while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
-	$WaitInstall = "blank"
 	if ($WaitInstall -eq "blank") {
     	Log-Message "Another installation is in progress. Would you like to wait or continue? (c/W):" "Prompt"
 		$WaitInstall = Read-Host
@@ -298,9 +298,9 @@ $okButton.Add_Click({
 			$maxWaitSeconds = 60    # 1 minute
 			$waitIntervalSeconds = 20
 			$elapsedSeconds = 0
+			$WaitInstall = "blank"
 			# Loop while msiexec.exe is running
 			while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
-				$WaitInstall = "blank"
 				if ($WaitInstall -eq "blank") {
 			 	   	Log-Message "Another installation is in progress. Would you like to wait or continue? (c/W):" "Prompt"
 					$WaitInstall = Read-Host
