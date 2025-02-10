@@ -142,7 +142,9 @@ while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
 		if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 			Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
 			Get-Process -Name "msiexec" | Stop-Process -Force *>&1 | Out-File -Append -FilePath $logPath
-			if ($LASTEXITCODE -ne 0) { Log-Message "Failed to kill process "MSIEXEC.exe, continuing..." "Error" }
+			if ($LASTEXITCODE -ne 0) {
+				Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error" 
+			}
 		} else {
 			Log-Message "Ignoring background installation and continuing WinGet updates..." "Info"
 		}
@@ -313,12 +315,12 @@ $okButton.Add_Click({
 			    Start-Sleep -Seconds $waitIntervalSeconds
 			    $elapsedSeconds += $waitIntervalSeconds
 			    if ($elapsedSeconds -ge $maxWaitSeconds) {
-			        Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn't cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
+			        Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn`'t cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
 			        $KillMSIE = Read-Host
 					if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 						Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
 						Get-Process -Name "msiexec" | Stop-Process -Force *>&1 | Out-File -Append -FilePath $logPath
-						if ($LASTEXITCODE -ne 0) { Log-Message "Failed to kill process "MSIEXEC.exe, continuing..." "Error" }
+						if ($LASTEXITCODE -ne 0) { Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error" }
 					} else {
 						Log-Message "Ignoring background installation and continuing WinGet program install..." "Info"
 					}
