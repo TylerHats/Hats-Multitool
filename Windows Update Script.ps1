@@ -80,15 +80,16 @@ if ($updatesToInstall) {
     Write-Host "The following updates will be installed:"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
     Write-Host "`nInstalling updates..."
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot
+    Install-WindowsUpdate -AcceptAll -IgnoreReboot *> $null
 	if ($excludeCumulative) {
 		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
 		foreach ($ExKB in $excludedUpdates) {
 			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false | Out-Null
 		}
 	}
-    if (Get-WURebootStatus -Silent) {
-        Write-Host "A reboot is required to apply updates, please reboot the system."
+	$RebootStatus = Get-WURebootStatus -Silent
+    if ($RebootStatus) {
+        Write-Host "A reboot is required to apply updates, please reboot the system." -ForegroundColor "Yellow"
     }
 }
 else {
@@ -101,8 +102,8 @@ $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue) {
 	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
-	$folderToDelete = $PSScriptRoot
-	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path `"$folderToDelete`" -Recurse -Force"
+	$folderToDelete = "$PSScriptRoot"
+	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 	exit 0
 } else {
