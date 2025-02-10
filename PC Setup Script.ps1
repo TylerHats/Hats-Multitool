@@ -151,8 +151,6 @@ while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
 		break
     }
 }
-Log-Message "Updating System Packages and Apps (This may take some time)..."
-& WinGet Upgrade --ALL --accept-source-agreements --accept-package-agreements *>&1 | Out-File -Append -FilePath $logPath
 
 # Remove common Windows bloat
 Log-Message "Would you like to remove common Windows bloat programs? (y/N):" "Prompt"
