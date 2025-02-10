@@ -4,7 +4,7 @@
 .SYNOPSIS
   Install all available Windows Updates using PSWindowsUpdate.
   If the environment variable $env:installCumulativeWU is set to "y" or "yes",
-  skip any updates that contain "Cumulative" in their title.
+  do not skip any updates that contain "Cumulative" in their title.
 
 .DESCRIPTION
   1. Checks if PSWindowsUpdate module is installed and imports it.
