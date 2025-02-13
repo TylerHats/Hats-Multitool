@@ -137,7 +137,7 @@ while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds $waitIntervalSeconds
     $elapsedSeconds += $waitIntervalSeconds
     if ($elapsedSeconds -ge $maxWaitSeconds) {
-        Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn't cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
+        Log-Message "Waited for $maxWaitSeconds seconds and the installer still has not cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
         $KillMSIE = Read-Host
 		if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 			Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
@@ -192,7 +192,7 @@ $padding = 20           # Padding around the elements
 # Calculate total height based on the number of programs
 $programs = @(
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit' },
-	@{ name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud' },
+	@{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud' },
     @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome' },
     @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox' },
     @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
@@ -313,7 +313,7 @@ $okButton.Add_Click({
 			    Start-Sleep -Seconds $waitIntervalSeconds
 			    $elapsedSeconds += $waitIntervalSeconds
 			    if ($elapsedSeconds -ge $maxWaitSeconds) {
-			        Log-Message "Waited for $maxWaitSeconds seconds and the installer still hasn`'t cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
+			        Log-Message "Waited for $maxWaitSeconds seconds and the installer still has not cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
 			        $KillMSIE = Read-Host
 					if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 						Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
