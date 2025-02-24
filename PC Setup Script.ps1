@@ -367,45 +367,55 @@ $okButton.Add_Click({
 $form.ShowDialog() | Out-null
 
 # Rename PC and join to domain (if needed)
-Log-Message "The PC is currently named: $env:computername"
-Log-Message "Would you like to change the PC name? (y/N):" "Prompt"
-$Rename = Read-Host
-if ($Rename -eq "y" -or $Rename -eq "Y") {
-    Log-Message "The serial number is: $serialNumber"
-    Log-Message "Enter the new PC name and press Enter:" "Prompt"
-    $PCName = Read-Host
-    Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
-	$Domain = Read-Host
-	if ($Domain -eq "y" -or $Domain -eq "Y") {
-        Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
-		$DomainName = Read-Host
-		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
-		Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
-		if ($LASTEXITCODE -eq 0) { 
-			Log-Message "PC rename and domain joining successful." "Success" 
+$DNRetry = "y"
+while ($DNRetry.ToLower() -eq "y" -or $DNRetry.ToLower() -eq "yes") {
+	$DNRetry = "n"
+	Log-Message "The PC is currently named: $env:computername"
+	Log-Message "Would you like to change the PC name? (y/N):" "Prompt"
+	$Rename = Read-Host
+	if ($Rename -eq "y" -or $Rename -eq "Y") {
+	    Log-Message "The serial number is: $serialNumber"
+    	Log-Message "Enter the new PC name and press Enter:" "Prompt"
+    	$PCName = Read-Host
+    	Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
+		$Domain = Read-Host
+		if ($Domain -eq "y" -or $Domain -eq "Y") {
+    	    Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
+			$DomainName = Read-Host
+			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
+			try {
+				Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+				Log-Message "Domain joining and PC renaming successful." "Success"
+			} catch {
+				Log-Message "Domain joinging and/or PC naming failed, please verify the name is <15 digits and contains no forbidden characters, and credentials are correct." "Error"
+				Log-Message "Retry segment? (y/N):" "Prompt"
+				$DNRetry = Read-Host
+			}
 		} else {
-			Log-Message "PC rename and domain joining failed, please complete manually." "Error" 
+			try {
+				Rename-Computer -NewName $PCName -Force *>&1 | Out-File -Append -FilePath $logPath
+				Log-Message "PC renaming successful." "Success"
+			} catch {
+				Log-Message "PC renaming failed, please verify the name is <15 digits and contains no forbidden characters." "Error"
+				Log-Message "Retry segment? (y/N):" "Prompt"
+				$DNRetry = Read-Host
+			}
 		}
 	} else {
-		Rename-Computer -NewName $PCName -Force *>&1 | Out-File -Append -FilePath $logPath
-		if ($LASTEXITCODE -eq 0) { 
-			Log-Message "PC rename successful." "Success" 
-		} else {
-			Log-Message "PC rename failed, please complete manually." "Error" 
-		}
-	}
-} else {
-    Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
-	$Domain = Read-Host
-	if ($Domain -eq "y" -or $Domain -eq "Y") {
-        Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
-		$DomainName = Read-Host
-		$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
-		Add-Computer -DomainName $DomainName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
-		if ($LASTEXITCODE -eq 0) { 
-			Log-Message "Domain joining successful." "Success" 
-		} else {
-			Log-Message "Domain joining failed, please complete manually." "Error" 
+	    Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
+		$Domain = Read-Host
+		if ($Domain -eq "y" -or $Domain -eq "Y") {
+   	    	Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
+			$DomainName = Read-Host
+			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
+			try {
+				Add-Computer -DomainName $DomainName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+				Log-Message "Domain joining successful." "Success"
+			} catch {
+				Log-Message "Domain joining failed, verify credentials are correct." "Error"
+				Log-Message "Retry segment? (y/N):" "Prompt"
+				$DNRetry = Read-Host
+			}
 		}
 	}
 }
