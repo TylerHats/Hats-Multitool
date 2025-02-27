@@ -284,7 +284,7 @@ $okButton.Add_Click({
 					Log-Message "Ignoring background installation and continuing..." "Info"
 					break
 				}
-				Log-Message "Waiting $waitIntervalSeconds and checking again..." "Info"
+				Log-Message "Waiting $waitIntervalSeconds seconds and checking again..." "Info"
 			    Start-Sleep -Seconds $waitIntervalSeconds
 			    $elapsedSeconds += $waitIntervalSeconds
 			    if ($elapsedSeconds -ge $maxWaitSeconds) {
