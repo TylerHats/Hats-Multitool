@@ -189,18 +189,24 @@ $buttonHeight = 80      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20           # Padding around the elements
 
-# Calculate total height based on the number of programs
+<#
+Program list using multiple variable per program in an array:
+Name = The Program's display name, should be human readable
+WingetID = If the program is to be installed using Winget, this must be filled out
+Type = Program type, current options are: Winget, MSOffice
+#>
 $programs = @(
-    @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit' },
-	@{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud' },
-    @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome' },
-    @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox' },
-    @{ Name = '7-Zip'; WingetID = '7zip.7zip' },
-    @{ Name = 'Google Drive'; WingetID = 'Google.Drive' },
-    @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox' },
-    @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom' },
-    @{ Name = 'Outlook Classic (In testing)'; WingetID = '9NRX63209R7B' },
-    @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'}
+    @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit'; Type = 'Winget' },
+	@{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud'; Type = 'Winget' },
+    @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome'; Type = 'Winget' },
+    @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox'; Type = 'Winget' },
+    @{ Name = '7-Zip'; WingetID = '7zip.7zip'; Type = 'Winget' },
+    @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
+    @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox'; Type = 'Winget' },
+    @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
+    @{ Name = 'Outlook Classic (In testing)'; WingetID = '9NRX63209R7B'; Type = 'Winget' },
+    @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'; Type = 'Winget' },
+	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
 # Adjust form size based on the number of programs
@@ -269,7 +275,9 @@ $okButton.Add_Click({
     $progressBar.Value = 0
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
-        if ($program -ne $null) {
+        if ($program.Type -eq "MSOffice") {
+			Log-Message "Microsoft Office installation is WIP and currently does nothing. Skipping..." "Skip"
+		} elseif ($program -ne $null) {
 			$maxWaitSeconds = 60    # 1 minute
 			$waitIntervalSeconds = 20
 			$elapsedSeconds = 0
