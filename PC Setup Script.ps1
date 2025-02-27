@@ -203,20 +203,16 @@ $programs = @(
     @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'}
 )
 
-$closedPrograms = @(
-    @{ Name = 'Demo (Do not use)'; Params = '' }
-)
-
 # Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + ($closedPrograms.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + ($labelHeight * 2)
+$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + $labelHeight
 $form.Size = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
-# Prepare WinGet Checkboxes
+# Prepare Program Checkboxes
 $checkboxes = @{ }
 $y = 20
 $label = New-Object System.Windows.Forms.Label
-$label.Text = "WinGet Programs:"
+$label.Text = "Programs:"
 $label.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $label.Location = New-Object System.Drawing.Point(20, $y)
 $label.AutoSize = $true
@@ -230,27 +226,6 @@ foreach ($program in $programs) {
     $checkbox.AutoSize = $true
     $form.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
-    $y += $checkboxHeight
-}
-
-# Prepare Closed Source Checkboxes
-$y += 20
-$closedCheckboxes = @{ }
-$labelClosed = New-Object System.Windows.Forms.Label
-$labelClosed.Text = "Closed Source Programs:"
-$labelClosed.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$labelClosed.Location = New-Object System.Drawing.Point(20, $y)
-$labelClosed.AutoSize = $true
-$form.Controls.Add($labelClosed)
-$y += $labelHeight
-foreach ($program in $closedPrograms) {
-    $closedCheckbox = New-Object System.Windows.Forms.CheckBox
-    $closedCheckbox.Location = New-Object System.Drawing.Point(20, $y)
-    $closedCheckbox.Text = $program.Name
-	$closedCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $closedCheckbox.AutoSize = $true
-    $form.Controls.Add($closedCheckbox)
-    $closedCheckboxes[$program.Name] = $closedCheckbox
     $y += $checkboxHeight
 }
 
