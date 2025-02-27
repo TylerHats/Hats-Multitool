@@ -292,7 +292,7 @@ $okButton.Add_Click({
 			        $KillMSIE = Read-Host
 					if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 						Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
-						Get-Process -Name "msiexec" | Stop-Process -Force *>&1 | Out-File -Append -FilePath $logPath
+						Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
 						if ($LASTEXITCODE -ne 0) { Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error" }
 					} else {
 						Log-Message "Ignoring background installation and continuing WinGet program install..." "Info"
@@ -319,7 +319,7 @@ $okButton.Add_Click({
                 if ($process.ExitCode -eq 0) {
                     $message = "$($program.Name): Installed successfully."
                     Log-Message $message "Success"
-					Get-Process -Name "msiexec" | Stop-Process -Force *>&1 | Out-File -Append -FilePath $logPath
+					Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
 
                 } else {
                     $message = "$($program.Name): Installation failed with exit code $($process.ExitCode)."
