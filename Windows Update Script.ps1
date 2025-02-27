@@ -84,7 +84,7 @@ if ($updatesToInstall) {
 	if ($excludeCumulative) {
 		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
 		foreach ($ExKB in $excludedUpdates) {
-			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false -IgnoreReboot | Out-Null
+			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false -IgnoreReboot *> $null
 		}
 	}
 	$RebootStatus = Get-WURebootStatus -Silent
@@ -95,7 +95,6 @@ if ($updatesToInstall) {
 else {
     Write-Host "No updates to install after applying the filter."
 }
-Write-Host "(This is for debugging) The script root is determined as: $PSScriptRoot"
 Read-Host "Press Enter to exit the script"
 
 # Post execution cleanup
