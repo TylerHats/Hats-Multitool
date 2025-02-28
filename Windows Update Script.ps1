@@ -38,6 +38,7 @@ $logPath = Join-Path $DesktopPath $logPathName
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 Write-Host "`n`n`n`n`n`n`n`n`n"
+$origWriteHost = Get-Command Write-Host
 
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {
@@ -80,14 +81,20 @@ if ($updatesToInstall) {
     Write-Host "The following updates will be installed:"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
     Write-Host "`nInstalling updates..."
+	function Write-Host { }
     Install-WindowsUpdate -AcceptAll -IgnoreReboot *> $null
+	Remove-Item Function:\Write-Host
 	if ($excludeCumulative) {
 		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
+		function Write-Host { }
 		foreach ($ExKB in $excludedUpdates) {
 			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false -IgnoreReboot *> $null
 		}
+		Remove-Item Function:\Write-Host
 	}
+	function Write-Host { }
 	$RebootStatus = Get-WURebootStatus -Silent
+	Remove-Item Function:\Write-Host
     if ($RebootStatus) {
         Write-Host "A reboot is required to apply updates, please reboot the system." -ForegroundColor "Yellow"
     }
