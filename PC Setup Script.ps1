@@ -33,7 +33,7 @@ $WUSPath = Join-Path -Path $PSScriptRoot -ChildPath 'Windows Update Script.ps1'
 $functionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Script Functions.ps1'
 . "$functionPath"
 try {
-	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber -ErrorAction Stop
 } catch {
 	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
 }
@@ -56,7 +56,7 @@ $ProgressPreference = 'SilentlyContinue'
 Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 try {
-	Set-DODownloadMode -DownloadMode 3 *>&1 | Out-File -Append -FilePath $logPath
+	Set-DODownloadMode -DownloadMode 3 -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 } catch {
 	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "Error"
 }
@@ -356,18 +356,18 @@ while ($DNRetry.ToLower() -eq "y" -or $DNRetry.ToLower() -eq "yes") {
 	Log-Message "The PC is currently named: $env:computername"
 	Log-Message "Would you like to change the PC name? (y/N):" "Prompt"
 	$Rename = Read-Host
-	if ($Rename -eq "y" -or $Rename -eq "Y") {
+	if ($Rename.ToLower() -eq "y" -or $Rename.ToLower() -eq "yes") {
 	    Log-Message "The serial number is: $serialNumber"
     	Log-Message "Enter the new PC name and press Enter:" "Prompt"
     	$PCName = Read-Host
     	Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
 		$Domain = Read-Host
-		if ($Domain -eq "y" -or $Domain -eq "Y") {
+		if ($Domain.ToLower() -eq "y" -or $Domain.ToLower() -eq "yes") {
     	    Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 			$DomainName = Read-Host
 			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 			try {
-				Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+				Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 				Log-Message "Domain joining and PC renaming successful." "Success"
 			} catch {
 				Log-Message "Domain joinging and/or PC naming failed, please verify the name is <15 digits and contains no forbidden characters, and credentials are correct." "Error"
@@ -376,7 +376,7 @@ while ($DNRetry.ToLower() -eq "y" -or $DNRetry.ToLower() -eq "yes") {
 			}
 		} else {
 			try {
-				Rename-Computer -NewName $PCName -Force *>&1 | Out-File -Append -FilePath $logPath
+				Rename-Computer -NewName $PCName -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 				Log-Message "PC renaming successful." "Success"
 			} catch {
 				Log-Message "PC renaming failed, please verify the name is <15 digits and contains no forbidden characters." "Error"
@@ -387,17 +387,29 @@ while ($DNRetry.ToLower() -eq "y" -or $DNRetry.ToLower() -eq "yes") {
 	} else {
 	    Log-Message "Would you like to join this PC to an Active Directory Domain? (y/N):" "Prompt"
 		$Domain = Read-Host
-		if ($Domain -eq "y" -or $Domain -eq "Y") {
+		if ($Domain.ToLower() -eq "y" -or $Domain.ToLower() -eq "yes") {
    	    	Log-Message "Enter the domain address and press Enter (Include the suffix, Ex: .local):" "Prompt"
 			$DomainName = Read-Host
 			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainName):"
 			try {
-				Add-Computer -DomainName $DomainName -Credential $DomainCredential *>&1 | Out-File -Append -FilePath $logPath
+				Add-Computer -DomainName $DomainName -Credential $DomainCredential -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 				Log-Message "Domain joining successful." "Success"
 			} catch {
 				Log-Message "Domain joining failed, verify credentials are correct." "Error"
 				Log-Message "Retry segment? (y/N):" "Prompt"
 				$DNRetry = Read-Host
+			}
+		}
+	}
+	if (-not ($Domain.ToLower() -eq "y" -or $Domain.ToLower() -eq "yes")) {
+		Log-Message "Would you like to launch the EntraID joining dialog? (y/N):" "Prompt"
+		$Entra = Read-Host
+		if ($Entra.ToLower() -eq "y" -or $Entra.ToLower() -eq "yes") {
+			Log-Message "Launching EntraID dialog..." "Info"
+			try {
+				dsregcmd.exe /join -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+			} catch {
+				Log-Message "Failed to launch EntraID dialog, ensure the device is not joined to a domain and is Windows 10/11 Pro" "Error"
 			}
 		}
 	}
