@@ -204,7 +204,7 @@ $programs = @(
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
-    @{ Name = 'Outlook Classic (In testing)'; WingetID = '9NRX63209R7B'; Type = 'Winget' },
+    @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
     @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'; Type = 'Winget' },
 	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
@@ -276,7 +276,59 @@ $okButton.Add_Click({
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
-			Log-Message "Microsoft Office installation is WIP and currently does nothing. Skipping..." "Skip"
+			Log-Message "Microsoft Office installation is WIP and may be slow." "Info"
+			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
+			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
+			$odtUrl = "https://go.microsoft.com/fwlink/?linkid=2089111"
+			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
+			if (-Not (Test-Path $odtExe)) {
+			    Log-Message "Downloading Office Deployment Tool..." "Info"
+			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+			}
+			Log-Message "Extracting Office Deployment Tool..." "Info"
+			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
+			$configXml = @'
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="Monthly">
+    <Product ID="O365BusinessRetail">
+      <Language ID="en-us" />
+    </Product>
+  </Add>
+  <Display Level="Basic" AcceptEULA="TRUE" />
+  <Property Name="AUTOACTIVATE" Value="1"/>
+</Configuration>
+'@
+			$configFile = "$workingDir\officeconfiguration.xml"
+			$configXml | Out-File -FilePath $configFile -Encoding ascii
+			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
+			Log-Message "Microsoft Office: Installed successfully." "Success"
+		} elseif ($program.Type -eq "MSOutlook") {
+			Log-Message "Microsoft Outlook installation is WIP and may be slow." "Info"
+			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
+			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
+			$odtUrl = "https://go.microsoft.com/fwlink/?linkid=2089111"
+			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
+			if (-Not (Test-Path $odtExe)) {
+			    Log-Message "Downloading Office Deployment Tool..." "Info"
+			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+			}
+			Log-Message "Extracting Office Deployment Tool..." "Info"
+			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
+			$configXml = @'
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="Monthly">
+    <Product ID="OutlookRetail">
+      <Language ID="en-us" />
+    </Product>
+  </Add>
+  <Display Level="Basic" AcceptEULA="TRUE" />
+  <Property Name="AUTOACTIVATE" Value="1"/>
+</Configuration>
+'@
+			$configFile = "$workingDir\outlookconfiguration.xml"
+			$configXml | Out-File -FilePath $configFile -Encoding ascii
+			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
+			Log-Message "Microsoft Outlook: Installed successfully." "Success"
 		} elseif ($program -ne $null) {
 			$maxWaitSeconds = 60    # 1 minute
 			$waitIntervalSeconds = 20
