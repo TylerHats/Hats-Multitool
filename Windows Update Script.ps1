@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v2.0
+# Windows Update PS Script Module - Tyler Hatfield - v2.2
 
 <# 
 .SYNOPSIS
