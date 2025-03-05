@@ -33,7 +33,7 @@ $WUSPath = Join-Path -Path $PSScriptRoot -ChildPath 'Windows Update Script.ps1'
 $functionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Script Functions.ps1'
 . "$functionPath"
 try {
-	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber -ErrorAction Stop
+	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
 } catch {
 	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
 }
