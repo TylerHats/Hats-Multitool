@@ -37,7 +37,7 @@ $logPathName = "PCSetupScriptLog.txt"
 $logPath = Join-Path $DesktopPath $logPathName
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
-Write-Host "`n`n`n`n`n`n`n`n`n"
+Write-Host "`n`n`n`n`n`n`n`n"
 $origWriteHost = Get-Command Write-Host
 
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
