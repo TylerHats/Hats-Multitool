@@ -279,11 +279,12 @@ $okButton.Add_Click({
 			Log-Message "Microsoft Office installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
-			$odtUrl = "https://go.microsoft.com/fwlink/?linkid=2089111"
+			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
 			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
 			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
@@ -306,11 +307,12 @@ $okButton.Add_Click({
 			Log-Message "Microsoft Outlook installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
-			$odtUrl = "https://go.microsoft.com/fwlink/?linkid=2089111"
+			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
 			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
 			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
