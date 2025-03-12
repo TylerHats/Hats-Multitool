@@ -235,6 +235,35 @@ foreach ($program in $programs) {
     $y += $checkboxHeight
 }
 
+$outlookCheckbox = $checkboxes["Outlook Classic"]
+$officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]
+
+# Add an event handler for the Outlook checkbox:
+$outlookCheckbox.Add_CheckedChanged({
+    if ($outlookCheckbox.Checked) {
+        # When Outlook is checked, disable and uncheck Microsoft Office
+        $officeCheckbox.Enabled = $false
+        $officeCheckbox.Checked = $false
+    }
+    else {
+        # When Outlook is unchecked, re-enable Microsoft Office
+        $officeCheckbox.Enabled = $true
+    }
+})
+
+# Add an event handler for the Microsoft Office checkbox:
+$officeCheckbox.Add_CheckedChanged({
+    if ($officeCheckbox.Checked) {
+        # When Microsoft Office is checked, disable and uncheck Outlook
+        $outlookCheckbox.Enabled = $false
+        $outlookCheckbox.Checked = $false
+    }
+    else {
+        # When Microsoft Office is unchecked, re-enable Outlook
+        $outlookCheckbox.Enabled = $true
+    }
+})
+
 # Add progress bar to GUI
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $y += 10
