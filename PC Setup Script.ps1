@@ -119,8 +119,8 @@ winget source add --name HatsRepoAdd https://cdn.winget.microsoft.com/cache *>&1
 winget Source Update --disable-interactivity *>&1 | Out-File -Append -FilePath $logPath
 if ($LASTEXITCODE -ne 0) { winget Source Update *>&1 | Out-File -Append -FilePath $logPath }
 winget Upgrade --id Microsoft.Appinstaller --accept-package-agreements --accept-source-agreements *>&1 | Out-File -Append -FilePath $logPath
-$maxWaitSeconds = 120    # 2 minutes
-$waitIntervalSeconds = 60
+$maxWaitSeconds = 180    # 3 minutes
+$waitIntervalSeconds = 30
 $elapsedSeconds = 0
 $WaitInstall = "blank"
 # Loop while msiexec.exe is running
@@ -141,10 +141,7 @@ while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
         $KillMSIE = Read-Host
 		if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 			Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
-			Get-Process -Name "msiexec" | Stop-Process -Force *>&1 | Out-File -Append -FilePath $logPath
-			if ($LASTEXITCODE -ne 0) {
-				Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error" 
-			}
+			try {Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error"}
 		} else {
 			Log-Message "Ignoring background installation and continuing WinGet updates..." "Info"
 		}
@@ -305,7 +302,7 @@ $okButton.Add_Click({
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
-			try (
+			try {
 			Log-Message "Microsoft Office installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
@@ -313,7 +310,7 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try (Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe) catch (Log-Message "ODT download failed, check your internet connection." "Error")
+			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
 				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
@@ -333,11 +330,11 @@ $okButton.Add_Click({
 			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
 			Log-Message "Microsoft Office: Installed successfully." "Success"
-			) catch (
+			 } catch {
 				Log-Message "Microsoft Office: Installation failed, please review the log." "Error"
-			)
+			 }
 		} elseif ($program.Type -eq "MSOutlook") {
-			try (
+			try {
 			Log-Message "Microsoft Outlook installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
@@ -345,7 +342,7 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try (Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe) catch (Log-Message "ODT download failed, check your internet connection." "Error")
+			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
 				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
@@ -365,9 +362,9 @@ $okButton.Add_Click({
 			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
 			Log-Message "Microsoft Outlook: Installed successfully." "Success"
-			) catch (
+			 } catch {
 				Log-Message "Microsoft Outlook: Installation failed, please review the log." "Error"
-			)
+			}
 		} elseif ($program -ne $null) {
 			$maxWaitSeconds = 60    # 1 minute
 			$waitIntervalSeconds = 20
@@ -375,7 +372,7 @@ $okButton.Add_Click({
 			$WaitInstall = "blank"
 			# Loop while msiexec.exe is running
 			while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
-				if ($WaitInstall -eq "blank") {
+<#				if ($WaitInstall -eq "blank") {
 			 	   	Log-Message "Another installation is in progress. Would you like to wait or continue? (c/W):" "Prompt"
 					$WaitInstall = Read-Host
 				}
@@ -391,13 +388,14 @@ $okButton.Add_Click({
 			        $KillMSIE = Read-Host
 					if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
 						Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
-						Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
-						if ($LASTEXITCODE -ne 0) { Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error" }
+						try {Get-Process -Name "msiexec" -ErrorAction Stop | Stop-Process -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error"}
 					} else {
 						Log-Message "Ignoring background installation and continuing WinGet program install..." "Info"
 					}
 					break
- 			   }
+ 			   } #>
+				Log-Message "Killing MSIEXEC.exe and continuing WinGet installations..." "Info"
+				try {Get-Process -Name "msiexec" -ErrorAction Stop | Stop-Process -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error"}
 			}
             Log-Message "Installing $($program.Name)..."
             try {
@@ -461,7 +459,7 @@ while ($DNRetry.ToLower() -eq "y" -or $DNRetry.ToLower() -eq "yes") {
 				Add-Computer -DomainName $DomainName -NewName $PCName -Credential $DomainCredential -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 				Log-Message "Domain joining and PC renaming successful." "Success"
 			} catch {
-				Log-Message "Domain joinging and/or PC naming failed, please verify the name is <15 digits and contains no forbidden characters, and credentials are correct." "Error"
+				Log-Message "Domain joining and/or PC naming failed, please verify the name is <15 digits and contains no forbidden characters, and credentials are correct." "Error"
 				Log-Message "Retry segment? (y/N):" "Prompt"
 				$DNRetry = Read-Host
 			}
