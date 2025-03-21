@@ -345,8 +345,8 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
-				Unblock-File -Path $odtExe
+			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
+				Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
 			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
@@ -377,8 +377,8 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
-				Unblock-File -Path $odtExe
+			    try {Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "ODT download failed, check your internet connection." "Error"}
+				Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
 			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
@@ -407,8 +407,8 @@ $okButton.Add_Click({
 				$bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
 				$teamsEXE = "$workingDir\teamsbootstrapper.exe"
 				Log-Message "Downloading Teams Bootstrapper..." "Info"
-			    try {Invoke-WebRequest -Uri $bootstrapperURL -OutFile $teamsEXE} catch {Log-Message "Bootstrapper download failed, check your internet connection." "Error"}
-				Unblock-File -Path $teamsEXE
+			    try {Invoke-WebRequest -Uri $bootstrapperURL -OutFile $teamsEXE *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Bootstrapper download failed, check your internet connection." "Error"}
+				Unblock-File -Path $teamsEXE *>&1 | Out-File -Append -FilePath $logPath
 				Start-Process -FilePath "$teamsEXE" -ArgumentList "-p" -Wait
 			} catch {
 				Log-Message "Microsoft Teams installation failed." "Error"
