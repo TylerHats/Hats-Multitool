@@ -442,8 +442,9 @@ $okButton.Add_Click({
 					}
 					break
  			   } #>
-				Log-Message "Killing MSIEXEC.exe and continuing WinGet installations..." "Info"
-				try {Get-Process -Name "msiexec" -ErrorAction Stop | Stop-Process -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error"}
+				#Log-Message "Killing MSIEXEC.exe and continuing WinGet installations..." "Info"
+				Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+				break
 			}
             Log-Message "Installing $($program.Name)..."
             try {
