@@ -234,9 +234,10 @@ $programs = @(
     @{ Name = '7-Zip'; WingetID = '7zip.7zip'; Type = 'Winget' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox'; Type = 'Winget' },
+	@{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
     @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
-    @{ Name = 'Microsoft Teams (In testing)'; WingetID = 'XP8BT8DW290MPQ'; Type = 'Winget' },
+    @{ Name = 'Microsoft Teams (In testing)'; WingetID = ''; Type = 'Teams' },
 	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
@@ -337,7 +338,7 @@ $okButton.Add_Click({
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
 			try {
-			Log-Message "Microsoft Office installation is WIP and may be slow." "Info"
+			Log-Message "Installing Microsoft Office (x64)..." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
 			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
@@ -369,7 +370,7 @@ $okButton.Add_Click({
 			 }
 		} elseif ($program.Type -eq "MSOutlook") {
 			try {
-			Log-Message "Microsoft Outlook installation is WIP and may be slow." "Info"
+			Log-Message "Installing Microsoft Outlook (Classic)..." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
 			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
@@ -398,6 +399,19 @@ $okButton.Add_Click({
 			Log-Message "Microsoft Outlook: Installed successfully." "Success"
 			 } catch {
 				Log-Message "Microsoft Outlook: Installation failed, please review the log." "Error"
+			}
+		} elseif ($program.Type -eq "Teams") {
+			Log-Message "Installing Microsoft Teams..."
+			try {
+				#Teams Installation code
+				$bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
+				$teamsEXE = "$workingDir\teamsbootstrapper.exe"
+				Log-Message "Downloading Teams Bootstrapper..." "Info"
+			    try {Invoke-WebRequest -Uri $bootstrapperURL -OutFile $teamsEXE} catch {Log-Message "Bootstrapper download failed, check your internet connection." "Error"}
+				Unblock-File -Path $teamsEXE
+				Start-Process -FilePath "$teamsEXE" -ArgumentList "-p" -Wait
+			} catch {
+				Log-Message "Microsoft Teams installation failed." "Error"
 			}
 		} elseif ($program -ne $null) {
 			$maxWaitSeconds = 60    # 1 minute
