@@ -41,7 +41,7 @@ if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
 # Check script version against remote
-$currentVersion = "1.15"
+$currentVersion = "1.15.1"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
