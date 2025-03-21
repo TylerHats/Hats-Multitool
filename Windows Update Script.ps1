@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v2.2
+# Windows Update PS Script Module - Tyler Hatfield - v2.3
 
 <# 
 .SYNOPSIS
@@ -20,7 +20,7 @@ $failedResize = 0
 $failedColor = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-	$dHeight = 40
+	$dHeight = 50
 	$rawUI = $Host.UI.RawUI
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize

@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.18
+# PC Setup Script - Tyler Hatfield - v1.19
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -305,6 +305,7 @@ $okButton.Add_Click({
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
+			try (
 			Log-Message "Microsoft Office installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
@@ -312,11 +313,11 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+			    try (Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe) catch (Log-Message "ODT download failed, check your internet connection." "Error")
 				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
-			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
+			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
 			$configXml = @'
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Monthly">
@@ -332,7 +333,11 @@ $okButton.Add_Click({
 			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
 			Log-Message "Microsoft Office: Installed successfully." "Success"
+			) catch (
+				Log-Message "Microsoft Office: Installation failed, please review the log." "Error"
+			)
 		} elseif ($program.Type -eq "MSOutlook") {
+			try (
 			Log-Message "Microsoft Outlook installation is WIP and may be slow." "Info"
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
@@ -340,11 +345,11 @@ $okButton.Add_Click({
 			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
 			if (-Not (Test-Path $odtExe)) {
 			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe
+			    try (Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe) catch (Log-Message "ODT download failed, check your internet connection." "Error")
 				Unblock-File -Path $odtExe
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
-			Start-Process -FilePath $odtExe -ArgumentList "/extract:$workingDir /quiet" -Wait
+			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
 			$configXml = @'
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Monthly">
@@ -360,6 +365,9 @@ $okButton.Add_Click({
 			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
 			Log-Message "Microsoft Outlook: Installed successfully." "Success"
+			) catch (
+				Log-Message "Microsoft Outlook: Installation failed, please review the log." "Error"
+			)
 		} elseif ($program -ne $null) {
 			$maxWaitSeconds = 60    # 1 minute
 			$waitIntervalSeconds = 20
