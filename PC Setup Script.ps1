@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.19
+# PC Setup Script - Tyler Hatfield - v1.20
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -49,7 +49,7 @@ if ((Get-Service -Name w32time).Status -ne 'Running') {
 w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Check script version against remote
-$currentVersion = "1.14"
+$currentVersion = "1.15"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
