@@ -48,6 +48,40 @@ if ((Get-Service -Name w32time).Status -ne 'Running') {
 }
 w32tm /resync | Out-File -Append -FilePath $logPath
 
+# Check script version against remote
+$currentVersion = "1.14"
+$skipUpdate = 0
+Try {
+	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
+} catch {
+	Log-Message "Unable to determine remote version, skipping self update check."
+	$skipUpdate = 1
+}
+if ($skipUpdate -ne 1) {
+	$remoteVersion = $remoteRequest.Content
+	if ($currentVersion -eq $remoteVersion) {
+		Log-Message "The script is up to date. (Version $currentVersion)" "Info"
+	} else {
+		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
+		$sourceURL = "https://github.com/TylerHats/Hats-Scripts/releases/latest/download/Hats-Setup-Script-v$remoteVersion.exe"
+		$shell = New-Object -ComObject Shell.Application
+		$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
+		$outputPath = "$downloadsFolder\Hats-Setup-Script-v$remoteVersion.exe"
+		Try {
+			Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+		} catch {
+			Log-Message "Failed to download update, please update manually." "Error"
+			Pause
+			Exit
+		}
+		# Cleanup and exit current script, then launch updated script
+		$folderToDelete = "$PSScriptRoot"
+		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath'"
+		Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+		exit 0
+	}
+}
+
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
 Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
