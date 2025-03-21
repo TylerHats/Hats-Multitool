@@ -1,4 +1,4 @@
-# PC Setup Script - Tyler Hatfield - v1.20
+# PC Setup Script - Tyler Hatfield - v1.21
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 if (-not $IsElevated) {
@@ -40,14 +40,6 @@ try {
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
-# Set time zone and sync
-Log-Message "Setting Time Zone to Eastern Standard Time..."
-Set-TimeZone -Name "Eastern Standard Time" | Out-File -Append -FilePath $logPath
-if ((Get-Service -Name w32time).Status -ne 'Running') {
-    Start-Service -Name w32time | Out-File -Append -FilePath $logPath
-}
-w32tm /resync | Out-File -Append -FilePath $logPath
-
 # Check script version against remote
 $currentVersion = "1.15"
 $skipUpdate = 0
@@ -81,6 +73,14 @@ if ($skipUpdate -ne 1) {
 		exit 0
 	}
 }
+
+# Set time zone and sync
+Log-Message "Setting Time Zone to Eastern Standard Time..."
+Set-TimeZone -Name "Eastern Standard Time" | Out-File -Append -FilePath $logPath
+if ((Get-Service -Name w32time).Status -ne 'Running') {
+    Start-Service -Name w32time | Out-File -Append -FilePath $logPath
+}
+w32tm /resync | Out-File -Append -FilePath $logPath
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
