@@ -44,6 +44,7 @@ Write-Host ""
 # Load GUI Configs
 $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 . "$GUIPath"
+Write-Host ""
 
 # Display Main Menu GUI
 Hide-ConsoleWindow

@@ -17,19 +17,30 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$MainMenuHeight = ($buttonHeight * 3) + $padding
+$MainMenuHeight = ($buttonHeight * 4) + $padding
 $MainMenu.Size = New-Object System.Drawing.Size(400, $MainMenuHeight)
 $MainMenu.StartPosition = 'CenterScreen'
 
 # Add Setup button
 $y = 30
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
-$y += 60
 $MainMenuSetupButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
 $MainMenuSetupButton.Size = New-Object System.Drawing.Size(125, 30)
 $MainMenuSetupButton.Text = 'PC Setup & Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuSetupButton)
+
+# Add Tools button
+$MainMenuToolsButton = New-Object System.Windows.Forms.Button
+$y += 60
+$MainMenuToolsButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
+$MainMenuToolsButton.Size = New-Object System.Drawing.Size(125, 30)
+$MainMenuToolsButton.Text = 'Tools'
+$MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenu.Controls.Add($MainMenuToolsButton)
+$MainMenuToolsButton.Enabled = $false # Disabled, WIP
+$WIPToolTip = New-Object System.Windows.Forms.ToolTip
+$WIPToolTip.SetToolTip($MainMenuToolsButton, "This feature is WIP and will be available in a future update.")
 
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
@@ -40,7 +51,6 @@ $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuTroubleshootingButton)
 $MainMenuTroubleshootingButton.Enabled = $false # Disabled, WIP
-$WIPToolTip = New-Object System.Windows.Forms.ToolTip
 $WIPToolTip.SetToolTip($MainMenuTroubleshootingButton, "This feature is WIP and will be available in a future update.")
 
 # Add Account button
@@ -63,17 +73,18 @@ $MainMenuSetupButton.Add_Click({
     $MainMenu.Close()
 })
 
+# Define Tools button click
+#WIP
+
 # Define Troubleshooting button click
 #WIP
 
 # Define Account button click
 #WIP
 
-
 # Setup Module Selection GUI
 # Prepare form
 Log-Message "Preparing Module List..." "Info"
-Add-Type -AssemblyName System.Windows.Forms
 $ModGUI = New-Object System.Windows.Forms.Form
 $ModGUI.Text = 'Module Selection List'
 $ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
