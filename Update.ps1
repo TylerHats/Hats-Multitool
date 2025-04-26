@@ -15,10 +15,10 @@ if ($skipUpdate -ne 1) {
 		Log-Message "The script is up to date. (Version $currentVersion)" "Info"
 	} else {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
-		$sourceURL = "https://github.com/TylerHats/Hats-Scripts/releases/latest/download/Hats-Setup-Script-v$remoteVersion.exe"
+		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
 		$shell = New-Object -ComObject Shell.Application
 		$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
-		$outputPath = "$downloadsFolder\Hats-Setup-Script-v$remoteVersion.exe"
+		$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
 		Try {
 			Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
 		} catch {
