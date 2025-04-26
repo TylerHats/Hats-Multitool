@@ -4,7 +4,6 @@
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
-$WUSPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption

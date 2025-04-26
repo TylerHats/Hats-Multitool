@@ -1,4 +1,4 @@
-# Windows Update PS Script Module - Tyler Hatfield - v2.3
+# Windows Update Module - Tyler Hatfield - v2.4
 
 <# 
 .SYNOPSIS
@@ -32,19 +32,24 @@ try {
 } catch {
 	$failedColor = 1
 }
-$DesktopPath = [Environment]::GetFolderPath('Desktop')
-$logPathName = "PCSetupScriptLog.txt"
-$logPath = Join-Path $DesktopPath $logPathName
+$commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
+. "$commonPath"
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 Write-Host "`n`n`n`n`n`n`n`n"
 $origWriteHost = Get-Command Write-Host
 
+# Set Download Mode
+try {
+	Set-DODownloadMode -DownloadMode 3 -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+} catch {
+	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "Error"
+}
+
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {
     Import-Module PSWindowsUpdate -ErrorAction Stop
-}
-catch {
+} catch {
     Write-Host "PSWindowsUpdate module not found. Installing now..."
     Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
