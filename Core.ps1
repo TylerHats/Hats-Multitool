@@ -69,7 +69,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1") {
 	Write-Host ""
-	Log-Message "" "Info"
+	Log-Message "- Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preperation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is expirimental due to the ammount of changes, please report any issues on GitHub at HatsThings.com/go/Hats-Scripts" "Info"
 	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
 	Write-Host ""
 }
