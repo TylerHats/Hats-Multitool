@@ -21,7 +21,7 @@
 **Packaging Instructions:**
 Using your archiving software of choice, pack the three PS1 files into a self extracting archive and add the following command to execute after extraction, and set the archive to silently extract if you desire:
 
-    PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "PC Setup Script.ps1"
+    PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "Core.ps1"
 
 ## Issues
 
