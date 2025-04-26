@@ -58,6 +58,20 @@ if ($Show_SetupGUI) {
 	. "$SetupScriptModPath"
 }
 
+# Run Tools option
+#WIP
+
+# Run Troubleshooting option
+#WIP
+
+# Run Account option
+#WIP
+
+# Failsafe for no selected options
+if (($Show_SetupGUI -ne $true) -and ($true)) {
+	Log-Message "No options were selected in the Main Menu before it exited, skipping to end." "Error"
+}
+
 # Reminders/Closing
 Log-Message "The multitool run has completed!"
 Log-Message "Verify no other windows are still working on background tasks after closing, then reboot if needed to complete setup, updates, etc."
