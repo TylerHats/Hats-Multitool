@@ -51,3 +51,29 @@ function Log-Message {
     }
 }
 
+# Load required functions to interact with Windows
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+}
+"@
+
+# Function to hide the console window
+function Hide-ConsoleWindow {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 0 = Hide
+    [Win32]::ShowWindow($consolePtr, 0)
+}
+
+# Function to show the console window
+function Show-ConsoleWindow {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 5 = Show normally
+    [Win32]::ShowWindow($consolePtr, 5)
+}

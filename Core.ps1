@@ -32,136 +32,28 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
-# Check program version against remote, update if needed
-$currentVersion = "2.0.0"
-$skipUpdate = 0
-Try {
-	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
-} catch {
-	Log-Message "Unable to determine remote version, skipping self update check."
-	$skipUpdate = 1
-}
-if ($skipUpdate -ne 1) {
-	$remoteVersion = $remoteRequest.Content
-	if ($currentVersion -eq $remoteVersion) {
-		Log-Message "The script is up to date. (Version $currentVersion)" "Info"
-	} else {
-		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
-		$sourceURL = "https://github.com/TylerHats/Hats-Scripts/releases/latest/download/Hats-Setup-Script-v$remoteVersion.exe"
-		$shell = New-Object -ComObject Shell.Application
-		$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
-		$outputPath = "$downloadsFolder\Hats-Setup-Script-v$remoteVersion.exe"
-		Try {
-			Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
-		} catch {
-			Log-Message "Failed to download update, please update manually." "Error"
-			Pause
-			Exit
-		}
-		# Cleanup and exit current script, then launch updated script
-		$env:hatsUpdated = "1"
-		$folderToDelete = "$PSScriptRoot"
-		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath'"
-		Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-		exit 0
-	}
-}
-
-# Changelog Display
-if ($env:hatsUpdated -eq "1") {
-	Write-Host ""
-	Log-Message "- Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub at HatsThings.com/go/Hats-Scripts" "Info"
-	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
-	Write-Host ""
-}
+# Run Self Update Module
+$UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
+. "$UpdateModPath"
+Write-Host ""
 
 # Prompt Hint
 Log-Message "Hint: When prompted for input, a capital letter infers a default if the prompt is left blank." "Skip"
 Write-Host ""
 
-# GUI For Module Selection
-# Prepare form
-Log-Message "Preparing Module List..." "Info"
-Add-Type -AssemblyName System.Windows.Forms
-$ModGUI = New-Object System.Windows.Forms.Form
-$ModGUI.Text = 'Module Selection List'
-$ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$ModGUI.Size = New-Object System.Drawing.Size(400, 500)
-$ModGUI.StartPosition = 'CenterScreen'
+# Load GUI Configs
+$GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
+. "$GUIPath"
 
-# Form size variables
-$checkboxHeight = 30    # Height of each checkbox
-$buttonHeight = 80      # Height of the OK button
-$labelHeight = 30       # Height of text labels
-$padding = 20
+# Display Main Menu GUI
+Hide-ConsoleWindow
+$MainMenu.ShowDialog() | Out-null
 
-# Module List Array
-$modules = @(
-    @{ Name = 'Time Zone Setting' },
-	@{ Name = 'Windows Updates' },
-    @{ Name = 'Local Account Setup' },
-    @{ Name = 'Bloat Cleanup' },
-    @{ Name = 'Program Installation' },
-    @{ Name = 'System Management' }
-)
-
-# Adjust GUI Height
-$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + $padding + $labelHeight
-$ModGUI.Size = New-Object System.Drawing.Size(400, $ModGUIHeight)
-$ModGUI.StartPosition = 'CenterScreen'
-
-# Prepare Module Checkboxes
-$ModGUIcheckboxes = @{ }
-$y = 20
-$ModGUIlabel = New-Object System.Windows.Forms.Label
-$ModGUIlabel.Text = "Modules:"
-$ModGUIlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ModGUIlabel.Location = New-Object System.Drawing.Point(20, $y)
-$ModGUIlabel.AutoSize = $true
-$ModGUI.Controls.Add($ModGUIlabel)
-$y += $labelHeight
-foreach ($module in $modules) {
-    $ModGUIcheckbox = New-Object System.Windows.Forms.CheckBox
-    $ModGUIcheckbox.Location = New-Object System.Drawing.Point(20, $y)
-    $ModGUIcheckbox.Text = $module.Name
-	$ModGUIcheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $ModGUIcheckbox.AutoSize = $true
-    $ModGUI.Controls.Add($ModGUIcheckbox)
-    $ModGUIcheckboxes[$module.Name] = $ModGUIcheckbox
-    $y += $checkboxHeight
+# Display Module Selection GUI
+if ($Show_SetupGUI) {
+	$ModGUI.ShowDialog() | Out-null
+	Show-ConsoleWindow
 }
-
-# Add OK button
-$ModGUIokButton = New-Object System.Windows.Forms.Button
-$y += 50
-$ModGUIokButton.Location = New-Object System.Drawing.Point( (400 - 75)/2, $y)
-$ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
-$ModGUIokButton.Text = "OK"
-$ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ModGUI.Controls.Add($ModGUIokButton)
-
-# Define a function to handle the OK button click
-$ModGUIokButton.Add_Click({
-    # Disable OK button to prevent further clicks
-    $ModGUIokButton.Enabled = $false
-
-    # Set module enablement variables
-    $selectedModules = $ModGUIcheckboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
-    $totalModules = $selectedModules.Count
-    if ($totalModules -eq 0) {
-        Log-Message "No modules selected to run." "Skip"
-        $ModGUI.Close()
-        return
-    }
-    foreach ($moduleName in $selectedModules) {
-		Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
-    }
-    # Close the form once installation is complete
-    $ModGUI.Close()
-})
-
-# Show the GUI
-$ModGUI.ShowDialog() | Out-null
 
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
@@ -221,16 +113,17 @@ if ($Run_SystemManagement) {
 # Final setup options
 $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
 if (Test-Path $regPathNumLock) {
-    # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default)
+    # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default) and disable Fast Startup for registry loading
     Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
+	powercfg /hibernate off *>&1 | Out-File -Append -FilePath $logPath
     Log-Message "Enabled NUM Lock at boot by default." "Success"
 } else {
     Log-Message "Registry path $regPathNumLock does not exist." "Error"
 }
 
 # Reminders/Closing
-Log-Message "Script setup is complete!"
-Log-Message "Confirm updates have completed in the minimized window and restart to apply updates, PC name change and domain joining if needed."
+Log-Message "Setup is complete!"
+Log-Message "Confirm updates have completed in the minimized window and restart to apply updates, PC name change and domain/EntraID joining if needed."
 Log-Message "Press enter to exit the script." "Success"
 Read-Host
 
