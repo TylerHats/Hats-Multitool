@@ -12,7 +12,7 @@ $failedResize = 0
 $failedColor = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-	$dHeight = 40
+	$dHeight = 50
 	$rawUI = $Host.UI.RawUI
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize
@@ -31,8 +31,8 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
-# Check script version against remote
-$currentVersion = "1.16.0"
+# Check program version against remote
+$currentVersion = "2.0.0"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
@@ -58,20 +58,31 @@ if ($skipUpdate -ne 1) {
 			Exit
 		}
 		# Cleanup and exit current script, then launch updated script
+		$env:hatsUpdated = "1"
 		$folderToDelete = "$PSScriptRoot"
 		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath'"
 		Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 		exit 0
 	}
 }
-#What's New Code
+
+# Changelog Display
+if ($env:hatsUpdated -eq "1") {
+	Write-Host ""
+	Log-Message "" "Info"
+	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
+	Write-Host ""
+}
+
 
 # Prompt Hint
 Log-Message "Hint: When prompted for input, a capital letter infers a default if the prompt is left blank." "Skip"
+Write-Host ""
 
-#Time Zone Module
+# Time Zone Module
 $TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
 . "$TZPath"
+Write-Host ""
 
 # Setup prerequisites and start Windows updates
 Log-Message "Starting Windows Updates in the Background..."
@@ -86,6 +97,7 @@ try {
 	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "Error"
 }
 Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WUSPath`""
+Write-Host ""
 
 # Set/Create local admin account
 Log-Message "Setup Local Account(s)..."
