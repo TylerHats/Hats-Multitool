@@ -9,6 +9,9 @@ $MainMenu.Text = "Hat's Multitool"
 $MainMenu.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $MainMenu.Size = New-Object System.Drawing.Size(400, 500)
 $MainMenu.StartPosition = 'CenterScreen'
+$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
+$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
+$MainMenu.Icon = $HMTIcon
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -90,6 +93,7 @@ $ModGUI.Text = 'Module Selection List'
 $ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ModGUI.Size = New-Object System.Drawing.Size(400, 500)
 $ModGUI.StartPosition = 'CenterScreen'
+$ModGUI.Icon = $HMTIcon
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
