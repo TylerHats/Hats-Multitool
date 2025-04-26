@@ -70,56 +70,153 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1") {
 	Write-Host ""
-	Log-Message "- Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preperation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is expirimental due to the ammount of changes, please report any issues on GitHub at HatsThings.com/go/Hats-Scripts" "Info"
+	Log-Message "- Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub at HatsThings.com/go/Hats-Scripts" "Info"
 	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
 	Write-Host ""
 }
-
 
 # Prompt Hint
 Log-Message "Hint: When prompted for input, a capital letter infers a default if the prompt is left blank." "Skip"
 Write-Host ""
 
+# GUI For Module Selection
+# Prepare form
+Log-Message "Preparing Module List..." "Info"
+Add-Type -AssemblyName System.Windows.Forms
+$ModGUI = New-Object System.Windows.Forms.Form
+$ModGUI.Text = 'Module Selection List'
+$ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$ModGUI.Size = New-Object System.Drawing.Size(400, 500)
+$ModGUI.StartPosition = 'CenterScreen'
+
+# Form size variables
+$checkboxHeight = 30    # Height of each checkbox
+$buttonHeight = 80      # Height of the OK button
+$labelHeight = 30       # Height of text labels
+$padding = 20
+
+# Module List Array
+$modules = @(
+    @{ Name = 'Time Zone Setting' },
+	@{ Name = 'Windows Updates' },
+    @{ Name = 'Local Account Setup' },
+    @{ Name = 'Bloat Cleanup' },
+    @{ Name = 'Program Installation' },
+    @{ Name = 'System Management' }
+)
+
+# Adjust GUI Height
+$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + $padding + $labelHeight
+$ModGUI.Size = New-Object System.Drawing.Size(400, $ModGUIHeight)
+$ModGUI.StartPosition = 'CenterScreen'
+
+# Prepare Module Checkboxes
+$ModGUIcheckboxes = @{ }
+$y = 20
+$ModGUIlabel = New-Object System.Windows.Forms.Label
+$ModGUIlabel.Text = "Modules:"
+$ModGUIlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUIlabel.Location = New-Object System.Drawing.Point(20, $y)
+$ModGUIlabel.AutoSize = $true
+$ModGUI.Controls.Add($ModGUIlabel)
+$y += $labelHeight
+foreach ($module in $modules) {
+    $ModGUIcheckbox = New-Object System.Windows.Forms.CheckBox
+    $ModGUIcheckbox.Location = New-Object System.Drawing.Point(20, $y)
+    $ModGUIcheckbox.Text = $module.Name
+	$ModGUIcheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $ModGUIcheckbox.AutoSize = $true
+    $ModGUI.Controls.Add($ModGUIcheckbox)
+    $ModGUIcheckboxes[$module.Name] = $ModGUIcheckbox
+    $y += $checkboxHeight
+}
+
+# Add OK button
+$ModGUIokButton = New-Object System.Windows.Forms.Button
+$y += 50
+$ModGUIokButton.Location = New-Object System.Drawing.Point( (400 - 75)/2, $y)
+$ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
+$ModGUIokButton.Text = "OK"
+$ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUI.Controls.Add($ModGUIokButton)
+
+# Define a function to handle the OK button click
+$ModGUIokButton.Add_Click({
+    # Disable OK button to prevent further clicks
+    $ModGUIokButton.Enabled = $false
+
+    # Set module enablement variables
+    $selectedModules = $ModGUIcheckboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
+    $totalModules = $selectedModules.Count
+    if ($totalModules -eq 0) {
+        Log-Message "No modules selected to run." "Skip"
+        $ModGUI.Close()
+        return
+    }
+    foreach ($moduleName in $selectedModules) {
+		Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
+    }
+    # Close the form once installation is complete
+    $ModGUI.Close()
+})
+
+# Show the GUI
+$ModGUI.ShowDialog() | Out-null
+
 # Run Time Zone Module
-$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
-. "$TZPath"
-Write-Host ""
+if ($Run_TimeZoneSetting) {
+	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
+	. "$TZPath"
+	Write-Host ""
+}
 
 # Setup prerequisites and start Windows update module
-$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
-Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
-$env:installCumulativeWU = Read-Host
-Log-Message "Starting Windows Updates in the Background..."
-$ProgressPreference = 'SilentlyContinue'
-Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
-Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
-Write-Host ""
+if ($Run_WindowsUpdates) {
+	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
+	Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
+	$env:installCumulativeWU = Read-Host
+	Log-Message "Starting Windows Updates in the Background..."
+	$ProgressPreference = 'SilentlyContinue'
+	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
+	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
+	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
+	Write-Host ""
+}
 
 # Run accounts module
-$AccountsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Accounts.ps1'
-. "$AccountsModPath"
-Write-Host ""
+if ($Run_LocalAccountSetup) {
+	$AccountsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Accounts.ps1'
+	. "$AccountsModPath"
+	Write-Host ""
+}
 
 # Run WinGet setup module
-$WinGetSetupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinGetSetup.ps1'
-. "$WinGetSetupModPath"
-Write-Host ""
+if ($Run_ProgramInstallation) {
+	$WinGetSetupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinGetSetup.ps1'
+	. "$WinGetSetupModPath"
+	Write-Host ""
+}
 
 # Run bloat cleanup module
-$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
-. "$BloatCleanupModPath"
-Write-Host ""
+if ($Run_BloatCleanup) {
+	$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
+	. "$BloatCleanupModPath"
+	Write-Host ""
+}
 
 # Run program installation module
-$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'
-. "$ProgramsModPath"
-Write-Host ""
+if ($Run_ProgramInstallation) {
+	$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'
+	. "$ProgramsModPath"
+	Write-Host ""
+}
 
 # Run system management module
-$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
-. "$SystemManagementModPath"
-Write-Host ""
+if ($Run_SystemManagement) {
+	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
+	. "$SystemManagementModPath"
+	Write-Host ""
+}
 
 # Final setup options
 $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
