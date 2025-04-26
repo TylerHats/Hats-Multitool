@@ -10,15 +10,15 @@ while ($loopTZ -eq "1") {
 		Log-Message "Setting Time Zone to Eastern Standard Time..."
 		Set-TimeZone -Name "Eastern Standard Time" | Out-File -Append -FilePath $logPath
 		$loopTZ = "0"
-	} else if ($TimeZone.ToLower() -eq "c" -or $TimeZone.ToLower() -eq "central") {
+	} elseif ($TimeZone.ToLower() -eq "c" -or $TimeZone.ToLower() -eq "central") {
 		Log-Message "Setting Time Zone to Central Standard Time..."
 		Set-TimeZone -Name "Central Standard Time" | Out-File -Append -FilePath $logPath
 		$loopTZ = "0"
-	} else if ($TimeZone.ToLower() -eq "m" -or $TimeZone.ToLower() -eq "mountain") {
+	} elseif ($TimeZone.ToLower() -eq "m" -or $TimeZone.ToLower() -eq "mountain") {
 		Log-Message "Setting Time Zone to Mountain Standard Time..."
 		Set-TimeZone -Name "Mountain Standard Time" | Out-File -Append -FilePath $logPath
 		$loopTZ = "0"
-	} else if ($TimeZone.ToLower() -eq "p" -or $TimeZone.ToLower() -eq "pacific") {
+	} elseif ($TimeZone.ToLower() -eq "p" -or $TimeZone.ToLower() -eq "pacific") {
 		Log-Message "Setting Time Zone to Pacific Standard Time..."
 		Set-TimeZone -Name "Pacific Standard Time" | Out-File -Append -FilePath $logPath
 		$loopTZ = "0"

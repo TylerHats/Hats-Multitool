@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.Windows.Forms
 $MainMenu = New-Object System.Windows.Forms.Form
 $MainMenu.Text = "Hat's Multitool"
 $MainMenu.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$MainMenu.Size = New-Object System.Drawing.Size(400, 500)
+$MainMenu.Size = New-Object System.Drawing.Size(200, 500)
 $MainMenu.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -21,13 +21,13 @@ $padding = 20
 
 # Adjust GUI Height
 $MainMenuHeight = ($buttonHeight * 4) + $padding
-$MainMenu.Size = New-Object System.Drawing.Size(400, $MainMenuHeight)
+$MainMenu.Size = New-Object System.Drawing.Size(300, $MainMenuHeight)
 $MainMenu.StartPosition = 'CenterScreen'
 
 # Add Setup button
-$y = 30
+$y = 45
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
-$MainMenuSetupButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
+$MainMenuSetupButton.Location = New-Object System.Drawing.Point(80, $y)
 $MainMenuSetupButton.Size = New-Object System.Drawing.Size(125, 30)
 $MainMenuSetupButton.Text = 'PC Setup & Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -36,7 +36,7 @@ $MainMenu.Controls.Add($MainMenuSetupButton)
 # Add Tools button
 $MainMenuToolsButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuToolsButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
+$MainMenuToolsButton.Location = New-Object System.Drawing.Point(80, $y)
 $MainMenuToolsButton.Size = New-Object System.Drawing.Size(125, 30)
 $MainMenuToolsButton.Text = 'Tools'
 $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -48,7 +48,7 @@ $WIPToolTip.SetToolTip($MainMenuToolsButton, "This feature is WIP and will be av
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
+$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(80, $y)
 $MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(125, 30)
 $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -59,7 +59,7 @@ $WIPToolTip.SetToolTip($MainMenuTroubleshootingButton, "This feature is WIP and 
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuAccountButton.Location = New-Object System.Drawing.Point( (400 - 125)/2, $y)
+$MainMenuAccountButton.Location = New-Object System.Drawing.Point(80, $y)
 $MainMenuAccountButton.Size = New-Object System.Drawing.Size(125, 30)
 $MainMenuAccountButton.Text = 'Account'
 $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -72,7 +72,7 @@ $MainMenuSetupButton.Add_Click({
     # Disable button to prevent further clicks
     $MainMenuSetupButton.Enabled = $false
     # Close and display Setup GUI
-	$Show_SetupGUI = $true
+	$Global:Show_SetupGUI = $true
     $MainMenu.Close()
 })
 
@@ -112,8 +112,8 @@ $modules = @(
 )
 
 # Adjust GUI Height
-$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + $padding + $labelHeight
-$ModGUI.Size = New-Object System.Drawing.Size(400, $ModGUIHeight)
+$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + ($padding * 2) + $labelHeight
+$ModGUI.Size = New-Object System.Drawing.Size(300, $ModGUIHeight)
 $ModGUI.StartPosition = 'CenterScreen'
 
 # Prepare Module Checkboxes
@@ -139,8 +139,8 @@ foreach ($module in $modules) {
 
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
-$y += 50
-$ModGUIokButton.Location = New-Object System.Drawing.Point( (400 - 75)/2, $y)
+$y += 10
+$ModGUIokButton.Location = New-Object System.Drawing.Point(80, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")

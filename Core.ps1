@@ -78,7 +78,7 @@ Log-Message "Verify no other windows are still working on background tasks after
 Log-Message "Press enter to exit the core script and run self-cleanup." "Success"
 Read-Host
 
-# Post execution cleanup
+# Post execution cleanup - NEEDS UPDATED AS SCRIPT MAY EXECUTE DIFFERENTLY AND NOT SET CLEANUP FLAG
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue) {
