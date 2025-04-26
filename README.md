@@ -10,7 +10,7 @@
 
 **Common.PS1:** *This file contains common variables and functions used in other scripts throughout the program.*
 
-**~Modules~.PS1:** *These are modules called on by* ***Core.PS1*** *that carry out various tasks as setup by user inputs.*
+**-Modules-.PS1:** *These are modules called on by* ***Core.PS1*** *that carry out various tasks as setup by user inputs.*
 
 ## Packaging
 
