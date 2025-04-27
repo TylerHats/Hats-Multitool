@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.1
 
 # Check program version against remote, update if needed
-$currentVersion = "2.0.2"
+$currentVersion = "2.0.3"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
@@ -12,7 +12,11 @@ Try {
 if ($skipUpdate -ne 1) {
 	$remoteVersion = $remoteRequest.Content
 	if ($currentVersion -eq $remoteVersion) {
-		Log-Message "The script is up to date. (Version $currentVersion)" "Info"
+		if ($env:hatsUpdated -eq "1") {
+			Log-Message "Program updated successfully! (Version $currentVersion)" "Success"
+		} else {
+			Log-Message "The script is up to date. (Version $currentVersion)" "Info"
+		}
 	} else {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
@@ -38,7 +42,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1") {
 	Write-Host ""
-	Log-Message "- Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub." "Info"
+	Log-Message "Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub." "Prompt"
 	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
-	Write-Host ""
+	Read-Host
 }
