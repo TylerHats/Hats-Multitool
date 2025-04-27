@@ -6,7 +6,7 @@ $loopTZ = "1"
 while ($loopTZ -eq "1") {
 	Log-Message "Please choose a Time Zone from p (Pacific), m (Mountain), c (Central), or E (Eastern):" "Prompt"
 	$TimeZone = Read-Host
-	if ($TimeZone.ToLower() -eq "e" -or $TimeZone.ToLower() -eq "eastern") {
+	if ($TimeZone.ToLower() -eq "e" -or $TimeZone.ToLower() -eq "eastern" -or $TimeZone.ToLower() -eq "") {
 		Log-Message "Setting Time Zone to Eastern Standard Time..."
 		Set-TimeZone -Name "Eastern Standard Time" | Out-File -Append -FilePath $logPath
 		$loopTZ = "0"

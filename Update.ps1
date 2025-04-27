@@ -42,7 +42,10 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1") {
 	Write-Host ""
-	Log-Message "Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub." "Prompt"
-	[System.Environment]::SetEnvironmentVariable("hatsUpdated", $null, [System.EnvironmentVariableTarget]::Machine)
+	Log-Message "Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub." "Skip"
+	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
+	Write-Host ""
+	Log-Message "Press any key to continue..." "Prompt"
 	Read-Host
 }

@@ -56,13 +56,13 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 Write-Host ""
 
 # Display Main Menu GUI
-Hide-ConsoleWindow
+Hide-ConsoleWindow | Out-Null
 $MainMenu.ShowDialog() | Out-null
 
 # Run PC Setup/Config GUI and Script
 if ($Show_SetupGUI) {
 	$ModGUI.ShowDialog() | Out-null
-	Show-ConsoleWindow
+	Show-ConsoleWindow | Out-Null
 	$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 	. "$SetupScriptModPath"
 }
@@ -78,6 +78,7 @@ if ($Show_SetupGUI) {
 
 # Failsafe for no selected options
 if ($Show_SetupGUI -ne $true) {
+	Show-ConsoleWindow | Out-Null
 	Log-Message "No options were selected in the Main Menu before it exited, skipping to end." "Error"
 }
 

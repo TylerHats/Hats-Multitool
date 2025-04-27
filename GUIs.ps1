@@ -140,7 +140,7 @@ foreach ($module in $modules) {
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
 $y += 10
-$ModGUIokButton.Location = New-Object System.Drawing.Point(100, $y)
+$ModGUIokButton.Location = New-Object System.Drawing.Point(110, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
