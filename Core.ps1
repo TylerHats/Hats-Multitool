@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.2
+# Core Script - Tyler Hatfield - v1.3
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -84,6 +84,7 @@ if ($Show_SetupGUI -ne $true) {
 # Reminders/Closing
 Log-Message "The multitool run has completed!"
 Log-Message "Verify no other windows are still working on background tasks after closing, then reboot if needed to complete setup, updates, etc."
+Write-Host ""
 Log-Message "Press enter to exit the core script and run self-cleanup." "Success"
 Read-Host
 
@@ -91,7 +92,6 @@ Read-Host
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
 if ($logContents -contains $cleanupCheckValue -or $Show_SetupGUI -ne $true) {
-	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
 	$folderToDelete = "$PSScriptRoot"
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand

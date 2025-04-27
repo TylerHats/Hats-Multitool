@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.4
+# Windows Update Module - Tyler Hatfield - v2.5
 
 <# 
 .SYNOPSIS
@@ -65,6 +65,8 @@ $excludeCumulative = $false
 if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
     $excludeCumulative = $true
     Write-Host "Excluding Cumulative updates..."
+	$clearEnvVarUpdateCommand = [System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarUpdateCommand" -Verb RunAs -WindowStyle Hidden
 }
 
 # Filter out cumulative updates if required

@@ -1,7 +1,7 @@
-# Self Update Module - Tyler Hatfield - v1.2
+# Self Update Module - Tyler Hatfield - v1.3
 
 # Check program version against remote, update if needed
-$currentVersion = "2.0.4"
+$currentVersion = "2.0.5"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
@@ -30,7 +30,7 @@ if ($skipUpdate -ne 1) {
 		} catch {
 			Log-Message "Failed to download update, please update manually." "Error"
 			Pause
-			Exit
+			$ForceExit = $true
 		}
 		# Cleanup and exit current script, then launch updated script
 		$env:hatsUpdated = "1"
@@ -42,7 +42,7 @@ if ($skipUpdate -ne 1) {
 }
 
 # Changelog Display
-if ($env:hatsUpdated -eq "1") {
+if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
 	Log-Message "Program sections have been broken up into 'modules' for dynamic use.`n- Each 'module' has been updated with minor changes for better interactivity.`n- Certain code has been reworked in preparation for a GUI.`n- The script has been renamed to the 'Hat's Multitool'.`n- This update is experimental due to the amount of changes, please report any issues on GitHub." "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"

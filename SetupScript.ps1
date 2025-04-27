@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.1
+# PC Setup and Config Script - Tyler Hatfield - v1.2
 
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
@@ -62,6 +62,8 @@ if (Test-Path $regPathNumLock) {
     Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
 	powercfg /hibernate off *>&1 | Out-File -Append -FilePath $logPath
     Log-Message "Enabled NUM Lock at boot by default." "Success"
+	Write-Host ""
 } else {
     Log-Message "Registry path $regPathNumLock does not exist." "Error"
+	Write-Host ""
 }
