@@ -86,10 +86,10 @@ Log-Message "Verify no other windows are still working on background tasks after
 Log-Message "Press enter to exit the core script and run self-cleanup." "Success"
 Read-Host
 
-# Post execution cleanup - NEEDS UPDATED AS SCRIPT MAY EXECUTE DIFFERENTLY AND NOT SET CLEANUP FLAG
+# Post execution cleanup
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
-if ($logContents -contains $cleanupCheckValue) {
+if ($logContents -contains $cleanupCheckValue -or $Show_SetupGUI -ne $true) {
 	[System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
 	$folderToDelete = "$PSScriptRoot"
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
