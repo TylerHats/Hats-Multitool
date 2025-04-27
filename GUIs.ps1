@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v1.1
+# GUI Setup File - Tyler Hatfield - v1.2
 
 # Setup Intro GUI
 # Prepare form

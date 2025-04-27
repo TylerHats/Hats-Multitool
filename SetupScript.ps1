@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1
+# PC Setup and Config Script - Tyler Hatfield - v1.1
 
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {

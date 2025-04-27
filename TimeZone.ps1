@@ -1,4 +1,4 @@
-# Time Zone Module - Tyler Hatfield - v1
+# Time Zone Module - Tyler Hatfield - v1.1
 
 # Prompt for time zone
 $loopTZ = "1"
