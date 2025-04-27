@@ -7,6 +7,7 @@ Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
 } catch {
 	Log-Message "Unable to determine remote version, skipping self update check."
+	Write-Host ""
 	$skipUpdate = 1
 }
 if ($skipUpdate -ne 1) {
@@ -16,6 +17,7 @@ if ($skipUpdate -ne 1) {
 			Log-Message "Program updated successfully! (Version $currentVersion)" "Success"
 		} else {
 			Log-Message "The script is up to date. (Version $currentVersion)" "Info"
+			Write-Host ""
 		}
 	} else {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"

@@ -44,7 +44,6 @@ if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
 . "$UpdateModPath"
 if ($ForceExit -eq $true) {exit 0}
-Write-Host ""
 
 # Prompt Hint
 Log-Message "Hint: When prompted for input, a capital letter infers a default if the prompt is left blank." "Skip"
