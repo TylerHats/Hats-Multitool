@@ -43,6 +43,7 @@ if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error
 # Run Self Update Module
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
 . "$UpdateModPath"
+if ($ForceExit -eq $true) {exit 0}
 Write-Host ""
 
 # Prompt Hint
@@ -76,7 +77,7 @@ if ($Show_SetupGUI) {
 #WIP
 
 # Failsafe for no selected options
-if (($Show_SetupGUI -ne $true) -and ($true)) {
+if ($Show_SetupGUI -ne $true) {
 	Log-Message "No options were selected in the Main Menu before it exited, skipping to end." "Error"
 }
 

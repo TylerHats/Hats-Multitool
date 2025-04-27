@@ -29,7 +29,7 @@ $y = 45
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
 $MainMenuSetupButton.Location = New-Object System.Drawing.Point(80, $y)
 $MainMenuSetupButton.Size = New-Object System.Drawing.Size(125, 30)
-$MainMenuSetupButton.Text = 'PC Setup & Config'
+$MainMenuSetupButton.Text = 'PC Setup and Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuSetupButton)
 
@@ -140,7 +140,7 @@ foreach ($module in $modules) {
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
 $y += 10
-$ModGUIokButton.Location = New-Object System.Drawing.Point(80, $y)
+$ModGUIokButton.Location = New-Object System.Drawing.Point(100, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
