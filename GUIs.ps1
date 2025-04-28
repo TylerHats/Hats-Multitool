@@ -124,7 +124,7 @@ $modules = @(
 )
 
 # Adjust GUI Height
-$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + ($padding * 2) + $labelHeight
+$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + ($padding * 3) + $labelHeight
 $ModGUI.Size = New-Object System.Drawing.Size(300, $ModGUIHeight)
 $ModGUI.StartPosition = 'CenterScreen'
 
@@ -149,14 +149,30 @@ foreach ($module in $modules) {
     $y += $checkboxHeight
 }
 
+# Add “Select All” button
+$SelectAllButton = New-Object System.Windows.Forms.Button
+$y += 10
+$SelectAllButton.Text = "Select All"
+$SelectAllButton.Size = New-Object System.Drawing.Size(75,30)
+$SelectAllButton.Location = New-Object System.Drawing.Point(110, $y)
+$SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUI.Controls.Add($SelectAllButton)
+
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
-$y += 10
+$y += 45
 $ModGUIokButton.Location = New-Object System.Drawing.Point(110, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUI.Controls.Add($ModGUIokButton)
+
+# when clicked, check every checkbox in the hashtable
+$SelectAllButton.Add_Click({
+    foreach ($cb in $ModGUIcheckboxes.Values) {
+        $cb.Checked = $true
+    }
+})
 
 # Define a function to handle the OK button click
 $ModGUIokButton.Add_Click({
