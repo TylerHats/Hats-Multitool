@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.3
+# Core Script - Tyler Hatfield - v1.4
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
