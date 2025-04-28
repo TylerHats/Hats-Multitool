@@ -97,6 +97,17 @@ $MainMenuExitButton.Add_Click({
     $MainMenu.Close()
 })
 
+# Catch closes to close program properly
+$MainMenu.Add_FormClosing({
+    param($sender, $e)
+    # $e.CloseReason tells you why it's closing
+    # UserClosing covers the “X” or Alt-F4
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+        # Do your “cleanup” or alternate logic here
+        $UserExit = $true
+    }
+})
+
 # Setup Module Selection GUI
 # Prepare form
 Log-Message "Preparing Module List..." "Info"
@@ -192,4 +203,15 @@ $ModGUIokButton.Add_Click({
     }
     # Close the form once complete
     $ModGUI.Close()
+})
+
+# Catch closes to close program properly
+$ModGUI.Add_FormClosing({
+    param($sender, $e)
+    # $e.CloseReason tells you why it's closing
+    # UserClosing covers the “X” or Alt-F4
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+        # Do your “cleanup” or alternate logic here
+        $UserExit = $true
+    }
 })

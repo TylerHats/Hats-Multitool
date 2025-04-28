@@ -57,10 +57,12 @@ Write-Host ""
 # Display Main Menu GUI
 Hide-ConsoleWindow | Out-Null
 $MainMenu.ShowDialog() | Out-null
+if ($UserExit -eq $true) {User-Exit}
 
 # Run PC Setup/Config GUI and Script
 if ($Show_SetupGUI) {
 	$ModGUI.ShowDialog() | Out-null
+	if ($UserExit -eq $true) {User-Exit}
 	Show-ConsoleWindow | Out-Null
 	$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 	. "$SetupScriptModPath"
