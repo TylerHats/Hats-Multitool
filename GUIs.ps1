@@ -42,8 +42,6 @@ $MainMenuToolsButton.Text = 'Tools'
 $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuToolsButton)
 $MainMenuToolsButton.Enabled = $false # Disabled, WIP
-$WIPToolTip = New-Object System.Windows.Forms.ToolTip
-$WIPToolTip.SetToolTip($MainMenuToolsButton, "This feature is WIP and will be available in a future update.")
 
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
@@ -54,7 +52,6 @@ $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuTroubleshootingButton)
 $MainMenuTroubleshootingButton.Enabled = $false # Disabled, WIP
-$WIPToolTip.SetToolTip($MainMenuTroubleshootingButton, "This feature is WIP and will be available in a future update.")
 
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
@@ -65,7 +62,6 @@ $MainMenuAccountButton.Text = 'Account'
 $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenu.Controls.Add($MainMenuAccountButton)
 $MainMenuAccountButton.Enabled = $false # Disabled, WIP
-$WIPToolTip.SetToolTip($MainMenuAccountButton, "This feature is WIP and will be available in a future update.")
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
