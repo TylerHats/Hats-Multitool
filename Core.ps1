@@ -91,11 +91,8 @@ Read-Host
 # Post execution cleanup
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath
-if ($logContents -contains $cleanupCheckValue -or $Show_SetupGUI -ne $true) {
-	$folderToDelete = "$PSScriptRoot"
-	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
-	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-	exit 0
+if ($logContents -contains $cleanupCheckValue -or $WinUpdatesRun -ne $true) {
+	User-Exit
 } else {
 	Add-Content -Path $logPath -Value $cleanupCheckValue
 	exit 0

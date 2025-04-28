@@ -20,7 +20,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$MainMenuHeight = ($buttonHeight * 4) + $padding
+$MainMenuHeight = ($buttonHeight * 5) + $padding
 $MainMenu.Size = New-Object System.Drawing.Size(300, $MainMenuHeight)
 $MainMenu.StartPosition = 'CenterScreen'
 
@@ -63,6 +63,15 @@ $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#
 $MainMenu.Controls.Add($MainMenuAccountButton)
 $MainMenuAccountButton.Enabled = $false # Disabled, WIP
 
+# Exit button
+$MainMenuExitButton = New-Object System.Windows.Forms.Button
+$y += 60
+$MainMenuExitButton.Location = New-Object System.Drawing.Point(100, $y)
+$MainMenuExitButton.Size = New-Object System.Drawing.Size(85, 30)
+$MainMenuExitButton.Text = 'Exit'
+$MainMenuExitButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenu.Controls.Add($MainMenuExitButton)
+
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
     # Disable button to prevent further clicks
@@ -80,6 +89,13 @@ $MainMenuSetupButton.Add_Click({
 
 # Define Account button click
 #WIP
+
+# Define Exit button click
+$MainMenuExitButton.Add_Click({
+    # Set exit flag and close form
+    $Global:UserExit = $true
+    $MainMenu.Close()
+})
 
 # Setup Module Selection GUI
 # Prepare form

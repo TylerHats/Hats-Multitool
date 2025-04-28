@@ -9,6 +9,7 @@ if ($Run_TimeZoneSetting) {
 
 # Setup prerequisites and start Windows update module
 if ($Run_WindowsUpdates) {
+	$UpdatesRun = $true
 	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
 	Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
 	$env:installCumulativeWU = Read-Host

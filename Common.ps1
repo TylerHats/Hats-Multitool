@@ -4,6 +4,8 @@
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
+$UserExit = $false
+$WinUpdatesRun = $false
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -76,4 +78,12 @@ function Show-ConsoleWindow {
     $consolePtr = [Win32]::GetConsoleWindow()
     # 5 = Show normally
     [Win32]::ShowWindow($consolePtr, 5)
+}
+
+# Common function for user requested exits
+function User-Exit {
+    $folderToDelete = "$PSScriptRoot"
+	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
+	exit 0
 }
