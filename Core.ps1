@@ -59,7 +59,7 @@ Show-MainMenu
 
 # Reminders/Closing
 Show-RemindersPopup
-
+pause
 # Post execution cleanup
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath

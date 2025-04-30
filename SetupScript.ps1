@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.3
+# PC Setup and Config Script - Tyler Hatfield - v1.4
 
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
@@ -9,7 +9,7 @@ if ($Run_TimeZoneSetting) {
 
 # Setup prerequisites and start Windows update module
 if ($Run_WindowsUpdates) {
-	$UpdatesRun = $true
+	$Global:WinUpdatesRun = $true
 	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
 	Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
 	$env:installCumulativeWU = Read-Host
