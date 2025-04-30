@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.4
+# PC Setup and Config Script - Tyler Hatfield - v1.5
 
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
@@ -57,14 +57,16 @@ if ($Run_SystemManagement) {
 }
 
 # Final setup options
-$regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
-if (Test-Path $regPathNumLock) {
-    # Set the InitialKeyboardIndicators value to 2 (Enables numlock by default) and disable Fast Startup for registry loading
-    Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
-	powercfg /hibernate off *>&1 | Out-File -Append -FilePath $logPath
-    Log-Message "Enabled NUM Lock at boot by default." "Success"
-	Write-Host ""
-} else {
-    Log-Message "Registry path $regPathNumLock does not exist." "Error"
-	Write-Host ""
+if ($Run_NUMLockDefault) {
+	$regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
+	if (Test-Path $regPathNumLock) {
+		# Set the InitialKeyboardIndicators value to 2 (Enables numlock by default) and disable Fast Startup for registry loading
+		Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
+		powercfg /hibernate off *>&1 | Out-File -Append -FilePath $logPath
+		Log-Message "Enabled NUM Lock at boot by default." "Success"
+		Write-Host ""
+	} else {
+		Log-Message "Registry path $regPathNumLock does not exist." "Error"
+		Write-Host ""
+	}
 }

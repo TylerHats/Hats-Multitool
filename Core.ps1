@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.5
+# Core Script - Tyler Hatfield - v1.6
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -49,17 +49,12 @@ if ($ForceExit -eq $true) {exit 0}
 Log-Message "Hint: When prompted for input, a capital letter infers a default if the prompt is left blank." "Skip"
 Write-Host ""
 
-# Load GUI Configs
-$GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
-. "$GUIPath"
-Write-Host ""
-
 # Display Main Menu GUI
 Show-MainMenu
 
 # Reminders/Closing
 Show-RemindersPopup
-pause
+
 # Post execution cleanup
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
 $logContents = Get-Content -Path $logPath

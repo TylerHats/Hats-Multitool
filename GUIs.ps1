@@ -1,9 +1,12 @@
-# GUI Setup File - Tyler Hatfield - v1.5
+# GUI Setup File - Tyler Hatfield - v2.0
+
+# Setup Global Forms styling
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 
 # Setup Intro GUI
 # Prepare form
-Log-Message "Preparing Main Menu..." "Info"
-Add-Type -AssemblyName System.Windows.Forms
 $MainMenu = New-Object System.Windows.Forms.Form
 $MainMenu.Text = "Hat's Multitool"
 $MainMenu.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -12,6 +15,10 @@ $MainMenu.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $MainMenu.Icon = $HMTIcon
+$MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$MainMenu.MaximizeBox = $false
+$font = New-Object System.Drawing.Font("Segoe UI", 10)
+$MainMenu.Font = $font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -20,46 +27,54 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$MainMenuHeight = ($buttonHeight * 5) + $padding
+$MainMenuHeight = ($buttonHeight * 5)
 $MainMenu.Size = New-Object System.Drawing.Size(300, $MainMenuHeight)
 $MainMenu.StartPosition = 'CenterScreen'
 
 # Add Setup button
 $y = 45
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
-$MainMenuSetupButton.Location = New-Object System.Drawing.Point(80, $y)
-$MainMenuSetupButton.Size = New-Object System.Drawing.Size(125, 30)
+$MainMenuSetupButton.Location = New-Object System.Drawing.Point(55, $y)
+$MainMenuSetupButton.Size = New-Object System.Drawing.Size(175, 30)
 $MainMenuSetupButton.Text = 'PC Setup and Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuSetupButton.FlatStyle = 'Flat'
+$MainMenuSetupButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuSetupButton)
 
 # Add Tools button
 $MainMenuToolsButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuToolsButton.Location = New-Object System.Drawing.Point(80, $y)
-$MainMenuToolsButton.Size = New-Object System.Drawing.Size(125, 30)
+$MainMenuToolsButton.Location = New-Object System.Drawing.Point(55, $y)
+$MainMenuToolsButton.Size = New-Object System.Drawing.Size(175, 30)
 $MainMenuToolsButton.Text = 'Tools'
 $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuToolsButton.FlatStyle = 'Flat'
+$MainMenuToolsButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuToolsButton)
 $MainMenuToolsButton.Enabled = $false # Disabled, WIP
 
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(80, $y)
-$MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(125, 30)
+$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(55, $y)
+$MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(175, 30)
 $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuTroubleshootingButton.FlatStyle = 'Flat'
+$MainMenuTroubleshootingButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuTroubleshootingButton)
 $MainMenuTroubleshootingButton.Enabled = $false # Disabled, WIP
 
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuAccountButton.Location = New-Object System.Drawing.Point(80, $y)
-$MainMenuAccountButton.Size = New-Object System.Drawing.Size(125, 30)
+$MainMenuAccountButton.Location = New-Object System.Drawing.Point(55, $y)
+$MainMenuAccountButton.Size = New-Object System.Drawing.Size(175, 30)
 $MainMenuAccountButton.Text = 'Account'
 $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuAccountButton.FlatStyle = 'Flat'
+$MainMenuAccountButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuAccountButton)
 $MainMenuAccountButton.Enabled = $false # Disabled, WIP
 
@@ -70,14 +85,16 @@ $MainMenuExitButton.Location = New-Object System.Drawing.Point(100, $y)
 $MainMenuExitButton.Size = New-Object System.Drawing.Size(85, 30)
 $MainMenuExitButton.Text = 'Exit'
 $MainMenuExitButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuExitButton.FlatStyle = 'Flat'
+$MainMenuExitButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuExitButton)
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
-    # Disable button to prevent further clicks
-    $MainMenuSetupButton.Enabled = $false
+	$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
     # Close and display Setup GUI
 	$Global:Show_SetupGUI = $true
+	$Global:IntClose = $true
     $MainMenu.Close()
 })
 
@@ -102,7 +119,7 @@ $MainMenu.Add_FormClosing({
     param($sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
-    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
     }
@@ -110,13 +127,15 @@ $MainMenu.Add_FormClosing({
 
 # Setup Module Selection GUI
 # Prepare form
-Log-Message "Preparing Module List..." "Info"
 $ModGUI = New-Object System.Windows.Forms.Form
 $ModGUI.Text = "Hat's Multitool"
 $ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ModGUI.Size = New-Object System.Drawing.Size(400, 500)
 $ModGUI.StartPosition = 'CenterScreen'
 $ModGUI.Icon = $HMTIcon
+$ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$ModGUI.MaximizeBox = $false
+$ModGUI.Font = $font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -131,11 +150,12 @@ $modules = @(
     @{ Name = 'Local Account Setup' },
     @{ Name = 'Bloat Cleanup' },
     @{ Name = 'Program Installation' },
-    @{ Name = 'System Management' }
+    @{ Name = 'System Management' },
+	@{ Name = 'NUM Lock Default' }
 )
 
 # Adjust GUI Height
-$ModGUIHeight = ($modules.Count * $checkboxHeight) + $buttonHeight + ($padding * 3) + $labelHeight
+$ModGUIHeight = ($modules.Count * $checkboxHeight) + ($buttonHeight * 2) + ($padding * 3) + $labelHeight
 $ModGUI.Size = New-Object System.Drawing.Size(300, $ModGUIHeight)
 $ModGUI.StartPosition = 'CenterScreen'
 
@@ -162,11 +182,13 @@ foreach ($module in $modules) {
 
 # Add “Select All” button
 $SelectAllButton = New-Object System.Windows.Forms.Button
-$y += 10
+$y += 15
 $SelectAllButton.Text = "Select All"
 $SelectAllButton.Size = New-Object System.Drawing.Size(75,30)
 $SelectAllButton.Location = New-Object System.Drawing.Point(110, $y)
 $SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$SelectAllButton.FlatStyle = 'Flat'
+$SelectAllButton.FlatAppearance.BorderSize = 1
 $ModGUI.Controls.Add($SelectAllButton)
 
 # Add OK button
@@ -176,6 +198,8 @@ $ModGUIokButton.Location = New-Object System.Drawing.Point(110, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUIokButton.FlatStyle = 'Flat'
+$ModGUIokButton.FlatAppearance.BorderSize = 1
 $ModGUI.Controls.Add($ModGUIokButton)
 
 # Add Back button
@@ -185,6 +209,8 @@ $ModGUIBackButton.Location = New-Object System.Drawing.Point(110, $y)
 $ModGUIBackButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIBackButton.Text = "Back"
 $ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUIBackButton.FlatStyle = 'Flat'
+$ModGUIBackButton.FlatAppearance.BorderSize = 1
 $ModGUI.Controls.Add($ModGUIBackButton)
 
 # when clicked, check every checkbox in the hashtable
@@ -196,14 +222,12 @@ $SelectAllButton.Add_Click({
 
 # Define a function to handle the OK button click
 $ModGUIokButton.Add_Click({
-    # Disable OK button to prevent further clicks
-    $ModGUIokButton.Enabled = $false
-
     # Set module enablement variables
     $selectedModules = $ModGUIcheckboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
     $totalModules = $selectedModules.Count
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
+		$Global:IntClose = $true
         $ModGUI.Close()
         return
     }
@@ -211,22 +235,23 @@ $ModGUIokButton.Add_Click({
 		Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
     }
     # Close the form once complete
+	$Global:IntClose = $true
     $ModGUI.Close()
 })
 
 # Define back button function
 $ModGUIBackButton.Add_Click({
-	$ModGUIBackButton.Enabled = $false
 	$Global:ReShowMainMenu = $true
+	$Global:IntClose = $true
 	$ModGUI.Close()
-)}
+})
 
 # Catch closes to close program properly
 $ModGUI.Add_FormClosing({
     param($sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
-    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
     }
@@ -234,13 +259,15 @@ $ModGUI.Add_FormClosing({
 
 # Closing regards/reminders popup
 # Prepare form
-Log-Message "Preparing Reminders Popup..." "Info"
 $ReminderPopup = New-Object System.Windows.Forms.Form
 $ReminderPopup.Text = "Hat's Multitool"
 $ReminderPopup.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ReminderPopup.Size = New-Object System.Drawing.Size(400, 500)
 $ReminderPopup.StartPosition = 'CenterScreen'
 $ReminderPopup.Icon = $HMTIcon
+$ReminderPopup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$ReminderPopup.MaximizeBox = $false
+$ReminderPopup.Font = $font
 
 # Form size variables
 $buttonHeight = 80      # Height of the OK button
@@ -248,24 +275,48 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
+$y = 20
 $ReminderPopupHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
-$ReminderPopup.Size = New-Object System.Drawing.Size(600, $ReminderPopupHeight)
+$ReminderPopup.Size = New-Object System.Drawing.Size(700, $ReminderPopupHeight)
 $ReminderPopup.StartPosition = 'CenterScreen'
 
 # Add popup Text
 $ReminderPopuplabel = New-Object System.Windows.Forms.Label
-$ReminderPopuplabel.Text = "The multitool run has completed! Please check for any background windows and reboot if needed to finalize changes. Press OK to exit."
+$ReminderPopuplabel.Text = "The multitool run has completed!`nPlease check for any background windows and reboot if needed to finalize changes. Press OK to exit."
 $ReminderPopuplabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ReminderPopuplabel.Location = New-Object System.Drawing.Point(20, $y)
+$ReminderPopuplabel.Location = New-Object System.Drawing.Point(25, $y)
 $ReminderPopuplabel.AutoSize = $true
+$ReminderPopuplabel.TextAlign = 'TopCenter'
+$ReminderPopuplabel.Width = 650
+$ReminderPopuplabel.Height = 80
+$ReminderPopuplabel.MaximumSize = '650,0'
 $ReminderPopup.Controls.Add($ReminderPopuplabel)
 $y += $labelHeight
 
 # Add OK button
 $ReminderPopupokButton = New-Object System.Windows.Forms.Button
-$y += 45
-$ReminderPopupokButton.Location = New-Object System.Drawing.Point(110, $y)
+$y += 20
+$ReminderPopupokButton.Location = New-Object System.Drawing.Point(300, $y)
 $ReminderPopupokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ReminderPopupokButton.Text = "OK"
 $ReminderPopupokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ReminderPopupokButton.FlatStyle = 'Flat'
+$ReminderPopupokButton.FlatAppearance.BorderSize = 1
 $ReminderPopup.Controls.Add($ReminderPopupokButton)
+
+# Define back button function
+$ReminderPopupokButton.Add_Click({
+	$Global:IntClose = $true
+	$ReminderPopup.Close()
+})
+
+# Catch closes to close program properly
+$ReminderPopup.Add_FormClosing({
+    param($sender, $e)
+    # $e.CloseReason tells you why it's closing
+    # UserClosing covers the “X” or Alt-F4
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
+        # Do your “cleanup” or alternate logic here
+        $Global:UserExit = $true
+    }
+})

@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.2
+# Common File - Tyler Hatfield - v1.3
 
 # Common Variables:
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
@@ -6,6 +6,7 @@ $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
 $UserExit = $false
 $WinUpdatesRun = $false
+$Global:IntClose = $false
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -32,7 +33,7 @@ try {
 function Log-Message {
     param(
         [string]$message,
-        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip
+        [string]$level = ""  # Options: Info, Success, Error, Prompt, Skip
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "$timestamp [$level] - $message"
@@ -48,7 +49,9 @@ function Log-Message {
         Write-Host $consoleMessage -ForegroundColor "Green"
 	} elseif ($level.ToLower() -eq "skip") {
 		Write-Host $consoleMessage -ForegroundColor "Cyan"
-    } else {
+    } elseif ($level.ToLower() -eq "logonly") {
+		$null = $null
+	} else {
         Write-Host $consoleMessage
     }
 }
@@ -88,26 +91,41 @@ function User-Exit {
 	exit 0
 }
 
+# Load GUI Configs as function for reuse
+$GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
+. "$GUIPath"
+
 #GUI Functions
 function Show-MainMenu {
 	Hide-ConsoleWindow | Out-Null
 	$MainMenu.ShowDialog() | Out-null
 	if ($UserExit -eq $true) {User-Exit}
-	if ($Show_SetupGUI -eq $true) {Show-ModGUI}
+	$Global:IntClose = $false
+	if ($Show_SetupGUI -eq $true) {
+		$Show_SetupGUI = $false
+		Show-ModGUI
+	}
 }
 
 function Show-ModGUI {
-	Hide-ConsoleWindow
+	Hide-ConsoleWindow | Out-Null
 	$ModGUI.ShowDialog() | Out-null
 	if ($UserExit -eq $true) {User-Exit}
-	Show-ConsoleWindow | Out-Null
-	$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
-	. "$SetupScriptModPath"
-	if ($ReShowMainMenu -eq $true) {Show-MainMenu}
+	$Global:IntClose = $false
+	if ($ReShowMainMenu -eq $true) {
+		$ReShowMainMenu = $false
+		Show-MainMenu
+	}
+	if ($ReShowMainMenu -ne $true) {
+		Show-ConsoleWindow | Out-Null
+		$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
+		. "$SetupScriptModPath"
+	}
 }
 
 function Show-RemindersPopup {
-	Hide-ConsoleWindow
+	Hide-ConsoleWindow | Out-Null
 	$ReminderPopup.ShowDialog() | Out-Null
 	if ($UserExit -eq $true) {User-Exit}
+	$Global:IntClose = $false
 }

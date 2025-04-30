@@ -1,7 +1,7 @@
-# Self Update Module - Tyler Hatfield - v1.3
+# Self Update Module - Tyler Hatfield - v1.4
 
 # Check program version against remote, update if needed
-$currentVersion = "2.0.5"
+$currentVersion = "2.1.0"
 $skipUpdate = 0
 Try {
 	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt"
