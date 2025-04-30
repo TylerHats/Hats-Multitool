@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v1.4
+# GUI Setup File - Tyler Hatfield - v1.5
 
 # Setup Intro GUI
 # Prepare form
@@ -104,7 +104,7 @@ $MainMenu.Add_FormClosing({
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
         # Do your “cleanup” or alternate logic here
-        $UserExit = $true
+        $Global:UserExit = $true
     }
 })
 
@@ -112,7 +112,7 @@ $MainMenu.Add_FormClosing({
 # Prepare form
 Log-Message "Preparing Module List..." "Info"
 $ModGUI = New-Object System.Windows.Forms.Form
-$ModGUI.Text = 'Module Selection List'
+$ModGUI.Text = "Hat's Multitool"
 $ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ModGUI.Size = New-Object System.Drawing.Size(400, 500)
 $ModGUI.StartPosition = 'CenterScreen'
@@ -143,7 +143,7 @@ $ModGUI.StartPosition = 'CenterScreen'
 $ModGUIcheckboxes = @{ }
 $y = 20
 $ModGUIlabel = New-Object System.Windows.Forms.Label
-$ModGUIlabel.Text = "Modules:"
+$ModGUIlabel.Text = "Please Select Modules:"
 $ModGUIlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUIlabel.Location = New-Object System.Drawing.Point(20, $y)
 $ModGUIlabel.AutoSize = $true
@@ -178,6 +178,15 @@ $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUI.Controls.Add($ModGUIokButton)
 
+# Add Back button
+$ModGUIBackButton = New-Object System.Windows.Forms.Button
+$y += 45
+$ModGUIBackButton.Location = New-Object System.Drawing.Point(110, $y)
+$ModGUIBackButton.Size = New-Object System.Drawing.Size(75, 30)
+$ModGUIBackButton.Text = "Back"
+$ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModGUI.Controls.Add($ModGUIBackButton)
+
 # when clicked, check every checkbox in the hashtable
 $SelectAllButton.Add_Click({
     foreach ($cb in $ModGUIcheckboxes.Values) {
@@ -205,6 +214,13 @@ $ModGUIokButton.Add_Click({
     $ModGUI.Close()
 })
 
+# Define back button function
+$ModGUIBackButton.Add_Click({
+	$ModGUIBackButton.Enabled = $false
+	$Global:ReShowMainMenu = $true
+	$ModGUI.Close()
+)}
+
 # Catch closes to close program properly
 $ModGUI.Add_FormClosing({
     param($sender, $e)
@@ -212,6 +228,44 @@ $ModGUI.Add_FormClosing({
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
         # Do your “cleanup” or alternate logic here
-        $UserExit = $true
+        $Global:UserExit = $true
     }
 })
+
+# Closing regards/reminders popup
+# Prepare form
+Log-Message "Preparing Reminders Popup..." "Info"
+$ReminderPopup = New-Object System.Windows.Forms.Form
+$ReminderPopup.Text = "Hat's Multitool"
+$ReminderPopup.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$ReminderPopup.Size = New-Object System.Drawing.Size(400, 500)
+$ReminderPopup.StartPosition = 'CenterScreen'
+$ReminderPopup.Icon = $HMTIcon
+
+# Form size variables
+$buttonHeight = 80      # Height of the OK button
+$labelHeight = 30       # Height of text labels
+$padding = 20
+
+# Adjust GUI Height
+$ReminderPopupHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
+$ReminderPopup.Size = New-Object System.Drawing.Size(600, $ReminderPopupHeight)
+$ReminderPopup.StartPosition = 'CenterScreen'
+
+# Add popup Text
+$ReminderPopuplabel = New-Object System.Windows.Forms.Label
+$ReminderPopuplabel.Text = "The multitool run has completed! Please check for any background windows and reboot if needed to finalize changes. Press OK to exit."
+$ReminderPopuplabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ReminderPopuplabel.Location = New-Object System.Drawing.Point(20, $y)
+$ReminderPopuplabel.AutoSize = $true
+$ReminderPopup.Controls.Add($ReminderPopuplabel)
+$y += $labelHeight
+
+# Add OK button
+$ReminderPopupokButton = New-Object System.Windows.Forms.Button
+$y += 45
+$ReminderPopupokButton.Location = New-Object System.Drawing.Point(110, $y)
+$ReminderPopupokButton.Size = New-Object System.Drawing.Size(75, 30)
+$ReminderPopupokButton.Text = "OK"
+$ReminderPopupokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ReminderPopup.Controls.Add($ReminderPopupokButton)

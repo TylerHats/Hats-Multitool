@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.4
+# Core Script - Tyler Hatfield - v1.5
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -55,40 +55,10 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 Write-Host ""
 
 # Display Main Menu GUI
-Hide-ConsoleWindow | Out-Null
-$MainMenu.ShowDialog() | Out-null
-if ($UserExit -eq $true) {User-Exit}
-
-# Run PC Setup/Config GUI and Script
-if ($Show_SetupGUI) {
-	$ModGUI.ShowDialog() | Out-null
-	if ($UserExit -eq $true) {User-Exit}
-	Show-ConsoleWindow | Out-Null
-	$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
-	. "$SetupScriptModPath"
-}
-
-# Run Tools option
-#WIP
-
-# Run Troubleshooting option
-#WIP
-
-# Run Account option
-#WIP
-
-# Failsafe for no selected options
-if ($Show_SetupGUI -ne $true) {
-	Show-ConsoleWindow | Out-Null
-	Log-Message "No options were selected in the Main Menu before it exited, skipping to end." "Error"
-}
+Show-MainMenu
 
 # Reminders/Closing
-Log-Message "The multitool run has completed!"
-Log-Message "Verify no other windows are still working on background tasks after closing, then reboot if needed to complete setup, updates, etc."
-Write-Host ""
-Log-Message "Press enter to exit the core script and run self-cleanup." "Success"
-Read-Host
+Show-RemindersPopup
 
 # Post execution cleanup
 $cleanupCheckValue = "ScriptFolderIsReadyForCleanup"

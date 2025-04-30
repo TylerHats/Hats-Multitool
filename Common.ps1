@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.1
+# Common File - Tyler Hatfield - v1.2
 
 # Common Variables:
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
@@ -86,4 +86,28 @@ function User-Exit {
 	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 	exit 0
+}
+
+#GUI Functions
+function Show-MainMenu {
+	Hide-ConsoleWindow | Out-Null
+	$MainMenu.ShowDialog() | Out-null
+	if ($UserExit -eq $true) {User-Exit}
+	if ($Show_SetupGUI -eq $true) {Show-ModGUI}
+}
+
+function Show-ModGUI {
+	Hide-ConsoleWindow
+	$ModGUI.ShowDialog() | Out-null
+	if ($UserExit -eq $true) {User-Exit}
+	Show-ConsoleWindow | Out-Null
+	$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
+	. "$SetupScriptModPath"
+	if ($ReShowMainMenu -eq $true) {Show-MainMenu}
+}
+
+function Show-RemindersPopup {
+	Hide-ConsoleWindow
+	$ReminderPopup.ShowDialog() | Out-Null
+	if ($UserExit -eq $true) {User-Exit}
 }
