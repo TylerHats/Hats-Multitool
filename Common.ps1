@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.3
+# Common File - Tyler Hatfield - v1.4
 
 # Common Variables:
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
@@ -97,8 +97,9 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 
 #GUI Functions
 function Show-MainMenu {
-	Hide-ConsoleWindow | Out-Null
-	$MainMenu.ShowDialog() | Out-null
+	#Hide-ConsoleWindow | Out-Null
+	$MainMenu.Show() | Out-null
+	while ($MainMenu.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
 	if ($UserExit -eq $true) {User-Exit}
 	$Global:IntClose = $false
 	if ($Show_SetupGUI -eq $true) {
@@ -108,24 +109,24 @@ function Show-MainMenu {
 }
 
 function Show-ModGUI {
-	Hide-ConsoleWindow | Out-Null
-	$ModGUI.ShowDialog() | Out-null
+	#Hide-ConsoleWindow | Out-Null
+	$ModGUI.Show() | Out-null
+	while ($ModGUI.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 	if ($UserExit -eq $true) {User-Exit}
 	$Global:IntClose = $false
 	if ($ReShowMainMenu -eq $true) {
 		$ReShowMainMenu = $false
 		Show-MainMenu
-	}
-	if ($ReShowMainMenu -ne $true) {
-		Show-ConsoleWindow | Out-Null
+	} else {
 		$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 		. "$SetupScriptModPath"
 	}
 }
 
 function Show-RemindersPopup {
-	Hide-ConsoleWindow | Out-Null
-	$ReminderPopup.ShowDialog() | Out-Null
+	#Hide-ConsoleWindow | Out-Null
+	$ReminderPopup.Show() | Out-Null
+	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 	if ($UserExit -eq $true) {User-Exit}
 	$Global:IntClose = $false
 }

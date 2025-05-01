@@ -1,5 +1,7 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.5
+# PC Setup and Config Script - Tyler Hatfield - v1.6
 
+# Core setup Script
+if ($SetupScriptRuns -eq 0) {
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
 	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
@@ -69,4 +71,6 @@ if ($Run_NUMLockDefault) {
 		Log-Message "Registry path $regPathNumLock does not exist." "Error"
 		Write-Host ""
 	}
+}
+$SetupScriptRuns += 1
 }

@@ -91,11 +91,11 @@ $MainMenu.Controls.Add($MainMenuExitButton)
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
-	$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
+	#$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
     # Close and display Setup GUI
 	$Global:Show_SetupGUI = $true
 	$Global:IntClose = $true
-    $MainMenu.Close()
+    $MainMenu.Hide()
 })
 
 # Define Tools button click
@@ -111,7 +111,7 @@ $MainMenuSetupButton.Add_Click({
 $MainMenuExitButton.Add_Click({
     # Set exit flag and close form
     $Global:UserExit = $true
-    $MainMenu.Close()
+    $MainMenu.Hide()
 })
 
 # Catch closes to close program properly
@@ -228,7 +228,7 @@ $ModGUIokButton.Add_Click({
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
 		$Global:IntClose = $true
-        $ModGUI.Close()
+        $ModGUI.Hide()
         return
     }
     foreach ($moduleName in $selectedModules) {
@@ -236,14 +236,14 @@ $ModGUIokButton.Add_Click({
     }
     # Close the form once complete
 	$Global:IntClose = $true
-    $ModGUI.Close()
+    $ModGUI.Hide()
 })
 
 # Define back button function
 $ModGUIBackButton.Add_Click({
 	$Global:ReShowMainMenu = $true
 	$Global:IntClose = $true
-	$ModGUI.Close()
+	$ModGUI.Hide()
 })
 
 # Catch closes to close program properly
@@ -307,7 +307,7 @@ $ReminderPopup.Controls.Add($ReminderPopupokButton)
 # Define back button function
 $ReminderPopupokButton.Add_Click({
 	$Global:IntClose = $true
-	$ReminderPopup.Close()
+	$ReminderPopup.Hide()
 })
 
 # Catch closes to close program properly

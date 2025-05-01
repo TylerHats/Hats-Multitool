@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.6
+# Core Script - Tyler Hatfield - v1.7
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -39,6 +39,7 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
+$SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
 
 # Run Self Update Module
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
