@@ -33,7 +33,7 @@ try {
 function Log-Message {
     param(
         [string]$message,
-        [string]$level = ""  # Options: Info, Success, Error, Prompt, Skip
+        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "$timestamp [$level] - $message"

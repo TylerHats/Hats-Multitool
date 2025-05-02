@@ -95,7 +95,7 @@ $MainMenuSetupButton.Add_Click({
     # Close and display Setup GUI
     $MainMenu.Hide()
     Show-ModGUI
-    $GUIClosed = $true
+    $Global:GUIClosed = $true
 })
 
 # Define Tools button click
@@ -111,7 +111,7 @@ $MainMenuSetupButton.Add_Click({
 $MainMenuExitButton.Add_Click({
     # Set exit flag and close form
     $Global:UserExit = $true
-    $GUIClosed = $true
+    $Global:GUIClosed = $true
     $MainMenu.Hide()
 })
 
@@ -229,7 +229,7 @@ $ModGUIokButton.Add_Click({
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
         $ModGUI.Hide()
-        $GUIClosed = $true
+        $Global:GUIClosed = $true
         return
     }
     foreach ($moduleName in $selectedModules) {
@@ -239,14 +239,14 @@ $ModGUIokButton.Add_Click({
     $ModGUI.Hide()
     $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 	. "$SetupScriptModPath"
-    $GUIClosed = $true
+    $Global:GUIClosed = $true
 })
 
 # Define back button function
 $ModGUIBackButton.Add_Click({
 	$ModGUI.Hide()
     Show-MainMenu
-    $GUIClosed = $true
+    $Global:GUIClosed = $true
 })
 
 # Catch closes to close program properly
