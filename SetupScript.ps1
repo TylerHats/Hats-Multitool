@@ -73,4 +73,7 @@ if ($Run_NUMLockDefault) {
 	}
 }
 $SetupScriptRuns += 1
+$MainMenuSetupButton.Enabled = $false
+} else {
+	Log-Message "Something appears to have gone wrong, the setup script has already run. Please try opening the program fresh." "Error"
 }

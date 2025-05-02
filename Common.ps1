@@ -97,7 +97,7 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 
 #GUI Functions
 function Show-MainMenu {
-	#Hide-ConsoleWindow | Out-Null
+	Hide-ConsoleWindow | Out-Null
 	$MainMenu.Show() | Out-null
 	while ($MainMenu.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
 	$GUIClosed = $false
@@ -105,7 +105,7 @@ function Show-MainMenu {
 }
 
 function Show-ModGUI {
-	#Hide-ConsoleWindow | Out-Null
+	Hide-ConsoleWindow | Out-Null
 	$ModGUI.Show() | Out-null
 	while ($ModGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 	$GUIClosed = $false
@@ -113,7 +113,7 @@ function Show-ModGUI {
 }
 
 function Show-RemindersPopup {
-	#Hide-ConsoleWindow | Out-Null
+	Hide-ConsoleWindow | Out-Null
 	$ReminderPopup.Show() | Out-Null
 	while ($ReminderPopup.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 	$GUIClosed = $false
