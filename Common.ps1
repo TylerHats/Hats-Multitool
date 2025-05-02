@@ -6,7 +6,7 @@ $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
 $UserExit = $false
 $WinUpdatesRun = $false
-$Global:IntClose = $false
+$GUIClosed = $false
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -99,34 +99,23 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 function Show-MainMenu {
 	#Hide-ConsoleWindow | Out-Null
 	$MainMenu.Show() | Out-null
-	while ($MainMenu.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
+	while ($MainMenu.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
+	$GUIClosed = $false
 	if ($UserExit -eq $true) {User-Exit}
-	$Global:IntClose = $false
-	if ($Show_SetupGUI -eq $true) {
-		$Show_SetupGUI = $false
-		Show-ModGUI
-	}
 }
 
 function Show-ModGUI {
 	#Hide-ConsoleWindow | Out-Null
 	$ModGUI.Show() | Out-null
-	while ($ModGUI.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+	while ($ModGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+	$GUIClosed = $false
 	if ($UserExit -eq $true) {User-Exit}
-	$Global:IntClose = $false
-	if ($ReShowMainMenu -eq $true) {
-		$ReShowMainMenu = $false
-		Show-MainMenu
-	} else {
-		$SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
-		. "$SetupScriptModPath"
-	}
 }
 
 function Show-RemindersPopup {
 	#Hide-ConsoleWindow | Out-Null
 	$ReminderPopup.Show() | Out-Null
-	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+	while ($ReminderPopup.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+	$GUIClosed = $false
 	if ($UserExit -eq $true) {User-Exit}
-	$Global:IntClose = $false
 }

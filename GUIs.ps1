@@ -93,9 +93,9 @@ $MainMenu.Controls.Add($MainMenuExitButton)
 $MainMenuSetupButton.Add_Click({
 	#$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
     # Close and display Setup GUI
-	$Global:Show_SetupGUI = $true
-	$Global:IntClose = $true
     $MainMenu.Hide()
+    Show-ModGUI
+    $GUIClosed = $true
 })
 
 # Define Tools button click
@@ -111,6 +111,7 @@ $MainMenuSetupButton.Add_Click({
 $MainMenuExitButton.Add_Click({
     # Set exit flag and close form
     $Global:UserExit = $true
+    $GUIClosed = $true
     $MainMenu.Hide()
 })
 
@@ -227,23 +228,25 @@ $ModGUIokButton.Add_Click({
     $totalModules = $selectedModules.Count
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
-		$Global:IntClose = $true
         $ModGUI.Hide()
+        $GUIClosed = $true
         return
     }
     foreach ($moduleName in $selectedModules) {
 		Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
     }
     # Close the form once complete
-	$Global:IntClose = $true
     $ModGUI.Hide()
+    $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
+	. "$SetupScriptModPath"
+    $GUIClosed = $true
 })
 
 # Define back button function
 $ModGUIBackButton.Add_Click({
-	$Global:ReShowMainMenu = $true
-	$Global:IntClose = $true
 	$ModGUI.Hide()
+    Show-MainMenu
+    $GUIClosed = $true
 })
 
 # Catch closes to close program properly
@@ -306,7 +309,6 @@ $ReminderPopup.Controls.Add($ReminderPopupokButton)
 
 # Define back button function
 $ReminderPopupokButton.Add_Click({
-	$Global:IntClose = $true
 	$ReminderPopup.Hide()
 })
 
