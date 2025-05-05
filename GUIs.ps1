@@ -189,7 +189,7 @@ $SelectAllButton = New-Object System.Windows.Forms.Button
 $y += 15
 $SelectAllButton.Text = "Select All"
 $SelectAllButton.Size = New-Object System.Drawing.Size(75,30)
-$SelectAllButton.Location = New-Object System.Drawing.Point(110, $y)
+$SelectAllButton.Location = New-Object System.Drawing.Point(100, $y)
 $SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SelectAllButton.FlatStyle = 'Flat'
 $SelectAllButton.FlatAppearance.BorderSize = 1
@@ -198,7 +198,7 @@ $ModGUI.Controls.Add($SelectAllButton)
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
 $y += 45
-$ModGUIokButton.Location = New-Object System.Drawing.Point(110, $y)
+$ModGUIokButton.Location = New-Object System.Drawing.Point(100, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -209,7 +209,7 @@ $ModGUI.Controls.Add($ModGUIokButton)
 # Add Back button
 $ModGUIBackButton = New-Object System.Windows.Forms.Button
 $y += 45
-$ModGUIBackButton.Location = New-Object System.Drawing.Point(110, $y)
+$ModGUIBackButton.Location = New-Object System.Drawing.Point(100, $y)
 $ModGUIBackButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIBackButton.Text = "Back"
 $ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -344,6 +344,7 @@ $ToolsGUITabs.Dock = 'Fill'
 $pages = @('Internal','3rd Party')
 foreach ($name in $pages) {
     $page = New-Object System.Windows.Forms.TabPage($name)
+    $page.UseVisualStyleBackColor = $false
     $ToolsGUITabs.TabPages.Add($page)
 }
 
@@ -366,13 +367,13 @@ $ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
 $ToolsInfo.AutoSize = $true
 $ToolsInfo.TextAlign = 'TopCenter'
-$ToolsGUI.Controls.Add($ToolsInfo)
+$ToolsGUITabs.TabPages[0].Controls.Add($ToolsInfo)
 $y += $labelHeight
 
 # Add TEST button
 $TESTButton = New-Object System.Windows.Forms.Button
 $y += 20
-$TESTButton.Location = New-Object System.Drawing.Point(200, $y)
+$TESTButton.Location = New-Object System.Drawing.Point(165, $y)
 $TESTButton.Size = New-Object System.Drawing.Size(75, 30)
 $TESTButton.Text = "TEST"
 $TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -384,7 +385,7 @@ $ToolsGUITabs.TabPages[0].Controls.Add($TESTButton)
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 20
-$BackButton.Location = New-Object System.Drawing.Point(200, $y)
+$BackButton.Location = New-Object System.Drawing.Point(182, $y)
 $BackButton.Size = New-Object System.Drawing.Size(35, 30)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
