@@ -342,7 +342,7 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
+$ToolsGUIHeight = ($buttonHeight * 2) + ($padding * 1) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(350, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -359,19 +359,34 @@ $y += $labelHeight
 # Add TEST button
 $TESTButton = New-Object System.Windows.Forms.Button
 $y += 20
-$TESTButton.Location = New-Object System.Drawing.Point(305, $y)
+$TESTButton.Location = New-Object System.Drawing.Point(200, $y)
 $TESTButton.Size = New-Object System.Drawing.Size(75, 30)
 $TESTButton.Text = "TEST"
 $TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TESTButton.FlatStyle = 'Flat'
 $TESTButton.FlatAppearance.BorderSize = 1
+$TESTButton.Enabled = $false
 $ToolsGUI.Controls.Add($TESTButton)
 
 # Add back button
+$BackButton = New-Object System.Windows.Forms.Button
+$y += 20
+$BackButton.Location = New-Object System.Drawing.Point(200, $y)
+$BackButton.Size = New-Object System.Drawing.Size(35, 30)
+$BackButton.Text = "Back"
+$BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$BackButton.FlatStyle = 'Flat'
+$BackButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($BackButton)
 
 # Define TEST button functions
 
 # Define back button
+$BackButton.Add_Click({
+	$ToolsGUI.Hide()
+    Show-MainMenu
+    $Global:GUIClosed = $true
+})
 
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
