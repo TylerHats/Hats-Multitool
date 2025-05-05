@@ -1,6 +1,7 @@
 # PC Setup and Config Script - Tyler Hatfield - v1.6
 
 # Core setup Script
+Show-ConsoleWindow
 if ($SetupScriptRuns -eq 0) {
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
