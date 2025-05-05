@@ -345,6 +345,7 @@ $pages = @('Internal','3rd Party')
 foreach ($name in $pages) {
     $page = New-Object System.Windows.Forms.TabPage($name)
     $page.UseVisualStyleBackColor = $false
+    $page.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
     $ToolsGUITabs.TabPages.Add($page)
 }
 
@@ -356,7 +357,7 @@ $padding = 20
 # Adjust GUI Height
 $y = 20
 $ToolsGUIHeight = ($buttonHeight * 2) + ($padding * 1) + ($labelHeight * 1)
-$ToolsGUI.Size = New-Object System.Drawing.Size(350, $ToolsGUIHeight)
+$ToolsGUI.Size = New-Object System.Drawing.Size(400, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
 # Page 'Internal' [0] contents
@@ -373,8 +374,8 @@ $y += $labelHeight
 # Add TEST button
 $TESTButton = New-Object System.Windows.Forms.Button
 $y += 20
-$TESTButton.Location = New-Object System.Drawing.Point(165, $y)
-$TESTButton.Size = New-Object System.Drawing.Size(75, 30)
+$TESTButton.Location = New-Object System.Drawing.Point(130, $y)
+$TESTButton.Size = New-Object System.Drawing.Size(150, 30)
 $TESTButton.Text = "TEST"
 $TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TESTButton.FlatStyle = 'Flat'
@@ -385,8 +386,8 @@ $ToolsGUITabs.TabPages[0].Controls.Add($TESTButton)
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 20
-$BackButton.Location = New-Object System.Drawing.Point(182, $y)
-$BackButton.Size = New-Object System.Drawing.Size(35, 30)
+$BackButton.Location = New-Object System.Drawing.Point(165, $y)
+$BackButton.Size = New-Object System.Drawing.Size(75, 30)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BackButton.FlatStyle = 'Flat'
