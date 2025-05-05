@@ -374,7 +374,7 @@ $y += $labelHeight
 # Add TEST button
 $TESTButton = New-Object System.Windows.Forms.Button
 $y += 20
-$TESTButton.Location = New-Object System.Drawing.Point(130, $y)
+$TESTButton.Location = New-Object System.Drawing.Point(100, $y)
 $TESTButton.Size = New-Object System.Drawing.Size(150, 30)
 $TESTButton.Text = "TEST"
 $TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -385,8 +385,8 @@ $ToolsGUITabs.TabPages[0].Controls.Add($TESTButton)
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
-$y += 20
-$BackButton.Location = New-Object System.Drawing.Point(165, $y)
+$y += 50
+$BackButton.Location = New-Object System.Drawing.Point(135, $y)
 $BackButton.Size = New-Object System.Drawing.Size(75, 30)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
