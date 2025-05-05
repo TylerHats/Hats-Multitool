@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.0
+# GUI Setup File - Tyler Hatfield - v2.1
 
 # Setup Global Forms styling
 Add-Type -AssemblyName System.Windows.Forms
