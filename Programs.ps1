@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1
+# Programs Module - Tyler Hatfield - v1.1
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -8,6 +8,13 @@ $form.Text = 'Program Selection List'
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.Size = New-Object System.Drawing.Size(400, 500)
 $form.StartPosition = 'CenterScreen'
+$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
+$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
+$form.Icon = $HMTIcon
+$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$form.MaximizeBox = $false
+$font = New-Object System.Drawing.Font("Segoe UI", 10)
+$form.Font = $font
 
 # Dynamic size based on number of programs
 $checkboxHeight = 30    # Height of each checkbox
@@ -109,6 +116,8 @@ $okButton.Location = New-Object System.Drawing.Point(150, $y)
 $okButton.Size = New-Object System.Drawing.Size(75, 30)
 $okButton.Text = "OK"
 $okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$okButton.FlatStyle = 'Flat'
+$okButton.FlatAppearance.BorderSize = 1
 $form.Controls.Add($okButton)
 
 # Define a function to handle the OK button click
