@@ -119,3 +119,11 @@ function Show-RemindersPopup {
 	$GUIClosed = $false
 	if ($UserExit -eq $true) {User-Exit}
 }
+
+function Show-ToolsGUI {
+    Hide-ConsoleWindow | Out-Null
+    $ToolsGUI.Show() | Out-Null
+    while ($ToolsGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+    $GUIClosed = $false
+    if ($UserExit -eq $true) {User-Exit}
+}

@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 
-# Setup Intro GUI
+# Setup Intro GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
 $MainMenu = New-Object System.Windows.Forms.Form
 $MainMenu.Text = "Hat's Multitool"
@@ -126,7 +126,7 @@ $MainMenu.Add_FormClosing({
     }
 })
 
-# Setup Module Selection GUI
+# Setup Module Selection GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
 $ModGUI = New-Object System.Windows.Forms.Form
 $ModGUI.Text = "Hat's Multitool"
@@ -260,7 +260,7 @@ $ModGUI.Add_FormClosing({
     }
 })
 
-# Closing regards/reminders popup
+# Closing regards/reminders popup ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
 $ReminderPopup = New-Object System.Windows.Forms.Form
 $ReminderPopup.Text = "Hat's Multitool"
@@ -314,6 +314,67 @@ $ReminderPopupokButton.Add_Click({
 
 # Catch closes to close program properly
 $ReminderPopup.Add_FormClosing({
+    param($sender, $e)
+    # $e.CloseReason tells you why it's closing
+    # UserClosing covers the “X” or Alt-F4
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
+        # Do your “cleanup” or alternate logic here
+        $Global:UserExit = $true
+    }
+})
+
+# Tools Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+#Prepare Form
+$ToolsGUI = New-Object System.Windows.Forms.Form
+$ToolsGUI.Text = "Hat's Multitool"
+$ToolsGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$ToolsGUI.Size = New-Object System.Drawing.Size(400, 500)
+$ToolsGUI.StartPosition = 'CenterScreen'
+$ToolsGUI.Icon = $HMTIcon
+$ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$ToolsGUI.MaximizeBox = $false
+$ToolsGUI.Font = $font
+
+# Form size variables
+$buttonHeight = 80      # Height of the OK button
+$labelHeight = 30       # Height of text labels
+$padding = 20
+
+# Adjust GUI Height
+$y = 20
+$ToolsGUIHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
+$ToolsGUI.Size = New-Object System.Drawing.Size(350, $ToolsGUIHeight)
+$ToolsGUI.StartPosition = 'CenterScreen'
+
+# Add info text
+$ToolsInfo = New-Object System.Windows.Forms.Label
+$ToolsInfo.Text = "Press a button to launch the relevant tool:"
+$ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
+$ToolsInfo.AutoSize = $true
+$ToolsInfo.TextAlign = 'TopCenter'
+$ToolsGUI.Controls.Add($ToolsInfo)
+$y += $labelHeight
+
+# Add TEST button
+$TESTButton = New-Object System.Windows.Forms.Button
+$y += 20
+$TESTButton.Location = New-Object System.Drawing.Point(305, $y)
+$TESTButton.Size = New-Object System.Drawing.Size(75, 30)
+$TESTButton.Text = "TEST"
+$TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TESTButton.FlatStyle = 'Flat'
+$TESTButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($TESTButton)
+
+# Add back button
+
+# Define TEST button functions
+
+# Define back button
+
+# Catch closes to close program properly
+$ToolsGUI.Add_FormClosing({
     param($sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
