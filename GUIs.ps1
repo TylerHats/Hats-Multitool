@@ -52,7 +52,6 @@ $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9
 $MainMenuToolsButton.FlatStyle = 'Flat'
 $MainMenuToolsButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuToolsButton)
-$MainMenuToolsButton.Enabled = $false # Disabled, WIP
 
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
@@ -99,7 +98,11 @@ $MainMenuSetupButton.Add_Click({
 })
 
 # Define Tools button click
-#WIP
+$MainMenuToolsButton.Add_Click({
+    $MainMenu.Hide()
+    Show-ToolsGUI
+    $Global:GUIClosed = $true
+})
 
 # Define Troubleshooting button click
 #WIP
@@ -324,7 +327,7 @@ $ReminderPopup.Add_FormClosing({
 })
 
 # Tools Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-#Prepare Form
+# Prepare Form
 $ToolsGUI = New-Object System.Windows.Forms.Form
 $ToolsGUI.Text = "Hat's Multitool"
 $ToolsGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -334,6 +337,15 @@ $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
+
+# Prepare pages
+$ToolsGUITabs = New-Object System.Windows.Forms.TabControl
+$ToolsGUITabs.Dock = 'Fill'
+$pages = @('Internal','3rd Party')
+foreach ($name in $pages) {
+    $page = New-Object System.Windows.Forms.TabPage($name)
+    $ToolsGUITabs.TabPages.Add($page)
+}
 
 # Form size variables
 $buttonHeight = 80      # Height of the OK button
@@ -346,6 +358,7 @@ $ToolsGUIHeight = ($buttonHeight * 2) + ($padding * 1) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(350, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
+# Page 'Internal' [0] contents
 # Add info text
 $ToolsInfo = New-Object System.Windows.Forms.Label
 $ToolsInfo.Text = "Press a button to launch the relevant tool:"
@@ -366,7 +379,7 @@ $TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TESTButton.FlatStyle = 'Flat'
 $TESTButton.FlatAppearance.BorderSize = 1
 $TESTButton.Enabled = $false
-$ToolsGUI.Controls.Add($TESTButton)
+$ToolsGUITabs.TabPages[0].Controls.Add($TESTButton)
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
@@ -377,7 +390,7 @@ $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($BackButton)
+$ToolsGUITabs.TabPages[0].Controls.Add($BackButton)
 
 # Define TEST button functions
 
@@ -387,6 +400,21 @@ $BackButton.Add_Click({
     Show-MainMenu
     $Global:GUIClosed = $true
 })
+
+# Page '3rd Party' [1] contents
+# Info label
+$y = 20
+$ToolsInfo2 = New-Object System.Windows.Forms.Label
+$ToolsInfo2.Text = "Test page, thanks :)"
+$ToolsInfo2.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ToolsInfo2.Location = New-Object System.Drawing.Point(30, $y)
+$ToolsInfo2.AutoSize = $true
+$ToolsInfo2.TextAlign = 'TopCenter'
+$ToolsGUITabs.TabPages[1].Controls.Add($ToolsInfo2)
+$y += $labelHeight
+
+# Add pages to GUI
+$ToolsGUI.Controls.Add($ToolsGUITabs)
 
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
