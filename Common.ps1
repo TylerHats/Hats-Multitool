@@ -94,6 +94,17 @@ namespace ConsoleUtils {
 "@
 Add-Type -TypeDefinition $code -Language CSharp
 
+# Used to control DPI rendering of Forms GUIS
+Add-Type -MemberDefinition @"
+    using System;
+    using System.Runtime.InteropServices;
+    public static class DpiHelper {
+        [DllImport("user32.dll")]
+        public static extern bool SetProcessDPIAware();
+    }
+"@ -Name DpiHelper -Namespace Dpi
+[Dpi.DpiHelper]::SetProcessDPIAware() | Out-Null
+
 # Function to hide the console window
 function Hide-ConsoleWindow {
     $consolePtr = [Win32]::GetConsoleWindow()

@@ -19,6 +19,7 @@ $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
 $font = New-Object System.Drawing.Font("Segoe UI", 10)
 $MainMenu.Font = $font
+$MainMenu.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -140,6 +141,7 @@ $ModGUI.Icon = $HMTIcon
 $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.Font = $font
+$ModGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -274,6 +276,7 @@ $ReminderPopup.Icon = $HMTIcon
 $ReminderPopup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ReminderPopup.MaximizeBox = $false
 $ReminderPopup.Font = $font
+$ReminderPopup.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Form size variables
 $buttonHeight = 80      # Height of the OK button
@@ -337,6 +340,7 @@ $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
+$ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Prepare pages
 $ToolsGUITabs = New-Object System.Windows.Forms.TabControl
