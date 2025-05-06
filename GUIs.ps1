@@ -344,11 +344,11 @@ $ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Prepare pages
 $ToolsGUITabs = New-Object System.Windows.Forms.TabControl
-<#[ConsoleUtils.NativeMethods]::SetWindowTheme(
+[ConsoleUtils.NativeMethods]::SetWindowTheme(
     $ToolsGUITabs.Handle,
     "",    # empty string = “no class theming”
     ""     # empty string = “no part theming”
-) | Out-Null#>
+) | Out-Null
 $ToolsGUITabs.Dock = 'Fill'
 $ToolsGUITabs.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ToolsGUITabs.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
