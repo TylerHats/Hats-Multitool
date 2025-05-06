@@ -341,11 +341,14 @@ $ToolsGUI.Font = $font
 # Prepare pages
 $ToolsGUITabs = New-Object System.Windows.Forms.TabControl
 $ToolsGUITabs.Dock = 'Fill'
+$ToolsGUITabs.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$ToolsGUITabs.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $pages = @('Internal','3rd Party')
 foreach ($name in $pages) {
     $page = New-Object System.Windows.Forms.TabPage($name)
     $page.UseVisualStyleBackColor = $false
     $page.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $page.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $ToolsGUITabs.TabPages.Add($page)
 }
 
