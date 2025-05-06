@@ -95,15 +95,19 @@ namespace ConsoleUtils {
 Add-Type -TypeDefinition $code -Language CSharp
 
 # Used to control DPI rendering of Forms GUIS
-Add-Type -MemberDefinition @"
-    using System;
-    using System.Runtime.InteropServices;
-    public static class DpiHelper {
+$dpiCode = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace MyApp.Helpers {
+    public static class DPI {
         [DllImport("user32.dll")]
         public static extern bool SetProcessDPIAware();
     }
-"@ -Name DpiHelper -Namespace Dpi
-[Dpi.DpiHelper]::SetProcessDPIAware() | Out-Null
+}
+"@
+Add-Type -TypeDefinition $dpiCode -Language CSharp
+[MyApp.Helpers.DPI]::SetProcessDPIAware() | Out-Null
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
