@@ -35,8 +35,8 @@ $MainMenu.StartPosition = 'CenterScreen'
 # Add Setup button
 $y = 45
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
-$MainMenuSetupButton.Location = New-Object System.Drawing.Point(55, $y)
-$MainMenuSetupButton.Size = New-Object System.Drawing.Size(175, 30)
+$MainMenuSetupButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuSetupButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuSetupButton.Text = 'PC Setup and Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuSetupButton.FlatStyle = 'Flat'
@@ -46,8 +46,8 @@ $MainMenu.Controls.Add($MainMenuSetupButton)
 # Add Tools button
 $MainMenuToolsButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuToolsButton.Location = New-Object System.Drawing.Point(55, $y)
-$MainMenuToolsButton.Size = New-Object System.Drawing.Size(175, 30)
+$MainMenuToolsButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuToolsButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuToolsButton.Text = 'Tools'
 $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuToolsButton.FlatStyle = 'Flat'
@@ -57,8 +57,8 @@ $MainMenu.Controls.Add($MainMenuToolsButton)
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(55, $y)
-$MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(175, 30)
+$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuTroubleshootingButton.FlatStyle = 'Flat'
@@ -69,8 +69,8 @@ $MainMenuTroubleshootingButton.Enabled = $false # Disabled, WIP
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
 $y += 60
-$MainMenuAccountButton.Location = New-Object System.Drawing.Point(55, $y)
-$MainMenuAccountButton.Size = New-Object System.Drawing.Size(175, 30)
+$MainMenuAccountButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuAccountButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuAccountButton.Text = 'Account'
 $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuAccountButton.FlatStyle = 'Flat'
@@ -82,7 +82,7 @@ $MainMenuAccountButton.Enabled = $false # Disabled, WIP
 $MainMenuExitButton = New-Object System.Windows.Forms.Button
 $y += 60
 $MainMenuExitButton.Location = New-Object System.Drawing.Point(100, $y)
-$MainMenuExitButton.Size = New-Object System.Drawing.Size(85, 30)
+$MainMenuExitButton.Size = New-Object System.Drawing.Size(85, 40)
 $MainMenuExitButton.Text = 'Exit'
 $MainMenuExitButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuExitButton.FlatStyle = 'Flat'
@@ -344,11 +344,11 @@ $ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Prepare pages
 $ToolsGUITabs = New-Object System.Windows.Forms.TabControl
-[ConsoleUtils.NativeMethods]::SetWindowTheme(
+<#[ConsoleUtils.NativeMethods]::SetWindowTheme(
     $ToolsGUITabs.Handle,
     "",    # empty string = “no class theming”
     ""     # empty string = “no part theming”
-) | Out-Null
+) | Out-Null#> # Causes old windows format/styling on tabs dock, custom colors may not be directly achievable
 $ToolsGUITabs.Dock = 'Fill'
 $ToolsGUITabs.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ToolsGUITabs.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
