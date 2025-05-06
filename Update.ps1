@@ -2,6 +2,7 @@
 
 # Check program version against remote, update if needed
 $currentVersionString = "2.2.0"
+$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
 $skipUpdate = 0
 Try {
@@ -28,8 +29,8 @@ if ($skipUpdate -ne 1) {
 			Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 			$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
 			$shell = New-Object -ComObject Shell.Application
-			$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 			$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+			Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 			Try {
 				Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
 			} catch {
@@ -49,8 +50,8 @@ if ($skipUpdate -ne 1) {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
 		$shell = New-Object -ComObject Shell.Application
-		$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 		$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+		Add-MpPreference -ExclusionPath $downloadsFolder | Out-File -FilePath $logPath -Append
 		Try {
 			Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
 		} catch {
@@ -72,6 +73,7 @@ if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
 	Log-Message "`nPENDING NEXT RELEASE" "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
+	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
 	Write-Host ""
 	Log-Message "Press any key to continue..." "Prompt"
