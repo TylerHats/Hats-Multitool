@@ -2,6 +2,7 @@
 
 # Check program version against remote, update if needed
 $currentVersionString = "2.2.1"
+$shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
 $skipUpdate = 0
@@ -28,7 +29,6 @@ if ($skipUpdate -ne 1) {
 		if ($ReplaceNewer -match 'y|yes') {
 			Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 			$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
-			$shell = New-Object -ComObject Shell.Application
 			$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
 			Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 			Try {
@@ -49,7 +49,6 @@ if ($skipUpdate -ne 1) {
 	} else {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
-		$shell = New-Object -ComObject Shell.Application
 		$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
 		Add-MpPreference -ExclusionPath $downloadsFolder | Out-File -FilePath $logPath -Append
 		Try {

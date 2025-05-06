@@ -57,6 +57,7 @@ function Log-Message {
 }
 
 # Load required functions to interact with Windows
+# Used for PowerShell Console window show/hide interactions
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -69,16 +70,26 @@ public class Win32 {
 }
 "@
 
-Add-Type -Namespace ConsoleUtils -Name NativeMethods -MemberDefinition @"
-    using System;
-    using System.Runtime.InteropServices;
+# Used for PowerShell Console window focusing
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace ConsoleUtils {
     public static class NativeMethods {
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
+
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        // If you need ShowWindow:
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
+}
 "@
+Add-Type -TypeDefinition $code -Language CSharp
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
