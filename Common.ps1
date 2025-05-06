@@ -1,12 +1,18 @@
 # Common File - Tyler Hatfield - v1.6
 
-# Common Variables:
+# Common Variables & packages:
+Add-Type -AssemblyName System.Windows.Forms
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
 $UserExit = $false
 $WinUpdatesRun = $false
 $GUIClosed = $false
+$ProgramExiting = $false
+$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
+#$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
+$HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
+$SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -67,8 +73,25 @@ public class Win32 {
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("kernel32.dll")]
     public static extern IntPtr GetConsoleWindow();
+	[DllImport("user32.dll")]   
+	public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 }
 "@
+
+# constants for WM_SETICON
+$WM_SETICON = 0x80
+$ICON_SMALL = 0
+$ICON_BIG   = 1
+
+# grab our icon handle
+$hIcon = $HMTIcon.Handle
+
+# get the console window and swap in our icon
+$wParamSmall = New-Object System.IntPtr($ICON_SMALL)
+$wParamBig   = New-Object System.IntPtr($ICON_BIG)
+$hwnd = [Win32]::GetConsoleWindow()
+[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamBig,   $hIcon) | Out-Null
 
 # Used for PowerShell Console window focusing and GUI theming
 $code = @"
@@ -129,13 +152,20 @@ function Show-ConsoleWindow {
 
 # Common function for user requested exits
 function User-Exit {
-    $folderToDelete = "$PSScriptRoot"
-	$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'"
-	Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-	exit 0
+	if ($ProgramExiting -ne $true) {
+		$ProgramExiting = $true
+		[System.Windows.Forms.Application]::Exit()
+		$psi = [System.Diagnostics.ProcessStartInfo]::new()
+		$psi.FileName        = 'powershell.exe'
+		$psi.Arguments       = "-NoProfile -Command `"Start-Sleep -Seconds 2; Remove-Item -Path '$PSScriptRoot' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'`""
+		$psi.CreateNoWindow  = $true
+		$psi.UseShellExecute = $false
+		[System.Diagnostics.Process]::Start($psi) | Out-Null
+		[System.Environment]::Exit(0)
+	}
 }
 
-# Load GUI Configs as function for reuse
+# Load GUI Configs
 $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 . "$GUIPath"
 

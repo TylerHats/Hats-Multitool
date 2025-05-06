@@ -70,7 +70,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
-	Log-Message "`nPENDING NEXT RELEASE" "Skip"
+	Log-Message "`n- Improved program exiting logic and cleanliness.`n- Adjusted and improved clerity of GUIs with high DPI support.`n- Enabled new Tools GUI with initial tools now available.`n- Added Windows Defender bypass to allow proper self updates.`n- Improved general program usability and quality.`n- General bug fixes." "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
 	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden

@@ -1,7 +1,6 @@
 # GUI Setup File - Tyler Hatfield - v2.1
 
 # Setup Global Forms styling
-Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 
@@ -12,8 +11,6 @@ $MainMenu.Text = "Hat's Multitool"
 $MainMenu.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $MainMenu.Size = New-Object System.Drawing.Size(200, 500)
 $MainMenu.StartPosition = 'CenterScreen'
-$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
-$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $MainMenu.Icon = $HMTIcon
 $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
@@ -127,6 +124,7 @@ $MainMenu.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
+		$Global:GUIClosed = $true
     }
 })
 
@@ -191,7 +189,7 @@ $SelectAllButton = New-Object System.Windows.Forms.Button
 $y += 15
 $SelectAllButton.Text = "Select All"
 $SelectAllButton.Size = New-Object System.Drawing.Size(75,30)
-$SelectAllButton.Location = New-Object System.Drawing.Point(100, $y)
+$SelectAllButton.Location = New-Object System.Drawing.Point(105, $y)
 $SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SelectAllButton.FlatStyle = 'Flat'
 $SelectAllButton.FlatAppearance.BorderSize = 1
@@ -200,7 +198,7 @@ $ModGUI.Controls.Add($SelectAllButton)
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
 $y += 45
-$ModGUIokButton.Location = New-Object System.Drawing.Point(100, $y)
+$ModGUIokButton.Location = New-Object System.Drawing.Point(105, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -211,7 +209,7 @@ $ModGUI.Controls.Add($ModGUIokButton)
 # Add Back button
 $ModGUIBackButton = New-Object System.Windows.Forms.Button
 $y += 45
-$ModGUIBackButton.Location = New-Object System.Drawing.Point(100, $y)
+$ModGUIBackButton.Location = New-Object System.Drawing.Point(105, $y)
 $ModGUIBackButton.Size = New-Object System.Drawing.Size(75, 30)
 $ModGUIBackButton.Text = "Back"
 $ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -262,6 +260,7 @@ $ModGUI.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
+		$Global:GUIClosed = $true
     }
 })
 
@@ -326,6 +325,7 @@ $ReminderPopup.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
+		$Global:GUIClosed = $true
     }
 })
 
@@ -341,25 +341,7 @@ $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
 $ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
-
-# Prepare pages
-$ToolsGUITabs = New-Object System.Windows.Forms.TabControl
-<#[ConsoleUtils.NativeMethods]::SetWindowTheme(
-    $ToolsGUITabs.Handle,
-    "",    # empty string = “no class theming”
-    ""     # empty string = “no part theming”
-) | Out-Null#> # Causes old windows format/styling on tabs dock, custom colors may not be directly achievable
-$ToolsGUITabs.Dock = 'Fill'
-$ToolsGUITabs.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$ToolsGUITabs.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$pages = @('Internal','3rd Party')
-foreach ($name in $pages) {
-    $page = New-Object System.Windows.Forms.TabPage($name)
-    $page.UseVisualStyleBackColor = $false
-    $page.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $page.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $ToolsGUITabs.TabPages.Add($page)
-}
+$ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
 $buttonHeight = 80      # Height of the OK button
@@ -368,11 +350,10 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 2) + ($padding * 1) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 3) + ($padding * 0) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(400, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
-# Page 'Internal' [0] contents
 # Add info text
 $ToolsInfo = New-Object System.Windows.Forms.Label
 $ToolsInfo.Text = "Press a button to launch the relevant tool:"
@@ -380,33 +361,56 @@ $ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
 $ToolsInfo.AutoSize = $true
 $ToolsInfo.TextAlign = 'TopCenter'
-$ToolsGUITabs.TabPages[0].Controls.Add($ToolsInfo)
+$ToolsGUI.Controls.Add($ToolsInfo)
 $y += $labelHeight
 
-# Add TEST button
-$TESTButton = New-Object System.Windows.Forms.Button
-$y += 20
-$TESTButton.Location = New-Object System.Drawing.Point(100, $y)
-$TESTButton.Size = New-Object System.Drawing.Size(150, 30)
-$TESTButton.Text = "TEST"
-$TESTButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$TESTButton.FlatStyle = 'Flat'
-$TESTButton.FlatAppearance.BorderSize = 1
-$TESTButton.Enabled = $false
-$ToolsGUITabs.TabPages[0].Controls.Add($TESTButton)
+# Add User Data Tool button
+$UserDataButton = New-Object System.Windows.Forms.Button
+$y += 10
+$UserDataButton.Location = New-Object System.Drawing.Point(110, $y)
+$UserDataButton.Size = New-Object System.Drawing.Size(170, 40)
+$UserDataButton.Text = "User Data Migration"
+$UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$UserDataButton.FlatStyle = 'Flat'
+$UserDataButton.FlatAppearance.BorderSize = 1
+$UserDataButton.Enabled = $false
+$ToolsGUI.Controls.Add($UserDataButton)
+
+# Add QIP Agent Deployment button
+$QIPButton = New-Object System.Windows.Forms.Button
+$y += 50
+$QIPButton.Location = New-Object System.Drawing.Point(110, $y)
+$QIPButton.Size = New-Object System.Drawing.Size(170, 40)
+$QIPButton.Text = "QIP Agent Deployment"
+$QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$QIPButton.FlatStyle = 'Flat'
+$QIPButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($QIPButton)
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 50
-$BackButton.Location = New-Object System.Drawing.Point(135, $y)
-$BackButton.Size = New-Object System.Drawing.Size(75, 30)
+$BackButton.Location = New-Object System.Drawing.Point(160, $y)
+$BackButton.Size = New-Object System.Drawing.Size(75, 40)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
-$ToolsGUITabs.TabPages[0].Controls.Add($BackButton)
+$ToolsGUI.Controls.Add($BackButton)
 
-# Define TEST button functions
+# Define QIP Agent Deployment button functions
+$QIPButton.Add_Click({
+	$QIPButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$QIPAgentPath = Join-Path -Path $ExtProgramDir -ChildPath "QIPAgent.exe"
+	Try {
+		Invoke-WebRequest -Uri 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutFile $QIPAgentPath *>&1
+	} catch {
+		[System.Windows.Forms.MessageBox]::Show("Download failed, please try again.","Error",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error)
+	}
+	Start-Process $QIPAgentPath
+	$QIPButton.Enabled = $true
+})
 
 # Define back button
 $BackButton.Add_Click({
@@ -414,21 +418,6 @@ $BackButton.Add_Click({
     Show-MainMenu
     $Global:GUIClosed = $true
 })
-
-# Page '3rd Party' [1] contents
-# Info label
-$y = 20
-$ToolsInfo2 = New-Object System.Windows.Forms.Label
-$ToolsInfo2.Text = "Test page, thanks :)"
-$ToolsInfo2.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ToolsInfo2.Location = New-Object System.Drawing.Point(30, $y)
-$ToolsInfo2.AutoSize = $true
-$ToolsInfo2.TextAlign = 'TopCenter'
-$ToolsGUITabs.TabPages[1].Controls.Add($ToolsInfo2)
-$y += $labelHeight
-
-# Add pages to GUI
-$ToolsGUI.Controls.Add($ToolsGUITabs)
 
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
@@ -438,5 +427,6 @@ $ToolsGUI.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
+		$Global:GUIClosed = $true
     }
 })
