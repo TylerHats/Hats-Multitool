@@ -41,7 +41,9 @@ if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
 
-# Run Self Update Module
+# Focus Window and Run Self Update Module
+$hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
+[ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
 . "$UpdateModPath"
 if ($ForceExit -eq $true) {exit 0}
