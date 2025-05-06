@@ -91,6 +91,18 @@ namespace ConsoleUtils {
 "@
 Add-Type -TypeDefinition $code -Language CSharp
 
+# Used to disable themeing on GUI controls
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+namespace ConsoleUtils {
+    public static class NativeMethods {
+        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+    }
+}
+"@ -Language CSharp
+
 # Function to hide the console window
 function Hide-ConsoleWindow {
     $consolePtr = [Win32]::GetConsoleWindow()
