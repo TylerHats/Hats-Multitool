@@ -70,7 +70,7 @@ public class Win32 {
 }
 "@
 
-# Used for PowerShell Console window focusing
+# Used for PowerShell Console window focusing and GUI theming
 $code = @"
 using System;
 using System.Runtime.InteropServices;
@@ -86,22 +86,13 @@ namespace ConsoleUtils {
         // If you need ShowWindow:
         [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    }
-}
-"@
-Add-Type -TypeDefinition $code -Language CSharp
 
-# Used to disable themeing on GUI controls
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-namespace ConsoleUtils {
-    public static class NativeMethods {
         [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
         public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
     }
 }
-"@ -Language CSharp
+"@
+Add-Type -TypeDefinition $code -Language CSharp
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
