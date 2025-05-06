@@ -69,6 +69,17 @@ public class Win32 {
 }
 "@
 
+Add-Type -Namespace ConsoleUtils -Name NativeMethods -MemberDefinition @"
+    using System;
+    using System.Runtime.InteropServices;
+    public static class NativeMethods {
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+    }
+"@
+
 # Function to hide the console window
 function Hide-ConsoleWindow {
     $consolePtr = [Win32]::GetConsoleWindow()
@@ -81,6 +92,10 @@ function Show-ConsoleWindow {
     $consolePtr = [Win32]::GetConsoleWindow()
     # 5 = Show normally
     [Win32]::ShowWindow($consolePtr, 5)
+    Start-Sleep -Milliseconds 50
+    # Pull console window to focus
+    $hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
+    [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 }
 
 # Common function for user requested exits
