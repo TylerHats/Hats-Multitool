@@ -1,6 +1,6 @@
 # Hat's Multitool
 
-**Hat's Multitool** is a PowerShell-based project aimed at making new PC setups more efficient, along with offering common troubleshooting tools. While the scripts are generally intended for use at QualityIP, no identifiable information is ever to be contained within the script. Collaboration, bug reports and feature requests are all welcome!
+**Hat's Multitool** is a PowerShell-based project aimed at making new PC setups more efficient, along with offering common troubleshooting tools and programs. Collaboration, bug reports and feature requests are all welcome!
 
 *The latest release of this repo is always available at:* ***HatsThings.com/go/Hats-Multitool***
 
