@@ -106,6 +106,7 @@ $progressBar.Location = New-Object System.Drawing.Point(20, $y)
 $progressBar.Style = "Continuous"
 $progressBar.Size = New-Object System.Drawing.Size(340, 20)
 $progressBar.Minimum = 0
+[ConsoleUtils.NativeMethods]::SetWindowTheme($progressBar.Handle, "", "")
 $progressBar.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
 $form.Controls.Add($progressBar)
 

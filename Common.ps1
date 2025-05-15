@@ -232,15 +232,27 @@ function Show-DownloadDialog {
 	$dform.Font = $font
 	$dform.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
-    # Progress bar
+    # Container panel for border and padding
+    $pbPanel = New-Object System.Windows.Forms.Panel
+    $pbPanel.Size        = [System.Drawing.Size]::new(462,22)
+    $pbPanel.Location    = [System.Drawing.Point]::new(14,19)
+    $pbPanel.BorderStyle = 'FixedSingle'
+    $pbPanel.BackColor   = $dform.BackColor
+    $pbPanel.Padding     = [System.Windows.Forms.Padding]::new(1)
+    $dform.Controls.Add($pbPanel)
+
+    # Progress bar filling the panel
     $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Style = 'Continuous'
-    $progressBar.Minimum = 0
-    $progressBar.Maximum = 100
-    $progressBar.Value = 0
-    $progressBar.Size = [System.Drawing.Size]::new(460,20)
-    $progressBar.Location = [System.Drawing.Point]::new(15,20)
-    $dform.Controls.Add($progressBar)
+    $progressBar.Style    = 'Continuous'
+    $progressBar.Minimum  = 0
+    $progressBar.Maximum  = 100
+    $progressBar.Value    = 0
+    $progressBar.Dock     = 'Fill'
+    # Disable theming so ForeColor is honored
+    [ConsoleUtils.NativeMethods]::SetWindowTheme($progressBar.Handle, "", "")
+    # Custom color
+    $progressBar.ForeColor = [System.Drawing.Color]::FromHtml("#6f1fde")
+    $pbPanel.Controls.Add($progressBar)
 
     # Speed label
     $speedLabel = New-Object System.Windows.Forms.Label
@@ -258,43 +270,49 @@ function Show-DownloadDialog {
 	$statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $dform.Controls.Add($statsLabel)
 
-    # Set up WebClient events
+    # Timer to keep UI responsive
+    $uiTimer = New-Object System.Windows.Forms.Timer
+    $uiTimer.Interval = 100     # reduce interval for snappier UI
+    $uiTimer.add_Tick({ [System.Windows.Forms.Application]::DoEvents() })
+    $uiTimer.Start()
+
+    # Prepare WebClient and stopwatch
     $webClient = New-Object System.Net.WebClient
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-    $webClient.DownloadProgressChanged += {
+    # Subscribe to progress changed
+    $webClient.add_DownloadProgressChanged({
         param($sender, $e)
-        $form.Invoke({
-            # Update progress bar
-            $progressBar.Value = $e.ProgressPercentage
+        # Update controls directly on UI thread
+        $progressBar.Value = $e.ProgressPercentage
+        $progressBar.Refresh()               # force immediate redraw
+        $speedMbps = (($e.BytesReceived * 8) / 1MB) / $stopwatch.Elapsed.TotalSeconds
+        $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $speedMbps)
+        $downloadedMB = $e.BytesReceived / 1MB
+        $totalMB      = $e.TotalBytesToReceive / 1MB
+        $statsLabel.Text = ('{0:N2} MB / {1:N2} MB' -f $downloadedMB, $totalMB)
+    })
 
-            # Calculate and display speed in KB/s
-            $speed = (($e.BytesReceived * 8) / 1MB) / $stopwatch.Elapsed.TotalSeconds
-            $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $speed)
-
-            # Display downloaded vs total in MB
-            $downloadedMB = $e.BytesReceived / 1MB
-            $totalMB = $e.TotalBytesToReceive / 1MB
-            $statsLabel.Text = ('{0:N2} MB / {1:N2} MB' -f $downloadedMB, $totalMB)
-        })
-    }
-
-    $webClient.DownloadFileCompleted += {
-        # Close the form when complete
-        $form.Invoke({ $form.Close() })
-    }
+    # Subscribe to download completed
+    $webClient.add_DownloadFileCompleted({
+        param($sender, $e)
+        # Stop UI timer and close form
+        $uiTimer.Stop()
+        $webClient.Dispose()
+        $dform.Close()
+    })
 
     # Start async download
     try {
-        $uri = [Uri]$Url
-        $webClient.DownloadFileAsync($uri, $OutputPath)
+        $webClient.DownloadFileAsync([Uri]$Url, $OutputPath)
     } catch {
         [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null
+        $uiTimer.Stop()
         return
     }
 
-    # Show the dialog while download runs
-    $form.ShowDialog() | Out-Null
+    # Show the dialog until download completes
+    $dform.ShowDialog() | Out-Null
 }
 
 <#
