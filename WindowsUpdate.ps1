@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.5
+# Windows Update Module - Tyler Hatfield - v2.6
 
 <# 
 .SYNOPSIS
