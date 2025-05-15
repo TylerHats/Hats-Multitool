@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.1
+# Programs Module - Tyler Hatfield - v1.2
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -139,6 +139,7 @@ $okButton.Add_Click({
 
     # Install programs and update progress bar
     $progressBar.Value = 0
+	$progressBar.Value += 1
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
