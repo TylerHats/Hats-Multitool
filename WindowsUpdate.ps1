@@ -25,7 +25,15 @@ try {
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize
 } catch {
-	$failedResize = 1
+	try {
+		$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
+		$dHeight = 35
+		$rawUI = $Host.UI.RawUI
+		$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
+		$rawUI.WindowSize = $newSize
+	} catch {
+		$failedResize = 1
+	}
 }
 try {
 	$host.UI.RawUI.BackgroundColor = "Black"
