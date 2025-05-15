@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.6
+# Common File - Tyler Hatfield - v1.7
 
 # Common Variables & packages:
 Add-Type -AssemblyName System.Windows.Forms
@@ -13,6 +13,7 @@ $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
 $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
+$font = New-Object System.Drawing.Font("Segoe UI", 10)
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -201,3 +202,102 @@ function Show-ToolsGUI {
     $GUIClosed = $false
     if ($UserExit -eq $true) {User-Exit}
 }
+
+function Show-DownloadDialog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DisplayName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Url
+    )
+
+    Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+
+    # Create the form
+    $dform = New-Object System.Windows.Forms.Form
+    $dform.Text = "Downloading $DisplayName..."
+    $dform.ClientSize = [System.Drawing.Size]::new(500,120)
+    $dform.FormBorderStyle = 'FixedDialog'
+    $dform.MaximizeBox = $false
+    $dform.MinimizeBox = $false
+    $dform.StartPosition = 'CenterScreen'
+	$dform.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+	$dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+	$dform.Font = $font
+	$dform.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+
+    # Progress bar
+    $progressBar = New-Object System.Windows.Forms.ProgressBar
+    $progressBar.Style = 'Continuous'
+    $progressBar.Minimum = 0
+    $progressBar.Maximum = 100
+    $progressBar.Value = 0
+    $progressBar.Size = [System.Drawing.Size]::new(460,20)
+    $progressBar.Location = [System.Drawing.Point]::new(15,20)
+    $dform.Controls.Add($progressBar)
+
+    # Speed label
+    $speedLabel = New-Object System.Windows.Forms.Label
+    $speedLabel.AutoSize = $true
+    $speedLabel.Location = [System.Drawing.Point]::new(15,50)
+    $speedLabel.Text = "Speed: 0 Mbps"
+	$speedLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $dform.Controls.Add($speedLabel)
+
+    # Stats label (downloaded / total)
+    $statsLabel = New-Object System.Windows.Forms.Label
+    $statsLabel.AutoSize = $true
+    $statsLabel.Location = [System.Drawing.Point]::new(15,75)
+    $statsLabel.Text = "0 MB / 0 MB"
+	$statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $dform.Controls.Add($statsLabel)
+
+    # Set up WebClient events
+    $webClient = New-Object System.Net.WebClient
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+    $webClient.DownloadProgressChanged += {
+        param($sender, $e)
+        $form.Invoke({
+            # Update progress bar
+            $progressBar.Value = $e.ProgressPercentage
+
+            # Calculate and display speed in KB/s
+            $speed = (($e.BytesReceived * 8) / 1MB) / $stopwatch.Elapsed.TotalSeconds
+            $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $speed)
+
+            # Display downloaded vs total in MB
+            $downloadedMB = $e.BytesReceived / 1MB
+            $totalMB = $e.TotalBytesToReceive / 1MB
+            $statsLabel.Text = ('{0:N2} MB / {1:N2} MB' -f $downloadedMB, $totalMB)
+        })
+    }
+
+    $webClient.DownloadFileCompleted += {
+        # Close the form when complete
+        $form.Invoke({ $form.Close() })
+    }
+
+    # Start async download
+    try {
+        $uri = [Uri]$Url
+        $webClient.DownloadFileAsync($uri, $OutputPath)
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null
+        return
+    }
+
+    # Show the dialog while download runs
+    $form.ShowDialog() | Out-Null
+}
+
+<#
+Example usage:
+Show-DownloadDialog -DisplayName 'Sample File' -Url 'https://example.com/file.zip' -OutputPath 'C:\Temp\file.zip'
+#>
