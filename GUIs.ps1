@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.2
+# GUI Setup File - Tyler Hatfield - v2.3
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -14,7 +14,6 @@ $MainMenu.StartPosition = 'CenterScreen'
 $MainMenu.Icon = $HMTIcon
 $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
-$font = New-Object System.Drawing.Font("Segoe UI", 10)
 $MainMenu.Font = $font
 $MainMenu.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
@@ -351,7 +350,7 @@ $padding = 20
 # Adjust GUI Height
 $y = 20
 $ToolsGUIHeight = ($buttonHeight * 3) + ($padding * 0) + ($labelHeight * 1)
-$ToolsGUI.Size = New-Object System.Drawing.Size(400, $ToolsGUIHeight)
+$ToolsGUI.Size = New-Object System.Drawing.Size(700, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
 # Add info text
@@ -367,8 +366,8 @@ $y += $labelHeight
 # Add User Data Tool button
 $UserDataButton = New-Object System.Windows.Forms.Button
 $y += 10
-$UserDataButton.Location = New-Object System.Drawing.Point(110, $y)
-$UserDataButton.Size = New-Object System.Drawing.Size(170, 40)
+$UserDataButton.Location = New-Object System.Drawing.Point(50, $y)
+$UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
 $UserDataButton.Text = "User Data Migration"
 $UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UserDataButton.FlatStyle = 'Flat'
@@ -378,9 +377,9 @@ $ToolsGUI.Controls.Add($UserDataButton)
 
 # Add QIP Agent Deployment button
 $QIPButton = New-Object System.Windows.Forms.Button
-$y += 50
-$QIPButton.Location = New-Object System.Drawing.Point(110, $y)
-$QIPButton.Size = New-Object System.Drawing.Size(170, 40)
+$y += 0
+$QIPButton.Location = New-Object System.Drawing.Point(350, $y)
+$QIPButton.Size = New-Object System.Drawing.Size(250, 40)
 $QIPButton.Text = "QIP Agent Deployment"
 $QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $QIPButton.FlatStyle = 'Flat'
@@ -389,9 +388,9 @@ $ToolsGUI.Controls.Add($QIPButton)
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
-$y += 50
-$BackButton.Location = New-Object System.Drawing.Point(160, $y)
-$BackButton.Size = New-Object System.Drawing.Size(75, 40)
+$y += 100
+$BackButton.Location = New-Object System.Drawing.Point(300, $y)
+$BackButton.Size = New-Object System.Drawing.Size(95, 40)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BackButton.FlatStyle = 'Flat'
@@ -403,11 +402,7 @@ $QIPButton.Add_Click({
 	$QIPButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$QIPAgentPath = Join-Path -Path $ExtProgramDir -ChildPath "QIPAgent.exe"
-	Try {
-		Invoke-WebRequest -Uri 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutFile $QIPAgentPath *>&1
-	} catch {
-		[System.Windows.Forms.MessageBox]::Show("Download failed, please try again.","Error",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error)
-	}
+	Show-DownloadDialog -DisplayName 'QIP Agent Installer' -Url 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutputPath "$QIPAgentPath"
 	Start-Process $QIPAgentPath
 	$QIPButton.Enabled = $true
 })
