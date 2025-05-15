@@ -143,7 +143,7 @@ $ModGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
-$buttonHeight = 80      # Height of the OK button
+$buttonHeight = 90      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
@@ -186,10 +186,10 @@ foreach ($module in $modules) {
 
 # Add “Select All” button
 $SelectAllButton = New-Object System.Windows.Forms.Button
-$y += 15
+$y += 10
 $SelectAllButton.Text = "Select All"
-$SelectAllButton.Size = New-Object System.Drawing.Size(75,30)
-$SelectAllButton.Location = New-Object System.Drawing.Point(105, $y)
+$SelectAllButton.Size = New-Object System.Drawing.Size(115,40)
+$SelectAllButton.Location = New-Object System.Drawing.Point(85, $y)
 $SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SelectAllButton.FlatStyle = 'Flat'
 $SelectAllButton.FlatAppearance.BorderSize = 1
@@ -197,9 +197,9 @@ $ModGUI.Controls.Add($SelectAllButton)
 
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
-$y += 45
-$ModGUIokButton.Location = New-Object System.Drawing.Point(105, $y)
-$ModGUIokButton.Size = New-Object System.Drawing.Size(75, 30)
+$y += 55
+$ModGUIokButton.Location = New-Object System.Drawing.Point(85, $y)
+$ModGUIokButton.Size = New-Object System.Drawing.Size(115, 40)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUIokButton.FlatStyle = 'Flat'
@@ -208,9 +208,9 @@ $ModGUI.Controls.Add($ModGUIokButton)
 
 # Add Back button
 $ModGUIBackButton = New-Object System.Windows.Forms.Button
-$y += 45
-$ModGUIBackButton.Location = New-Object System.Drawing.Point(105, $y)
-$ModGUIBackButton.Size = New-Object System.Drawing.Size(75, 30)
+$y += 55
+$ModGUIBackButton.Location = New-Object System.Drawing.Point(85, $y)
+$ModGUIBackButton.Size = New-Object System.Drawing.Size(115, 40)
 $ModGUIBackButton.Text = "Back"
 $ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUIBackButton.FlatStyle = 'Flat'
