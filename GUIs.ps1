@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.3
+# GUI Setup File - Tyler Hatfield - v2.4
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -343,13 +343,13 @@ $ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
-$buttonHeight = 80      # Height of the OK button
+$buttonHeight = 100      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 3) + ($padding * 0) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 4) + ($padding * 0) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(700, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -366,9 +366,9 @@ $y += $labelHeight
 # Add User Data Tool button
 $UserDataButton = New-Object System.Windows.Forms.Button
 $y += 10
-$UserDataButton.Location = New-Object System.Drawing.Point(50, $y)
+$UserDataButton.Location = New-Object System.Drawing.Point(65, $y)
 $UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
-$UserDataButton.Text = "User Data Migration"
+$UserDataButton.Text = "User Data Migration Tool"
 $UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UserDataButton.FlatStyle = 'Flat'
 $UserDataButton.FlatAppearance.BorderSize = 1
@@ -378,7 +378,7 @@ $ToolsGUI.Controls.Add($UserDataButton)
 # Add QIP Agent Deployment button
 $QIPButton = New-Object System.Windows.Forms.Button
 $y += 0
-$QIPButton.Location = New-Object System.Drawing.Point(350, $y)
+$QIPButton.Location = New-Object System.Drawing.Point(380, $y)
 $QIPButton.Size = New-Object System.Drawing.Size(250, 40)
 $QIPButton.Text = "QIP Agent Deployment"
 $QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -386,9 +386,77 @@ $QIPButton.FlatStyle = 'Flat'
 $QIPButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($QIPButton)
 
+# Add QIP Agent Removal button
+$QIPRButton = New-Object System.Windows.Forms.Button
+$y += 65
+$QIPRButton.Location = New-Object System.Drawing.Point(65, $y)
+$QIPRButton.Size = New-Object System.Drawing.Size(250, 40)
+$QIPRButton.Text = "Ninja Removal Script"
+$QIPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$QIPRButton.FlatStyle = 'Flat'
+$QIPRButton.FlatAppearance.BorderSize = 1
+$QIPRButton.Enabled = $false
+$ToolsGUI.Controls.Add($QIPRButton)
+
+# Add Windows Disk Cleanup button
+$DCleanButton = New-Object System.Windows.Forms.Button
+$y += 0
+$DCleanButton.Location = New-Object System.Drawing.Point(380, $y)
+$DCleanButton.Size = New-Object System.Drawing.Size(250, 40)
+$DCleanButton.Text = "Windows Disk Cleanup"
+$DCleanButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$DCleanButton.FlatStyle = 'Flat'
+$DCleanButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($DCleanButton)
+
+# Add Windows Debloat Tool button
+$DebloatButton = New-Object System.Windows.Forms.Button
+$y += 65
+$DebloatButton.Location = New-Object System.Drawing.Point(65, $y)
+$DebloatButton.Size = New-Object System.Drawing.Size(250, 40)
+$DebloatButton.Text = "Windows Debloat Tool"
+$DebloatButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$DebloatButton.FlatStyle = 'Flat'
+$DebloatButton.FlatAppearance.BorderSize = 1
+$DebloatButton.Enabled = $false
+$ToolsGUI.Controls.Add($DebloatButton)
+
+# Add Patch Cleaner button
+$PatchCButton = New-Object System.Windows.Forms.Button
+$y += 0
+$PatchCButton.Location = New-Object System.Drawing.Point(380, $y)
+$PatchCButton.Size = New-Object System.Drawing.Size(250, 40)
+$PatchCButton.Text = "Patch Cleaner"
+$PatchCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$PatchCButton.FlatStyle = 'Flat'
+$PatchCButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($PatchCButton)
+
+# Add WizTree button
+$WizTreeButton = New-Object System.Windows.Forms.Button
+$y += 65
+$WizTreeButton.Location = New-Object System.Drawing.Point(65, $y)
+$WizTreeButton.Size = New-Object System.Drawing.Size(250, 40)
+$WizTreeButton.Text = "WizTree"
+$WizTreeButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$WizTreeButton.FlatStyle = 'Flat'
+$WizTreeButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($WizTreeButton)
+
+# Add BleachBit button
+$BleachButton = New-Object System.Windows.Forms.Button
+$y += 0
+$BleachButton.Location = New-Object System.Drawing.Point(380, $y)
+$BleachButton.Size = New-Object System.Drawing.Size(250, 40)
+$BleachButton.Text = "BleachBit"
+$BleachButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$BleachButton.FlatStyle = 'Flat'
+$BleachButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($BleachButton)
+
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
-$y += 100
+$y += 65
 $BackButton.Location = New-Object System.Drawing.Point(300, $y)
 $BackButton.Size = New-Object System.Drawing.Size(95, 40)
 $BackButton.Text = "Back"
@@ -405,6 +473,56 @@ $QIPButton.Add_Click({
 	Show-DownloadDialog -DisplayName 'QIP Agent Installer' -Url 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutputPath "$QIPAgentPath"
 	Start-Process $QIPAgentPath
 	$QIPButton.Enabled = $true
+})
+
+# Define User Data Migration Tool button functions *************
+
+# Define Ninja Removal Script button functions *************
+
+# Define Windows Disk Cleanup button functions
+$DCleanButton.Add_Click({
+	$DCleanButton.Enabled = $false
+	Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
+	Start-Process -FilePath cleanmgr.exe -Verb RunAs
+	$DCleanButton.Enabled = $true
+})
+
+# Define Windows Debloat Tool button functions *************
+
+# Define Patch Cleaner button functions
+$PatchCButton.Add_Click({
+	$PatchCButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
+	Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://phoenixnap.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
+	Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
+	$PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
+	Start-Process $PatchCleanerExePath
+	$PatchCButton.Enabled = $true
+})
+
+# Define WizTree button functions
+$WizTreeButton.Add_Click({
+	$WizTreeButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
+	Show-DownloadDialog -DisplayName 'WizTree' -Url 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_25_portable.zip' -OutputPath "$WizTreeZipPath"
+	Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
+	$WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
+	Start-Process $WizTreeExePath
+	$WizTreeButton.Enabled = $true
+})
+
+# Define BleachBit button functions
+$BleachButton.Add_Click({
+	$BleachButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
+	Show-DownloadDialog -DisplayName 'BleachBit' -Url 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip' -OutputPath "$BleachZipPath"
+	Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
+	$BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
+	Start-Process $BleachExePath
+	$BleachButton.Enabled = $true
 })
 
 # Define back button

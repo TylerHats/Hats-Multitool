@@ -217,6 +217,7 @@ function Show-DownloadDialog {
         [string]$Url
     )
 
+	Log-Message "Starting download of file: $DisplayName" "logonly"
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 
     # Create the form
@@ -232,27 +233,20 @@ function Show-DownloadDialog {
 	$dform.Font = $font
 	$dform.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 
-    # Container panel for border and padding
-    $pbPanel = New-Object System.Windows.Forms.Panel
-    $pbPanel.Size        = [System.Drawing.Size]::new(462,22)
-    $pbPanel.Location    = [System.Drawing.Point]::new(14,19)
-    $pbPanel.BorderStyle = 'FixedSingle'
-    $pbPanel.BackColor   = $dform.BackColor
-    $pbPanel.Padding     = [System.Windows.Forms.Padding]::new(1)
-    $dform.Controls.Add($pbPanel)
+    # Container panel with border
+    $trackPanel = New-Object System.Windows.Forms.Panel
+    $trackPanel.Size        = [System.Drawing.Size]::new(462,22)
+    $trackPanel.Location    = [System.Drawing.Point]::new(14,19)
+    $trackPanel.BorderStyle = 'FixedSingle'
+    $trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
+    $dform.Controls.Add($trackPanel)
 
-    # Progress bar filling the panel
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Style    = 'Continuous'
-    $progressBar.Minimum  = 0
-    $progressBar.Maximum  = 100
-    $progressBar.Value    = 0
-    $progressBar.Dock     = 'Fill'
-    # Disable theming so ForeColor is honored
-    [ConsoleUtils.NativeMethods]::SetWindowTheme($progressBar.Handle, "", "")
-    # Custom color
-    $progressBar.ForeColor = [System.Drawing.Color]::FromHtml("#6f1fde")
-    $pbPanel.Controls.Add($progressBar)
+    # Fill panel for progress
+    $fillPanel = New-Object System.Windows.Forms.Panel
+    $fillPanel.Size      = [System.Drawing.Size]::new(0,19)
+    $fillPanel.Location  = [System.Drawing.Point]::new(1,1)
+    $fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+    $trackPanel.Controls.Add($fillPanel)
 
     # Speed label
     $speedLabel = New-Object System.Windows.Forms.Label
@@ -276,42 +270,37 @@ function Show-DownloadDialog {
     $uiTimer.add_Tick({ [System.Windows.Forms.Application]::DoEvents() })
     $uiTimer.Start()
 
-    # Prepare WebClient and stopwatch
+    # WebClient and stopwatch
     $webClient = New-Object System.Net.WebClient
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-    # Subscribe to progress changed
-    $webClient.add_DownloadProgressChanged({
-        param($sender, $e)
-        # Update controls directly on UI thread
-        $progressBar.Value = $e.ProgressPercentage
-        $progressBar.Refresh()               # force immediate redraw
+    # Progress event updates fill panel width and labels
+    $webClient.add_DownloadProgressChanged({ param($s,$e)
+        # Calculate fill width
+        $percent = $e.ProgressPercentage / 100
+        $maxWidth = $trackPanel.ClientSize.Width - 2  # account for border
+        $fillPanel.Width = [int]($maxWidth * $percent)
+        # Update speed label
         $speedMbps = (($e.BytesReceived * 8) / 1MB) / $stopwatch.Elapsed.TotalSeconds
         $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $speedMbps)
+        # Update stats label
         $downloadedMB = $e.BytesReceived / 1MB
         $totalMB      = $e.TotalBytesToReceive / 1MB
         $statsLabel.Text = ('{0:N2} MB / {1:N2} MB' -f $downloadedMB, $totalMB)
     })
 
-    # Subscribe to download completed
-    $webClient.add_DownloadFileCompleted({
-        param($sender, $e)
-        # Stop UI timer and close form
+    # Completion event stops timer and closes form
+    $webClient.add_DownloadFileCompleted({ param($s,$e)
         $uiTimer.Stop()
         $webClient.Dispose()
         $dform.Close()
     })
 
     # Start async download
-    try {
-        $webClient.DownloadFileAsync([Uri]$Url, $OutputPath)
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null
-        $uiTimer.Stop()
-        return
-    }
+    try { $webClient.DownloadFileAsync([Uri]$Url, $OutputPath) }
+    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; return }
 
-    # Show the dialog until download completes
+    # Show dialog until done
     $dform.ShowDialog() | Out-Null
 }
 
