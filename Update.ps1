@@ -44,7 +44,7 @@ if ($skipUpdate -ne 1) {
 			Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 			$ForceExit = $true
 		} else {
-			Log-Message "Proceed with caution, and if you run into errors please redownload from the web." "Skip"
+			Log-Message "Proceed with caution, and if you run into errors please redownload from the web.`n" "Skip"
 		}
 	} else {
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
