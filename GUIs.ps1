@@ -343,13 +343,13 @@ $ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
-$buttonHeight = 100      # Height of the OK button
+$buttonHeight = 75      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 4) + ($padding * 0) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 6) + ($padding * 1) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(700, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -563,7 +563,7 @@ $BSVButton.Add_Click({
 $UPWButton.Add_Click({
 	$UPWButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.exe"
+	$UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
 	Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
 	Start-Process $UPWPath
 	$UPWButton.Enabled = $true
