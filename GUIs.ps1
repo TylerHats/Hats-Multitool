@@ -454,6 +454,28 @@ $BleachButton.FlatStyle = 'Flat'
 $BleachButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($BleachButton)
 
+# Add BlueScreenView button
+$BSVButton = New-Object System.Windows.Forms.Button
+$y += 65
+$BSVButton.Location = New-Object System.Drawing.Point(65, $y)
+$BSVButton.Size = New-Object System.Drawing.Size(250, 40)
+$BSVButton.Text = "BlueScreenView"
+$BSVButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$BSVButton.FlatStyle = 'Flat'
+$BSVButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($BSVButton)
+
+# Add UserProfWiz button
+$UPWButton = New-Object System.Windows.Forms.Button
+$y += 0
+$UPWButton.Location = New-Object System.Drawing.Point(380, $y)
+$UPWButton.Size = New-Object System.Drawing.Size(250, 40)
+$UPWButton.Text = "User Profile Wizard"
+$UPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$UPWButton.FlatStyle = 'Flat'
+$UPWButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($UPWButton)
+
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 65
@@ -523,6 +545,28 @@ $BleachButton.Add_Click({
 	$BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
 	Start-Process $BleachExePath
 	$BleachButton.Enabled = $true
+})
+
+# Define BlueScreenView button functions
+$BSVButton.Add_Click({
+	$BSVButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
+	Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
+	Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
+	$BSVExePath = Join-Path -Path $ExtProgramDir -ChildPath "BlueScreenView.exe"
+	Start-Process $BSVExePath
+	$BSVButton.Enabled = $true
+})
+
+# Define UserProfileWizard button functions
+$UPWButton.Add_Click({
+	$UPWButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.exe"
+	Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
+	Start-Process $UPWPath
+	$UPWButton.Enabled = $true
 })
 
 # Define back button
