@@ -375,6 +375,10 @@ $UserDataButton.FlatAppearance.BorderSize = 1
 $UserDataButton.Enabled = $false
 $ToolsGUI.Controls.Add($UserDataButton)
 
+# User Data Tool Button Tooltip
+$UserDataTooltip = New-Object System.Windows.Forms.ToolTip
+$UserDataTooltip.SetToolTip($UserDataButton, "A tool to help collect user and system data for transferring to new machines.")
+
 # Add QIP Agent Deployment button
 $QIPButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -385,6 +389,10 @@ $QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $QIPButton.FlatStyle = 'Flat'
 $QIPButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($QIPButton)
+
+# QIP Agent Button Tooltip
+$QIPTooltip = New-Object System.Windows.Forms.ToolTip
+$QIPTooltip.SetToolTip($QIPButton, "Launches the QualityIP Ninja Agent installer.")
 
 # Add QIP Agent Removal button
 $QIPRButton = New-Object System.Windows.Forms.Button
@@ -397,6 +405,10 @@ $QIPRButton.FlatStyle = 'Flat'
 $QIPRButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($QIPRButton)
 
+# QIP Agent Removal Button Tooltip
+$QIPRTooltip = New-Object System.Windows.Forms.ToolTip
+$QIPRTooltip.SetToolTip($QIPRButton, "Launches the Ninja Agent removal script.")
+
 # Add Windows Disk Cleanup button
 $DCleanButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -407,6 +419,10 @@ $DCleanButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DCleanButton.FlatStyle = 'Flat'
 $DCleanButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($DCleanButton)
+
+# Disk Cleanup Button Tooltip
+$DCleanTooltip = New-Object System.Windows.Forms.ToolTip
+$DCleanTooltip.SetToolTip($DCleanButton, "Launches the Windows Disk Cleanup GUI.")
 
 # Add Windows Debloat Tool button
 $DebloatButton = New-Object System.Windows.Forms.Button
@@ -420,6 +436,10 @@ $DebloatButton.FlatAppearance.BorderSize = 1
 $DebloatButton.Enabled = $false
 $ToolsGUI.Controls.Add($DebloatButton)
 
+# Windows Debloat Button Tooltip
+$DebloatTooltip = New-Object System.Windows.Forms.ToolTip
+$DebloatTooltip.SetToolTip($DebloatButton, "A tool to cleanup system services and data for a smoother, more privacy focused expirience.")
+
 # Add Patch Cleaner button
 $PatchCButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -430,6 +450,10 @@ $PatchCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $PatchCButton.FlatStyle = 'Flat'
 $PatchCButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($PatchCButton)
+
+# QIP Agent Button Tooltip
+$PatchCTooltip = New-Object System.Windows.Forms.ToolTip
+$PatchCTooltip.SetToolTip($PatchCButton, "Scans and allows removal of unnecessary driver store files.")
 
 # Add WizTree button
 $WizTreeButton = New-Object System.Windows.Forms.Button
@@ -442,6 +466,10 @@ $WizTreeButton.FlatStyle = 'Flat'
 $WizTreeButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($WizTreeButton)
 
+# WizTree Button Tooltip
+$WizTreeTooltip = New-Object System.Windows.Forms.ToolTip
+$WizTreeTooltip.SetToolTip($WizTreeButton, "Scans a selected drive or folder and displays all contents and their relative sizes.")
+
 # Add BleachBit button
 $BleachButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -452,6 +480,10 @@ $BleachButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BleachButton.FlatStyle = 'Flat'
 $BleachButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($BleachButton)
+
+# BleachBit Button Tooltip
+$BleachTooltip = New-Object System.Windows.Forms.ToolTip
+$BleachTooltip.SetToolTip($BleachButton, "A system and program temporary data cleaner to help reclaim drive space.")
 
 # Add BlueScreenView button
 $BSVButton = New-Object System.Windows.Forms.Button
@@ -464,6 +496,10 @@ $BSVButton.FlatStyle = 'Flat'
 $BSVButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($BSVButton)
 
+# BlueScreenView Button Tooltip
+$BSVTooltip = New-Object System.Windows.Forms.ToolTip
+$BSVTooltip.SetToolTip($BSVButton, "A memory dump and minidump reader to help identify causes of BSOD events.")
+
 # Add UserProfWiz button
 $UPWButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -474,6 +510,10 @@ $UPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UPWButton.FlatStyle = 'Flat'
 $UPWButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($UPWButton)
+
+# UserProfWiz Button Tooltip
+$UPWTooltip = New-Object System.Windows.Forms.ToolTip
+$UPWTooltip.SetToolTip($UPWButton, "A tool to migrate user profile data between domains on one computer or between two seperate computers.")
 
 # Add LittleRegCleaner button
 $LRCButton = New-Object System.Windows.Forms.Button
@@ -486,6 +526,10 @@ $LRCButton.FlatStyle = 'Flat'
 $LRCButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($LRCButton)
 
+# LittleRegCleaner Button Tooltip
+$LRCTooltip = New-Object System.Windows.Forms.ToolTip
+$LRCTooltip.SetToolTip($LRCButton, "A simple registry cleaner program.")
+
 # Add DISM++ button
 $DISMPPButton = New-Object System.Windows.Forms.Button
 $y += 0
@@ -496,6 +540,10 @@ $DISMPPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DISMPPButton.FlatStyle = 'Flat'
 $DISMPPButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($DISMPPButton)
+
+# DISM++ Button Tooltip
+$DISMPPTooltip = New-Object System.Windows.Forms.ToolTip
+$DISMPPTooltip.SetToolTip($DISMPPButton, "An advanced GUI tool based around DISM for Windows image management.")
 
 # Add SDIO button
 $SDIOButton = New-Object System.Windows.Forms.Button
@@ -508,6 +556,10 @@ $SDIOButton.FlatStyle = 'Flat'
 $SDIOButton.FlatAppearance.BorderSize = 1
 $SDIOButton.Enabled = $false
 $ToolsGUI.Controls.Add($SDIOButton)
+
+# SDIO Button Tooltip
+$SDIOTooltip = New-Object System.Windows.Forms.ToolTip
+$SDIOTooltip.SetToolTip($SDIOButton, "An advanced system driver updating tool.")
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
