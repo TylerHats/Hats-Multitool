@@ -349,7 +349,7 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 7) + ($padding * 1) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 8) + ($padding * 0) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -561,6 +561,22 @@ $ToolsGUI.Controls.Add($SDIOButton)
 $SDIOTooltip = New-Object System.Windows.Forms.ToolTip
 $SDIOTooltip.SetToolTip($SDIOButton, "An advanced system driver updating tool.")
 
+# Add .NET 3.5 button
+$NETButton = New-Object System.Windows.Forms.Button
+$y += 0
+$NETButton.Location = New-Object System.Drawing.Point(380, $y)
+$NETButton.Size = New-Object System.Drawing.Size(250, 40)
+$NETButton.Text = ".NET 3.5 (Includes v2 & 3)"
+$NETButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$NETButton.FlatStyle = 'Flat'
+$NETButton.FlatAppearance.BorderSize = 1
+$NETButton.Enabled = $false
+$ToolsGUI.Controls.Add($NETButton)
+
+# NET Button Tooltip
+$NETTooltip = New-Object System.Windows.Forms.ToolTip
+$NETTooltip.SetToolTip($NETButton, "Installs .NET 3.5, which includes versions 2 and 3.")
+
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 65
@@ -687,6 +703,8 @@ $LRCButton.Add_Click({
 })
 
 # Define SDIO button functions
+
+# Define .NET button functions
 
 # Define back button
 $BackButton.Add_Click({
