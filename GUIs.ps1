@@ -395,7 +395,6 @@ $QIPRButton.Text = "Ninja Removal Script"
 $QIPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $QIPRButton.FlatStyle = 'Flat'
 $QIPRButton.FlatAppearance.BorderSize = 1
-$QIPRButton.Enabled = $false
 $ToolsGUI.Controls.Add($QIPRButton)
 
 # Add Windows Disk Cleanup button
@@ -499,7 +498,14 @@ $QIPButton.Add_Click({
 
 # Define User Data Migration Tool button functions *************
 
-# Define Ninja Removal Script button functions *************
+# Define Ninja Removal Script button functions
+$QIPRButton({
+    $QIPRButton.Enabled = $false
+    $QIPRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
+    Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$QIPRScriptPath"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$QIPRScriptPath`""
+    $QIPRButton.Enabled = $true
+})
 
 # Define Windows Disk Cleanup button functions
 $DCleanButton.Add_Click({
