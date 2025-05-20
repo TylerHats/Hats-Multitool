@@ -533,7 +533,7 @@ $QIPButton.Add_Click({
 # Define User Data Migration Tool button functions *************
 
 # Define Ninja Removal Script button functions
-$QIPRButton({
+$QIPRButton.Add_Click({
     $QIPRButton.Enabled = $false
     if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
     $QIPRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
