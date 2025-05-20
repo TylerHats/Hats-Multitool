@@ -484,7 +484,6 @@ $LRCButton.Text = "Little Registry Cleaner"
 $LRCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $LRCButton.FlatStyle = 'Flat'
 $LRCButton.FlatAppearance.BorderSize = 1
-$LRCButton.Enabled = $false
 $ToolsGUI.Controls.Add($LRCButton)
 
 # Add DISM++ button
@@ -496,7 +495,6 @@ $DISMPPButton.Text = "DISM++"
 $DISMPPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DISMPPButton.FlatStyle = 'Flat'
 $DISMPPButton.FlatAppearance.BorderSize = 1
-$DISMPPButton.Enabled = $false
 $ToolsGUI.Controls.Add($DISMPPButton)
 
 # Add SDIO button
