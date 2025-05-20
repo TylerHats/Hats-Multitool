@@ -537,6 +537,7 @@ $QIPButton.Add_Click({
 # Define Ninja Removal Script button functions
 $QIPRButton({
     $QIPRButton.Enabled = $false
+    if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
     $QIPRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
     Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$QIPRScriptPath"
     Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$QIPRScriptPath`""
@@ -610,6 +611,32 @@ $UPWButton.Add_Click({
 	Start-Process $UPWPath
 	$UPWButton.Enabled = $true
 })
+
+# Define DISM++ button functions
+$DISMPPButton.Add_Click({
+	$DISMPPButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
+	Show-DownloadDialog -DisplayName 'DISM++' -Url 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip' -OutputPath "$DISMPPPath"
+	Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
+	$DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
+    Start-Process $DISMPPEPath
+	$DISMPPButton.Enabled = $true
+})
+
+# Define LittleRegCleaner button functions
+$LRCButton.Add_Click({
+	$LRCButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
+	Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
+	Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
+	$LRCEPath = Join-Path -Path $ExtProgramDir -ChildPath "Little Registry Cleaner.exe"
+    Start-Process $LRCEPath
+	$LRCButton.Enabled = $true
+})
+
+# Define SDIO button functions
 
 # Define back button
 $BackButton.Add_Click({
