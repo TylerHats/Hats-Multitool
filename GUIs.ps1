@@ -350,7 +350,7 @@ $padding = 20
 # Adjust GUI Height
 $y = 20
 $ToolsGUIHeight = ($buttonHeight * 7) + ($padding * 1) + ($labelHeight * 1)
-$ToolsGUI.Size = New-Object System.Drawing.Size(700, $ToolsGUIHeight)
+$ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
 # Add info text
