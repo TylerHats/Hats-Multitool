@@ -99,16 +99,20 @@ $officeCheckbox.Add_CheckedChanged({
     }
 })
 
-# Add progress bar to GUI
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$y += 10
-$progressBar.Location = New-Object System.Drawing.Point(20, $y)
-$progressBar.Style = "Continuous"
-$progressBar.Size = New-Object System.Drawing.Size(340, 20)
-$progressBar.Minimum = 0
-[ConsoleUtils.NativeMethods]::SetWindowTheme($progressBar.Handle, "", "")
-$progressBar.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
-$form.Controls.Add($progressBar)
+# Container panel with border
+$trackPanel = New-Object System.Windows.Forms.Panel
+$trackPanel.Size        = [System.Drawing.Size]::new(462,22)
+$trackPanel.Location    = [System.Drawing.Point]::new(14,19)
+$trackPanel.BorderStyle = 'FixedSingle'
+$trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
+$form.Controls.Add($trackPanel)
+
+# Fill panel for progress
+$fillPanel = New-Object System.Windows.Forms.Panel
+$fillPanel.Size      = [System.Drawing.Size]::new(0,19)
+$fillPanel.Location  = [System.Drawing.Point]::new(1,1)
+$fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+$trackPanel.Controls.Add($fillPanel)
 
 # Add OK button
 $okButton = New-Object System.Windows.Forms.Button
@@ -135,12 +139,12 @@ $okButton.Add_Click({
         return
     }
 
-    # Set progress bar maximum to match selected programs
-    $progressBar.Maximum = $totalPrograms
+    # Set progress bar maximum
+    $progressValueMax = $totalPrograms
+    $maxWidth = $trackPanel.ClientSize.Width - 2
 
     # Install programs and update progress bar
-    $progressBar.Value = 0
-	$progressBar.Value += 1
+    $progressValue = 0
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
@@ -283,7 +287,9 @@ $okButton.Add_Click({
                 Log-Message $message "Error"
             }
         }
-        $progressBar.Value += 1
+        $progressValue += 1
+        $progressPercent = ($progressValue / $progressValueMax)
+        $fillPanel.Width = [int]($maxWidth * $progressPercent)
         # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
     }
 
