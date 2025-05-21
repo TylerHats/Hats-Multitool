@@ -282,7 +282,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$y = 20
+$y = 15
 $ReminderPopupHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
 $ReminderPopup.Size = New-Object System.Drawing.Size(700, $ReminderPopupHeight)
 $ReminderPopup.StartPosition = 'CenterScreen'
@@ -302,7 +302,7 @@ $y += $labelHeight
 
 # Add OK button
 $ReminderPopupokButton = New-Object System.Windows.Forms.Button
-$y += 20
+$y += 25
 $ReminderPopupokButton.Location = New-Object System.Drawing.Point(305, $y)
 $ReminderPopupokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ReminderPopupokButton.Text = "OK"
