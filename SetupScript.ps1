@@ -22,6 +22,7 @@ if ($Run_WindowsUpdates) {
 	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
 	Write-Host ""
+	Show-ConsoleWindow
 }
 
 # Run accounts module
