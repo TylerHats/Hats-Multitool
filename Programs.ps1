@@ -102,7 +102,7 @@ $officeCheckbox.Add_CheckedChanged({
 # Container panel with border
 $y += 10
 $trackPanel = New-Object System.Windows.Forms.Panel
-$trackPanel.Size        = [System.Drawing.Size]::new(360,22)
+$trackPanel.Size        = [System.Drawing.Size]::new(350,22)
 $trackPanel.Location    = [System.Drawing.Point]::new(20,$y)
 $trackPanel.BorderStyle = 'FixedSingle'
 $trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
