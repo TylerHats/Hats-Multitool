@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.6
 
 # Check program version against remote, update if needed
-$currentVersionString = "2.4.0"
+$currentVersionString = "2.4.1"
 $shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
@@ -70,7 +70,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
-	Log-Message "`n- Added several new tools and corrected GUI sizing`n- Added button tooltips with short descriptions for tools" "Skip"
+	Log-Message "`n- PENDING UPDATES" "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
 	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
