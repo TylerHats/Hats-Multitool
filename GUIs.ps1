@@ -289,7 +289,7 @@ $ReminderPopup.StartPosition = 'CenterScreen'
 
 # Add popup Text
 $ReminderPopuplabel = New-Object System.Windows.Forms.Label
-$ReminderPopuplabel.Text = "The multitool run has completed!`nPlease check for any background windows and reboot if needed to finalize changes. Press OK to exit."
+$ReminderPopuplabel.Text = "The multitool run has completed! Please check for any background windows`nand reboot if needed to finalize changes. Press OK to exit."
 $ReminderPopuplabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ReminderPopuplabel.Location = New-Object System.Drawing.Point(30, $y)
 $ReminderPopuplabel.AutoSize = $true
