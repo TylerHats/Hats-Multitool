@@ -1,19 +1,6 @@
 # One Line Runner Script - Tyler Hatfield - v1
 
 # Script setup
-try {
-	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-	$dHeight = 50
-	$rawUI = $Host.UI.RawUI
-	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
-	$rawUI.WindowSize = $newSize
-} catch {
-	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-	$dHeight = 35
-	$rawUI = $Host.UI.RawUI
-	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
-	$rawUI.WindowSize = $newSize
-}
 $host.UI.RawUI.BackgroundColor = "Black"
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Multitool Downloader"
