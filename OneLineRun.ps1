@@ -8,17 +8,13 @@ try {
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize
 } catch {
-	try {
-		$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-		$dHeight = 35
-		$rawUI = $Host.UI.RawUI
-		$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
-		$rawUI.WindowSize = $newSize
-	}
+	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
+	$dHeight = 35
+	$rawUI = $Host.UI.RawUI
+	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
+	$rawUI.WindowSize = $newSize
 }
-try {
-	$host.UI.RawUI.BackgroundColor = "Black"
-}
+$host.UI.RawUI.BackgroundColor = "Black"
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Multitool Downloader"
 $shell = New-Object -ComObject Shell.Application
