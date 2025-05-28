@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.7
+# PC Setup and Config Script - Tyler Hatfield - v1.8
 
 # Core setup Script
 Show-ConsoleWindow
