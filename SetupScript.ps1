@@ -22,7 +22,10 @@ if ($Run_WindowsUpdates) {
 	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
 	Write-Host ""
-	Start-Sleep -Milliseconds 1500
+	Start-Sleep -Milliseconds 1000
+	$null = [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+	[System.Windows.Forms.SendKeys]::SendWait("^{ESC}")  # Trigger keyboard input to allow foreground set
+	Start-Sleep -Milliseconds 500
 	$hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
     [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 }
