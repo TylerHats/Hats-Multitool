@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.6
+# Windows Update Module - Tyler Hatfield - v2.7
 
 <# 
 .SYNOPSIS
@@ -58,12 +58,16 @@ try {
 try {
     Import-Module PSWindowsUpdate -ErrorAction Stop
 } catch {
-    Write-Host "PSWindowsUpdate module not found. Installing now..."
+    Log-Message "PSWindowsUpdate module not found. Installing now..." "Error"
     Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
 }
 
-Write-Host "Checking for available Windows updates..."
+Log-Message "Cleaning Windows Update Cache..." "Info"
+try {
+	Reset-WUComponents | Out-Null
+}
+Log-Message "Checking for available Windows updates..." "Info"
 
 # Get all available updates
 $allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
@@ -72,7 +76,7 @@ $allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
 $excludeCumulative = $false
 if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
     $excludeCumulative = $true
-    Write-Host "Excluding Cumulative updates..."
+    Log-Message "Excluding Cumulative updates..." "Info"
 	$clearEnvVarUpdateCommand = [System.Environment]::SetEnvironmentVariable("installCumulativeWU", $null, [System.EnvironmentVariableTarget]::Machine)
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarUpdateCommand" -Verb RunAs -WindowStyle Hidden
 }
@@ -93,14 +97,14 @@ else {
 }
 
 if ($updatesToInstall) {
-    Write-Host "The following updates will be installed:"
+    Log-Message "The following updates will be installed:" "Info"
     $updatesToInstall | Format-Table Title, KB, Size -AutoSize
-    Write-Host "`nInstalling updates..."
+    Log-Message "`nInstalling updates..." "Info"
 	function Write-Host { }
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot *> $null
+    Install-WindowsUpdate -AcceptAll -IgnoreReboot | Out-Null
 	Remove-Item Function:\Write-Host
 	if ($excludeCumulative) {
-		Write-Host "Unhiding Cumulative updates to allow installation at a later date..."
+		Log-Message "Unhiding Cumulative updates to allow installation at a later date..." "Info"
 		function Write-Host { }
 		foreach ($ExKB in $excludedUpdates) {
 			Show-WindowsUpdate -KBArticleID "$ExKB" -Confirm:$false -IgnoreReboot *> $null
@@ -115,7 +119,7 @@ if ($updatesToInstall) {
     }
 }
 else {
-    Write-Host "No updates to install after applying the filter."
+    Log-Message "No updates to install after applying the filter." "Error"
 }
 Read-Host "Press Enter to exit the script"
 
