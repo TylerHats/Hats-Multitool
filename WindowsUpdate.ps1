@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.8
+# Windows Update Module - Tyler Hatfield - v2.9
 
 <# 
 .SYNOPSIS
@@ -69,10 +69,18 @@ try {
 } catch {
 	Log-Message "Failed to reset Windows Update components." "Error"
 }
+Write-Host ""
+
+# Preload WU COM
+Get-Command Get-WindowsUpdate | Out-Null
+$Global:WUASession  = New-Object -ComObject Microsoft.Update.Session
+$Global:WUASearcher = $WUASession.CreateUpdateSearcher()
+
 Log-Message "Checking for available Windows updates..." "Info"
 
 # Get all available updates
-$allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
+$searchCriteria = "IsInstalled=0 and Type='Software'"
+$allUpdates = $WUASearcher.Search($searchCriteria).Updates
 
 # Determine if we should exclude updates that contain "Cumulative"
 $excludeCumulative = $false
