@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.7
+# Windows Update Module - Tyler Hatfield - v2.8
 
 <# 
 .SYNOPSIS
@@ -66,6 +66,8 @@ try {
 Log-Message "Cleaning Windows Update Cache..." "Info"
 try {
 	Reset-WUComponents | Out-Null
+} catch {
+	Log-Message "Failed to reset Windows Update components." "Error"
 }
 Log-Message "Checking for available Windows updates..." "Info"
 
