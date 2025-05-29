@@ -100,9 +100,9 @@ $officeCheckbox.Add_CheckedChanged({
 })
 
 # Container panel with border
-$y += 10
+$y += 15
 $trackPanel = New-Object System.Windows.Forms.Panel
-$trackPanel.Size        = [System.Drawing.Size]::new(350,22)
+$trackPanel.Size        = [System.Drawing.Size]::new(340,22)
 $trackPanel.Location    = [System.Drawing.Point]::new(20,$y)
 $trackPanel.BorderStyle = 'FixedSingle'
 $trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
@@ -117,7 +117,7 @@ $trackPanel.Controls.Add($fillPanel)
 
 # Add OK button
 $okButton = New-Object System.Windows.Forms.Button
-$y += 50
+$y += 45
 $okButton.Location = New-Object System.Drawing.Point(150, $y)
 $okButton.Size = New-Object System.Drawing.Size(75, 30)
 $okButton.Text = "OK"
