@@ -9,8 +9,10 @@ namespace Native {
     public static class Methods {
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
+
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
+
         [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
@@ -32,8 +34,8 @@ $form.BackColor       = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.Size            = New-Object System.Drawing.Size(600, 500)
 $form.StartPosition   = 'CenterScreen'
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
-$form.FormBorderStyle = 'Sizable'
-$form.MaximizeBox     = $true
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox     = $false
 
 # Title label
 $lblTitle = New-Object System.Windows.Forms.Label
@@ -41,16 +43,14 @@ $lblTitle.Text      = "Available Updates"
 $lblTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblTitle.AutoSize  = $true
 $lblTitle.Location  = New-Object System.Drawing.Point(20, 20)
-$lblTitle.Anchor    = 'Top,Left'
 $form.Controls.Add($lblTitle)
 
-# Include Cumulative checkbox
+# Cumulative updates checkbox
 $chkCumulative = New-Object System.Windows.Forms.CheckBox
 $chkCumulative.Text      = "Include Cumulative Updates"
 $chkCumulative.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $chkCumulative.AutoSize  = $true
 $chkCumulative.Location  = New-Object System.Drawing.Point(20, 50)
-$chkCumulative.Anchor    = 'Top,Left'
 $form.Controls.Add($chkCumulative)
 
 # ListView for update items
@@ -62,7 +62,6 @@ $lv.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
 $lv.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lv.Location      = New-Object System.Drawing.Point(20, 80)
 $lv.Size          = New-Object System.Drawing.Size(540, 300)
-$lv.Anchor        = 'Top,Bottom,Left,Right'
 $lv.Columns.Add("Title", 300) | Out-Null
 $lv.Columns.Add("KB", 80)    | Out-Null
 $lv.Columns.Add("Size", 100) | Out-Null
@@ -74,7 +73,6 @@ $panelTrack.Size        = New-Object System.Drawing.Size(540, 20)
 $panelTrack.Location    = New-Object System.Drawing.Point(20, 400)
 $panelTrack.BorderStyle = 'FixedSingle'
 $panelTrack.BackColor   = [System.Drawing.ColorTranslator]::FromHtml("#4f4f4f")
-$panelTrack.Anchor      = 'Left,Bottom,Right'
 $form.Controls.Add($panelTrack)
 
 # Progress bar fill panel
@@ -90,36 +88,27 @@ $lblStatus.Text      = "Status: Idle"
 $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblStatus.AutoSize  = $true
 $lblStatus.Location  = New-Object System.Drawing.Point(20, 430)
-$lblStatus.Anchor    = 'Left,Bottom'
 $form.Controls.Add($lblStatus)
 
 # Install button
 $btnInstall = New-Object System.Windows.Forms.Button
 $btnInstall.Text      = "Install Selected"
 $btnInstall.Size      = New-Object System.Drawing.Size(140, 30)
+# Use System.Drawing.Point instead of System.Windows.Forms.Point
 $btnInstall.Location  = New-Object System.Drawing.Point(420, 425)
 $btnInstall.FlatStyle = 'Flat'
 $btnInstall.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $btnInstall.FlatAppearance.BorderSize = 1
-$btnInstall.Anchor    = 'Bottom,Right'
 $form.Controls.Add($btnInstall)
 
-# Function to load and list updates with loading indicator
+# Function to load and list updates
 function Load-Updates {
-    # Show loading indicator
-    $form.Cursor     = 'WaitCursor'
-    $lblStatus.Text  = 'Status: Loading updates...'
-    [System.Windows.Forms.Application]::DoEvents()
-
-    # Clear and fetch
     $lv.Items.Clear()
-    $criteria = "IsInstalled=0"  # include all types (software, drivers, etc.)
-    $updates  = $WUASearcher.Search($criteria).Updates
+    $criteria = "IsInstalled=0 and Type='Software'"
+    $updates = $WUASearcher.Search($criteria).Updates
     if (-not $chkCumulative.Checked) {
         $updates = $updates | Where-Object { $_.Title -notmatch 'Cumulative' }
     }
-
-    # Populate list
     foreach ($u in $updates) {
         $item = New-Object System.Windows.Forms.ListViewItem($u.Title)
         $item.SubItems.Add($u.KB) | Out-Null
@@ -128,48 +117,35 @@ function Load-Updates {
         $item.Tag = $u
         $lv.Items.Add($item) | Out-Null
     }
-
-    # Reset cursor and status
-    $form.Cursor    = 'Default'
     $lblStatus.Text = "Status: Ready (Found $($lv.Items.Count) updates)"
 }
 
-# Reload list when cumulative toggle changes\```
+# Reload list when cumulative toggle changes
 $chkCumulative.Add_CheckedChanged({ Load-Updates })
 # Initial load
 Load-Updates
 
-# Handle Install button click with hide/unhide strategy
+# Handle Install button click
 $btnInstall.Add_Click({
     $btnInstall.Enabled = $false
-
-    # Determine excluded KBs
-    $allKBs      = @()
-    $excludedKBs = @()
-    foreach ($item in $lv.Items) {
-        $kb = $item.SubItems[1].Text
-        $allKBs += $kb
-        if (-not $item.Checked) { $excludedKBs += $kb }
+    $selected = $lv.CheckedItems
+    $count    = $selected.Count
+    if ($count -eq 0) {
+        $lblStatus.Text = 'Status: No updates selected'
+        return
     }
 
-    # Hide unselected
-    $lblStatus.Text = 'Status: Hiding unselected updates...'  
-    foreach ($kb in $excludedKBs) {
-        Hide-WindowsUpdate -KBArticleID $kb -Confirm:$false | Out-Null
+    $i = 0
+    foreach ($item in $selected) {
+        $i++
+        $update  = $item.Tag
+        $percent = [int]($i / $count * 100)
+        $panelFill.Width = [int]($panelTrack.ClientSize.Width * $percent / 100)
+        $lblStatus.Text  = "Installing: $($update.Title)"
+        # Perform the install
+        Install-WindowsUpdate -Updates $update -AcceptAll -IgnoreReboot -Confirm:$false | Out-Null
     }
 
-    # Install all remaining
-    $lblStatus.Text = 'Status: Installing updates...'
-    [System.Windows.Forms.Application]::DoEvents()
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Confirm:$false | Out-Null
-
-    # Restore hidden updates
-    $lblStatus.Text = 'Status: Restoring hidden updates...'
-    foreach ($kb in $excludedKBs) {
-        Show-WindowsUpdate -KBArticleID $kb -Confirm:$false | Out-Null
-    }
-
-    # Done
     $lblStatus.Text = 'Status: All updates installed.'
     Read-Host 'Press Enter to finish...' | Out-Null
     $form.Close()
