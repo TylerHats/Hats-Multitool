@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.8
+# PC Setup and Config Script - Tyler Hatfield - v1.9
 
 # Core setup Script
 Show-ConsoleWindow
@@ -20,14 +20,15 @@ if ($Run_WindowsUpdates) {
 	$ProgressPreference = 'SilentlyContinue'
 	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
+	$child = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -PassThru
 	Write-Host ""
 	Start-Sleep -Milliseconds 1000
-	$null = [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
-	[System.Windows.Forms.SendKeys]::SendWait("^{ESC}")  # Trigger keyboard input to allow foreground set
-	Start-Sleep -Milliseconds 500
 	$hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
-    [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+	for ($i = 0; $i -lt 5; $i++) {
+		Start-Sleep -Milliseconds 200
+		[ConsoleUtils.NativeMethods]::ShowWindow($hwnd, 9) | Out-Null
+		[ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+	}
 }
 
 # Run accounts module
