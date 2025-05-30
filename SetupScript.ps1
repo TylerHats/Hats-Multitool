@@ -20,7 +20,7 @@ if ($Run_WindowsUpdates) {
 	$ProgressPreference = 'SilentlyContinue'
 	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
+	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -WindowStyle Hidden
 	#$child = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -PassThru
 	Write-Host ""
 	<#Start-Sleep -Milliseconds 1000
