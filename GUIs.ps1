@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.7
+# GUI Setup File - Tyler Hatfield - v2.8
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -574,6 +574,22 @@ $ToolsGUI.Controls.Add($NETButton)
 $NETTooltip = New-Object System.Windows.Forms.ToolTip
 $NETTooltip.SetToolTip($NETButton, "Installs .NET 3.5, which includes versions 2 and 3.")
 
+# Add DDU Button
+$DDUButton = New-Object System.Windows.Forms.Button
+$y += 65
+$DDUButton.Location = New-Object System.Drawing.Point(65, $y)
+$DDUButton.Size = New-Object System.Drawing.Size(250, 40)
+$DDUButton.Text = "Display Driver Uninstaller"
+$DDUButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$DDUButton.FlatStyle = 'Flat'
+$DDUButton.FlatAppearance.BorderSize = 1
+$DDUButton.Enabled = $false
+$ToolsGUI.Controls.Add($DDUButton)
+
+# DDU Button Tooltip
+$DDUTooltip = New-Object System.Windows.Forms.ToolTip
+$DDUTooltip.SetToolTip($DDUButton, "Runs the Display Driver Uninstaller tool to clean graphics drivers for fresh installs.")
+
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 65
@@ -707,6 +723,8 @@ $NETButton.Add_Click({
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
 	$NETButton.Enabled = $true
 })
+
+# Define DDU button functions
 
 # Define back button
 $BackButton.Add_Click({
