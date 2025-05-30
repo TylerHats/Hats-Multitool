@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.9
+# PC Setup and Config Script - Tyler Hatfield - v1.10
 
 # Core setup Script
 Show-ConsoleWindow
@@ -13,22 +13,23 @@ if ($Run_TimeZoneSetting) {
 # Setup prerequisites and start Windows update module
 if ($Run_WindowsUpdates) {
 	$Global:WinUpdatesRun = $true
-	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
-	Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
-	$env:installCumulativeWU = Read-Host
-	Log-Message "Starting Windows Updates in the Background..."
+	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinUpdateGUI.ps1'
+	#Log-Message "Install Cumulative updates for Windows? (These can be very slow) (y/N):" "Prompt"
+	#$env:installCumulativeWU = Read-Host
+	Log-Message "Launching Windows Update GUI..."
 	$ProgressPreference = 'SilentlyContinue'
 	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
 	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
-	$child = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -PassThru
+	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
+	#$child = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -PassThru
 	Write-Host ""
-	Start-Sleep -Milliseconds 1000
+	<#Start-Sleep -Milliseconds 1000
 	$hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
 	for ($i = 0; $i -lt 5; $i++) {
 		Start-Sleep -Milliseconds 200
 		[ConsoleUtils.NativeMethods]::ShowWindow($hwnd, 9) | Out-Null
 		[ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
-	}
+	}#>
 }
 
 # Run accounts module

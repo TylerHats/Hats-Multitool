@@ -1,4 +1,4 @@
-# Windows Update Module - Tyler Hatfield - v2.9
+# Windows Update Module - Tyler Hatfield - v2.10
 
 <# 
 .SYNOPSIS
@@ -20,7 +20,7 @@ $failedResize = 0
 $failedColor = 0
 try {
 	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
-	$dHeight = 50
+	$dHeight = 8
 	$rawUI = $Host.UI.RawUI
 	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
 	$rawUI.WindowSize = $newSize
@@ -44,7 +44,7 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
 Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
-Write-Host "`n`n`n`n`n`n`n`n"
+#Write-Host "`n`n`n`n`n`n`n`n"
 $origWriteHost = Get-Command Write-Host
 
 # Set Download Mode
@@ -71,16 +71,9 @@ try {
 }
 Write-Host ""
 
-# Preload WU COM
-Get-Command Get-WindowsUpdate | Out-Null
-$Global:WUASession  = New-Object -ComObject Microsoft.Update.Session
-$Global:WUASearcher = $WUASession.CreateUpdateSearcher()
-
-Log-Message "Checking for available Windows updates..." "Info"
-
+#Log-Message "Checking for available Windows updates..." "Info"
 # Get all available updates
-$searchCriteria = "IsInstalled=0 and Type='Software'"
-$allUpdates = $WUASearcher.Search($searchCriteria).Updates
+$allUpdates = Get-WindowsUpdate -AcceptAll -Verbose:$false -IgnoreReboot
 
 # Determine if we should exclude updates that contain "Cumulative"
 $excludeCumulative = $false

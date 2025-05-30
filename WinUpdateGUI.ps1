@@ -1,4 +1,4 @@
-# Windows Update GUI Module - Tyler Hatfield - v1.1
+# Windows Update GUI Module - Tyler Hatfield - v1.2
 
 # Load common file
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
@@ -11,12 +11,6 @@ try {
 	Log-Message "PSWindowsUpdate module not found. Installing now..." "LogOnly"
     Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
-}
-#Add-Type -AssemblyName System.Windows.Forms, System.Drawing # Already done in common file
-try {
-	Set-DODownloadMode -DownloadMode 3 -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
-} catch {
-	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "LogOnly"
 }
 
 # --- Build the main form ---
@@ -61,19 +55,6 @@ $lv.Columns.Add("KB",80)     | Out-Null
 $lv.Columns.Add("Size",100)  | Out-Null
 $form.Controls.Add($lv)
 
-# --- Progress bar ---
-$panelTrack = [System.Windows.Forms.Panel]::new()
-$panelTrack.Size        = [System.Drawing.Size]::new(560,20)
-$panelTrack.Location    = [System.Drawing.Point]::new(20,300)
-$panelTrack.BorderStyle = 'FixedSingle'
-$panelTrack.BackColor   = [System.Drawing.ColorTranslator]::FromHtml("#4f4f4f")
-$form.Controls.Add($panelTrack)
-$panelFill = [System.Windows.Forms.Panel]::new()
-$panelFill.Size      = [System.Drawing.Size]::new(0,18)
-$panelFill.Location  = [System.Drawing.Point]::new(1,1)
-$panelFill.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
-$panelTrack.Controls.Add($panelFill)
-
 # --- Status label ---
 $lblStatus = [System.Windows.Forms.Label]::new()
 $lblStatus.Text      = "Status: Idle"
@@ -84,7 +65,7 @@ $form.Controls.Add($lblStatus)
 
 # --- Install button ---
 $btnInstall = [System.Windows.Forms.Button]::new()
-$btnInstall.Text      = "Install Selected"
+$btnInstall.Text      = "Install Updates"
 $btnInstall.Size      = [System.Drawing.Size]::new(140,30)
 $btnInstall.Location  = [System.Drawing.Point]::new(440,325)
 $btnInstall.FlatStyle = 'Flat'
@@ -115,7 +96,7 @@ function Load-Updates {
 
     # Calculate row height dynamically
     if ($lv.Items.Count -gt 0) {
-        $NewLVH = ($lv.Items.Count * 20)
+        $NewLVH = ($lv.Items.Count * 28)
 		$lv.Height = $NewLVH
 	} else {
 		$NewLVH = 40
@@ -124,7 +105,6 @@ function Load-Updates {
 
     # Reposition and resize form
     $yBase = 80 + $NewLVH
-    $panelTrack.Location = [System.Drawing.Point]::new(20, $yBase + 5)
     $lblStatus.Location  = [System.Drawing.Point]::new(20, $yBase + 35)
     $btnInstall.Location = [System.Drawing.Point]::new(440, $yBase + 30)
     $form.ClientSize = [System.Drawing.Size]::new(600, $yBase + 70)
@@ -134,48 +114,21 @@ function Load-Updates {
 }
 
 # --- Wire up toggle and initial load ---
-$chkCumulative.Add_CheckedChanged({ Load-Updates })
+$chkCumulative.Add_CheckedChanged({
+	if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
+		$env:installCumulativeWU = y
+	} elseif ($env:installCumulativeWU -match '^(y|yes)$') {
+		$env:installCumulativeWU = n
+	}
+	Load-Updates
+})
 Load-Updates
 
 # --- Install button click: hide/unhide strategy via PSWindowsUpdate ---
 $btnInstall.Add_Click({
     $btnInstall.Enabled = $false
-
-    # Hide unselected
-    $lblStatus.Text = 'Hiding unselected updates...'
-    [System.Windows.Forms.Application]::DoEvents()
-	$unselectedTitles = $lv.Items | Where-Object { -not $_.Checked } | ForEach-Object { $_.Text }
-	if ($unselectedTitles.Count -gt 0) {
-		foreach ($ExTitle in $unselectedTitles) {
-			Hide-WindowsUpdate -Title "$ExTitle" -Confirm:$false | Out-Null
-		}
-	}
-	if (-not $chkCumulative.Checked) {
-		$list = $list | Where-Object { $_.Title -like "*Cumulative*" }
-		foreach ($item in $list) {
-			$unselectedTiles += $item.Title
-			foreach ($ExTitle in $unselectedTitles) {
-				Hide-WindowsUpdate -Title "$ExTitle" -Confirm:$false | Out-Null
-			} 
-		}
-	}
-
-    # Install remaining
-    $lblStatus.Text = 'Installing updates...'
-    [System.Windows.Forms.Application]::DoEvents()
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Confirm:$false | Out-Null
-
-    # Restore hidden
-    $lblStatus.Text = 'Restoring hidden updates...'
-    [System.Windows.Forms.Application]::DoEvents()
-    if ($unselectedTitles) {
-		foreach ($ExTitle in $unselectedTitles) {
-			Show-WindowsUpdate -Title "$ExTitle" -Confirm:$false -IgnoreReboot | Out-Null
-		}
-	}
-
-    $lblStatus.Text = 'All selected updates installed.'
-    Read-Host 'Press Enter to finish...' | Out-Null
+	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WindowsUpdate.ps1'
+	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
     $form.Close()
 })
 
