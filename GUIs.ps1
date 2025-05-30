@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.6
+# GUI Setup File - Tyler Hatfield - v2.7
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -291,12 +291,10 @@ $ReminderPopup.StartPosition = 'CenterScreen'
 $ReminderPopuplabel = New-Object System.Windows.Forms.Label
 $ReminderPopuplabel.Text = "The multitool run has completed! Please check for any background windows`nand reboot if needed to finalize changes. Press OK to exit."
 $ReminderPopuplabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ReminderPopupLabel.Size = New-Object System.Drawing.Size(650, 80)
 $ReminderPopuplabel.Location = New-Object System.Drawing.Point(30, $y)
 $ReminderPopuplabel.AutoSize = $true
 $ReminderPopuplabel.TextAlign = 'TopCenter'
-$ReminderPopuplabel.Width = 650
-$ReminderPopuplabel.Height = 80
-$ReminderPopuplabel.MaximumSize = '650,0'
 $ReminderPopup.Controls.Add($ReminderPopuplabel)
 $y += $labelHeight
 
@@ -570,7 +568,6 @@ $NETButton.Text = ".NET 3.5 (Includes v2 and v3)"
 $NETButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $NETButton.FlatStyle = 'Flat'
 $NETButton.FlatAppearance.BorderSize = 1
-$NETButton.Enabled = $false
 $ToolsGUI.Controls.Add($NETButton)
 
 # NET Button Tooltip
@@ -705,6 +702,11 @@ $LRCButton.Add_Click({
 # Define SDIO button functions
 
 # Define .NET button functions
+$NETButton.Add_Click({
+	$NETButton.Enabled = $false
+	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
+	$NETButton.Enabled = $true
+})
 
 # Define back button
 $BackButton.Add_Click({

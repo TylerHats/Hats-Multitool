@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.6
 
 # Check program version against remote, update if needed
-$currentVersionString = "2.4.1"
+$currentVersionString = "2.5.0"
 $shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
