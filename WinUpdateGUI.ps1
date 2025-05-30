@@ -1,35 +1,13 @@
 # Windows Update GUI - Tyler Hatfield
-# Provides a WinForms GUI to check for and install Windows Updates using PSWindowsUpdate
+# Provides a WinForms GUI to list and install Windows Updates using PSWindowsUpdate
 
-# --- Define P/Invoke methods (ignore if already exists) ---
-try {
-    Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-namespace Native {
-    public static class Methods {
-        [DllImport("kernel32.dll")]
-        public static extern IntPtr GetConsoleWindow();
-        [DllImport("user32.dll")]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
-        [DllImport("user32.dll")]
-        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    }
-}
-"@ -Language CSharp -CompilerVersion v4.0 -ErrorAction Stop
-} catch {
-    # ignore if already defined
-}
-
-# --- Preload PSWindowsUpdate & WUA COM objects ---
+# --- Preload PSWindowsUpdate module ---
 Import-Module PSWindowsUpdate -ErrorAction Stop
-$Global:WUASession  = New-Object -ComObject Microsoft.Update.Session
-$Global:WUASearcher = $WUASession.CreateUpdateSearcher()
 
 # --- Load WinForms assemblies ---
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
-# --- Build the main form (fixed width, dynamic height) ---
+# --- Build the main form ---
 $form = [System.Windows.Forms.Form]::new()
 $form.Text            = "Hat's Windows Update"
 $form.BackColor       = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -47,7 +25,7 @@ $lblTitle.AutoSize  = $true
 $lblTitle.Location  = [System.Drawing.Point]::new(20,20)
 $form.Controls.Add($lblTitle)
 
-# Include cumulative updates checkbox
+# Cumulative updates toggle
 $chkCumulative = [System.Windows.Forms.CheckBox]::new()
 $chkCumulative.Text      = "Include Cumulative Updates"
 $chkCumulative.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -78,7 +56,7 @@ $panelTrack.BorderStyle = 'FixedSingle'
 $panelTrack.BackColor   = [System.Drawing.ColorTranslator]::FromHtml("#4f4f4f")
 $form.Controls.Add($panelTrack)
 
-# Progress fill panel
+# Progress fill
 $panelFill = [System.Windows.Forms.Panel]::new()
 $panelFill.Size      = [System.Drawing.Size]::new(0,18)
 $panelFill.Location  = [System.Drawing.Point]::new(1,1)
@@ -103,39 +81,24 @@ $btnInstall.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $btnInstall.FlatAppearance.BorderSize = 1
 $form.Controls.Add($btnInstall)
 
-# Function to fetch COM updates, wrap into PSObjects, populate ListView, resize form
+# Function to load updates from PSWindowsUpdate and resize form
 function Load-Updates {
     $form.Cursor    = 'WaitCursor'
-    $lblStatus.Text = 'Status: Loading updates...'
+    $lblStatus.Text = 'Loading updates...'
     [System.Windows.Forms.Application]::DoEvents()
 
-    # COM search
-    $comUpdates = $WUASearcher.Search("IsInstalled=0").Updates
-    if (-not $chkCumulative.Checked) { $comUpdates = $comUpdates | Where-Object { $_.Title -notmatch 'Cumulative' } }
-
-    # Wrap into PSCustomObjects for KB and Size
-    $updates = @()
-    foreach ($cu in $comUpdates) {
-        $kbList = @()
-        try { foreach ($id in $cu.KBArticleIDs) { $kbList += $id } } catch {}
-        $kbText = $kbList -join ', '
-        $sizeVal = if ($cu.Size) { [math]::Round($cu.Size/1MB,1) } else { 0 }
-        $updates += [pscustomobject]@{
-            Title     = $cu.Title
-            KB        = $kbText
-            Size      = "$sizeVal MB"
-            UpdateObj = $cu
-        }
-    }
+    # Retrieve updates via PSWindowsUpdate
+    $list = Get-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose:$false
+    if (-not $chkCumulative.Checked) { $list = $list | Where-Object { $_.Title -notmatch 'Cumulative' } }
 
     # Populate ListView
     $lv.Items.Clear()
-    foreach ($u in $updates) {
+    foreach ($u in $list) {
         $item = [System.Windows.Forms.ListViewItem]::new($u.Title)
-        $item.SubItems.Add($u.KB)   | Out-Null
+        $item.SubItems.Add($u.KB) | Out-Null
         $item.SubItems.Add($u.Size) | Out-Null
-        $item.Tag = $u.UpdateObj
-        $lv.Items.Add($item)        | Out-Null
+        $item.Tag = $u
+        $lv.Items.Add($item) | Out-Null
     }
 
     # Resize ListView height (cap at 40 rows)
@@ -145,48 +108,49 @@ function Load-Updates {
     $newLvH = $hdrH + ($visible * $rowH)
     $lv.Height = $newLvH
 
-    # Reposition and resize form
+    # Reposition lower controls and resize form
     $yBase = 80 + $newLvH
-    $panelTrack.Location   = [System.Drawing.Point]::new(20, $yBase)
-    $lblStatus.Location    = [System.Drawing.Point]::new(20, $yBase + 30)
-    $btnInstall.Location   = [System.Drawing.Point]::new(440, $yBase + 25)
-    $form.ClientSize = [System.Drawing.Size]::new(600, $yBase + 80)
+    $panelTrack.Location = [System.Drawing.Point]::new(20, $yBase)
+    $lblStatus.Location  = [System.Drawing.Point]::new(20, $yBase + 30)
+    $btnInstall.Location = [System.Drawing.Point]::new(440, $yBase + 25)
+    $form.ClientSize     = [System.Drawing.Size]::new(600, $yBase + 80)
 
     $form.Cursor    = 'Default'
     $lblStatus.Text = "Status: Ready (Found $count updates)"
 }
 
-# Event wiring
+# Wire up toggle and initial load
 $chkCumulative.Add_CheckedChanged({ Load-Updates })
 Load-Updates
 
-# Install button: hide selected logic using KBArticleIDs array
+# Install button click: install exactly the selected PSWUUpdate objects
 $btnInstall.Add_Click({
     $btnInstall.Enabled = $false
-    # Build list of KB IDs to hide
-    $hideList = @()
-    foreach ($item in $lv.Items) {
-        if (-not $item.Checked) {
-            foreach ($id in $item.Tag.KBArticleIDs) {
-                if ($id) { $hideList += $id }
-            }
-        }
+    $selected = @()
+    foreach ($item in $lv.CheckedItems) { $selected += $item.Tag }
+
+    $total = $selected.Count
+    if ($total -eq 0) {
+        $lblStatus.Text = 'Status: No updates selected'
+        return
     }
-    $hideList = $hideList | Sort-Object -Unique
 
-    $lblStatus.Text = 'Hiding unselected updates...'; [System.Windows.Forms.Application]::DoEvents()
-    foreach ($kb in $hideList) { Hide-WindowsUpdate -KBArticleID $kb -Confirm:$false | Out-Null }
+    $i = 0
+    foreach ($upd in $selected) {
+        $i++
+        $lblStatus.Text = "Installing: $($upd.Title)"
+        $percent = [int]($i / $total * 100)
+        $panelFill.Width = [int]($panelTrack.ClientSize.Width * $percent / 100)
+        [System.Windows.Forms.Application]::DoEvents()
 
-    $lblStatus.Text = 'Installing updates...'; [System.Windows.Forms.Application]::DoEvents()
-    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Confirm:$false | Out-Null
+        # Install this update
+        Install-WindowsUpdate -Updates $upd -AcceptAll -IgnoreReboot -Confirm:$false | Out-Null
+    }
 
-    $lblStatus.Text = 'Restoring hidden updates...'; [System.Windows.Forms.Application]::DoEvents()
-    foreach ($kb in $hideList) { Show-WindowsUpdate -KBArticleID $kb -Confirm:$false | Out-Null }
-
-    $lblStatus.Text = 'All updates installed.'
+    $lblStatus.Text = 'All selected updates installed.'
     Read-Host 'Press Enter to finish...' | Out-Null
     $form.Close()
 })
 
-# Show the GUI
+# Show the form
 [void]$form.ShowDialog()
