@@ -115,18 +115,15 @@ function Load-Updates {
 
     # Calculate row height dynamically
     if ($lv.Items.Count -gt 0) {
-        $rowH = $lv.GetItemRect(0).Height
-    } else {
-        $rowH = 20
-    }
-    $hdrH   = 20
-    $maxRows= 40
-    $visible= [math]::Min($lv.Items.Count, $maxRows)
-    $newLvH = $hdrH + ($visible * $rowH)
-    $lv.Height = $newLvH
+        $NewLVH = ($lv.Items.Count * 20)
+		$lv.Height = $NewLVH
+	} else {
+		$NewLVH = 30
+		$lv.Height = $NewLVH
+	}
 
     # Reposition and resize form
-    $yBase = 80 + $newLvH
+    $yBase = 80 + $NewLVH
     $panelTrack.Location = [System.Drawing.Point]::new(20, $yBase + 5)
     $lblStatus.Location  = [System.Drawing.Point]::new(20, $yBase + 35)
     $btnInstall.Location = [System.Drawing.Point]::new(440, $yBase + 30)
@@ -148,12 +145,18 @@ $btnInstall.Add_Click({
     $lblStatus.Text = 'Hiding unselected updates...'
     [System.Windows.Forms.Application]::DoEvents()
 	$unselectedTitles = $lv.Items | Where-Object { -not $_.Checked } | ForEach-Object { $_.Text }
-	Write-Host "Start of unTitles"
-	Write-Host $unselectedTitles
-	Write-Host "Endof unTitles"
-	if ($unselectedTitles) {
+	if ($unselectedTitles.Count -gt 0) {
 		foreach ($ExTitle in $unselectedTitles) {
-			Hide-WindowsUpdate -Title "$ExTitle" -Confirm:$false# | Out-Null
+			Hide-WindowsUpdate -Title "$ExTitle" -Confirm:$false | Out-Null
+		}
+	}
+	if (-not $chkCumulative.Checked) {
+		$list = $list | Where-Object { $_.Title -like "*Cumulative*" }
+		foreach ($item in $list) {
+			$unselectedTiles += $item.Title
+			foreach ($ExTitle in $unselectedTitles) {
+				Hide-WindowsUpdate -Title "$ExTitle" -Confirm:$false | Out-Null
+			} 
 		}
 	}
 
