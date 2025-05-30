@@ -118,7 +118,7 @@ function Load-Updates {
         $NewLVH = ($lv.Items.Count * 20)
 		$lv.Height = $NewLVH
 	} else {
-		$NewLVH = 30
+		$NewLVH = 40
 		$lv.Height = $NewLVH
 	}
 
