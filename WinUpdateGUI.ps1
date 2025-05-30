@@ -1,7 +1,7 @@
 # Windows Update GUI - Tyler Hatfield
 # Provides a WinForms GUI to check for and install Windows Updates using PSWindowsUpdate
 
-# --- Define P/Invoke methods (ignore if already defined) ---
+# --- Define P/Invoke methods via Add-Type targeting .NET 4 (no .NET 3.5 requirement) ---
 try {
     Add-Type -TypeDefinition @"
 using System;
@@ -16,9 +16,9 @@ namespace Native {
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }
-"@ -Language CSharpVersion3 -ErrorAction Stop
+"@ -Language CSharp -CompilerVersion v4.0 -ErrorAction Stop
 } catch {
-    # ignore if already exists
+    # Ignore if type already exists
 }
 
 # --- Preload PSWindowsUpdate & WUA COM for fast searches ---
@@ -30,7 +30,7 @@ $Global:WUASearcher = $WUASession.CreateUpdateSearcher()
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
 # --- Build main form (fixed width, dynamic height) ---
-$form = New-Object System.Windows.Forms.Form
+$form = [System.Windows.Forms.Form]::new()
 $form.Text            = "Hat's Windows Update"
 $form.BackColor       = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.StartPosition   = 'CenterScreen'
@@ -40,7 +40,7 @@ $form.MaximizeBox     = $false
 $form.ClientSize      = [System.Drawing.Size]::new(600,200)
 
 # Title label
-$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle = [System.Windows.Forms.Label]::new()
 $lblTitle.Text      = "Available Updates"
 $lblTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblTitle.AutoSize  = $true
@@ -48,7 +48,7 @@ $lblTitle.Location  = [System.Drawing.Point]::new(20,20)
 $form.Controls.Add($lblTitle)
 
 # Cumulative updates checkbox
-$chkCumulative = New-Object System.Windows.Forms.CheckBox
+$chkCumulative = [System.Windows.Forms.CheckBox]::new()
 $chkCumulative.Text      = "Include Cumulative Updates"
 $chkCumulative.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $chkCumulative.AutoSize  = $true
@@ -56,7 +56,7 @@ $chkCumulative.Location  = [System.Drawing.Point]::new(20,50)
 $form.Controls.Add($chkCumulative)
 
 # ListView for updates
-$lv = New-Object System.Windows.Forms.ListView
+$lv = [System.Windows.Forms.ListView]::new()
 $lv.View          = 'Details'
 $lv.CheckBoxes    = $true
 $lv.FullRowSelect = $true
@@ -71,7 +71,7 @@ $lv.Columns.Add("Size",100) | Out-Null
 $form.Controls.Add($lv)
 
 # Progress bar container
-$panelTrack = New-Object System.Windows.Forms.Panel
+$panelTrack = [System.Windows.Forms.Panel]::new()
 $panelTrack.Size        = [System.Drawing.Size]::new(560,20)
 $panelTrack.Location    = [System.Drawing.Point]::new(20,300)
 $panelTrack.BorderStyle = 'FixedSingle'
@@ -79,14 +79,14 @@ $panelTrack.BackColor   = [System.Drawing.ColorTranslator]::FromHtml("#4f4f4f")
 $form.Controls.Add($panelTrack)
 
 # Progress fill
-$panelFill = New-Object System.Windows.Forms.Panel
+$panelFill = [System.Windows.Forms.Panel]::new()
 $panelFill.Size      = [System.Drawing.Size]::new(0,18)
 $panelFill.Location  = [System.Drawing.Point]::new(1,1)
 $panelFill.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
 $panelTrack.Controls.Add($panelFill)
 
 # Status label
-$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus = [System.Windows.Forms.Label]::new()
 $lblStatus.Text      = "Status: Idle"
 $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblStatus.AutoSize  = $true
@@ -94,7 +94,7 @@ $lblStatus.Location  = [System.Drawing.Point]::new(20,330)
 $form.Controls.Add($lblStatus)
 
 # Install button
-$btnInstall = New-Object System.Windows.Forms.Button
+$btnInstall = [System.Windows.Forms.Button]::new()
 $btnInstall.Text      = "Install Selected"
 $btnInstall.Size      = [System.Drawing.Size]::new(140,30)
 $btnInstall.Location  = [System.Drawing.Point]::new(440,325)
@@ -114,11 +114,9 @@ function Load-Updates {
 
     $lv.Items.Clear()
     foreach ($u in $updates) {
-        $itm = New-Object System.Windows.Forms.ListViewItem($u.Title)
-        # Handle possible null KB values
+        $itm = [System.Windows.Forms.ListViewItem]::new($u.Title)
         $kbText = if ($u.KB) { $u.KB } else { '' }
         $itm.SubItems.Add($kbText) | Out-Null
-        # Handle size (default 0 MB if null)
         $sizeVal = if ($u.Size) { [math]::Round($u.Size/1MB,1) } else { 0 }
         $itm.SubItems.Add("$sizeVal MB") | Out-Null
         $itm.Tag = $u
@@ -142,7 +140,7 @@ function Load-Updates {
     $lblStatus.Text = "Status: Ready (Found $count updates)"
 }
 
-# Events
+# Wire up events
 $chkCumulative.Add_CheckedChanged({ Load-Updates })
 Load-Updates
 $btnInstall.Add_Click({
