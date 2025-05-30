@@ -4,6 +4,12 @@
 
 *The latest release of this repo is always available at:* ***HatsThings.com/go/Hats-Multitool***
 
+## Running the Program
+
+The **Hat's Multitool** can be run by downloading a **[release](https://github.com/TylerHats/Hats-Multitool/releases)** from GitHub and executing the file directly (the program self updates for portability so you do not need to redownload for new versions), or by running the following line in a standard PowerShell console, no elevation needed:
+
+```IRM MT.HTSTH.APP | IEX```
+
 ## What do the scripts do?
 
 **Core.PS1:** *This script is the brain of the operation and is what the* ***[Release](https://github.com/TylerHats/Hats-Multitool/releases)*** *executables are running. This script prepares the environment, runs all important functions and carries out setup based on your options.*
@@ -16,7 +22,7 @@
 
 ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged executables based on the code from the time of creation. Generally ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are created when major changes have been made to the code base.
 
-*Currently, these executables are made using WinRAR and are simple, silent, self extracting archives that launch the main* ***PC Setup Script.PS1*** *file with the -ExecutionPolicy Bypass flag to assist in automating script execution. As long as all three PS1 files are in the same folder, the* ***PC Setup Script.PS1*** *file can be launched directly.*
+*Currently, these executables are made using WinRAR and are simple, silent, self extracting archives that launch the main* ***Core.PS1*** *file with the -ExecutionPolicy Bypass flag to assist in automating program execution. As long as all of the PS1 files and icons are in the same folder, the* ***Core.PS1*** *file can be launched directly.*
 
 **Packaging Instructions:**
 Using your archiving software of choice, pack the three PS1 files into a self extracting archive and add the following command to execute after extraction, and set the archive to silently extract if you desire:
