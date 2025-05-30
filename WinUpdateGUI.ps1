@@ -1,7 +1,7 @@
 # Windows Update GUI - Tyler Hatfield
 # Provides a WinForms GUI to check for and install Windows Updates using PSWindowsUpdate
 
-# --- Define P/Invoke methods (swallow errors if reloaded) ---
+# --- Define P/Invoke methods (ignore if already defined) ---
 try {
     Add-Type -TypeDefinition @"
 using System;
@@ -18,7 +18,7 @@ namespace Native {
 }
 "@ -Language CSharpVersion3 -ErrorAction Stop
 } catch {
-    # ignore add-type errors (type already exists)
+    # ignore if already exists
 }
 
 # --- Preload PSWindowsUpdate & WUA COM for fast searches ---
@@ -37,7 +37,6 @@ $form.StartPosition   = 'CenterScreen'
 $form.Font            = [System.Drawing.Font]::new("Segoe UI", 10)
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox     = $false
-# fixed width 600px; initial height 200px (will adjust)
 $form.ClientSize      = [System.Drawing.Size]::new(600,200)
 
 # Title label
@@ -116,9 +115,12 @@ function Load-Updates {
     $lv.Items.Clear()
     foreach ($u in $updates) {
         $itm = New-Object System.Windows.Forms.ListViewItem($u.Title)
-        $itm.SubItems.Add($u.KB) | Out-Null
-        $sizeMB = [math]::Round($u.Size/1MB,1)
-        $itm.SubItems.Add("$sizeMB MB") | Out-Null
+        # Handle possible null KB values
+        $kbText = if ($u.KB) { $u.KB } else { '' }
+        $itm.SubItems.Add($kbText) | Out-Null
+        # Handle size (default 0 MB if null)
+        $sizeVal = if ($u.Size) { [math]::Round($u.Size/1MB,1) } else { 0 }
+        $itm.SubItems.Add("$sizeVal MB") | Out-Null
         $itm.Tag = $u
         $lv.Items.Add($itm) | Out-Null
     }
@@ -129,7 +131,7 @@ function Load-Updates {
     $newLvH = $hdrH + ($visible * $rowH)
     $lv.Height = $newLvH
 
-    $yBase = 90 + $newLvH
+    $yBase = 80 + $newLvH
     $panelTrack.Location   = [System.Drawing.Point]::new(20, $yBase)
     $lblStatus.Location    = [System.Drawing.Point]::new(20, $yBase + 30)
     $btnInstall.Location   = [System.Drawing.Point]::new(440, $yBase + 25)
