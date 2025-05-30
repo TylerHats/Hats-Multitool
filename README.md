@@ -8,7 +8,7 @@
 
 The **Hat's Multitool** can be run by downloading a **[release](https://github.com/TylerHats/Hats-Multitool/releases)** from GitHub and executing the file directly (the program self updates for portability so you do not need to redownload for new versions), or by running the following line in a standard PowerShell console, no elevation needed:
 
-```IRM MT.HTSTH.APP | IEX```
+    IRM MT.HTSTH.APP | IEX
 
 ## What do the scripts do?
 
