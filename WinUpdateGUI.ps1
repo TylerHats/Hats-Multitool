@@ -1,8 +1,9 @@
-# Windows Update GUI Module - Tyler Hatfield - v1.2
+# Windows Update GUI Module - Tyler Hatfield - v1.3
 
 # Load common file
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
+Hide-ConsoleWindow | Out-Null
 
 # Import, or download, PSWindowsUpdate module and set DO Mode
 try {
