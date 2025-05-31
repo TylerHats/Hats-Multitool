@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v1.6
+# Self Update Module - Tyler Hatfield - v1.7
 
 # Check program version against remote, update if needed
 $currentVersionString = "2.5.1"
@@ -40,7 +40,7 @@ if ($skipUpdate -ne 1) {
 			}
 			# Cleanup and exit current script, then launch updated script
 			$folderToDelete = "$PSScriptRoot"
-			$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath'"
+			$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath' -WindowStyle Minimized"
 			Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 			$ForceExit = $true
 		} else {
@@ -61,7 +61,7 @@ if ($skipUpdate -ne 1) {
 		# Cleanup and exit current script, then launch updated script
 		$env:hatsUpdated = "1"
 		$folderToDelete = "$PSScriptRoot"
-		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath'"
+		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath' -WindowStyle Minimized"
 		Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
 		$ForceExit = $true
 	}

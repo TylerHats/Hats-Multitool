@@ -1,4 +1,4 @@
-# One Line Runner Script - Tyler Hatfield - v1.2
+# One Line Runner Script - Tyler Hatfield - v1.3
 
 # Script setup
 $host.UI.RawUI.BackgroundColor = "Black"
@@ -29,6 +29,6 @@ Try {
 	exit
 }
 # Launch executable
-Start-Process $outputPath
+Start-Process $outputPath -WindowStyle Minimized
 # Exit current script
 exit
