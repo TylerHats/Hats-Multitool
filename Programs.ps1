@@ -99,8 +99,19 @@ $officeCheckbox.Add_CheckedChanged({
     }
 })
 
-# Container panel with border
+# Status label
 $y += 15
+$statuslabel = New-Object System.Windows.Forms.Label
+$statuslabel.Text = "Status: Idle"
+$statuslabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$statuslabel.Size = New-Object System.Drawing.Size(340, 20)
+$statuslabel.Location = New-Object System.Drawing.Point(20, $y)
+$statuslabel.AutoSize = $true
+$statuslabel.TextAlign = 'TopLeft'
+$form.Controls.Add($statuslabel)
+
+# Container panel with border
+$y += 20
 $trackPanel = New-Object System.Windows.Forms.Panel
 $trackPanel.Size        = [System.Drawing.Size]::new(340,22)
 $trackPanel.Location    = [System.Drawing.Point]::new(20,$y)
