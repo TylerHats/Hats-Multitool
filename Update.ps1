@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v1.7
+# Self Update Module - Tyler Hatfield - v1.8
 
 # Check program version against remote, update if needed
 $currentVersionString = "2.5.1"
@@ -24,6 +24,7 @@ if ($skipUpdate -ne 1) {
 			Write-Host ""
 		}
 	} elseif ($currentVersion -gt $remoteVersion) {
+		Show-ConsoleWindow | Out-Null
 		Log-Message "The program is newer than the remote version. Download from the web and relaunch? (y/N)" "Prompt"
 		$ReplaceNewer = Read-Host
 		if ($ReplaceNewer -match 'y|yes') {
@@ -47,6 +48,7 @@ if ($skipUpdate -ne 1) {
 			Log-Message "Proceed with caution, and if you run into errors please redownload from the web.`n" "Skip"
 		}
 	} else {
+		Show-ConsoleWindow | Out-Null
 		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
 		$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"

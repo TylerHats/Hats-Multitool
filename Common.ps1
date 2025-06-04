@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.7
+# Common File - Tyler Hatfield - v1.8
 
 # Common Variables & packages:
 Add-Type -AssemblyName System.Windows.Forms
@@ -148,6 +148,7 @@ function Show-ConsoleWindow {
     Start-Sleep -Milliseconds 50
     # Pull console window to focus
     $hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
+	[Win32]::ShowWindow($consolePtr, 9) | Out-Null
     [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 }
 

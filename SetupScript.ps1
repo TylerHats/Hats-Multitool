@@ -1,12 +1,12 @@
 # PC Setup and Config Script - Tyler Hatfield - v1.10
 
 # Core setup Script
-Show-ConsoleWindow
 if ($SetupScriptRuns -eq 0) {
 # Run Time Zone Module
 if ($Run_TimeZoneSetting) {
 	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
 	. "$TZPath"
+	if ($UserExit -eq $true) {User-Exit}
 	Write-Host ""
 }
 
@@ -32,6 +32,7 @@ if ($Run_WindowsUpdates) {
 	}#>
 }
 
+Show-ConsoleWindow
 # Run accounts module
 if ($Run_LocalAccountSetup) {
 	$AccountsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Accounts.ps1'
@@ -39,6 +40,7 @@ if ($Run_LocalAccountSetup) {
 	Write-Host ""
 }
 
+Hide-ConsoleWindow
 # Run WinGet setup module
 if ($Run_ProgramInstallation) {
 	$WinGetSetupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinGetSetup.ps1'
@@ -46,6 +48,7 @@ if ($Run_ProgramInstallation) {
 	Write-Host ""
 }
 
+Show-ConsoleWindow
 # Run bloat cleanup module
 if ($Run_BloatCleanup) {
 	$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
