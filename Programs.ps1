@@ -105,7 +105,7 @@ $statuslabel = New-Object System.Windows.Forms.Label
 $statuslabel.Text = "Status: Idle"
 $statuslabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $statuslabel.Size = New-Object System.Drawing.Size(340, 20)
-$statuslabel.Location = New-Object System.Drawing.Point(20, $y)
+$statuslabel.Location = New-Object System.Drawing.Point(20, ($y-10))
 $statuslabel.AutoSize = $true
 $statuslabel.TextAlign = 'TopLeft'
 $form.Controls.Add($statuslabel)
@@ -128,7 +128,7 @@ $trackPanel.Controls.Add($fillPanel)
 
 # Add OK button
 $okButton = New-Object System.Windows.Forms.Button
-$y += 45
+$y += 40
 $okButton.Location = New-Object System.Drawing.Point(150, $y)
 $okButton.Size = New-Object System.Drawing.Size(75, 30)
 $okButton.Text = "OK"
