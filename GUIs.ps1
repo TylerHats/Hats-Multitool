@@ -1,6 +1,7 @@
 # GUI Setup File - Tyler Hatfield - v2.8
 
 # Setup Global Forms styling
+[System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 
@@ -15,7 +16,7 @@ $MainMenu.Icon = $HMTIcon
 $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
 $MainMenu.Font = $font
-$MainMenu.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$MainMenu.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -138,7 +139,7 @@ $ModGUI.Icon = $HMTIcon
 $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.Font = $font
-$ModGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$ModGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -274,7 +275,7 @@ $ReminderPopup.Icon = $HMTIcon
 $ReminderPopup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ReminderPopup.MaximizeBox = $false
 $ReminderPopup.Font = $font
-$ReminderPopup.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$ReminderPopup.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # Form size variables
 $buttonHeight = 80      # Height of the OK button
@@ -337,7 +338,7 @@ $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
-$ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$ToolsGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables

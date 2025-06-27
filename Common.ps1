@@ -1,7 +1,14 @@
 # Common File - Tyler Hatfield - v1.8
 
 # Common Variables & packages:
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    Install-Module -Name WindowsCompatibility -Scope CurrentUser -Force   # only once
+    Import-Module WindowsCompatibility
+    Import-WinModule -Name 'System.Windows.Forms'
+    Import-WinModule -Name 'System.Drawing.Common'
+}
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DesktopPath $logPathName
