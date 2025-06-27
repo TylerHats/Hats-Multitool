@@ -90,7 +90,7 @@ $lv.Scrollable    = $true
 $lv.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
 $lv.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lv.Location      = [System.Drawing.Point]::new(20,80)
-$lv.Size          = [System.Drawing.Size]::new(560,200)
+$lv.Size          = [System.Drawing.Size]::new(560,50)
 $lv.Columns.Add("Title",360) | Out-Null
 $lv.Columns.Add("KB",80)     | Out-Null
 $lv.Columns.Add("Size",100)  | Out-Null
@@ -101,14 +101,14 @@ $lblStatus = [System.Windows.Forms.Label]::new()
 $lblStatus.Text      = "Status: Idle"
 $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblStatus.AutoSize  = $true
-$lblStatus.Location  = [System.Drawing.Point]::new(20,330)
+$lblStatus.Location  = [System.Drawing.Point]::new(20,170)
 $form.Controls.Add($lblStatus)
 
 # --- Install button ---
 $btnInstall = [System.Windows.Forms.Button]::new()
 $btnInstall.Text      = "Install Updates"
 $btnInstall.Size      = [System.Drawing.Size]::new(140,30)
-$btnInstall.Location  = [System.Drawing.Point]::new(440,325)
+$btnInstall.Location  = [System.Drawing.Point]::new(440,165)
 $btnInstall.FlatStyle = 'Flat'
 $btnInstall.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $btnInstall.FlatAppearance.BorderSize = 1
