@@ -166,7 +166,6 @@ $chkCumulative.Add_CheckedChanged({
     }
 	Load-Updates
 })
-Load-Updates
 
 # --- Install button click: hide/unhide strategy via PSWindowsUpdate ---
 $btnInstall.Add_Click({
@@ -178,3 +177,4 @@ $btnInstall.Add_Click({
 
 # --- Show the GUI ---
 [void]$form.ShowDialog()
+Load-Updates
