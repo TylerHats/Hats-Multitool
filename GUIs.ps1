@@ -348,7 +348,7 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 8) + ($padding * 0) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 10) + ($padding * 0) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -584,12 +584,43 @@ $DDUButton.Text = "Display Driver Uninstaller"
 $DDUButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DDUButton.FlatStyle = 'Flat'
 $DDUButton.FlatAppearance.BorderSize = 1
-$DDUButton.Enabled = $false
+$DDUButton.Enabled = $true
 $ToolsGUI.Controls.Add($DDUButton)
 
 # DDU Button Tooltip
 $DDUTooltip = New-Object System.Windows.Forms.ToolTip
 $DDUTooltip.SetToolTip($DDUButton, "Runs the Display Driver Uninstaller tool to clean graphics drivers for fresh installs.")
+
+# Add HDDScan Button
+$HDDSButton = New-Object System.Windows.Forms.Button
+$y += 0
+$HDDSButton.Location = New-Object System.Drawing.Point(380, $y)
+$HDDSButton.Size = New-Object System.Drawing.Size(250, 40)
+$HDDSButton.Text = "HDDScan"
+$HDDSButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$HDDSButton.FlatStyle = 'Flat'
+$HDDSButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($HDDSButton)
+
+# Add HDDScan Tooltip
+$HDDSTooltip = New-Object System.Windows.Forms.ToolTip
+$HDDSTooltip.SetToolTip($HDDSButton, "Runs the HDDScan program to verify the block health and SMART data of a drive.")
+
+# Add Windows 11 Upgrade Assistant Button
+$W11AButton = New-Object System.Windows.Forms.Button
+$y += 65
+$W11AButton.Location = New-Object System.Drawing.Point(65, $y)
+$W11AButton.Size = New-Object System.Drawing.Size(250, 40)
+$W11AButton.Text = "Win11 Upgrade Assistant"
+$W11AButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$W11AButton.FlatStyle = 'Flat'
+$W11AButton.FlatAppearance.BorderSize = 1
+$W11AButton.Enabled = $true
+$ToolsGUI.Controls.Add($W11AButton)
+
+# Add W11A Tooltip
+$W11ATooltip = New-Object System.Windows.Forms.ToolTip
+$W11ATooltip.SetToolTip($W11AButton, "Runs the Windows 11 Upgrade Assistant program.")
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
@@ -726,6 +757,38 @@ $NETButton.Add_Click({
 })
 
 # Define DDU button functions
+$DDUButton.Add_Click({
+	$DDUButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.zip"
+	Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$DDUPath"
+	Expand-Archive -LiteralPath $DDUPath -DestinationPath $ExtProgramDir -Force
+	$DDUEPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU v18.1.1.5.exe"
+    Start-Process $DDUEPath
+	$DDUButton.Enabled = $true
+})
+
+# Define HDDS button functions
+$HDDSButton.Add_Click({
+	$HDDSButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
+	Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$HDDSPath"
+	Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
+	$HDDSEPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDScan.exe"
+    Start-Process $HDDSEPath
+	$HDDSButton.Enabled = $true
+})
+
+# Define W11A button functions
+$W11AButton.Add_Click({
+	$W11AButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
+	Show-DownloadDialog -DisplayName 'Win11 Upgrade Asisstant' -Url 'https://download.microsoft.com/download/6/8/3/683178b7-baac-4b0d-95be-065a945aadee/Windows11InstallationAssistant.exe' -OutputPath "$W11APath"
+    Start-Process $W11APath
+	$W11AButton.Enabled = $true
+})
 
 # Define back button
 $BackButton.Add_Click({
