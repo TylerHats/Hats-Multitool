@@ -1,18 +1,57 @@
-# Windows Update GUI Module - Tyler Hatfield - v1.4
+# Windows Update GUI Module - Tyler Hatfield - v1.5
+
+# Script Setup
+$failedResize = 0
+$failedColor = 0
+try {
+	$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
+	$dHeight = 10
+	$rawUI = $Host.UI.RawUI
+	$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
+	$rawUI.WindowSize = $newSize
+} catch {
+	try {
+		$dWidth = (Get-Host).UI.RawUI.BufferSize.Width
+		$dHeight = 20
+		$rawUI = $Host.UI.RawUI
+		$newSize = New-Object System.Management.Automation.Host.Size ($dWidth, $dHeight)
+		$rawUI.WindowSize = $newSize
+	} catch {
+		$failedResize = 1
+	}
+}
+try {
+	$host.UI.RawUI.BackgroundColor = "Black"
+} catch {
+	$failedColor = 1
+}
 
 # Load common file
+Write-Host "Loading: Windows Update GUI..."
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
-Hide-ConsoleWindow | Out-Null
 
 # Import, or download, PSWindowsUpdate module and set DO Mode
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+    Register-PSRepository -Default
+}
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider -Name NuGet -Force | Out-Null
+}
 try {
 	Import-Module PSWindowsUpdate -ErrorAction Stop
 } catch {
-	Log-Message "PSWindowsUpdate module not found. Installing now..." "LogOnly"
     Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
 }
+Import-Module DeliveryOptimization
+Set-DODownloadMode -downloadMode Internet
+Restart-Service -Name DoSvc -ErrorAction SilentlyContinue
+
+# Hide console for GUI
+Hide-ConsoleWindow | Out-Null
 
 # --- Build the main form ---
 $form = [System.Windows.Forms.Form]::new()

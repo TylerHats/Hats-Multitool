@@ -18,8 +18,6 @@ if ($Run_WindowsUpdates) {
 	#$env:installCumulativeWU = Read-Host
 	Log-Message "Launching Windows Update GUI..."
 	$ProgressPreference = 'SilentlyContinue'
-	Install-PackageProvider -Name NuGet -Force | Out-File -Append -FilePath $logPath
-	Install-Module -Name PSWindowsUpdate -Force | Out-File -Append -FilePath $logPath
 	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
 	#$child = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`"" -PassThru
 	Write-Host ""
