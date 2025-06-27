@@ -1,4 +1,4 @@
-# Time Zone Module - Tyler Hatfield - v2.1
+# Time Zone Module - Tyler Hatfield - v2.2
 
 # Create TZ GUI
 # Prepare form
@@ -11,7 +11,7 @@ $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TZGUI.MaximizeBox = $false
 $TZGUI.Font = $font
-$TZGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
+$TZGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
