@@ -1,4 +1,4 @@
-# Time Zone Module - Tyler Hatfield - v2.0
+# Time Zone Module - Tyler Hatfield - v2.1
 
 # Create TZ GUI
 # Prepare form

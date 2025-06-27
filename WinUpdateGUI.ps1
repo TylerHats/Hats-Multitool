@@ -1,4 +1,4 @@
-# Windows Update GUI Module - Tyler Hatfield - v1.3
+# Windows Update GUI Module - Tyler Hatfield - v1.4
 
 # Load common file
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'

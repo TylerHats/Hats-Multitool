@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.8
+# GUI Setup File - Tyler Hatfield - v2.9
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)

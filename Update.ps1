@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.8
 
 # Check program version against remote, update if needed
-$currentVersionString = "2.5.1"
+$currentVersionString = "2.6.0"
 $shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
@@ -72,7 +72,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
-	Log-Message "`n- Added new intermediate Windows Update GUI`n- Added .NET 3.5 installation functionality`n- Corrected minor general and GUI bugs" "Skip"
+	Log-Message "`n- PENDING" "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
 	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
