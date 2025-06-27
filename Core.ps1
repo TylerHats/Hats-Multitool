@@ -9,6 +9,7 @@ if (-not $IsElevated) {
 }
 
 # Script setup
+Write-Host "Loading: Hat's Multitool..."
 $failedResize = 0
 $failedColor = 0
 try {
@@ -33,10 +34,10 @@ try {
 } catch {
 	$failedColor = 1
 }
-Clear-Host
 $Host.UI.RawUI.WindowTitle = "Hat's Multitool"
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
+Clear-Host
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 
