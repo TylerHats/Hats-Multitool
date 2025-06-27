@@ -44,7 +44,7 @@ $form.Controls.Add($chkCumulative)
 # --- ListView for updates ---
 $lv = [System.Windows.Forms.ListView]::new()
 $lv.View          = 'Details'
-$lv.CheckBoxes    = $true
+$lv.CheckBoxes    = $false
 $lv.FullRowSelect = $true
 $lv.Scrollable    = $true
 $lv.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
@@ -96,8 +96,11 @@ function Load-Updates {
     }
 
     # Calculate row height dynamically
-    if ($lv.Items.Count -gt 0) {
-        $NewLVH = ($lv.Items.Count * 28)
+    if ($lv.Items.Count -gt 15) {
+        $NewLVH = 300
+        $lv.Height = $NewLVH
+    }elseif ($lv.Items.Count -gt 0) {
+        $NewLVH = ($lv.Items.Count * 20)
 		$lv.Height = $NewLVH
 	} else {
 		$NewLVH = 40
@@ -116,11 +119,11 @@ function Load-Updates {
 
 # --- Wire up toggle and initial load ---
 $chkCumulative.Add_CheckedChanged({
-	if (-not ($env:installCumulativeWU -match '^(y|yes)$')) {
-		$env:installCumulativeWU = y
-	} elseif ($env:installCumulativeWU -match '^(y|yes)$') {
-		$env:installCumulativeWU = n
-	}
+    if ($chkCumulative.Checked){
+        $env:installCumulativeWU = y
+    } else {
+        $env:installCumulativeWU = n
+    }
 	Load-Updates
 })
 Load-Updates
