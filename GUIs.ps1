@@ -283,7 +283,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$y = 15
+$y = 10
 $ReminderPopupHeight = $buttonHeight + ($padding * 1) + ($labelHeight * 2)
 $ReminderPopup.Size = New-Object System.Drawing.Size(700, $ReminderPopupHeight)
 $ReminderPopup.StartPosition = 'CenterScreen'
@@ -292,7 +292,7 @@ $ReminderPopup.StartPosition = 'CenterScreen'
 $ReminderPopuplabel = New-Object System.Windows.Forms.Label
 $ReminderPopuplabel.Text = "The multitool run has completed! Please check for any background windows`nand reboot if needed to finalize changes. Press OK to exit."
 $ReminderPopuplabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ReminderPopupLabel.Size = New-Object System.Drawing.Size(650, 40)
+$ReminderPopupLabel.Size = New-Object System.Drawing.Size(650, 50)
 $ReminderPopuplabel.Location = New-Object System.Drawing.Point(20, $y)
 $ReminderPopuplabel.AutoSize = $false
 $ReminderPopuplabel.TextAlign = 'TopCenter'
@@ -301,7 +301,7 @@ $y += $labelHeight
 
 # Add OK button
 $ReminderPopupokButton = New-Object System.Windows.Forms.Button
-$y += 25
+$y += 30
 $ReminderPopupokButton.Location = New-Object System.Drawing.Point(305, $y)
 $ReminderPopupokButton.Size = New-Object System.Drawing.Size(75, 30)
 $ReminderPopupokButton.Text = "OK"
@@ -624,7 +624,7 @@ $W11ATooltip.SetToolTip($W11AButton, "Runs the Windows 11 Upgrade Assistant prog
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
-$y += 65
+$y += 80
 $BackButton.Location = New-Object System.Drawing.Point(300, $y)
 $BackButton.Size = New-Object System.Drawing.Size(95, 40)
 $BackButton.Text = "Back"
