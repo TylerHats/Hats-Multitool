@@ -24,6 +24,7 @@ $form.Icon = $HMTIcon
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.Font = $font
+$form..AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # --- Title label ---
 $lblTitle = [System.Windows.Forms.Label]::new()
@@ -96,11 +97,11 @@ function Load-Updates {
     }
 
     # Calculate row height dynamically
-    if ($lv.Items.Count -gt 15) {
+    if ($lv.Items.Count -gt 10) {
         $NewLVH = 300
         $lv.Height = $NewLVH
     }elseif ($lv.Items.Count -gt 0) {
-        $NewLVH = ($lv.Items.Count * 20)
+        $NewLVH = ($lv.Items.Count * 28)
 		$lv.Height = $NewLVH
 	} else {
 		$NewLVH = 40
