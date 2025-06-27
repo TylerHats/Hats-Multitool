@@ -162,6 +162,8 @@ $okButton.Add_Click({
         if ($program.Type -eq "MSOffice") {
 			try {
 			Log-Message "Installing Microsoft Office (x64)..." "Info"
+            $statuslabel.Text = 'Installing: MS Office (x64)...'
+            [System.Windows.Forms.Application]::DoEvents()
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
 			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
@@ -194,6 +196,8 @@ $okButton.Add_Click({
 		} elseif ($program.Type -eq "MSOutlook") {
 			try {
 			Log-Message "Installing Microsoft Outlook (Classic)..." "Info"
+            $statuslabel.Text = 'Installing: Outlook (Classic)...'
+            [System.Windows.Forms.Application]::DoEvents()
 			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
 			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
 			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
@@ -225,6 +229,8 @@ $okButton.Add_Click({
 			}
 		} elseif ($program.Type -eq "Teams") {
 			Log-Message "Installing Microsoft Teams..."
+            $statuslabel.Text = 'Installing: Microsoft Teams...'
+            [System.Windows.Forms.Application]::DoEvents()
 			try {
 				#Teams Installation code
 				$bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
@@ -270,6 +276,8 @@ $okButton.Add_Click({
 				break
 			}
             Log-Message "Installing $($program.Name)..."
+            $statuslabel.Text = "Installing: $($program.Name)..."
+            [System.Windows.Forms.Application]::DoEvents()
             try {
                 # Corrected WinGet command execution
                 $wingetArgs = @(

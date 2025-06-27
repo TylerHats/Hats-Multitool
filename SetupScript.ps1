@@ -38,7 +38,6 @@ if ($Run_LocalAccountSetup) {
 	Write-Host ""
 }
 
-Hide-ConsoleWindow
 # Run WinGet setup module
 if ($Run_ProgramInstallation) {
 	$WinGetSetupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinGetSetup.ps1'
@@ -54,6 +53,7 @@ if ($Run_BloatCleanup) {
 	Write-Host ""
 }
 
+Hide-ConsoleWindow
 # Run program installation module
 if ($Run_ProgramInstallation) {
 	$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'
@@ -61,6 +61,7 @@ if ($Run_ProgramInstallation) {
 	Write-Host ""
 }
 
+Show-ConsoleWindow
 # Run system management module
 if ($Run_SystemManagement) {
 	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
