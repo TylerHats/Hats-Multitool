@@ -175,6 +175,10 @@ $btnInstall.Add_Click({
     $form.Close()
 })
 
+# --- Load intial updates after form open ---
+$form.Add_Shown({
+	Load-Updates
+})
+
 # --- Show the GUI ---
 [void]$form.ShowDialog()
-Load-Updates
