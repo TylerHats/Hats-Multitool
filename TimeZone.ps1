@@ -11,7 +11,7 @@ $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TZGUI.MaximizeBox = $false
 $TZGUI.Font = $font
-$TZGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$TZGUI.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -20,12 +20,12 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$TZGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 3)
-$TZGUI.Size = New-Object System.Drawing.Size(300, $TZGUIHeight)
+$TZGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 4)
+$TZGUI.Size = New-Object System.Drawing.Size(400, $TZGUIHeight)
 $TZGUI.StartPosition = 'CenterScreen'
 
 # Add descriptive label
-$y = 15
+$y = 10
 $TZlabel = New-Object System.Windows.Forms.Label
 $TZlabel.Text = "Select a Time Zone from the dropdown:"
 $TZlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -36,19 +36,19 @@ $TZlabel.TextAlign = 'TopLeft'
 $TZGUI.Controls.Add($TZlabel)
 
 # Add dropdown list
-$y += 30
+$y += 35
 $comboBox = New-Object System.Windows.Forms.ComboBox
 $comboBox.Location = New-Object System.Drawing.Point(10,$y)
-$comboBox.Size = New-Object System.Drawing.Size(260,20)
+$comboBox.Size = New-Object System.Drawing.Size(360,30)
 $comboBox.DropDownStyle = 'DropDownList' # Prevents text input
 $comboBox.Items.AddRange(@("Eastern Standard Time", "Central Standard Time", "Mountain Standard Time", "Pacific Standard Time"))
 $comboBox.SelectedIndex = 0
 $TZGUI.Controls.Add($comboBox)
 
 # Add Okay button
-$y += 40
+$y += 50
 $TZOkayButton = New-Object System.Windows.Forms.Button
-$TZOkayButton.Location = New-Object System.Drawing.Point(105, $y)
+$TZOkayButton.Location = New-Object System.Drawing.Point(155, $y)
 $TZOkayButton.Size = New-Object System.Drawing.Size(75, 30)
 $TZOkayButton.Text = 'OK'
 $TZOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
