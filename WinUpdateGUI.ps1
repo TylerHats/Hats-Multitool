@@ -63,7 +63,7 @@ $form.Icon = $HMTIcon
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.Font = $font
-$form..AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
+$form.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
 # --- Title label ---
 $lblTitle = [System.Windows.Forms.Label]::new()
@@ -160,9 +160,9 @@ function Load-Updates {
 # --- Wire up toggle and initial load ---
 $chkCumulative.Add_CheckedChanged({
     if ($chkCumulative.Checked){
-        $env:installCumulativeWU = y
+        $env:installCumulativeWU = "y"
     } else {
-        $env:installCumulativeWU = n
+        $env:installCumulativeWU = "n"
     }
 	Load-Updates
 })

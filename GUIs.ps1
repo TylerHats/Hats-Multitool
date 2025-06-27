@@ -1,7 +1,6 @@
-# GUI Setup File - Tyler Hatfield - v2.9
+# GUI Setup File - Tyler Hatfield - v2.10
 
 # Setup Global Forms styling
-[System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 
