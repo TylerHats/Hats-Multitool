@@ -26,10 +26,120 @@ try {
 	$failedColor = 1
 }
 
-# Load common file
+# Load common items
 Write-Host "Loading: Windows Update GUI..."
-$commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
-. "$commonPath"
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    if (-not (Get-Module -ListAvailable WindowsCompatibility)) {Install-Module -Name WindowsCompatibility -Scope CurrentUser -Force}   # only once
+    Import-Module WindowsCompatibility
+    Import-WinModule -Name 'System.Windows.Forms'
+    Import-WinModule -Name 'System.Drawing.Common'
+}
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$DesktopPath = [Environment]::GetFolderPath('Desktop')
+$logPathName = "Hats-Multitool-Log.txt"
+$logPath = Join-Path $DesktopPath $logPathName
+$UserExit = $false
+$WinUpdatesRun = $false
+$GUIClosed = $false
+$ProgramExiting = $false
+$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
+#$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
+$HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
+$SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
+$font = New-Object System.Drawing.Font("Segoe UI", 10)
+[System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
+
+# Load C classes for required window management
+# Load required functions to interact with Windows
+# Used for PowerShell Console window show/hide interactions
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+	[DllImport("user32.dll")]   
+	public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+}
+"@
+
+# constants for WM_SETICON
+$WM_SETICON = 0x80
+$ICON_SMALL = 0
+$ICON_BIG   = 1
+
+# grab our icon handle
+$hIcon = $HMTIcon.Handle
+
+# get the console window and swap in our icon
+$wParamSmall = New-Object System.IntPtr($ICON_SMALL)
+$wParamBig   = New-Object System.IntPtr($ICON_BIG)
+$hwnd = [Win32]::GetConsoleWindow()
+[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+
+# Used for PowerShell Console window focusing and GUI theming
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace ConsoleUtils {
+    public static class NativeMethods {
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        // If you need ShowWindow:
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+    }
+}
+"@
+Add-Type -TypeDefinition $code -Language CSharp
+
+# Used to control DPI rendering of Forms GUIS
+$dpiCode = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace MyApp.Helpers {
+    public static class DPI {
+        [DllImport("user32.dll")]
+        public static extern bool SetProcessDPIAware();
+    }
+}
+"@
+Add-Type -TypeDefinition $dpiCode -Language CSharp
+[MyApp.Helpers.DPI]::SetProcessDPIAware() | Out-Null
+
+# Function to hide the console window
+function Hide-ConsoleWindow {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 0 = Hide
+    [Win32]::ShowWindow($consolePtr, 0)
+}
+
+# Function to show the console window
+function Show-ConsoleWindow {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 5 = Show normally
+    [Win32]::ShowWindow($consolePtr, 5)
+    Start-Sleep -Milliseconds 50
+    # Pull console window to focus
+    $hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
+	[Win32]::ShowWindow($consolePtr, 9) | Out-Null
+    [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+}
 
 # Import, or download, PSWindowsUpdate module and set DO Mode
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -63,7 +173,7 @@ $form.Icon = $HMTIcon
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.Font = $font
-$form.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
 
 # --- Title label ---
 $lblTitle = [System.Windows.Forms.Label]::new()
@@ -90,7 +200,7 @@ $lv.Scrollable    = $true
 $lv.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
 $lv.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lv.Location      = [System.Drawing.Point]::new(20,80)
-$lv.Size          = [System.Drawing.Size]::new(560,50)
+$lv.Size          = [System.Drawing.Size]::new(560,60)
 $lv.Columns.Add("Title",360) | Out-Null
 $lv.Columns.Add("KB",80)     | Out-Null
 $lv.Columns.Add("Size",100)  | Out-Null
@@ -101,14 +211,14 @@ $lblStatus = [System.Windows.Forms.Label]::new()
 $lblStatus.Text      = "Status: Idle"
 $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblStatus.AutoSize  = $true
-$lblStatus.Location  = [System.Drawing.Point]::new(20,170)
+$lblStatus.Location  = [System.Drawing.Point]::new(20,165)
 $form.Controls.Add($lblStatus)
 
 # --- Install button ---
 $btnInstall = [System.Windows.Forms.Button]::new()
 $btnInstall.Text      = "Install Updates"
 $btnInstall.Size      = [System.Drawing.Size]::new(140,30)
-$btnInstall.Location  = [System.Drawing.Point]::new(440,165)
+$btnInstall.Location  = [System.Drawing.Point]::new(440,160)
 $btnInstall.FlatStyle = 'Flat'
 $btnInstall.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $btnInstall.FlatAppearance.BorderSize = 1
@@ -121,7 +231,11 @@ function Load-Updates {
     [System.Windows.Forms.Application]::DoEvents()
 
     # Retrieve list via PSWindowsUpdate
-    $list = Get-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose:$false
+    try {
+        $list = Get-WindowsUpdate -AcceptAll -IgnoreReboot -Verbose:$false
+    } catch {
+        $lblStatus.Text = 'Update list failed to load.'
+    }
     if (-not $chkCumulative.Checked) {
         $list = $list | Where-Object { $_.Title -notmatch 'Cumulative' }
     }
