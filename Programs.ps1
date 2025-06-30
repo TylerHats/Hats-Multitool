@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.2
+# Programs Module - Tyler Hatfield - v1.3
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -40,7 +40,7 @@ $programs = @(
 	@{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
     @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
-    @{ Name = 'Microsoft Teams (In testing)'; WingetID = ''; Type = 'Teams' },
+    @{ Name = 'Microsoft Teams'; WingetID = ''; Type = 'Teams' },
 	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
@@ -174,7 +174,10 @@ $okButton.Add_Click({
 				Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
-			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
+			& $odtExe /extract:$workingDir /quiet
+            if ($LASTEXITCODE -ne 0) {
+                throw "ODT extraction failed (exit code $LASTEXITCODE)"
+            }
 			$configXml = @'
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Monthly">
@@ -208,7 +211,10 @@ $okButton.Add_Click({
 				Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
 			}
 			Log-Message "Extracting Office Deployment Tool..." "Info"
-			Start-Process -FilePath $odtExe -ArgumentList "/extract:`"$workingDir`"", "/quiet" -Wait
+			& $odtExe /extract:$workingDir /quiet
+            if ($LASTEXITCODE -ne 0) {
+                throw "ODT extraction failed (exit code $LASTEXITCODE)"
+            }
 			$configXml = @'
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Monthly">
@@ -234,6 +240,8 @@ $okButton.Add_Click({
 			try {
 				#Teams Installation code
 				$bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
+                $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "Teams"
+                if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
 				$teamsEXE = "$workingDir\teamsbootstrapper.exe"
 				Log-Message "Downloading Teams Bootstrapper..." "Info"
 			    try {Invoke-WebRequest -Uri $bootstrapperURL -OutFile $teamsEXE *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Bootstrapper download failed, check your internet connection." "Error"}
