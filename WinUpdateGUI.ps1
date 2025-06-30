@@ -156,9 +156,6 @@ try {
     Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
     Import-Module PSWindowsUpdate
 }
-Import-Module DeliveryOptimization
-Set-DODownloadMode -downloadMode Internet
-Restart-Service -Name DoSvc -ErrorAction SilentlyContinue
 
 # Hide console for GUI
 Hide-ConsoleWindow | Out-Null

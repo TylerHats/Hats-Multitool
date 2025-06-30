@@ -48,11 +48,9 @@ $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 $origWriteHost = Get-Command Write-Host
 
 # Set Download Mode
-try {
-	Set-DODownloadMode -DownloadMode 3 -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
-} catch {
-	Log-Message "Delivery Optimization mode setting failed, continuing with defaults..." "Error"
-}
+Import-Module DeliveryOptimization
+Set-DODownloadMode -downloadMode Internet
+Restart-Service -Name DoSvc -ErrorAction SilentlyContinue
 
 # Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
 try {
