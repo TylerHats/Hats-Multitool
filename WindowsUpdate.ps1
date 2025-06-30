@@ -47,19 +47,26 @@ $Host.UI.RawUI.WindowTitle = "Hat's Windows Update Script"
 #Write-Host "`n`n`n`n`n`n`n`n"
 $origWriteHost = Get-Command Write-Host
 
+# Load NuGet and PSWindowsUpdate if not present
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+    Register-PSRepository -Default
+}
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider -Name NuGet -Force | Out-Null
+}
+try {
+	Import-Module PSWindowsUpdate -ErrorAction Stop
+} catch {
+    Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
+    Import-Module PSWindowsUpdate
+}
+
 # Set Download Mode
 Import-Module DeliveryOptimization
 Set-DODownloadMode -downloadMode Internet
 Restart-Service -Name DoSvc -ErrorAction SilentlyContinue
-
-# Make sure PSWindowsUpdate is available. If not, attempt to install it (optional).
-try {
-    Import-Module PSWindowsUpdate -ErrorAction Stop
-} catch {
-    Log-Message "PSWindowsUpdate module not found. Installing now..." "Error"
-    Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
-    Import-Module PSWindowsUpdate
-}
 
 Log-Message "Cleaning Windows Update Cache..." "Info"
 try {
