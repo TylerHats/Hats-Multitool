@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.11
+# GUI Setup File - Tyler Hatfield - v2.12
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
