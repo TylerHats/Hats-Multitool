@@ -1,4 +1,4 @@
-# One Line Runner Script - Tyler Hatfield - v1.3
+# One Line Runner Script - Tyler Hatfield - v1.4
 
 # Script setup
 $host.UI.RawUI.BackgroundColor = "Black"
