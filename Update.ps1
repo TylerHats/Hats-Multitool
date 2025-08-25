@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.8
 
 # Check program version against remote, update if needed
-$currentVersionString = "2.7.0"
+$currentVersionString = "2.7.1"
 $shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
@@ -72,7 +72,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
-	Log-Message "`n- Corrected program behavior when using the remote IRM | IEX PowerShell launch method.`n- Added new GUI for final setup options.`n- Fixed bug with newly created accounts not being prompted for admin elevation." "Skip"
+	Log-Message "`n- Added Crystal Disk Info and Mark to Tools page`n- Updated link for WizTree" "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
 	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
