@@ -20,7 +20,7 @@ $remoteVersionString = $remoteRequest.Content
 Write-Host "Downloading and launching Hat's Multitool..."
 $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/latest/download/Hats-Multitool-v$remoteVersion.exe"
 $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-Null
+try { Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-Null } catch {}
 Try {
 	Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
 } catch {
@@ -29,6 +29,7 @@ Try {
 	exit
 }
 # Launch executable
-Start-Process $outputPath -WindowStyle Minimized
+try { Unblock-File -Path $outputPath } catch {}
+Start-Process -FilePath $outputPath -WorkingDirectory $downloadsFolder -WindowStyle Minimized
 # Exit current script
 exit
