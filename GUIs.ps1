@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.10
+# GUI Setup File - Tyler Hatfield - v2.11
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -347,7 +347,7 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 10) + ($padding * 0) + ($labelHeight * 1)
+$ToolsGUIHeight = ($buttonHeight * 11) + ($padding * 0) + ($labelHeight * 1)
 $ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
@@ -621,6 +621,38 @@ $ToolsGUI.Controls.Add($W11AButton)
 $W11ATooltip = New-Object System.Windows.Forms.ToolTip
 $W11ATooltip.SetToolTip($W11AButton, "Runs the Windows 11 Upgrade Assistant program.")
 
+# Add CDM Button
+$CDMButton = New-Object System.Windows.Forms.Button
+$y += 0
+$CDMButton.Location = New-Object System.Drawing.Point(380, $y)
+$CDMButton.Size = New-Object System.Drawing.Size(250, 40)
+$CDMButton.Text = "Crystal Disk Mark"
+$CDMButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$CDMButton.FlatStyle = 'Flat'
+$CDMButton.FlatAppearance.BorderSize = 1
+$CDMButton.Enabled = $true
+$ToolsGUI.Controls.Add($CDMButton)
+
+# Add CDM Tooltop
+$CDMTooltip = New-Object System.Windows.Forms.ToolTip
+$CDMTooltip.SetToolTip($CDMButton, "Runs Crystal Disk Mark SSD/HDD testing utility.")
+
+# Add CDI Button
+$CDIButton = New-Object System.Windows.Forms.Button
+$y += 65
+$CDIButton.Location = New-Object System.Drawing.Point(65, $y)
+$CDIButton.Size = New-Object System.Drawing.Size(250, 40)
+$CDIButton.Text = "Crystal Disk Info"
+$CDIButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$CDIButton.FlatStyle = 'Flat'
+$CDIButton.FlatAppearance.BorderSize = 1
+$CDIButton.Enabled = $true
+$ToolsGUI.Controls.Add($CDIButton)
+
+# Add CDI Tooltip
+$CDITooltip = New-Object System.Windows.Forms.ToolTip
+$CDITooltip.SetToolTip($CDIButton, "Runs Crystal Disk Info utility.")
+
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
 $y += 80
@@ -681,7 +713,7 @@ $WizTreeButton.Add_Click({
 	$WizTreeButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
-	Show-DownloadDialog -DisplayName 'WizTree' -Url 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_25_portable.zip' -OutputPath "$WizTreeZipPath"
+	Show-DownloadDialog -DisplayName 'WizTree' -Url 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip' -OutputPath "$WizTreeZipPath"
 	Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
 	$WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
 	Start-Process $WizTreeExePath
@@ -787,6 +819,30 @@ $W11AButton.Add_Click({
 	Show-DownloadDialog -DisplayName 'Win11 Upgrade Asisstant' -Url 'https://download.microsoft.com/download/6/8/3/683178b7-baac-4b0d-95be-065a945aadee/Windows11InstallationAssistant.exe' -OutputPath "$W11APath"
     Start-Process $W11APath
 	$W11AButton.Enabled = $true
+})
+
+# Define CDM button functions
+$CDMButton.Add_Click({
+	$CDMButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
+	Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1' -OutputPath "$CDMPath"
+	Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
+	$CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
+    Start-Process $CDMEPath
+	$CDMButton.Enabled = $true
+})
+
+# Define CDI button functions
+$CDIButton.Add_Click({
+	$CDIButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
+	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1' -OutputPath "$CDMPath"
+	Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
+	$CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
+    Start-Process $CDIEPath
+	$CDIButton.Enabled = $true
 })
 
 # Define back button
