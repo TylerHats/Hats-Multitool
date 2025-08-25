@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.10
+# PC Setup and Config Script - Tyler Hatfield - v1.11
 
 # Core setup Script
 if ($SetupScriptRuns -eq 0) {
@@ -70,11 +70,17 @@ if ($Run_SystemManagement) {
 }
 
 # Final setup options
+Hide-ConsoleWindow
 if ($Run_NUMLockDefault) {
+	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
+	. "$FOPath"
+	if ($UserExit -eq $true) {User-Exit}
+	Write-Host ""
+	<# OLD CODE
 	$regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
 	if (Test-Path $regPathNumLock) {
-		# Set the InitialKeyboardIndicators value to 2 (Enables numlock by default) and disable Fast Startup for registry loading
-		Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2"
+		# Set the InitialKeyboardIndicators value to 2147483650 (Enables numlock by default)
+		Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2147483650"
 		powercfg /hibernate off *>&1 | Out-File -Append -FilePath $logPath
 		Log-Message "Enabled NUM Lock at boot by default." "Success"
 		Write-Host ""
@@ -82,9 +88,12 @@ if ($Run_NUMLockDefault) {
 		Log-Message "Registry path $regPathNumLock does not exist." "Error"
 		Write-Host ""
 	}
+	#>
 }
+
 $SetupScriptRuns += 1
 $MainMenuSetupButton.Enabled = $false
 } else {
+	Show-ConsoleWindow
 	Log-Message "Something appears to have gone wrong, the setup script has already run. Please try opening the program fresh." "Error"
 }

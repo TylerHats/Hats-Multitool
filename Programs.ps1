@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.3
+# Programs Module - Tyler Hatfield - v1.4
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -136,6 +136,7 @@ $okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $okButton.FlatStyle = 'Flat'
 $okButton.FlatAppearance.BorderSize = 1
 $form.Controls.Add($okButton)
+$form.AcceptButton = $okButton
 
 # Define a function to handle the OK button click
 $okButton.Add_Click({

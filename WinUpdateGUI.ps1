@@ -1,4 +1,4 @@
-# Windows Update GUI Module - Tyler Hatfield - v1.5
+# Windows Update GUI Module - Tyler Hatfield - v1.6
 
 # Script Setup
 $failedResize = 0
@@ -220,6 +220,7 @@ $btnInstall.FlatStyle = 'Flat'
 $btnInstall.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $btnInstall.FlatAppearance.BorderSize = 1
 $form.Controls.Add($btnInstall)
+$form.AcceptButton = $btnInstall
 
 # --- Function to load updates and resize form dynamically ---
 function Load-Updates {

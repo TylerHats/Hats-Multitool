@@ -1,4 +1,4 @@
-# Time Zone Module - Tyler Hatfield - v2.2
+# Time Zone Module - Tyler Hatfield - v2.3
 
 # Create TZ GUI
 # Prepare form
@@ -55,6 +55,7 @@ $TZOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TZOkayButton.FlatStyle = 'Flat'
 $TZOkayButton.FlatAppearance.BorderSize = 1
 $TZGUI.Controls.Add($TZOkayButton)
+$TZGUI.AcceptButton = $TZOkayButton
 
 # Define a function to handle the Okay button click
 $TZOkayButton.Add_Click({
