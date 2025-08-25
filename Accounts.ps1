@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v1
+# Accounts Module - Tyler Hatfield - v1.1
 
 # Code block for local account creation, loops per user input
 Log-Message "Setup Local Account(s)..."
@@ -15,6 +15,7 @@ While ($RepeatFunction -eq 1) {
 			$MakeUser = Read-Host
 			if ($MakeUser -eq "y" -or $MakeUser -eq "Y") {
 				Net User "$AdminUser" "$AdminPass" /add | Out-File -Append -FilePath $logPath
+				$UExists = Get-LocalUser -Name "$AdminUser" -ErrorAction SilentlyContinue
 			} else {
 				Log-Message "Skipping account creation." "Skip"
 			}
