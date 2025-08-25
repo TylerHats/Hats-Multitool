@@ -870,16 +870,16 @@ $ToolsGUI.Add_FormClosing({
 
 #Troubleshooting GUI ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Prepare Form
-$ToolsGUI = New-Object System.Windows.Forms.Form
-$ToolsGUI.Text = "Hat's Multitool"
-$ToolsGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$ToolsGUI.Size = New-Object System.Drawing.Size(400, 500)
-$ToolsGUI.StartPosition = 'CenterScreen'
-$ToolsGUI.Icon = $HMTIcon
-$ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-$ToolsGUI.MaximizeBox = $false
-$ToolsGUI.Font = $font
-$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$TroubleGUI = New-Object System.Windows.Forms.Form
+$TroubleGUI.Text = "Hat's Multitool"
+$TroubleGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$TroubleGUI.Size = New-Object System.Drawing.Size(400, 500)
+$TroubleGUI.StartPosition = 'CenterScreen'
+$TroubleGUI.Icon = $HMTIcon
+$TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$TroubleGUI.MaximizeBox = $false
+$TroubleGUI.Font = $font
+$TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
@@ -889,80 +889,80 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$ToolsGUIHeight = ($buttonHeight * 11) + ($padding * 0) + ($labelHeight * 1)
-$ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
-$ToolsGUI.StartPosition = 'CenterScreen'
+$TroubleGUIHeight = ($buttonHeight * 3) + ($padding * 0) + ($labelHeight * 1)
+$TroubleGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
+$TroubleGUI.StartPosition = 'CenterScreen'
 
 # Add info text
-$ToolsInfo = New-Object System.Windows.Forms.Label
-$ToolsInfo.Text = "Press a button to launch the relevant tool:"
-$ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
-$ToolsInfo.AutoSize = $true
-$ToolsInfo.TextAlign = 'TopCenter'
-$ToolsGUI.Controls.Add($ToolsInfo)
+$TroubleInfo = New-Object System.Windows.Forms.Label
+$TroubleInfo.Text = "Press a button to launch the relevant tool:"
+$TroubleInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TroubleInfo.Location = New-Object System.Drawing.Point(30, $y)
+$TroubleInfo.AutoSize = $true
+$TroubleInfo.TextAlign = 'TopCenter'
+$TroubleGUI.Controls.Add($TroubleInfo)
 $y += $labelHeight
 
-# Add User Data Tool button
-$UserDataButton = New-Object System.Windows.Forms.Button
+# Add Check Disk button
+$ChkDskButton = New-Object System.Windows.Forms.Button
 $y += 10
-$UserDataButton.Location = New-Object System.Drawing.Point(65, $y)
-$UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
-$UserDataButton.Text = "Hat's User Data Tool"
-$UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$UserDataButton.FlatStyle = 'Flat'
-$UserDataButton.FlatAppearance.BorderSize = 1
-$UserDataButton.Enabled = $false
-$ToolsGUI.Controls.Add($UserDataButton)
+$ChkDskButton.Location = New-Object System.Drawing.Point(65, $y)
+$ChkDskButton.Size = New-Object System.Drawing.Size(250, 40)
+$ChkDskButton.Text = "Check Disk (Read Only)"
+$ChkDskButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ChkDskButton.FlatStyle = 'Flat'
+$ChkDskButton.FlatAppearance.BorderSize = 1
+$ChkDskButton.Enabled = $false
+$TroubleGUI.Controls.Add($ChkDskButton)
 
-# User Data Tool Button Tooltip
-$UserDataTooltip = New-Object System.Windows.Forms.ToolTip
-$UserDataTooltip.SetToolTip($UserDataButton, "A tool to help collect user and system data for transferring to new machines.")
+# Check Disk button Tooltip
+$ChkDskTooltip = New-Object System.Windows.Forms.ToolTip
+$ChkDskTooltip.SetToolTip($ChkDskButton, "Runs Check Disk in read only mode on C: to check for errors in the file system.")
 
-# Add QIP Agent Deployment button
-$QIPButton = New-Object System.Windows.Forms.Button
+# Add DISM button
+$DISMButton = New-Object System.Windows.Forms.Button
 $y += 0
-$QIPButton.Location = New-Object System.Drawing.Point(380, $y)
-$QIPButton.Size = New-Object System.Drawing.Size(250, 40)
-$QIPButton.Text = "QIP Agent Deployment"
-$QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$QIPButton.FlatStyle = 'Flat'
-$QIPButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($QIPButton)
+$DISMButton.Location = New-Object System.Drawing.Point(380, $y)
+$DISMButton.Size = New-Object System.Drawing.Size(250, 40)
+$DISMButton.Text = "DISM Repair"
+$DISMButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$DISMButton.FlatStyle = 'Flat'
+$DISMButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($DISMButton)
 
-# QIP Agent Button Tooltip
-$QIPTooltip = New-Object System.Windows.Forms.ToolTip
-$QIPTooltip.SetToolTip($QIPButton, "Launches the QualityIP Ninja Agent installer.")
+# DISM Button Tooltip
+$DISMTooltip = New-Object System.Windows.Forms.ToolTip
+$DISMTooltip.SetToolTip($DISMButton, "Launches DISM targeting the running image with restore and cleanup options.")
 
-# Add QIP Agent Removal button
-$QIPRButton = New-Object System.Windows.Forms.Button
+# Add SFC button
+$SFCButton = New-Object System.Windows.Forms.Button
 $y += 65
-$QIPRButton.Location = New-Object System.Drawing.Point(65, $y)
-$QIPRButton.Size = New-Object System.Drawing.Size(250, 40)
-$QIPRButton.Text = "Ninja Removal Script"
-$QIPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$QIPRButton.FlatStyle = 'Flat'
-$QIPRButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($QIPRButton)
+$SFCButton.Location = New-Object System.Drawing.Point(65, $y)
+$SFCButton.Size = New-Object System.Drawing.Size(250, 40)
+$SFCButton.Text = "SFC Repair"
+$SFCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$SFCButton.FlatStyle = 'Flat'
+$SFCButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($SFCButton)
 
-# QIP Agent Removal Button Tooltip
-$QIPRTooltip = New-Object System.Windows.Forms.ToolTip
-$QIPRTooltip.SetToolTip($QIPRButton, "Launches the Ninja Agent removal script.")
+# SFC Button Tooltip
+$SFCTooltip = New-Object System.Windows.Forms.ToolTip
+$SFCTooltip.SetToolTip($SFCButton, "Launches standard SFC repair command.")
 
-# Add Windows Disk Cleanup button
-$DCleanButton = New-Object System.Windows.Forms.Button
+# Add SafeBoot button
+$SafeBootButton = New-Object System.Windows.Forms.Button
 $y += 0
-$DCleanButton.Location = New-Object System.Drawing.Point(380, $y)
-$DCleanButton.Size = New-Object System.Drawing.Size(250, 40)
-$DCleanButton.Text = "Windows Disk Cleanup"
-$DCleanButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DCleanButton.FlatStyle = 'Flat'
-$DCleanButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($DCleanButton)
+$SafeBootButton.Location = New-Object System.Drawing.Point(380, $y)
+$SafeBootButton.Size = New-Object System.Drawing.Size(250, 40)
+$SafeBootButton.Text = "Enable Safe Boot (with Networking)"
+$SafeBootButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$SafeBootButton.FlatStyle = 'Flat'
+$SafeBootButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($SafeBootButton)
 
 # Disk Cleanup Button Tooltip
-$DCleanTooltip = New-Object System.Windows.Forms.ToolTip
-$DCleanTooltip.SetToolTip($DCleanButton, "Launches the Windows Disk Cleanup GUI.")
+$SafeBootTooltip = New-Object System.Windows.Forms.ToolTip
+$SafeBootTooltip.SetToolTip($SafeBootButton, "Sets the BCD file to boot with Safe Boot with networking enabled.")
 
 # Add back button
 $BackButton = New-Object System.Windows.Forms.Button
@@ -973,47 +973,45 @@ $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($BackButton)
+$TroubleGUI.Controls.Add($BackButton)
 
-# Define QIP Agent Deployment button functions
-$QIPButton.Add_Click({
-	$QIPButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$QIPAgentPath = Join-Path -Path $ExtProgramDir -ChildPath "QIPAgent.exe"
-	Show-DownloadDialog -DisplayName 'QIP Agent Installer' -Url 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutputPath "$QIPAgentPath"
-	Start-Process $QIPAgentPath
-	$QIPButton.Enabled = $true
+# Define check disk button functions
+$ChkDskButton.Add_Click({
+	$ChkDskButton.Enabled = $false
+	Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
+	$ChkDSkButton.Enabled = $true
 })
 
-# Define User Data Migration Tool button functions *************
-
-# Define Ninja Removal Script button functions
-$QIPRButton.Add_Click({
-    $QIPRButton.Enabled = $false
-    if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-    $QIPRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
-    Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$QIPRScriptPath"
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$QIPRScriptPath`""
-    $QIPRButton.Enabled = $true
+# Define dism button functions
+$DISMButton.Add_Click({
+	$DISMButton.Enabled = $false
+	Start-Process cmd.exe -ArgumentList '/c dism /online /cleanup-image /restorehealth & pause' -Verb RunAs
+	$DISMButton.Enabled = $true
 })
 
-# Define Windows Disk Cleanup button functions
-$DCleanButton.Add_Click({
-	$DCleanButton.Enabled = $false
-	Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
-	Start-Process -FilePath cleanmgr.exe -Verb RunAs
-	$DCleanButton.Enabled = $true
+# Define SFC button functions
+$SFCButton.Add_Click({
+	$SFCButton.Enabled = $false
+	Start-Process cmd.exe -ArgumentList '/c sfc /scannow & pause' -Verb RunAs
+	$SFCButton.Enabled = $true
+})
+
+# Define Safe Boot button functions
+$SafeBootButton.Add_Click({
+	$SafeBootButton.Enabled = $false
+	Start-Process cmd.exe -ArgumentList '/c bcdedit /set {default} safeboot networking' -Verb RunAs
+	$SafeBootButton.Enabled = $true
 })
 
 # Define back button
 $BackButton.Add_Click({
-	$ToolsGUI.Hide()
+	$TroubleGUI.Hide()
     Show-MainMenu
     $Global:GUIClosed = $true
 })
 
 # Catch closes to close program properly
-$ToolsGUI.Add_FormClosing({
+$TroubleGUI.Add_FormClosing({
     param($sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
