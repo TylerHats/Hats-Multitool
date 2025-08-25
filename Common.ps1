@@ -211,6 +211,14 @@ function Show-ToolsGUI {
     if ($UserExit -eq $true) {User-Exit}
 }
 
+function Show-TroubleGUI {
+    Hide-ConsoleWindow | Out-Null
+    $TroubleGUI.Show() | Out-Null
+    while ($TroubleGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+    $GUIClosed = $false
+    if ($UserExit -eq $true) {User-Exit}
+}
+
 function Show-DownloadDialog {
     [CmdletBinding()]
     param(

@@ -60,7 +60,7 @@ $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::Fro
 $MainMenuTroubleshootingButton.FlatStyle = 'Flat'
 $MainMenuTroubleshootingButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuTroubleshootingButton)
-$MainMenuTroubleshootingButton.Enabled = $false # Disabled, WIP
+$MainMenuTroubleshootingButton.Enabled = $true
 
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
@@ -102,7 +102,11 @@ $MainMenuToolsButton.Add_Click({
 })
 
 # Define Troubleshooting button click
-#WIP
+$MainMenuTroubleshootingButton.Add_Click({
+    $MainMenu.Hide()
+    Show-TroubleGUI
+    $Global:GUIClosed = $true
+})
 
 # Define Account button click
 #WIP
@@ -843,6 +847,162 @@ $CDIButton.Add_Click({
 	$CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
     Start-Process $CDIEPath
 	$CDIButton.Enabled = $true
+})
+
+# Define back button
+$BackButton.Add_Click({
+	$ToolsGUI.Hide()
+    Show-MainMenu
+    $Global:GUIClosed = $true
+})
+
+# Catch closes to close program properly
+$ToolsGUI.Add_FormClosing({
+    param($sender, $e)
+    # $e.CloseReason tells you why it's closing
+    # UserClosing covers the “X” or Alt-F4
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
+        # Do your “cleanup” or alternate logic here
+        $Global:UserExit = $true
+		$Global:GUIClosed = $true
+    }
+})
+
+#Troubleshooting GUI ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Prepare Form
+$ToolsGUI = New-Object System.Windows.Forms.Form
+$ToolsGUI.Text = "Hat's Multitool"
+$ToolsGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$ToolsGUI.Size = New-Object System.Drawing.Size(400, 500)
+$ToolsGUI.StartPosition = 'CenterScreen'
+$ToolsGUI.Icon = $HMTIcon
+$ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$ToolsGUI.MaximizeBox = $false
+$ToolsGUI.Font = $font
+$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
+
+# Form size variables
+$buttonHeight = 75      # Height of the OK button
+$labelHeight = 30       # Height of text labels
+$padding = 20
+
+# Adjust GUI Height
+$y = 20
+$ToolsGUIHeight = ($buttonHeight * 11) + ($padding * 0) + ($labelHeight * 1)
+$ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
+$ToolsGUI.StartPosition = 'CenterScreen'
+
+# Add info text
+$ToolsInfo = New-Object System.Windows.Forms.Label
+$ToolsInfo.Text = "Press a button to launch the relevant tool:"
+$ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
+$ToolsInfo.AutoSize = $true
+$ToolsInfo.TextAlign = 'TopCenter'
+$ToolsGUI.Controls.Add($ToolsInfo)
+$y += $labelHeight
+
+# Add User Data Tool button
+$UserDataButton = New-Object System.Windows.Forms.Button
+$y += 10
+$UserDataButton.Location = New-Object System.Drawing.Point(65, $y)
+$UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
+$UserDataButton.Text = "Hat's User Data Tool"
+$UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$UserDataButton.FlatStyle = 'Flat'
+$UserDataButton.FlatAppearance.BorderSize = 1
+$UserDataButton.Enabled = $false
+$ToolsGUI.Controls.Add($UserDataButton)
+
+# User Data Tool Button Tooltip
+$UserDataTooltip = New-Object System.Windows.Forms.ToolTip
+$UserDataTooltip.SetToolTip($UserDataButton, "A tool to help collect user and system data for transferring to new machines.")
+
+# Add QIP Agent Deployment button
+$QIPButton = New-Object System.Windows.Forms.Button
+$y += 0
+$QIPButton.Location = New-Object System.Drawing.Point(380, $y)
+$QIPButton.Size = New-Object System.Drawing.Size(250, 40)
+$QIPButton.Text = "QIP Agent Deployment"
+$QIPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$QIPButton.FlatStyle = 'Flat'
+$QIPButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($QIPButton)
+
+# QIP Agent Button Tooltip
+$QIPTooltip = New-Object System.Windows.Forms.ToolTip
+$QIPTooltip.SetToolTip($QIPButton, "Launches the QualityIP Ninja Agent installer.")
+
+# Add QIP Agent Removal button
+$QIPRButton = New-Object System.Windows.Forms.Button
+$y += 65
+$QIPRButton.Location = New-Object System.Drawing.Point(65, $y)
+$QIPRButton.Size = New-Object System.Drawing.Size(250, 40)
+$QIPRButton.Text = "Ninja Removal Script"
+$QIPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$QIPRButton.FlatStyle = 'Flat'
+$QIPRButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($QIPRButton)
+
+# QIP Agent Removal Button Tooltip
+$QIPRTooltip = New-Object System.Windows.Forms.ToolTip
+$QIPRTooltip.SetToolTip($QIPRButton, "Launches the Ninja Agent removal script.")
+
+# Add Windows Disk Cleanup button
+$DCleanButton = New-Object System.Windows.Forms.Button
+$y += 0
+$DCleanButton.Location = New-Object System.Drawing.Point(380, $y)
+$DCleanButton.Size = New-Object System.Drawing.Size(250, 40)
+$DCleanButton.Text = "Windows Disk Cleanup"
+$DCleanButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$DCleanButton.FlatStyle = 'Flat'
+$DCleanButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($DCleanButton)
+
+# Disk Cleanup Button Tooltip
+$DCleanTooltip = New-Object System.Windows.Forms.ToolTip
+$DCleanTooltip.SetToolTip($DCleanButton, "Launches the Windows Disk Cleanup GUI.")
+
+# Add back button
+$BackButton = New-Object System.Windows.Forms.Button
+$y += 80
+$BackButton.Location = New-Object System.Drawing.Point(300, $y)
+$BackButton.Size = New-Object System.Drawing.Size(95, 40)
+$BackButton.Text = "Back"
+$BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$BackButton.FlatStyle = 'Flat'
+$BackButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($BackButton)
+
+# Define QIP Agent Deployment button functions
+$QIPButton.Add_Click({
+	$QIPButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$QIPAgentPath = Join-Path -Path $ExtProgramDir -ChildPath "QIPAgent.exe"
+	Show-DownloadDialog -DisplayName 'QIP Agent Installer' -Url 'https://qi-host.nyc3.digitaloceanspaces.com/NinjaOne/Installer/NinjaOne%20-%20Agent%20Deploy.exe' -OutputPath "$QIPAgentPath"
+	Start-Process $QIPAgentPath
+	$QIPButton.Enabled = $true
+})
+
+# Define User Data Migration Tool button functions *************
+
+# Define Ninja Removal Script button functions
+$QIPRButton.Add_Click({
+    $QIPRButton.Enabled = $false
+    if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+    $QIPRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
+    Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$QIPRScriptPath"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$QIPRScriptPath`""
+    $QIPRButton.Enabled = $true
+})
+
+# Define Windows Disk Cleanup button functions
+$DCleanButton.Add_Click({
+	$DCleanButton.Enabled = $false
+	Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
+	Start-Process -FilePath cleanmgr.exe -Verb RunAs
+	$DCleanButton.Enabled = $true
 })
 
 # Define back button
