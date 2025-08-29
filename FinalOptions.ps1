@@ -20,7 +20,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 4)
+$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 8)
 $FOGUI.Size = New-Object System.Drawing.Size(600, $FOGUIHeight)
 $FOGUI.StartPosition = 'CenterScreen'
 
@@ -45,7 +45,7 @@ $FOLV.Scrollable    = $false
 $FOLV.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
 $FOLV.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $FOLV.Location      = [System.Drawing.Point]::new(20, $y)
-$FOLV.Size          = [System.Drawing.Size]::new(560,60)
+$FOLV.Size          = [System.Drawing.Size]::new(540,90)
 $FOLV.Columns.Add("Option",560) | Out-Null
 $FOGUI.Controls.Add($FOLV)
 
@@ -62,9 +62,9 @@ foreach ($u in $list) {
 }
 
 # Add Okay button
-$y += 80
+$y += 110
 $FOOkayButton = New-Object System.Windows.Forms.Button
-$FOOkayButton.Location = New-Object System.Drawing.Point(155, $y)
+$FOOkayButton.Location = New-Object System.Drawing.Point(250, $y)
 $FOOkayButton.Size = New-Object System.Drawing.Size(75, 30)
 $FOOkayButton.Text = 'OK'
 $FOOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
