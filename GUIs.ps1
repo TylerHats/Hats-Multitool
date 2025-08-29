@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.13
+# GUI Setup File - Tyler Hatfield - v2.14
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -890,7 +890,7 @@ $padding = 20
 
 # Adjust GUI Height
 $y = 20
-$TroubleGUIHeight = ($buttonHeight * 3) + ($padding * 0) + ($labelHeight * 1)
+$TroubleGUIHeight = ($buttonHeight * 4) + ($padding * 0) + ($labelHeight * 1)
 $TroubleGUI.Size = New-Object System.Drawing.Size(705, $TroubleGUIHeight)
 $TroubleGUI.StartPosition = 'CenterScreen'
 
