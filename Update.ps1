@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v1.8
 
 # Check program version against remote, update if needed
-$currentVersionString = "2.7.1"
+$currentVersionString = "2.7.2"
 $shell = New-Object -ComObject Shell.Application
 $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
 [version]$currentVersion = $currentVersionString
@@ -72,7 +72,7 @@ if ($skipUpdate -ne 1) {
 # Changelog Display
 if ($env:hatsUpdated -eq "1" -and $ForceExit -ne $true) {
 	Write-Host ""
-	Log-Message "`n- Added Crystal Disk Info and Mark to Tools page`n- Updated link for WizTree`n- Enabled and setup new Troubleshooting menu with initial options." "Skip"
+	Log-Message "`n- Corrected issues with O365/Outlook installation.`n- Updated and fixed several GUI quirks.`n- Added code to retry failed WinGet installs once per run.`n- Allowed Main Menu to appear after running setup menu.`n- Misc. bug fixes and quality improvements." "Skip"
 	$clearEnvVarCommand = "[System.Environment]::SetEnvironmentVariable('hatsUpdated', `$null, [System.EnvironmentVariableTarget]::Machine)"
 	Remove-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
 	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-Command $clearEnvVarCommand" -Verb RunAs -WindowStyle Hidden
