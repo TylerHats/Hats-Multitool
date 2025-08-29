@@ -158,6 +158,7 @@ $okButton.Add_Click({
 
     # Install programs and update progress bar
     $progressValue = 0
+    $failedWinget = @()
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
         if ($program.Type -eq "MSOffice") {
@@ -310,6 +311,9 @@ $okButton.Add_Click({
                 } else {
                     $message = "$($program.Name): Installation failed with exit code $($process.ExitCode)."
                     Log-Message $message "Error"
+                    $failedWinget += $program.Name
+                    $progressValueMax += 1
+                    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
                 }
             } catch {
                 $message = "$($program.Name): Installation failed. Error: $_"
@@ -320,6 +324,82 @@ $okButton.Add_Click({
         $progressPercent = ($progressValue / $progressValueMax)
         $fillPanel.Width = [int]($maxWidth * $progressPercent)
         # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
+    }
+    if ($failedWinget.Count -gt 0) {
+        Log-Message "Retrying failed programs..."
+    foreach ($programName in $failedWinget) {
+        $program = $programs | Where-Object { $_.Name -eq $programName }
+        if ($program -ne $null) {
+			$maxWaitSeconds = 60    # 1 minute
+			$waitIntervalSeconds = 20
+			$elapsedSeconds = 0
+			$WaitInstall = "blank"
+			# Loop while msiexec.exe is running
+			while (Get-Process -Name msiexec -ErrorAction SilentlyContinue) {
+<#				if ($WaitInstall -eq "blank") {
+			 	   	Log-Message "Another installation is in progress. Would you like to wait or continue? (c/W):" "Prompt"
+					$WaitInstall = Read-Host
+				}
+				if ($WaitInstall.ToLower() -eq "c" -or $WaitInstall.ToLower() -eq "continue") {
+					Log-Message "Ignoring background installation and continuing..." "Info"
+					break
+				}
+				Log-Message "Waiting $waitIntervalSeconds seconds and checking again..." "Info"
+			    Start-Sleep -Seconds $waitIntervalSeconds
+			    $elapsedSeconds += $waitIntervalSeconds
+			    if ($elapsedSeconds -ge $maxWaitSeconds) {
+			        Log-Message "Waited for $maxWaitSeconds seconds and the installer still has not cleared. Would you like to kill MSIEXEC.exe? (y/N):" "Prompt"
+			        $KillMSIE = Read-Host
+					if ($KillMSIE.ToLower() -eq "y" -or $KillMSIE.ToLower() -eq "yes") {
+						Log-Message "Killing MSIEXEC.exe and continuing WinGet updates..." "Info"
+						try {Get-Process -Name "msiexec" -ErrorAction Stop | Stop-Process -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Failed to kill process MSIEXEC.exe, continuing..." "Error"}
+					} else {
+						Log-Message "Ignoring background installation and continuing WinGet program install..." "Info"
+					}
+					break
+ 			   } #>
+				#Log-Message "Killing MSIEXEC.exe and continuing WinGet installations..." "Info"
+				Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+				break
+			}
+            Log-Message "(Retrying) Installing $($program.Name)..."
+            $statuslabel.Text = "(Retrying) Installing: $($program.Name)..."
+            [System.Windows.Forms.Application]::DoEvents()
+            try {
+                # Corrected WinGet command execution
+                $wingetArgs = @(
+                    "install",
+                    "-e",  # Exact match flag
+                    "--id", $program.WingetID,
+                    "--scope", "machine",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements"
+                )
+
+                # Use Start-Process with the correct arguments
+                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
+
+                # Capture the result
+                if ($process.ExitCode -eq 0) {
+                    $message = "$($program.Name): Installed successfully."
+                    Log-Message $message "Success"
+					Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+
+                } else {
+                    $message = "$($program.Name): Installation failed again with exit code $($process.ExitCode)."
+                    Log-Message $message "Error"
+                    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+                }
+            } catch {
+                $message = "$($program.Name): Installation failed. Error: $_"
+                Log-Message $message "Error"
+            }
+        }
+        $progressValue += 1
+        $progressPercent = ($progressValue / $progressValueMax)
+        $fillPanel.Width = [int]($maxWidth * $progressPercent)
+        # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
+    }
     }
 
     # Close the form once installation is complete
