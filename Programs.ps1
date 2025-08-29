@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.5
+# Programs Module - Tyler Hatfield - v1.6
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
