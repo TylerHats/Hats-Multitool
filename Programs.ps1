@@ -191,8 +191,8 @@ $okButton.Add_Click({
 </Configuration>
 '@
 			$configFile = "$workingDir\officeconfiguration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding ascii
-			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
+			$configXml | Out-File -FilePath $configFile -Encoding utf8
+			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure $configFile" -Wait
 			Log-Message "Microsoft Office: Installed successfully." "Success"
 			 } catch {
 				Log-Message "Microsoft Office: Installation failed, please review the log." "Error"
@@ -228,8 +228,8 @@ $okButton.Add_Click({
 </Configuration>
 '@
 			$configFile = "$workingDir\outlookconfiguration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding ascii
-			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -Wait
+			$configXml | Out-File -FilePath $configFile -Encoding utf8
+			Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure $configFile" -Wait
 			Log-Message "Microsoft Outlook: Installed successfully." "Success"
 			 } catch {
 				Log-Message "Microsoft Outlook: Installation failed, please review the log." "Error"
