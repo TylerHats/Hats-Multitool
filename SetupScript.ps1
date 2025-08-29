@@ -92,7 +92,6 @@ if ($Run_SettingsandOptions) {
 }
 
 $SetupScriptRuns += 1
-$MainMenuSetupButton.Enabled = $false
 } else {
 	Show-ConsoleWindow
 	Log-Message "Something appears to have gone wrong, the setup script has already run. Please try opening the program fresh." "Error"

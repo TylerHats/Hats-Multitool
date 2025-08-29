@@ -87,8 +87,8 @@ $MainMenu.Controls.Add($MainMenuExitButton)
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
-	#$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
-    # Close and display Setup GUI
+	$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
+	# Close and display Setup GUI
     $MainMenu.Hide()
     Show-ModGUI
     $Global:GUIClosed = $true
@@ -245,6 +245,7 @@ $ModGUIokButton.Add_Click({
     $ModGUI.Hide()
     $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 	. "$SetupScriptModPath"
+	Show-MainMenu
     $Global:GUIClosed = $true
 })
 
