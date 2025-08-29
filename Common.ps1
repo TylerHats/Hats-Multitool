@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.10
+# Common File - Tyler Hatfield - v1.11
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -10,8 +10,9 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
+$DownloadPath = [Environment]::GetFolderPath('Downloads')
 $logPathName = "Hats-Multitool-Log.txt"
-$logPath = Join-Path $DesktopPath $logPathName
+$logPath = Join-Path $DownloadPath $logPathName
 $UserExit = $false
 $WinUpdatesRun = $false
 $GUIClosed = $false
