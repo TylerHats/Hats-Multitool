@@ -49,13 +49,13 @@ $origWriteHost = Get-Command Write-Host
 
 # Load NuGet and PSWindowsUpdate if not present
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider -Name NuGet -Force | Out-Null
+}
 if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
     Register-PSRepository -Default
 }
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
-    Install-PackageProvider -Name NuGet -Force | Out-Null
-}
 try {
 	Import-Module PSWindowsUpdate -ErrorAction Stop
 } catch {
