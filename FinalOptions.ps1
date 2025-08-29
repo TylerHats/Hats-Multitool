@@ -20,7 +20,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 8)
+$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 7)
 $FOGUI.Size = New-Object System.Drawing.Size(600, $FOGUIHeight)
 $FOGUI.StartPosition = 'CenterScreen'
 
