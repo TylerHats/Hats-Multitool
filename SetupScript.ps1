@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.11
+# PC Setup and Config Script - Tyler Hatfield - v1.12
 
 # Core setup Script
 if ($SetupScriptRuns -eq 0) {
@@ -71,7 +71,7 @@ if ($Run_SystemManagement) {
 
 # Final setup options
 Hide-ConsoleWindow
-if ($Run_NUMLockDefault) {
+if ($Run_SettingsandOptions) {
 	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
 	. "$FOPath"
 	if ($UserExit -eq $true) {User-Exit}

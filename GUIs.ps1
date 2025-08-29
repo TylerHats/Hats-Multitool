@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.12
+# GUI Setup File - Tyler Hatfield - v2.13
 
 # Setup Global Forms styling
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
@@ -158,7 +158,7 @@ $modules = @(
     @{ Name = 'Bloat Cleanup' },
     @{ Name = 'Program Installation' },
     @{ Name = 'System Management' },
-	@{ Name = 'NUM Lock Default' }
+	@{ Name = 'Settings and Options' }
 )
 
 # Adjust GUI Height
