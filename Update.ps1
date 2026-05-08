@@ -1,7 +1,7 @@
 # Self Update Module - Tyler Hatfield - v2.2
 
 #Current version variable
-$currentVersionString = "3.1.0"
+$currentVersionString = "3.2.0"
 
 # Prepare Update GUI
 # Prepare form
