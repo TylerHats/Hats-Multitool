@@ -22,7 +22,7 @@ The **Hat's Multitool** can be run by downloading a **[release](https://github.c
 
 ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged executables based on the code from the time of creation. Generally ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are created when major changes have been made to the code base.
 
-*Currently, these executables are made using WinRAR and are simple, silent, self extracting archives that launch the main* ***Core.PS1*** *file with the -ExecutionPolicy Bypass flag to assist in automating program execution. As long as all of the PS1 files and icons are in the same folder, the* ***Core.PS1*** *file can be launched directly.*
+*Currently, these executables are made using NSIS and are simple, silent, self extracting archives that launch the main* ***Core.PS1*** *file with the -ExecutionPolicy Bypass flag to assist in automating program execution. As long as all of the PS1 files and icons are in the same folder, the* ***Core.PS1*** *file can be launched directly.*
 
 **Packaging Instructions:**
 Using your archiving software of choice, pack the three PS1 files into a self extracting archive and add the following command to execute after extraction, and set the archive to silently extract if you desire:
