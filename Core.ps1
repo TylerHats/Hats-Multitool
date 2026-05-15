@@ -8,6 +8,10 @@ if (-not $IsElevated) {
     exit
 }
 
+# Setup Global Forms styling
+[System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
+
 # Splashscreen
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 function Show-ImageSplash {

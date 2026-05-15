@@ -1,9 +1,5 @@
 # GUI Setup File - Tyler Hatfield - v2.20
 
-# Setup Global Forms styling
-[System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
-[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
-
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
 $MainMenu = New-Object System.Windows.Forms.Form
