@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.9
+# Programs Module - Tyler Hatfield - v1.10
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -341,6 +341,8 @@ $okButton.Add_Click({
                     "install",
                     "-e",  # Exact match flag
                     "--id", $program.WingetID,
+                    "--silent",
+                    "--disable-interactivity",
                     "--scope", "machine",
                     "--accept-package-agreements",
                     "--accept-source-agreements"
