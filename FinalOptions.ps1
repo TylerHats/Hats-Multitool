@@ -52,9 +52,9 @@ $FOGUI.Controls.Add($FOLV)
 # Populate List
 $FOLV.Items.Clear()
 $list = @(
-    @{ Option = 'NumLock - Default On for Login'; ID = 'numlock' },
+    @{ Option = 'NumLock - Default On for Login and New User Sessions'; ID = 'numlock' },
 	@{ Option = 'Disable Windows Default Printer Management'; ID = 'defprint' },
-    @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Login'; ID = 'hellopin' }
+    @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Azure Login'; ID = 'hellopin' }
 )
 foreach ($u in $list) {
     $item = [System.Windows.Forms.ListViewItem]::new($u.Option)
@@ -81,29 +81,36 @@ $FOOkayButton.Add_Click({
         foreach ($li in $FOLV.CheckedItems) {
             switch ($li.Tag) {
                 'numlock' {
+                    # 1. Fix for the Login Screen (SYSTEM Profile)
                     $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
-	                if (Test-Path $regPathNumLock) {
-	                	# Set the InitialKeyboardIndicators value to 2147483650 (Enables numlock by default)
-	                	New-ItemProperty -PropertyType String -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2147483650"
-	                	Log-Message "Enabled NUM Lock at boot by default." "Success"
-	                	Write-Host ""
-	                } else {
-	                	Log-Message "Registry path $regPathNumLock does not exist." "Error"
-	                	Write-Host ""
-	                }
+                    if (-not (Test-Path $regPathNumLock)) { New-Item -Path $regPathNumLock -Force | Out-Null }
+                    
+                    # Use Set-ItemProperty to overwrite existing keys without throwing an error
+                    Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2" -Type String -Force
+                    Log-Message "Enabled NUM Lock on Login Screen." "Success"
+
+                    # 2. Fix for all NEW Users (Default Profile Hive)
                     $defHiveMount = 'HKU\DefUser'
                     $defNtUser    = 'C:\Users\Default\NTUSER.DAT'
+                    
                     if (Test-Path $defNtUser) {
                         & reg.exe load $defHiveMount "$defNtUser" | Out-Null
                         try {
-                            New-Item -Path "Registry::$defHiveMount\Control Panel" -Name 'Keyboard' -Force | Out-Null
-                            New-ItemProperty -Path "Registry::$defHiveMount\Control Panel\Keyboard" `
-                            -Name 'InitialKeyboardIndicators' -Value '2147483650' -PropertyType String -Force | Out-Null
+                            $defKey = "Registry::$defHiveMount\Control Panel\Keyboard"
+                            if (-not (Test-Path $defKey)) { New-Item -Path $defKey -Force | Out-Null }
+                            
+                            Set-ItemProperty -Path $defKey -Name 'InitialKeyboardIndicators' -Value "2" -Type String -Force
+                            Log-Message "Enabled NUM Lock default for new user profiles." "Success"
                         } finally {
+                            # Run garbage collection to release file locks before unloading
+                            [gc]::Collect() 
                             & reg.exe unload $defHiveMount | Out-Null
                         }
+                    } else {
+                        Log-Message "Default profile hive not found at $defNtUser" "Error"
                     }
                 }
+                
                 'defprint' {
                     # Set "Let Windows manage my default printer" = OFF for NEW users only
                     $defHiveMount = 'HKU\DefUser'
@@ -111,26 +118,35 @@ $FOOkayButton.Add_Click({
                     $prefKeyRel   = 'Software\Microsoft\Windows NT\CurrentVersion\Windows'
 
                     if (Test-Path $defNtUser) {
-                        # Load Default profile hive
                         & reg.exe load $defHiveMount "$defNtUser" | Out-Null
                         try {
                             $prefKey = "Registry::$defHiveMount\$prefKeyRel"
                             if (-not (Test-Path $prefKey)) { New-Item -Path $prefKey -Force | Out-Null }
-                            New-ItemProperty -Path $prefKey -Name 'LegacyDefaultPrinterMode' -Value 1 -PropertyType DWord -Force | Out-Null
+                            
+                            Set-ItemProperty -Path $prefKey -Name 'LegacyDefaultPrinterMode' -Value 1 -Type DWord -Force
                             Log-Message "Enabled legacy default print management." "Success"
                         } finally {
+                            [gc]::Collect()
                             & reg.exe unload $defHiveMount | Out-Null
                         }
                     } else {
                         Log-Message "Default profile hive not found at $defNtUser" "Error"
                     }
                 }
+                
                 'hellopin' {
                     $PassportPath = "Registry::HKLM\SOFTWARE\Policies\Microsoft\PassportForWork"
-                    if (Test-Path $PassportPath) {
-                        reg add "HKLM\SOFTWARE\Policies\Microsoft\PassportForWork" /v Enabled /t REG_DWORD /d 1 /f
-                        reg add "HKLM\SOFTWARE\Policies\Microsoft\PassportForWork" /v DisablePostLogonProvisioning /t REG_DWORD /d 1 /f
+                    
+                    # Fix: Policies keys rarely exist by default. Create it if it's missing!
+                    if (-not (Test-Path $PassportPath)) { 
+                        New-Item -Path $PassportPath -Force | Out-Null 
                     }
+                    
+                    # Native PowerShell cmdlets instead of reg.exe
+                    Set-ItemProperty -Path $PassportPath -Name "Enabled" -Value 1 -Type DWord -Force
+                    Set-ItemProperty -Path $PassportPath -Name "DisablePostLogonProvisioning" -Value 1 -Type DWord -Force
+                    
+                    Log-Message "Disabled automatic Windows Hello PIN setup prompt." "Success"
                 }
             }
         }
