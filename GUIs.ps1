@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.20
+# GUI Setup File - Tyler Hatfield - v2.3
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -149,7 +149,6 @@ $padding = 20
 # Module List Array
 $modules = @(
     @{ Name = 'Time Zone' },
-	@{ Name = 'Windows Updates' },
     @{ Name = 'Local Accounts' },
     @{ Name = 'Bloat Cleanup' },
     @{ Name = 'Programs' },

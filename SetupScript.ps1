@@ -1,4 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.16
+# PC Setup and Config Script - Tyler Hatfield - v1.17
 
 # Core setup Script
 if ($SetupScriptRuns -eq 0) {
@@ -13,15 +13,6 @@ if ($Run_TimeZone) {
 	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
 	. "$TZPath"
 	if ($UserExit -eq $true) {User-Exit}
-}
-
-# Setup prerequisites and start Windows update module
-if ($Run_WindowsUpdates) {
-	$Global:WinUpdatesRun = $true
-	$WindowsUpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinUpdateGUI.ps1'
-	Log-Message "Launching Windows Update GUI..."
-	$ProgressPreference = 'SilentlyContinue'
-	Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass", "-File `"$WindowsUpdateModPath`""
 }
 
 # Run accounts module
