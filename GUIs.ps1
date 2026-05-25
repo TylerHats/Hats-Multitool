@@ -742,7 +742,7 @@ $HDDSButton.Add_Click({
 	$HDDSButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
-	Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$HDDSPath"
+	Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
 	Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
 	$HDDSEPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDScan.exe"
     Start-Process $HDDSEPath
@@ -776,7 +776,7 @@ $CDIButton.Add_Click({
 	$CDIButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1' -OutputPath "$CDMPath"
+	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1' -OutputPath "$CDIPath"
 	Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
 	$CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
     Start-Process $CDIEPath
