@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.15
+# Common File - Tyler Hatfield - v1.16
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -140,6 +140,7 @@ namespace ConsoleUtils {
 "@
 Add-Type -TypeDefinition $code -Language CSharp
 
+<#
 # Used to control DPI rendering of Forms GUIS
 $dpiCode = @"
 using System;
@@ -154,6 +155,7 @@ namespace MyApp.Helpers {
 "@
 Add-Type -TypeDefinition $dpiCode -Language CSharp
 [MyApp.Helpers.DPI]::SetProcessDPIAware() | Out-Null
+#>
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
@@ -263,7 +265,7 @@ function Show-DownloadDialog {
 	$dform.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 	$dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 	$dform.Font = $font
-	$dform.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+	$dform.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Font
 
     # Container panel with border
     $trackPanel = New-Object System.Windows.Forms.Panel
