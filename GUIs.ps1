@@ -830,9 +830,9 @@ $buttonHeight = 75      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
-# Adjust GUI Height
+# Adjust GUI Height (Increased multiplier to 6 to fit new rows)
 $y = 20
-$TroubleGUIHeight = ($buttonHeight * 4) + ($padding * 0) + ($labelHeight * 1)
+$TroubleGUIHeight = ($buttonHeight * 6) + ($padding * 0) + ($labelHeight * 1)
 $TroubleGUI.Size = New-Object System.Drawing.Size(705, $TroubleGUIHeight)
 $TroubleGUI.StartPosition = 'CenterScreen'
 
@@ -907,6 +907,66 @@ $TroubleGUI.Controls.Add($SafeBootButton)
 $SafeBootTooltip = New-Object System.Windows.Forms.ToolTip
 $SafeBootTooltip.SetToolTip($SafeBootButton, "Sets the BCD file to boot with Safe Boot with networking enabled.")
 
+# Add Battery Report button
+$BatteryButton = New-Object System.Windows.Forms.Button
+$y += 65
+$BatteryButton.Location = New-Object System.Drawing.Point(65, $y)
+$BatteryButton.Size = New-Object System.Drawing.Size(250, 40)
+$BatteryButton.Text = "Generate Battery Report"
+$BatteryButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$BatteryButton.FlatStyle = 'Flat'
+$BatteryButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($BatteryButton)
+
+# Battery Report Tooltip
+$BatteryTooltip = New-Object System.Windows.Forms.ToolTip
+$BatteryTooltip.SetToolTip($BatteryButton, "Generates and opens a detailed HTML report of laptop battery health and cycle history.")
+
+# Add Reliability Monitor button
+$RelMonButton = New-Object System.Windows.Forms.Button
+$y += 0
+$RelMonButton.Location = New-Object System.Drawing.Point(380, $y)
+$RelMonButton.Size = New-Object System.Drawing.Size(250, 40)
+$RelMonButton.Text = "Reliability Monitor"
+$RelMonButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$RelMonButton.FlatStyle = 'Flat'
+$RelMonButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($RelMonButton)
+
+# Reliability Monitor Tooltip
+$RelMonTooltip = New-Object System.Windows.Forms.ToolTip
+$RelMonTooltip.SetToolTip($RelMonButton, "Opens the Windows Reliability Monitor timeline to view crash and software installation history.")
+
+# Add Network Reset button
+$NetResetButton = New-Object System.Windows.Forms.Button
+$y += 65
+$NetResetButton.Location = New-Object System.Drawing.Point(65, $y)
+$NetResetButton.Size = New-Object System.Drawing.Size(250, 40)
+$NetResetButton.Text = "Flush DNS & Reset IP"
+$NetResetButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$NetResetButton.FlatStyle = 'Flat'
+$NetResetButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($NetResetButton)
+
+# Network Reset Tooltip
+$NetResetTooltip = New-Object System.Windows.Forms.ToolTip
+$NetResetTooltip.SetToolTip($NetResetButton, "Releases IP, Renews IP, Flushes DNS, and clears the ARP cache.")
+
+# Add Restart Explorer button
+$ExpButton = New-Object System.Windows.Forms.Button
+$y += 0
+$ExpButton.Location = New-Object System.Drawing.Point(380, $y)
+$ExpButton.Size = New-Object System.Drawing.Size(250, 40)
+$ExpButton.Text = "Restart Windows Explorer"
+$ExpButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ExpButton.FlatStyle = 'Flat'
+$ExpButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($ExpButton)
+
+# Restart Explorer Tooltip
+$ExpTooltip = New-Object System.Windows.Forms.ToolTip
+$ExpTooltip.SetToolTip($ExpButton, "Forcefully kills and restarts the explorer.exe process to resolve frozen taskbars or stuck folders.")
+
 # Add show console button
 $ConsoleButton = New-Object System.Windows.Forms.Button
 $y += 80
@@ -933,7 +993,7 @@ $TroubleGUI.Controls.Add($BackButton)
 $ChkDskButton.Add_Click({
 	$ChkDskButton.Enabled = $false
 	Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
-	$ChkDSkButton.Enabled = $true
+	$ChkDskButton.Enabled = $true
 })
 
 # Define dism button functions
@@ -955,6 +1015,41 @@ $SafeBootButton.Add_Click({
 	$SafeBootButton.Enabled = $false
 	Start-Process cmd.exe -ArgumentList '/c bcdedit /set {default} safeboot networking' -Verb RunAs
 	$SafeBootButton.Enabled = $true
+})
+
+# Define Battery Report button functions
+$BatteryButton.Add_Click({
+    $BatteryButton.Enabled = $false
+    $ReportPath = Join-Path $env:TEMP "battery-report.html"
+    Start-Process powercfg.exe -ArgumentList "/batteryreport /output `"$ReportPath`"" -Wait -WindowStyle Hidden
+    if (Test-Path $ReportPath) {
+        Start-Process $ReportPath
+    } else {
+        Log-Message "Battery report failed to generate." "Error"
+    }
+    $BatteryButton.Enabled = $true
+})
+
+# Define Reliability Monitor button functions
+$RelMonButton.Add_Click({
+    $RelMonButton.Enabled = $false
+    Start-Process perfmon.exe -ArgumentList "/rel"
+    $RelMonButton.Enabled = $true
+})
+
+# Define Network Reset button functions
+$NetResetButton.Add_Click({
+    $NetResetButton.Enabled = $false
+    Start-Process cmd.exe -ArgumentList '/c ipconfig /release & ipconfig /renew & ipconfig /flushdns & arp -d * & pause' -Verb RunAs
+    $NetResetButton.Enabled = $true
+})
+
+# Define Restart Explorer button functions
+$ExpButton.Add_Click({
+    $ExpButton.Enabled = $false
+    # Using taskkill and start ensures it explicitly comes back online
+    Start-Process cmd.exe -ArgumentList '/c taskkill /f /im explorer.exe & start explorer.exe' -WindowStyle Hidden
+    $ExpButton.Enabled = $true
 })
 
 # Define console button
