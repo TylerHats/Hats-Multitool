@@ -41,7 +41,6 @@ $programs = @(
 	@{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
     @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
-    @{ Name = 'Microsoft Teams'; WingetID = ''; Type = 'Teams' },
 	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
