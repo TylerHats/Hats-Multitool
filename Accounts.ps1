@@ -109,43 +109,47 @@ $UsernameInput.Add_TextChanged({
 
 # Define a function to handle the Okay button click
 $A1OkayButton.Add_Click({
-	$A1OkayButton.Enabled = $false
-	if (-not $PWCheckbox.Checked) {
-		$UExists = Get-LocalUser -Name "$($UsernameInput.Text)" -ErrorAction SilentlyContinue
-		if ($UExists) {
-			Log-Message "User exists, skipping creation" "Skip"
-		} else {
-			try {
-				Net User "$($UsernameInput.Text)" "" /add | Out-File -Append -FilePath $logPath
-				if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
-			} catch {PopupError "Failed to create user, please check log." "Error"}
-		}
-	} elseif ($PWCheckbox.Checked) {
-		$UExists = Get-LocalUser -Name "$($UsernameInput.Text)" -ErrorAction SilentlyContinue
-		if ($UExists) {
-			try {
-				Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" | Out-File -Append -FilePath $logPath
-				if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
-			} catch {PopupError "Failed to update user, please check log." "Error"}
-		} else {
-			try {
-				Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" /add | Out-File -Append -FilePath $logPath
-				if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
-			} catch {PopupError "Failed to create user, please check log." "Error"}
-		}
-	}
-	if ($LACheckbox.Checked) {
-		$LocalUserCheck = "$env:COMPUTERNAME\$($UsernameInput.Text)"
-		$IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
-		if (-not $IsAdmin) {
-			Log-Message "Setting local user $($UsernameInput.Text) as local admin"
-			try {
-				Net Localgroup Administrators "$($UsernameInput.Text)" /add | Out-File -Append -FilePath $logPath
-				if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
-			} catch {PopupError "Failed to elevate user, please check log." "Error"}
-		} elseif ($IsAdmin) {
-			Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"
-		}
+    $A1OkayButton.Enabled = $false
+
+    $UExists = Get-LocalUser -Name "$($UsernameInput.Text)" -ErrorAction SilentlyContinue
+
+    if (-not $UExists) {
+        # NEW USER SCENARIO: Always use the password box if provided
+        try {
+            Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" /add *>&1 | Out-File -Append -FilePath $logPath
+            if ($LASTEXITCODE) { throw "net user exit $LASTEXITCODE" }
+            Log-Message "Created local user $($UsernameInput.Text)." "Success"
+        } catch {
+            PopupError "Failed to create user, please check log." "Error"
+        }
+    } else {
+        # EXISTING USER SCENARIO: Only update password if checked
+        Log-Message "User $($UsernameInput.Text) already exists." "Skip"
+
+        if ($PWCheckbox.Checked) {
+            try {
+                Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" *>&1 | Out-File -Append -FilePath $logPath
+                if ($LASTEXITCODE) { throw "net user exit $LASTEXITCODE" }
+                Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
+            } catch {
+                PopupError "Failed to update user password, please check log." "Error"
+            }
+        }
+    }
+
+    # Make local admin check remains the same...
+    if ($LACheckbox.Checked) {
+        $LocalUserCheck = "$env:COMPUTERNAME\$($UsernameInput.Text)"
+        $IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
+        if (-not $IsAdmin) {
+            Log-Message "Setting local user $($UsernameInput.Text) as local admin"
+            try {
+                Net Localgroup Administrators "$($UsernameInput.Text)" /add *>&1 | Out-File -Append -FilePath $logPath
+                if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
+            } catch {PopupError "Failed to elevate user, please check log." "Error"}
+        } elseif ($IsAdmin) {
+            Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"
+        }
 	}
 	$UsernameInput.Clear()
 	$PasswordInput.Clear()
