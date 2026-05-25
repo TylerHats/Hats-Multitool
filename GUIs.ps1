@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.3
+# GUI Setup File - Tyler Hatfield - v2.4
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -303,11 +303,11 @@ $UserDataButton = New-Object System.Windows.Forms.Button
 $y += 10
 $UserDataButton.Location = New-Object System.Drawing.Point(65, $y)
 $UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
-$UserDataButton.Text = "Hat's User Data Tool"
+$UserDataButton.Text = "Hat's User Move Tool"
 $UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UserDataButton.FlatStyle = 'Flat'
 $UserDataButton.FlatAppearance.BorderSize = 1
-$UserDataButton.Enabled = $false
+$UserDataButton.Enabled = $true
 $ToolsGUI.Controls.Add($UserDataButton)
 
 # User Data Tool Button Tooltip
@@ -364,7 +364,7 @@ $DebloatButton = New-Object System.Windows.Forms.Button
 $y += 65
 $DebloatButton.Location = New-Object System.Drawing.Point(65, $y)
 $DebloatButton.Size = New-Object System.Drawing.Size(250, 40)
-$DebloatButton.Text = "Hat's Windows Debloat Tool"
+$DebloatButton.Text = "Empty"
 $DebloatButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DebloatButton.FlatStyle = 'Flat'
 $DebloatButton.FlatAppearance.BorderSize = 1
@@ -373,7 +373,7 @@ $ToolsGUI.Controls.Add($DebloatButton)
 
 # Windows Debloat Button Tooltip
 $DebloatTooltip = New-Object System.Windows.Forms.ToolTip
-$DebloatTooltip.SetToolTip($DebloatButton, "A tool to cleanup system services and data for a smoother, more privacy focused expirience.")
+$DebloatTooltip.SetToolTip($DebloatButton, "Empty button.")
 
 # Add Patch Cleaner button
 $PatchCButton = New-Object System.Windows.Forms.Button
@@ -604,11 +604,16 @@ $ToolsGUI.Controls.Add($BackButton)
 # Define empty button functions
 $EButton.Add_Click({
 	$EButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$EButton.Enabled = $true
 })
 
-# Define User Data Migration Tool button functions *************
+# Define User Data Migration Tool button functions
+$UserDataButton.Add_Click({
+	$UserDataButton.Enabled = $false
+	$MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
+	Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$MoveToolPath`""
+	$UserDataButton.Enabled = $true
+})
 
 # Define Ninja Removal Script button functions
 $NRButton.Add_Click({
@@ -628,7 +633,11 @@ $DCleanButton.Add_Click({
 	$DCleanButton.Enabled = $true
 })
 
-# Define Windows Debloat Tool button functions *************
+# Define debloat tool (empty) button functions
+$DebloatButton.Add_Click({
+	$DebloatButton.Enabled = $false
+	$DebloatButton.Enabled = $true
+})
 
 # Define Patch Cleaner button functions
 $PatchCButton.Add_Click({
