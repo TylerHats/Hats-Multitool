@@ -48,7 +48,7 @@ function Show-ImageSplash {
     $form.TransparencyKey = $key
     $form.BackgroundImage      = $script:_splashImage
     $form.BackgroundImageLayout = 'Stretch'
-	$script:_splashMinMs = 2000
+	$script:_splashMinMs = 1000
 	$script:_splashSW    = [Diagnostics.Stopwatch]::StartNew()
     $form.Show() | Out-Null
     [Windows.Forms.Application]::DoEvents()
