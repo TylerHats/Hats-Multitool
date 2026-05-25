@@ -194,7 +194,7 @@ $okButton.Add_Click({
 			}
 			$configXml = @'
 <Configuration>
-  <Add OfficeClientEdition="64" Channel="Monthly">
+  <Add OfficeClientEdition="64" Channel="Current">
     <Product ID="O365BusinessRetail">
       <Language ID="en-us" />
     </Product>
@@ -204,7 +204,7 @@ $okButton.Add_Click({
 </Configuration>
 '@
 			$configFile = "$workingDir\office365configuration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding utf8
+			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			try {
 				Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`""
 			} catch {
@@ -244,7 +244,7 @@ $okButton.Add_Click({
 			}
 			$configXml = @'
 <Configuration>
-  <Add OfficeClientEdition="64" Channel="Monthly">
+  <Add OfficeClientEdition="64" Channel="Current">
     <Product ID="OutlookRetail">
       <Language ID="en-us" />
     </Product>
@@ -254,7 +254,7 @@ $okButton.Add_Click({
 </Configuration>
 '@
 			$configFile = "$workingDir\outlookconfiguration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding utf8
+			$configXml | Out-File -FilePath $configFile -Encoding ascii
 			try {
 				Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`""
 			} catch {
@@ -292,13 +292,15 @@ $okButton.Add_Click({
                     "install",
                     "-e",  # Exact match flag
                     "--id", $program.WingetID,
+                    "silent",
+                    "--disable-interactivity",
                     "--scope", "machine",
                     "--accept-package-agreements",
                     "--accept-source-agreements"
                 )
 
                 # Use Start-Process with the correct arguments
-                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
+                $process = Start-Process -FilePath "winget.exe" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
 
                 # Capture the result
                 if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
@@ -349,7 +351,7 @@ $okButton.Add_Click({
                 )
 
                 # Use Start-Process with the correct arguments
-                $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
+                $process = Start-Process -FilePath "winget.exe" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
 
                 # Capture the result
                 if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
