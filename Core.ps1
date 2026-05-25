@@ -8,6 +8,17 @@ if (-not $IsElevated) {
     exit
 }
 
+# Force PowerShell to be DPI Aware to prevent UI scaling issues
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class DpiHelper {
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+}
+"@
+[DpiHelper]::SetProcessDPIAware() | Out-Null
+
 # Add WinForms Assembly and Setup Global Forms Styling
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
