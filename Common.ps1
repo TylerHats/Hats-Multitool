@@ -139,6 +139,13 @@ namespace ConsoleUtils {
 
         [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
         public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+        
+        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+        
+        // Add this line for the Dark Title Bar
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
     }
 }
 "@
@@ -178,6 +185,17 @@ function Show-ConsoleWindow {
     $hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
 	[Win32]::ShowWindow($consolePtr, 9) | Out-Null
     [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+}
+
+# Function to force a WinForms title bar into Dark Mode
+function Set-DarkTitleBar {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    $TargetForm.Handle | Out-Null
+    $darkMode = 1
+    [ConsoleUtils.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
 }
 
 # Common function for user requested exits

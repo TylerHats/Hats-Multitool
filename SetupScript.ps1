@@ -23,12 +23,6 @@ if ($Run_BloatCleanup) {
 	. "$BloatCleanupModPath"
 }
 
-# Run WinGet setup module ~ Dorment, likely not needed for fresh Win11 installs and has been causing issues
-#if ($Run_Programs) {
-#	$WinGetSetupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'WinGetSetup.ps1'
-#	. "$WinGetSetupModPath"
-#}
-
 # Run program installation module
 if ($Run_Programs) {
 	$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'

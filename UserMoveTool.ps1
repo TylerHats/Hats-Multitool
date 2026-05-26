@@ -1,5 +1,23 @@
 # User Move Tool - Tyler Hatfield - v1.2
 
+# Instantly pop a tiny loading indicator before loading the heavy C# assemblies
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+$MicroLoader = New-Object System.Windows.Forms.Form
+$MicroLoader.Size = New-Object System.Drawing.Size(220, 40)
+$MicroLoader.StartPosition = 'CenterScreen'
+$MicroLoader.FormBorderStyle = 'None'
+$MicroLoader.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$MicroLoader.ShowInTaskbar = $false
+$loadLabel = New-Object System.Windows.Forms.Label
+$loadLabel.Text = "Loading Migration Tool..."
+$loadLabel.ForeColor = [System.Drawing.Color]::White
+$loadLabel.Dock = 'Fill'
+$loadLabel.TextAlign = 'MiddleCenter'
+$loadLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$MicroLoader.Controls.Add($loadLabel)
+$MicroLoader.Show() | Out-Null
+[System.Windows.Forms.Application]::DoEvents()
+
 # ---------------------------------------------------------------------------
 # Pre-Flight & Standalone Setup
 # ---------------------------------------------------------------------------
@@ -37,9 +55,16 @@ public class UIHelpers {
 
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    // Add the Taskbar AppID injection here
+    [DllImport("shell32.dll", SetLastError = true)]
+    public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 }
 "@
+
+# Call all three APIs
 [UIHelpers]::SetProcessDPIAware() | Out-Null
+[UIHelpers]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.UserMove") | Out-Null # Unique ID so it gets its own icon!
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
@@ -633,4 +658,7 @@ OS: $($OSInfo.Caption) ($($OSInfo.OSArchitecture))
     $CancelButton.Enabled = $false
 })
 
+# Kill the loader and show the real GUI
+$MicroLoader.Close()
+$MicroLoader.Dispose()
 $MoveGUI.ShowDialog() | Out-Null

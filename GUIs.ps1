@@ -12,6 +12,7 @@ $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
 $MainMenu.Font = $font
 $MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $MainMenu
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -136,6 +137,7 @@ $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.Font = $font
 $ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $ModGUI
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
@@ -274,6 +276,7 @@ $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
 $ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $ToolsGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
@@ -819,6 +822,7 @@ $TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialo
 $TroubleGUI.MaximizeBox = $false
 $TroubleGUI.Font = $font
 $TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $TroubleGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
 # Form size variables
