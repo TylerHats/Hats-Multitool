@@ -45,8 +45,7 @@ if ($Run_SystemProperties) {
 if ($Run_SetupOptions) {
 	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
 	. "$FOPath"
-	
+}
 # Close background reminder window
 $BGRCodeExit = $true
 $BGR.Close()
-}
