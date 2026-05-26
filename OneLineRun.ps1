@@ -1,4 +1,4 @@
-# One Line Runner Script - Tyler Hatfield - v1.7
+# One Line Runner Script - Tyler Hatfield - v1.8
 
 # Script setup
 $host.UI.RawUI.BackgroundColor = "Black"
@@ -27,6 +27,11 @@ Try {
 	Pause
 	exit
 }
+
+# Drop a breadcrumb for the cleanup script so it knows where to find this EXE
+$breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
+$outputPath | Out-File -FilePath $breadcrumbPath -Force -ErrorAction SilentlyContinue
+
 # Launch executable
 try { Unblock-File -Path $outputPath } catch {}
 Start-Process -FilePath $outputPath -WorkingDirectory $downloadsFolder -WindowStyle Minimized

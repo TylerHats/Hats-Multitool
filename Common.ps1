@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.17
+# Common File - Tyler Hatfield - v1.18
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -13,6 +13,13 @@ $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DocumentsPath $logPathName
+# Check for an IRM launch breadcrumb
+$breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
+$Global:IRMExeTarget = $null
+if (Test-Path -LiteralPath $breadcrumbPath) {
+    $Global:IRMExeTarget = Get-Content -LiteralPath $breadcrumbPath
+    Remove-Item -LiteralPath $breadcrumbPath -Force -ErrorAction SilentlyContinue
+}
 $UserExit = $false
 $GUIClosed = $false
 $ProgramExiting = $false
@@ -180,50 +187,49 @@ function User-Exit {
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
-        # Signal Forms to close (optional but good practice)
         [System.Windows.Forms.Application]::Exit()
         
-        # Build the exact script we want the background process to run
-        # Notice the backticks (`) escaping variables that need to run in the BACKGROUND.
-        # $PID, $PSScriptRoot, and $logPath are deliberately NOT escaped so they hardcode the current values.
+        # We inject $Global:IRMExeTarget directly into the string so the background process knows the exact path
         $cleanupCommand = @"
 Wait-Process -Id $PID -ErrorAction SilentlyContinue
 
 # Loop to catch any lingering or child processes running from our folder
 while (`$true) {
-    # Find any process where the executable path is inside our script root
     `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like "$PSScriptRoot\*" }
-    
-    if (-not `$lockingProcs) { 
-        break 
-    }
-    
-    # Wait for those specific processes to close
+    if (-not `$lockingProcs) { break }
     `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue
 }
 
-Start-Sleep -Seconds 1 # Brief buffer to ensure Windows fully releases file locks
+Start-Sleep -Seconds 1 
 if (Test-Path -LiteralPath "$PSScriptRoot") {
     Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
 }
+
+# Clean up downloaded EXE if triggered via IRM
+`$irmTarget = "$($Global:IRMExeTarget)"
+if (`$irmTarget -ne "" -and (Test-Path -LiteralPath `$irmTarget)) {
+    `$retry = 0
+    while ((Test-Path -LiteralPath `$irmTarget) -and `$retry -lt 5) {
+        Remove-Item -LiteralPath `$irmTarget -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 500
+        `$retry++
+    }
+}
+
 Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed'
 "@
 
-        # Encode to Base64 to prevent any quote escaping issues in the command line
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cleanupCommand))
         
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
         $psi.FileName        = 'powershell.exe'
         $psi.Arguments       = "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedCommand"
-        
-        # CRITICAL: Change the working directory so the new process doesn't lock $PSScriptRoot
         $psi.WorkingDirectory = $env:TEMP 
         $psi.CreateNoWindow  = $true
         $psi.UseShellExecute = $false
         
         [System.Diagnostics.Process]::Start($psi) | Out-Null
         
-        # Immediately terminate the current process
         [System.Environment]::Exit(0)
     }
 }
