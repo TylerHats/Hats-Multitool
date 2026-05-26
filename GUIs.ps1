@@ -120,8 +120,7 @@ $MainMenu.Add_FormClosing({
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
-        # Do your “cleanup” or alternate logic here
-        $Global:UserExit = $true
+        User-Exit
     }
 })
 
@@ -259,8 +258,7 @@ $ModGUI.Add_FormClosing({
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
-        # Do your “cleanup” or alternate logic here
-        $Global:UserExit = $true
+        User-Exit
     }
 })
 
@@ -805,7 +803,7 @@ $ToolsGUI.Add_FormClosing({
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
-        $Global:UserExit = $true
+        User-Exit
     }
 })
 
@@ -1074,7 +1072,6 @@ $TroubleGUI.Add_FormClosing({
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
-        # Do your “cleanup” or alternate logic here
-        $Global:UserExit = $true
+        User-Exit
     }
 })

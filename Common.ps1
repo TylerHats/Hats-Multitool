@@ -20,7 +20,6 @@ if (Test-Path -LiteralPath $breadcrumbPath) {
     $Global:IRMExeTarget = Get-Content -LiteralPath $breadcrumbPath
     Remove-Item -LiteralPath $breadcrumbPath -Force -ErrorAction SilentlyContinue
 }
-$UserExit = $false
 $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -242,14 +241,12 @@ function Show-MainMenu {
 	Hide-ConsoleWindow | Out-Null
 	$MainMenu.Show() | Out-null
 	while ($MainMenu.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
-	if ($UserExit -eq $true) {User-Exit}
 }
 
 function Show-RemindersPopup {
 	Hide-ConsoleWindow | Out-Null
 	$ReminderPopup.Show() | Out-Null
 	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-	if ($UserExit -eq $true) {User-Exit}
 }
 
 function Show-DownloadDialog {

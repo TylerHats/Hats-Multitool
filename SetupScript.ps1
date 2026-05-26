@@ -9,7 +9,6 @@ $BGRCodeExit = $false
 if ($Run_TimeZone) {
 	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
 	. "$TZPath"
-	if ($UserExit -eq $true) {User-Exit}
 }
 
 # Run accounts module
@@ -46,7 +45,6 @@ if ($Run_SystemProperties) {
 if ($Run_SetupOptions) {
 	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
 	. "$FOPath"
-	if ($UserExit -eq $true) {User-Exit}
 	
 # Close background reminder window
 $BGRCodeExit = $true
