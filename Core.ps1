@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.4
+# Core Script - Tyler Hatfield - v1.5
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -126,11 +126,4 @@ Close-ImageSplash
 Show-MainMenu
 
 # Post execution cleanup
-$cleanupCheckValue = "ScriptFolderIsReadyForCleanup"
-$logContents = Get-Content -Path $logPath
-if ($logContents -contains $cleanupCheckValue -or $WinUpdatesRun -ne $true) {
-	User-Exit
-} else {
-	Add-Content -Path $logPath -Value $cleanupCheckValue
-	exit 0
-}
+User-Exit

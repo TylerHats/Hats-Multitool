@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.16
+# Common File - Tyler Hatfield - v1.17
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -14,7 +14,6 @@ $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DocumentsPath $logPathName
 $UserExit = $false
-$WinUpdatesRun = $false
 $GUIClosed = $false
 $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
@@ -178,17 +177,41 @@ function Show-ConsoleWindow {
 
 # Common function for user requested exits
 function User-Exit {
-	if ($ProgramExiting -ne $true) {
-		$ProgramExiting = $true
-		[System.Windows.Forms.Application]::Exit()
-		$psi = [System.Diagnostics.ProcessStartInfo]::new()
-		$psi.FileName        = 'powershell.exe'
-		$psi.Arguments       = "-NoProfile -Command `"Start-Sleep -Seconds 2; Remove-Item -Path '$PSScriptRoot' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed'`""
-		$psi.CreateNoWindow  = $true
-		$psi.UseShellExecute = $false
-		[System.Diagnostics.Process]::Start($psi) | Out-Null
-		[System.Environment]::Exit(0)
-	}
+    # Added $script: scope modifier just in case this is called from a nested context
+    if ($script:ProgramExiting -ne $true) {
+        $script:ProgramExiting = $true
+        
+        # Signal Forms to close (optional but good practice)
+        [System.Windows.Forms.Application]::Exit()
+        
+        # Build the exact script we want the background process to run
+        # Expanding the variables here before encoding ensures exact paths are used
+        $cleanupCommand = @"
+Wait-Process -Id $PID -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1 # Brief buffer to ensure Windows fully releases file locks
+if (Test-Path -LiteralPath "$PSScriptRoot") {
+    Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
+}
+Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed'
+"@
+
+        # Encode to Base64 to prevent any quote escaping issues in the command line
+        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cleanupCommand))
+        
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName        = 'powershell.exe'
+        $psi.Arguments       = "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedCommand"
+        
+        # CRITICAL: Change the working directory so the new process doesn't lock $PSScriptRoot
+        $psi.WorkingDirectory = $env:TEMP 
+        $psi.CreateNoWindow  = $true
+        $psi.UseShellExecute = $false
+        
+        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        
+        # Immediately terminate the current process
+        [System.Environment]::Exit(0)
+    }
 }
 
 # Load GUI Configs
