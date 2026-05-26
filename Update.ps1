@@ -1,10 +1,24 @@
-# Self Update Module - Tyler Hatfield - v2.2
+# Self Update Module - Tyler Hatfield - v2.3
 
-#Current version variable
-$currentVersionString = "3.4.0"
+# Define the path to your JSON file in the current directory
+$jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "version.json" # Update filename if needed
+
+# Check if the file exists to avoid errors
+if (Test-Path -Path $jsonPath) {
+    # Read the raw JSON text and convert it to a PowerShell object
+    $configData = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+    
+    # Extract the version string
+    $currentVersionString = $configData.version
+    
+    Log-Message "Loaded version: $currentVersionString" "Info"
+} else {
+	$currentVersionString = $null
+	$skipUpdate = 1
+    Log-Message "Update check failed: Could not find $jsonPath" "Error"
+}
 
 # Prepare Update GUI
-# Prepare form
 $UpdateGUI = New-Object System.Windows.Forms.Form
 $UpdateGUI.Text = "Hat's Multitool"
 $UpdateGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -49,36 +63,38 @@ $UNOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UNOkayButton.FlatStyle = 'Flat'
 $UNOkayButton.FlatAppearance.BorderSize = 1
 $UpdateGUI.Controls.Add($UNOkayButton)
-$UpdateGUI.AcceptButton = $UNOkayButton
+$UpdateGUI.CancelButton = $UNOkayButton
 
 # Define a function to handle the yes button click
 $UYOkayButton.Add_Click({
 	$UYOkayButton.Enabled = $false
-    $GUIResponse = "y"
+    $script:GUIResponse = "y"
 	$UpdateGUI.Close()
 })
 
 # Define a function to handle the no button click
 $UNOkayButton.Add_Click({
 	$UNOkayButton.Enabled = $false
-    $GUIResponse = "n"
+    $script:GUIResponse = "n"
 	$UpdateGUI.Close()
 })
 
 # Check program version against remote, update if needed
-$shell = New-Object -ComObject Shell.Application
-$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
-[version]$currentVersion = $currentVersionString
-$skipUpdate = 0
-Try {
-	$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/HatsScriptsVersion.txt" -UseBasicParsing
-} catch {
-	Log-Message "Unable to determine remote version, skipping self update check."
-	Write-Host ""
-	$skipUpdate = 1
+if ($skipUpdate -ne 1) {
+	$shell = New-Object -ComObject Shell.Application
+	$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
+	[version]$currentVersion = $currentVersionString
+	$skipUpdate = 0
+	Try {
+		$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt" -UseBasicParsing
+	} catch {
+		Log-Message "Unable to determine remote version, skipping self update check."
+		Write-Host ""
+		$skipUpdate = 1
+	}
 }
 if ($skipUpdate -ne 1) {
-	$remoteVersionString = $remoteRequest.Content
+	$remoteVersionString = $remoteRequest.Content.Trim()
 	[version]$remoteVersion = $remoteVersionString
 	if ($currentVersion -eq $remoteVersion) {
 		if ($env:hatsUpdated -eq "1") {
@@ -91,7 +107,7 @@ if ($skipUpdate -ne 1) {
 		$ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$currentVersionString > v$remoteVersionString)"
 		Close-ImageSplash
 		$UpdateGUI.ShowDialog() | Out-Null
-		if ($GUIResponse -match 'y|yes') {
+		if ($script:GUIResponse -match 'y|yes') {
 			Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
 			$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
 			$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
