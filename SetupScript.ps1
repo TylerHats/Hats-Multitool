@@ -1,7 +1,4 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.20
-
-# Core setup Script
-if ($SetupScriptRuns -eq 0) {
+# PC Setup and Config Script - Tyler Hatfield - v1.21
 
 # Open background reminder window to fill any gaps between main GUIs
 $BackgroundReminderPath = Join-Path -Path $PSScriptRoot -ChildPath 'BGReminder.ps1'
@@ -54,9 +51,4 @@ if ($Run_SetupOptions) {
 # Close background reminder window
 $BGRCodeExit = $true
 $BGR.Close()
-}
-
-$SetupScriptRuns += 1
-} else {
-	PopupError "Please try opening the program again." "Error"
 }
