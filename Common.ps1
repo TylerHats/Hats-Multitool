@@ -177,7 +177,6 @@ function Show-ConsoleWindow {
 
 # Common function for user requested exits
 function User-Exit {
-    # Added $script: scope modifier just in case this is called from a nested context
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
@@ -185,9 +184,24 @@ function User-Exit {
         [System.Windows.Forms.Application]::Exit()
         
         # Build the exact script we want the background process to run
-        # Expanding the variables here before encoding ensures exact paths are used
+        # Notice the backticks (`) escaping variables that need to run in the BACKGROUND.
+        # $PID, $PSScriptRoot, and $logPath are deliberately NOT escaped so they hardcode the current values.
         $cleanupCommand = @"
 Wait-Process -Id $PID -ErrorAction SilentlyContinue
+
+# Loop to catch any lingering or child processes running from our folder
+while (`$true) {
+    # Find any process where the executable path is inside our script root
+    `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like "$PSScriptRoot\*" }
+    
+    if (-not `$lockingProcs) { 
+        break 
+    }
+    
+    # Wait for those specific processes to close
+    `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue
+}
+
 Start-Sleep -Seconds 1 # Brief buffer to ensure Windows fully releases file locks
 if (Test-Path -LiteralPath "$PSScriptRoot") {
     Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
