@@ -1,18 +1,57 @@
-# User Move Tool - Tyler Hatfield - v1.1
+# User Move Tool - Tyler Hatfield - v1.2
 
 # ---------------------------------------------------------------------------
-# Pre-Flight Checks
+# Pre-Flight & Standalone Setup
 # ---------------------------------------------------------------------------
 $OSVersion = [System.Environment]::OSVersion.Version
 if ($OSVersion.Build -lt 22000) {
     [System.Windows.Forms.MessageBox]::Show("Warning: This system is not running Windows 11. Some settings migrations (like Taskbar alignment) may not apply correctly.", "OS Compatibility Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
 }
 
-# Enable Long Path Support in current process (Mitigates ZIP extraction crashes)
+# Standalone Logging Function
+$logPath = Join-Path [Environment]::GetFolderPath('MyDocuments') "Hats-UserMove-Log.txt"
+function Log-Message {
+    param( [string]$message, [string]$level = "Info" )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "$timestamp [$level] - $message" | Out-File -FilePath $logPath -Append
+    Write-Host "[$level] - $message"
+}
+
+# Enable Long Path Support in current process
 $LongPathKey = "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem"
 $LongPathValue = (Get-ItemProperty -Path $LongPathKey -Name LongPathsEnabled -ErrorAction SilentlyContinue).LongPathsEnabled
 if ($LongPathValue -ne 1) {
     Log-Message "LongPathsEnabled is not set in the registry. Deeply nested files may fail to extract." "Warning"
+}
+
+# Add WinForms & Drawing Assemblies
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+# Enable Visual Styles & DPI Awareness for Crisp Scaling
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class UIHelpers {
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+}
+"@
+[UIHelpers]::SetProcessDPIAware() | Out-Null
+[System.Windows.Forms.Application]::EnableVisualStyles()
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
+
+# Standalone Variables
+$font = New-Object System.Drawing.Font("Segoe UI", 10)
+
+# Icon Fallback (Uses custom icon if present, otherwise grabs the native PowerShell icon)
+$IconPath = Join-Path $PSScriptRoot "HMTIconSmall.ico"
+if (Test-Path $IconPath) {
+    $HMTIcon = New-Object System.Drawing.Icon($IconPath)
+} else {
+    $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $PID).Path)
 }
 
 # ---------------------------------------------------------------------------
@@ -27,6 +66,12 @@ $MoveGUI.Icon = $HMTIcon
 $MoveGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MoveGUI.MaximizeBox = $false
 $MoveGUI.Font = $font
+
+# Force Handle Creation so we can apply the Dark Mode Title Bar
+$MoveGUI.Handle | Out-Null
+$darkMode = 1
+# 20 is the DWMWA_USE_IMMERSIVE_DARK_MODE attribute for Windows 11
+[UIHelpers]::DwmSetWindowAttribute($MoveGUI.Handle, 20, [ref]$darkMode, 4) | Out-Null
 
 # Mode Selection
 $y = 15
