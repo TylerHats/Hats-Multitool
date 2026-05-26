@@ -83,8 +83,10 @@ $MainMenu.Controls.Add($MainMenuExitButton)
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
-	$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
-	# Close and display Setup GUI
+	# Scrub the GUI: Reset all checkboxes to unchecked
+    foreach ($cb in $ModGUIcheckboxes.Values) {
+        $cb.Checked = $false
+    }
     $MainMenu.Hide()
 	$ModGUI.ShowDialog() | Out-Null
     $MainMenu.Show()
@@ -220,22 +222,30 @@ $SelectAllButton.Add_Click({
 
 # Define a function to handle the OK button click
 $ModGUIokButton.Add_Click({
-    # Set module enablement variables
     $selectedModules = $ModGUIcheckboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
     $totalModules = $selectedModules.Count
+    
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
         $ModGUI.Hide()
         return
     }
-    foreach ($moduleName in $selectedModules) {
-		Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
+
+    # CRITICAL FIX: Wipe ALL module variables back to $false to clear out previous runs
+    foreach ($module in $modules) {
+        $varName = "Run_" + ($module.Name -replace '\s','')
+        Set-Variable -Name $varName -Value $false -Scope Global
     }
-    # Close the form once complete
+
+    # Now set only the newly selected modules to $true
+    foreach ($moduleName in $selectedModules) {
+        Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
+    }
+    
+    # Hide the form and execute the setup script
     $ModGUI.Hide()
     $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
-	. "$SetupScriptModPath"
-	Show-MainMenu
+    . "$SetupScriptModPath"
 })
 
 # Define back button function
