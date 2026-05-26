@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.5
+# GUI Setup File - Tyler Hatfield - v2.6
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -71,11 +71,21 @@ $MainMenuAccountButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuAccountButton)
 $MainMenuAccountButton.Enabled = $false # Disabled, WIP
 
+# About button
+$MainMenuAboutButton = New-Object System.Windows.Forms.Button
+$y += 65
+$MainMenuAboutButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuAboutButton.Size = New-Object System.Drawing.Size(95, 40)
+$MainMenuAboutButton.Text = 'About'
+$MainMenuAboutButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MainMenuAboutButton.FlatStyle = 'Flat'
+$MainMenuAboutButton.FlatAppearance.BorderSize = 1
+$MainMenu.Controls.Add($MainMenuAboutButton)
+
 # Exit button
 $MainMenuExitButton = New-Object System.Windows.Forms.Button
-$y += 65
-$MainMenuExitButton.Location = New-Object System.Drawing.Point(100, $y)
-$MainMenuExitButton.Size = New-Object System.Drawing.Size(85, 40)
+$MainMenuExitButton.Location = New-Object System.Drawing.Point(147, $y)
+$MainMenuExitButton.Size = New-Object System.Drawing.Size(95, 40)
 $MainMenuExitButton.Text = 'Exit'
 $MainMenuExitButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MainMenuExitButton.FlatStyle = 'Flat'
@@ -115,6 +125,13 @@ $MainMenuExitButton.Add_Click({
     $MainMenu.Close()
 })
 
+# Define About button click
+$MainMenuAboutButton.Add_Click({
+    $MainMenu.Hide()
+    $AboutGUI.ShowDialog() | Out-Null
+    $MainMenu.Show()
+})
+
 # Catch closes to close program properly
 $MainMenu.Add_FormClosing({
     param($sender, $e)
@@ -122,6 +139,88 @@ $MainMenu.Add_FormClosing({
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         User-Exit
+    }
+})
+
+# About Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# Prepare form
+$AboutGUI = New-Object System.Windows.Forms.Form
+$AboutGUI.Text = "About Hat's Multitool"
+$AboutGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$AboutGUI.Size = New-Object System.Drawing.Size(350, 480)
+$AboutGUI.StartPosition = 'CenterScreen'
+$AboutGUI.Icon = $HMTIcon
+$AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$AboutGUI.MaximizeBox = $false
+$AboutGUI.Font = $font
+$AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $AboutGUI
+
+# Big Icon (Pulls from your existing $HMTIcon and converts it to a bitmap for scaling)
+$IconBox = New-Object System.Windows.Forms.PictureBox
+$IconBox.Size = New-Object System.Drawing.Size(128, 128)
+$IconBox.Location = New-Object System.Drawing.Point(100, 30)
+$IconBox.SizeMode = 'StretchImage'
+if ($HMTIcon) { $IconBox.Image = $HMTIcon.ToBitmap() }
+$AboutGUI.Controls.Add($IconBox)
+
+# Program Title Label
+$AboutTitle = New-Object System.Windows.Forms.Label
+$AboutTitle.Text = "Hat's Multitool"
+$AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold)
+$AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$AboutTitle.AutoSize = $true
+$AboutTitle.Location = New-Object System.Drawing.Point(85, 175)
+$AboutGUI.Controls.Add($AboutTitle)
+
+# Version Label
+$AboutVersion = New-Object System.Windows.Forms.Label
+$AboutVersion.Text = if ($currentVersionString) { "v$currentVersionString" } else { "Version Unknown" }
+$AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+$AboutVersion.AutoSize = $true
+$AboutVersion.Location = New-Object System.Drawing.Point(135, 210)
+$AboutGUI.Controls.Add($AboutVersion)
+
+# Author / Copyright Label
+$AboutAuthor = New-Object System.Windows.Forms.Label
+# Added the GPLv3 line to explicitly state the open-source nature
+$AboutAuthor.Text = "Created by Tyler Hatfield`n© $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
+$AboutAuthor.TextAlign = 'TopCenter'
+$AboutAuthor.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$AboutAuthor.AutoSize = $true
+# Shifted the X coordinate slightly left (from 90 to 75) so the wider text stays centered
+$AboutAuthor.Location = New-Object System.Drawing.Point(75, 245)
+$AboutGUI.Controls.Add($AboutAuthor)
+
+# GitHub Link
+$GithubLink = New-Object System.Windows.Forms.LinkLabel
+$GithubLink.Text = "View Source on GitHub"
+$GithubLink.LinkColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2") # A nice discord-ish blue
+$GithubLink.ActiveLinkColor = [System.Drawing.ColorTranslator]::FromHtml("#7289DA")
+$GithubLink.AutoSize = $true
+$GithubLink.Location = New-Object System.Drawing.Point(100, 300)
+$GithubLink.Add_LinkClicked({
+    Start-Process "https://github.com/TylerHats/Hats-Multitool/"
+})
+$AboutGUI.Controls.Add($GithubLink)
+
+# Close Button
+$AboutCloseBtn = New-Object System.Windows.Forms.Button
+$AboutCloseBtn.Text = "Close"
+$AboutCloseBtn.Size = New-Object System.Drawing.Size(100, 40)
+$AboutCloseBtn.Location = New-Object System.Drawing.Point(115, 360)
+$AboutCloseBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$AboutCloseBtn.FlatStyle = 'Flat'
+$AboutCloseBtn.FlatAppearance.BorderSize = 1
+$AboutCloseBtn.Add_Click({ $AboutGUI.Hide() })
+$AboutGUI.Controls.Add($AboutCloseBtn)
+
+# Catch Close to just hide instead of exit completely
+$AboutGUI.Add_FormClosing({
+    param($sender, $e)
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+        $e.Cancel = $true
+        $AboutGUI.Hide()
     }
 })
 
