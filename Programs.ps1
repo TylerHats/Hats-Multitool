@@ -292,7 +292,7 @@ $okButton.Add_Click({
                     "install",
                     "-e",  # Exact match flag
                     "--id", $program.WingetID,
-                    "silent",
+                    "--silent",
                     "--disable-interactivity",
                     "--scope", "machine",
                     "--accept-package-agreements",
