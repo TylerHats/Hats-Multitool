@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.10
+# Programs Module - Tyler Hatfield - v1.11
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -16,6 +16,7 @@ $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $font = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Font = $font
+Set-DarkTitleBar -TargetForm $form
 
 # Dynamic size based on number of programs
 $checkboxHeight = 30    # Height of each checkbox

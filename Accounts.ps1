@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.1
+# Accounts Module - Tyler Hatfield - v2.2
 
 # Add C method for placeholder text
 Add-Type @"
@@ -22,6 +22,7 @@ $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $A1GUI.MaximizeBox = $false
 $A1GUI.Font = $font
 $A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $A1GUI
 
 # Add descriptive label
 $y = 10

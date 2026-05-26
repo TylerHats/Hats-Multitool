@@ -1,4 +1,4 @@
-# Background Reminder Module - Tyler Hatfield - v1.1
+# Background Reminder Module - Tyler Hatfield - v1.2
 
 # Prepare form
 $BGR = New-Object System.Windows.Forms.Form
@@ -11,6 +11,7 @@ $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $BGR.MaximizeBox = $false
 $BGR.Font = $font
 $BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $BGR
 
 # Add descriptive label
 $y = 15

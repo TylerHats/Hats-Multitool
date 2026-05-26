@@ -12,6 +12,7 @@ $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TZGUI.MaximizeBox = $false
 $TZGUI.Font = $font
 $TZGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $TZGUI
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox

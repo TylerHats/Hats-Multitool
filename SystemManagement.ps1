@@ -25,6 +25,7 @@ $SMGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $SMGUI.MaximizeBox = $false
 $SMGUI.Font = $font
 $SMGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+Set-DarkTitleBar -TargetForm $SMGUI
 
 # Add descriptive label
 $y = 10
