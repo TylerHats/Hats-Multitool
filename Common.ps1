@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.18
+# Common File - Tyler Hatfield - v1.19
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -21,7 +21,6 @@ if (Test-Path -LiteralPath $breadcrumbPath) {
     Remove-Item -LiteralPath $breadcrumbPath -Force -ErrorAction SilentlyContinue
 }
 $UserExit = $false
-$GUIClosed = $false
 $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -146,22 +145,22 @@ namespace ConsoleUtils {
 "@
 Add-Type -TypeDefinition $code -Language CSharp
 
-<#
-# Used to control DPI rendering of Forms GUIS
-$dpiCode = @"
+# Used to break the script out of PowerShell Taskbar Grouping and force the custom icon
+$appIdCode = @"
 using System;
 using System.Runtime.InteropServices;
 
-namespace MyApp.Helpers {
-    public static class DPI {
-        [DllImport("user32.dll")]
-        public static extern bool SetProcessDPIAware();
+namespace HMT {
+    public static class Taskbar {
+        [DllImport("shell32.dll", SetLastError = true)]
+        public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
     }
 }
 "@
-Add-Type -TypeDefinition $dpiCode -Language CSharp
-[MyApp.Helpers.DPI]::SetProcessDPIAware() | Out-Null
-#>
+Add-Type -TypeDefinition $appIdCode -Language CSharp
+
+# Set a unique ID for Hat's Multitool
+[HMT.Taskbar]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.App") | Out-Null
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
@@ -242,41 +241,15 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 function Show-MainMenu {
 	Hide-ConsoleWindow | Out-Null
 	$MainMenu.Show() | Out-null
-	while ($MainMenu.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
-	$GUIClosed = $false
-	if ($UserExit -eq $true) {User-Exit}
-}
-
-function Show-ModGUI {
-	Hide-ConsoleWindow | Out-Null
-	$ModGUI.Show() | Out-null
-	while ($ModGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-	$GUIClosed = $false
+	while ($MainMenu.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
 	if ($UserExit -eq $true) {User-Exit}
 }
 
 function Show-RemindersPopup {
 	Hide-ConsoleWindow | Out-Null
 	$ReminderPopup.Show() | Out-Null
-	while ($ReminderPopup.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-	$GUIClosed = $false
+	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 	if ($UserExit -eq $true) {User-Exit}
-}
-
-function Show-ToolsGUI {
-    Hide-ConsoleWindow | Out-Null
-    $ToolsGUI.Show() | Out-Null
-    while ($ToolsGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-    $GUIClosed = $false
-    if ($UserExit -eq $true) {User-Exit}
-}
-
-function Show-TroubleGUI {
-    Hide-ConsoleWindow | Out-Null
-    $TroubleGUI.Show() | Out-Null
-    while ($TroubleGUI.Visible -or $GUIClosed -ne $true) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-    $GUIClosed = $false
-    if ($UserExit -eq $true) {User-Exit}
 }
 
 function Show-DownloadDialog {

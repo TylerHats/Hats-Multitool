@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.4
+# GUI Setup File - Tyler Hatfield - v2.5
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -86,22 +86,22 @@ $MainMenuSetupButton.Add_Click({
 	$MainMenuSetupButton.Enabled = $false # Menu cannot be opened twice as it causes GUI issues
 	# Close and display Setup GUI
     $MainMenu.Hide()
-    Show-ModGUI
-    $Global:GUIClosed = $true
+	$ModGUI.ShowDialog() | Out-Null
+    $MainMenu.Show()
 })
 
 # Define Tools button click
 $MainMenuToolsButton.Add_Click({
     $MainMenu.Hide()
-    Show-ToolsGUI
-    $Global:GUIClosed = $true
+	$ToolsGUI.ShowDialog() | Out-Null
+    $MainMenu.Show()
 })
 
 # Define Troubleshooting button click
 $MainMenuTroubleshootingButton.Add_Click({
     $MainMenu.Hide()
-    Show-TroubleGUI
-    $Global:GUIClosed = $true
+	$TroubleGUI.ShowDialog() | Out-Null
+    $MainMenu.Show()
 })
 
 # Define Account button click
@@ -109,9 +109,6 @@ $MainMenuTroubleshootingButton.Add_Click({
 
 # Define Exit button click
 $MainMenuExitButton.Add_Click({
-    # Set exit flag and close form
-    #$Global:UserExit = $true
-    #$Global:GUIClosed = $true
     $MainMenu.Close()
 })
 
@@ -123,7 +120,6 @@ $MainMenu.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
-		$Global:GUIClosed = $true
     }
 })
 
@@ -230,7 +226,6 @@ $ModGUIokButton.Add_Click({
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
         $ModGUI.Hide()
-        $Global:GUIClosed = $true
         return
     }
     foreach ($moduleName in $selectedModules) {
@@ -241,14 +236,11 @@ $ModGUIokButton.Add_Click({
     $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
 	. "$SetupScriptModPath"
 	Show-MainMenu
-    $Global:GUIClosed = $true
 })
 
 # Define back button function
 $ModGUIBackButton.Add_Click({
 	$ModGUI.Hide()
-    Show-MainMenu
-    $Global:GUIClosed = $true
 })
 
 # Catch closes to close program properly
@@ -259,7 +251,6 @@ $ModGUI.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
-		$Global:GUIClosed = $true
     }
 })
 
@@ -795,8 +786,6 @@ $CDIButton.Add_Click({
 # Define back button
 $BackButton.Add_Click({
 	$ToolsGUI.Hide()
-    Show-MainMenu
-    $Global:GUIClosed = $true
 })
 
 # Catch closes to close program properly
@@ -807,7 +796,6 @@ $ToolsGUI.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
-		$Global:GUIClosed = $true
     }
 })
 
@@ -1068,8 +1056,6 @@ $ConsoleButton.Add_Click({
 # Define back button
 $BackButton.Add_Click({
 	$TroubleGUI.Hide()
-    Show-MainMenu
-    $Global:GUIClosed = $true
 })
 
 # Catch closes to close program properly
@@ -1080,6 +1066,5 @@ $TroubleGUI.Add_FormClosing({
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         # Do your “cleanup” or alternate logic here
         $Global:UserExit = $true
-		$Global:GUIClosed = $true
     }
 })
