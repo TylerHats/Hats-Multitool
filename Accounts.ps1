@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.2
+# Accounts Module - Tyler Hatfield - v2.4
 
 # Add C method for placeholder text
 Add-Type @"
@@ -11,11 +11,11 @@ public class NativeMethods {
 "@
 $EM_SETCUEBANNER = 0x1501
 
-# Prepare form
+# Prepare form (Increased height to fit the new row)
 $A1GUI = New-Object System.Windows.Forms.Form
 $A1GUI.Text = "Hat's Multitool"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$A1GUI.Size = New-Object System.Drawing.Size(315, 240)
+$A1GUI.Size = New-Object System.Drawing.Size(315, 280)
 $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -43,16 +43,34 @@ $UsernameInput.Width = 280
 $A1GUI.Controls.Add($UsernameInput)
 [NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
 
-# Add password input
+# Add password input (Shortened width to fit the button)
 $y += 35
 $PasswordInput = New-Object System.Windows.Forms.TextBox
 $PasswordInput.location = New-Object System.Drawing.Point(10, $y)
-$PasswordInput.Width = 280
+$PasswordInput.Width = 230
 $A1GUI.Controls.Add($PasswordInput)
 [NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
 
+# Add show password button (The peek button)
+$ShowPWButton = New-Object System.Windows.Forms.Button
+$ShowPWButton.Location = New-Object System.Drawing.Point(245, ($y - 1))
+$ShowPWButton.Size = New-Object System.Drawing.Size(45, 25)
+$ShowPWButton.Text = '👁'
+$ShowPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ShowPWButton.FlatStyle = 'Flat'
+$ShowPWButton.FlatAppearance.BorderSize = 1
+$A1GUI.Controls.Add($ShowPWButton)
+
+# Add password confirm input
+$y += 35
+$PasswordConfirmInput = New-Object System.Windows.Forms.TextBox
+$PasswordConfirmInput.location = New-Object System.Drawing.Point(10, $y)
+$PasswordConfirmInput.Width = 230
+$A1GUI.Controls.Add($PasswordConfirmInput)
+[NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
+
 # Update Password Check
-$y += 30
+$y += 35
 $PWCheckbox = New-Object System.Windows.Forms.CheckBox
 $PWCheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $PWCheckbox.Text = 'Update Password'
@@ -70,7 +88,7 @@ $LACheckbox.AutoSize = $true
 $A1GUI.Controls.Add($LACheckbox)
 
 # Add Okay button
-$y += 30
+$y += 35
 $A1OkayButton = New-Object System.Windows.Forms.Button
 $A1OkayButton.Location = New-Object System.Drawing.Point(160, $y)
 $A1OkayButton.Size = New-Object System.Drawing.Size(75, 30)
@@ -93,79 +111,145 @@ $A1Skip.FlatAppearance.BorderSize = 1
 $A1GUI.Controls.Add($A1Skip)
 $A1GUI.CancelButton = $A1Skip
 
-# Password masking Code
+# Password masking Code (Maintained your Cue Banner setup)
 $script:PasswordMaskApplied = $false
+$script:ConfirmMaskApplied = $false
+
 $PasswordInput.Add_Enter({
     if (-not $script:PasswordMaskApplied) {
-        # turn on masking; OS bullets:
         $PasswordInput.UseSystemPasswordChar = $true
         $script:PasswordMaskApplied = $true
     }
 })
 
-# Do not enable Okay until username is not blank
-$UsernameInput.Add_TextChanged({
-    $A1OkayButton.Enabled = -not [string]::IsNullOrWhiteSpace($UsernameInput.Text)
+$PasswordConfirmInput.Add_Enter({
+    if (-not $script:ConfirmMaskApplied) {
+        $PasswordConfirmInput.UseSystemPasswordChar = $true
+        $script:ConfirmMaskApplied = $true
+    }
 })
+
+# Show Password Button Logic (Hold to Peek)
+$ShowPWButton.Add_MouseDown({
+    $PasswordInput.UseSystemPasswordChar = $false
+    $PasswordConfirmInput.UseSystemPasswordChar = $false
+})
+
+$ShowPWButton.Add_MouseUp({
+    # Only re-mask if they have actually been clicked into
+    if ($script:PasswordMaskApplied) { $PasswordInput.UseSystemPasswordChar = $true }
+    if ($script:ConfirmMaskApplied) { $PasswordConfirmInput.UseSystemPasswordChar = $true }
+})
+
+$ShowPWButton.Add_MouseLeave({
+    # Catch-all: If the user clicks, drags the mouse off the button, and releases
+    if ($script:PasswordMaskApplied) { $PasswordInput.UseSystemPasswordChar = $true }
+    if ($script:ConfirmMaskApplied) { $PasswordConfirmInput.UseSystemPasswordChar = $true }
+})
+
+# Real-Time Form Validation Scriptblock
+$script:ValidateInputs = {
+    $userFilled = -not [string]::IsNullOrWhiteSpace($UsernameInput.Text)
+    $pwMatch = ($PasswordInput.Text -eq $PasswordConfirmInput.Text)
+
+    # Enable if Username has text AND the passwords match
+    if ($userFilled -and $pwMatch) {
+        $A1OkayButton.Enabled = $true
+    } else {
+        $A1OkayButton.Enabled = $false
+    }
+}
+
+# Attach validation to all text boxes so it updates instantly as you type
+$UsernameInput.Add_TextChanged($script:ValidateInputs)
+$PasswordInput.Add_TextChanged($script:ValidateInputs)
+$PasswordConfirmInput.Add_TextChanged($script:ValidateInputs)
 
 # Define a function to handle the Okay button click
 $A1OkayButton.Add_Click({
     $A1OkayButton.Enabled = $false
 
-    $UExists = Get-LocalUser -Name "$($UsernameInput.Text)" -ErrorAction SilentlyContinue
+    $UExists = Get-LocalUser -Name $UsernameInput.Text -ErrorAction SilentlyContinue
+
+    # Safely handle the password input
+    $SecurePassword = if (-not [string]::IsNullOrEmpty($PasswordInput.Text)) {
+        ConvertTo-SecureString $PasswordInput.Text -AsPlainText -Force
+    } else {
+        $null
+    }
 
     if (-not $UExists) {
-        # NEW USER SCENARIO: Always use the password box if provided
+        # NEW USER SCENARIO
         try {
-            Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" /add *>&1 | Out-File -Append -FilePath $logPath
-            if ($LASTEXITCODE) { throw "net user exit $LASTEXITCODE" }
+            if ($SecurePassword) {
+                New-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -Description "Created via Hat's Multitool" -ErrorAction Stop | Out-Null
+            } else {
+                New-LocalUser -Name $UsernameInput.Text -Description "Created via Hat's Multitool" -ErrorAction Stop | Out-Null
+            }
             Log-Message "Created local user $($UsernameInput.Text)." "Success"
         } catch {
-            PopupError "Failed to create user, please check log." "Error"
+            $_.Exception.Message | Out-File -Append -FilePath $logPath
+            PopupError "Failed to create user. Please check log." "Error"
         }
     } else {
-        # EXISTING USER SCENARIO: Only update password if checked
+        # EXISTING USER SCENARIO
         Log-Message "User $($UsernameInput.Text) already exists." "Skip"
 
-        if ($PWCheckbox.Checked) {
+        if ($PWCheckbox.Checked -and $SecurePassword) {
             try {
-                Net User "$($UsernameInput.Text)" "$($PasswordInput.Text)" *>&1 | Out-File -Append -FilePath $logPath
-                if ($LASTEXITCODE) { throw "net user exit $LASTEXITCODE" }
+                Set-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop
                 Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
             } catch {
-                PopupError "Failed to update user password, please check log." "Error"
+                $_.Exception.Message | Out-File -Append -FilePath $logPath
+                PopupError "Failed to update user password. Please check log." "Error"
             }
+        } elseif ($PWCheckbox.Checked -and -not $SecurePassword) {
+            PopupError "Cannot update password to blank using this method." "Error"
         }
     }
 
-    # Make local admin check remains the same...
+    # Make local admin check
     if ($LACheckbox.Checked) {
         $LocalUserCheck = "$env:COMPUTERNAME\$($UsernameInput.Text)"
         $IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
+
         if (-not $IsAdmin) {
-            Log-Message "Setting local user $($UsernameInput.Text) as local admin"
+            Log-Message "Setting local user $($UsernameInput.Text) as local admin." "Info"
             try {
-                Net Localgroup Administrators "$($UsernameInput.Text)" /add *>&1 | Out-File -Append -FilePath $logPath
-                if($LASTEXITCODE){ throw "net user exit $LASTEXITCODE" }
-            } catch {PopupError "Failed to elevate user, please check log." "Error"}
-        } elseif ($IsAdmin) {
+                Add-LocalGroupMember -Group "Administrators" -Member $UsernameInput.Text -ErrorAction Stop
+                Log-Message "Successfully elevated $($UsernameInput.Text) to Administrator." "Success"
+            } catch {
+                $_.Exception.Message | Out-File -Append -FilePath $logPath
+                PopupError "Failed to elevate user. Please check log." "Error"
+            }
+        } else {
             Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"
         }
-	}
-	$UsernameInput.Clear()
-	$PasswordInput.Clear()
-	$PasswordInput.UseSystemPasswordChar = $false
-	$script:PasswordMaskApplied = $false
-	[NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
-	$PWCheckbox.Checked = $false
-	$LACheckbox.Checked = $false
-	$A1Skip.Text = 'Close'
+    }
+
+    # Clean the GUI inputs for the next run
+    $UsernameInput.Clear()
+    $PasswordInput.Clear()
+    $PasswordConfirmInput.Clear()
+
+    $PasswordInput.UseSystemPasswordChar = $false
+    $PasswordConfirmInput.UseSystemPasswordChar = $false
+
+    $script:PasswordMaskApplied = $false
+    $script:ConfirmMaskApplied = $false
+
+    [NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
+    [NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
+
+    $PWCheckbox.Checked = $false
+    $LACheckbox.Checked = $false
+    $A1Skip.Text = 'Close'
 })
 
 # Define Skip closing function
 $A1Skip.Add_Click({
-	$A1Skip.Enabled = $false
-	$A1GUI.Close()
+    $A1Skip.Enabled = $false
+    $A1GUI.Close()
 })
 
 # Display First GUI
