@@ -441,18 +441,11 @@ OS: $($OSInfo.Caption) ($($OSInfo.OSArchitecture))
             $StatusLabel.Text = "Status: Exporting System Settings..."
             [System.Windows.Forms.Application]::DoEvents()
 
-            $JsonConfig.Printers = Get-Printer -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName, Shared
+            $JsonConfig.Printers = Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch "Microsoft|OneNote|PDF|XPS|Root" } | Select-Object Name, DriverName, PortName, Shared
 
             foreach ($u in $ActiveUsers) {
                 $JsonConfig.Settings.$u = @{}
                 $UserRoot = "C:\Users\$u"
-
-                $QA_Path = "$UserRoot\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations"
-                if (Test-Path $QA_Path) {
-                    $QADest = Join-Path $DestRoot "SettingsBackup\$u\QuickAccess"
-                    New-Item -ItemType Directory -Path $QADest -Force | Out-Null
-                    Copy-Item -Path "$QA_Path\*" -Destination $QADest -Recurse -Force -ErrorAction SilentlyContinue
-                }
 
                 try {
                     $objUser = New-Object System.Security.Principal.NTAccount($u)
@@ -519,8 +512,14 @@ OS: $($OSInfo.Caption) ($($OSInfo.OSArchitecture))
                     $p = Join-Path $UserRoot $uf
                     if (Test-Path $p) { $FoldersToScan += $p }
                 }
+
+                # Core AppData Injections
                 $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Signatures"
                 $FoldersToScan += "$UserRoot\AppData\Local\Packages\Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe"
+
+                # OS Settings & UI Injections (Quick Access, Pinned Taskbar Icons)
+                $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations"
+                $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
             }
             if ($chkBrowsers.Checked) {
                 if ($chkChrome.Checked) { $FoldersToScan += "$UserRoot\AppData\Local\Google\Chrome\User Data" }
@@ -808,7 +807,7 @@ if (`$MatchFound) {
     # Update UI to notify forced sign out
     `$Label.Text = "Integration Complete.`nSigning out to apply deep system themes..."
     [System.Windows.Forms.Application]::DoEvents()
-    Start-Sleep -Seconds 4
+    Start-Sleep -Seconds 10
 
     # Force Logoff to cleanly reload cached HKCU settings
     Start-Process cmd.exe -ArgumentList "/c logoff" -WindowStyle Hidden
