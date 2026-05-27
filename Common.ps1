@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.19
+# Common File - Tyler Hatfield - v1.20
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -89,21 +89,49 @@ function PopupError {
 	)
 }
 
-# Load required functions to interact with Windows
-# Used for PowerShell Console window show/hide interactions
-Add-Type @"
+# Load Master C# Native Methods for Windows API Interactions
+$HMT_CSharpCode = @"
 using System;
 using System.Runtime.InteropServices;
-public class Win32 {
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetConsoleWindow();
-	[DllImport("user32.dll")]   
-	public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+namespace HMT {
+    public static class NativeMethods {
+
+        // --- Console & Window Visibility ---
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        // --- Window Messaging (Icons & UI Elements) ---
+        // Signature for passing icon handles
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        // Signature for passing strings (like text box Cue Banners)
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern int SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
+
+        // --- DWM & Theming (Dark Mode) ---
+        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        // --- Taskbar Management ---
+        [DllImport("shell32.dll", SetLastError = true)]
+        public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+    }
 }
 "@
+# Compile the type once
+Add-Type -TypeDefinition $HMT_CSharpCode -Language CSharp
 
 # constants for WM_SETICON
 $WM_SETICON = 0x80
@@ -116,75 +144,30 @@ $hIcon = $HMTIcon.Handle
 # get the console window and swap in our icon
 $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
 $wParamBig   = New-Object System.IntPtr($ICON_BIG)
-$hwnd = [Win32]::GetConsoleWindow()
-[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamSmall, $hIcon) | Out-Null
-[Win32]::SendMessage($hwnd, $WM_SETICON, $wParamBig,   $hIcon) | Out-Null
-
-# Used for PowerShell Console window focusing and GUI theming
-$code = @"
-using System;
-using System.Runtime.InteropServices;
-
-namespace ConsoleUtils {
-    public static class NativeMethods {
-        [DllImport("kernel32.dll")]
-        public static extern IntPtr GetConsoleWindow();
-
-        [DllImport("user32.dll")]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        // If you need ShowWindow:
-        [DllImport("user32.dll")]
-        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
-        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-        
-        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
-        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-        
-        // Add this line for the Dark Title Bar
-        [DllImport("dwmapi.dll")]
-        public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-    }
-}
-"@
-Add-Type -TypeDefinition $code -Language CSharp
-
-# Used to break the script out of PowerShell Taskbar Grouping and force the custom icon
-$appIdCode = @"
-using System;
-using System.Runtime.InteropServices;
-
-namespace HMT {
-    public static class Taskbar {
-        [DllImport("shell32.dll", SetLastError = true)]
-        public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
-    }
-}
-"@
-Add-Type -TypeDefinition $appIdCode -Language CSharp
+$hwnd = [HMT.NativeMethods]::GetConsoleWindow()
+[HMT.NativeMethods]::SendMessage($hwnd, $WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+[HMT.NativeMethods]::SendMessage($hwnd, $WM_SETICON, $wParamBig,   $hIcon) | Out-Null
 
 # Set a unique ID for Hat's Multitool
-[HMT.Taskbar]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.App") | Out-Null
+[HMT.NativeMethods]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.App") | Out-Null
 
 # Function to hide the console window
 function Hide-ConsoleWindow {
-    $consolePtr = [Win32]::GetConsoleWindow()
+    $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
     # 0 = Hide
-    [Win32]::ShowWindow($consolePtr, 0)
+    [HMT.NativeMethods]::ShowWindow($consolePtr, 0)
 }
 
 # Function to show the console window
 function Show-ConsoleWindow {
-    $consolePtr = [Win32]::GetConsoleWindow()
+    $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
     # 5 = Show normally
-    [Win32]::ShowWindow($consolePtr, 5)
+    [HMT.NativeMethods]::ShowWindow($consolePtr, 5)
     Start-Sleep -Milliseconds 50
     # Pull console window to focus
-    $hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
-	[Win32]::ShowWindow($consolePtr, 9) | Out-Null
-    [ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+    $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
+	[HMT.NativeMethods]::ShowWindow($consolePtr, 9) | Out-Null
+    [HMT.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 }
 
 # Function to force a WinForms title bar into Dark Mode
@@ -195,7 +178,7 @@ function Set-DarkTitleBar {
     )
     $TargetForm.Handle | Out-Null
     $darkMode = 1
-    [ConsoleUtils.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
+    [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
 }
 
 # Common function for user requested exits

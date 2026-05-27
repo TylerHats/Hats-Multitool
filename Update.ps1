@@ -1,7 +1,7 @@
-# Self Update Module - Tyler Hatfield - v2.3
+# Self Update Module - Tyler Hatfield - v2.5
 
 # Define the path to your JSON file in the current directory
-$jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "version.json" # Update filename if needed
+$jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
 
 # Check if the file exists to avoid errors
 if (Test-Path -Path $jsonPath) {
@@ -9,11 +9,11 @@ if (Test-Path -Path $jsonPath) {
     $configData = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
     
     # Extract the version string
-    $currentVersionString = $configData.version
+    $Global:currentVersionString = $configData.version
     
-    Log-Message "Loaded version: $currentVersionString" "Info"
+    Log-Message "Loaded version: $Global:currentVersionString" "Info"
 } else {
-	$currentVersionString = $null
+	$Global:currentVersionString = $null
 	$skipUpdate = 1
     Log-Message "Update check failed: Could not find $jsonPath" "Error"
 }
@@ -83,7 +83,7 @@ $UNOkayButton.Add_Click({
 if ($skipUpdate -ne 1) {
 	$shell = New-Object -ComObject Shell.Application
 	$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
-	[version]$currentVersion = $currentVersionString
+	[version]$currentVersion = $Global:currentVersionString
 	$skipUpdate = 0
 	Try {
 		$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt" -UseBasicParsing
@@ -104,7 +104,7 @@ if ($skipUpdate -ne 1) {
 			Write-Host ""
 		}
 	} elseif ($currentVersion -gt $remoteVersion) {
-		$ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$currentVersionString > v$remoteVersionString)"
+		$ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$Global:currentVersionString > v$remoteVersionString)"
 		Close-ImageSplash
 		$UpdateGUI.ShowDialog() | Out-Null
 		if ($script:GUIResponse -match 'y|yes') {

@@ -1,14 +1,5 @@
-# Accounts Module - Tyler Hatfield - v2.4
+# Accounts Module - Tyler Hatfield - v2.5
 
-# Add C method for placeholder text
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class NativeMethods {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern Int32 SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
-}
-"@
 $EM_SETCUEBANNER = 0x1501
 
 # Prepare form (Increased height to fit the new row)
@@ -41,7 +32,7 @@ $UsernameInput = New-Object System.Windows.Forms.TextBox
 $UsernameInput.location = New-Object System.Drawing.Point(10, $y)
 $UsernameInput.Width = 280
 $A1GUI.Controls.Add($UsernameInput)
-[NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
+[HMT.NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
 
 # Add password input (Shortened width to fit the button)
 $y += 35
@@ -49,7 +40,7 @@ $PasswordInput = New-Object System.Windows.Forms.TextBox
 $PasswordInput.location = New-Object System.Drawing.Point(10, $y)
 $PasswordInput.Width = 230
 $A1GUI.Controls.Add($PasswordInput)
-[NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
+[HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
 
 # Add show password button (The peek button)
 $ShowPWButton = New-Object System.Windows.Forms.Button
@@ -67,7 +58,7 @@ $PasswordConfirmInput = New-Object System.Windows.Forms.TextBox
 $PasswordConfirmInput.location = New-Object System.Drawing.Point(10, $y)
 $PasswordConfirmInput.Width = 230
 $A1GUI.Controls.Add($PasswordConfirmInput)
-[NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
+[HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
 
 # Update Password Check
 $y += 35
@@ -238,8 +229,8 @@ $A1OkayButton.Add_Click({
     $script:PasswordMaskApplied = $false
     $script:ConfirmMaskApplied = $false
 
-    [NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
-    [NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
+    [HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
+    [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
 
     $PWCheckbox.Checked = $false
     $LACheckbox.Checked = $false

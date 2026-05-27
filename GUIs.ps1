@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.6
+# GUI Setup File - Tyler Hatfield - v2.7
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -156,12 +156,19 @@ $AboutGUI.Font = $font
 $AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
 Set-DarkTitleBar -TargetForm $AboutGUI
 
-# Big Icon (Pulls from your existing $HMTIcon and converts it to a bitmap for scaling)
+# Big Icon (Pulls the crisp PNG from script root)
 $IconBox = New-Object System.Windows.Forms.PictureBox
 $IconBox.Size = New-Object System.Drawing.Size(128, 128)
-$IconBox.Location = New-Object System.Drawing.Point(100, 30)
+$IconBox.Location = New-Object System.Drawing.Point(110, 30)
 $IconBox.SizeMode = 'StretchImage'
-if ($HMTIcon) { $IconBox.Image = $HMTIcon.ToBitmap() }
+
+$PngIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIcon.png"
+if (Test-Path $PngIconPath) {
+    $IconBox.Image = [System.Drawing.Image]::FromFile($PngIconPath)
+} else {
+    # Fallback to the ICO if the PNG is missing for some reason
+    if ($HMTIcon) { $IconBox.Image = $HMTIcon.ToBitmap() }
+}
 $AboutGUI.Controls.Add($IconBox)
 
 # Program Title Label
@@ -175,7 +182,7 @@ $AboutGUI.Controls.Add($AboutTitle)
 
 # Version Label
 $AboutVersion = New-Object System.Windows.Forms.Label
-$AboutVersion.Text = if ($currentVersionString) { "v$currentVersionString" } else { "Version Unknown" }
+$AboutVersion.Text = if ($Global:currentVersionString) { "v$Global:currentVersionString" } else { "Version Unknown" }
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $AboutVersion.AutoSize = $true
 $AboutVersion.Location = New-Object System.Drawing.Point(135, 210)
@@ -184,7 +191,7 @@ $AboutGUI.Controls.Add($AboutVersion)
 # Author / Copyright Label
 $AboutAuthor = New-Object System.Windows.Forms.Label
 # Added the GPLv3 line to explicitly state the open-source nature
-$AboutAuthor.Text = "Created by Tyler Hatfield`n© $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
+$AboutAuthor.Text = "Created by Tyler Hatfield`n$([char]0x00A9) $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
 $AboutAuthor.TextAlign = 'TopCenter'
 $AboutAuthor.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutAuthor.AutoSize = $true

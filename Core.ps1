@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.5
+# Core Script - Tyler Hatfield - v1.6
 
 # Elevation check
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -109,8 +109,8 @@ if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error
 Hide-ConsoleWindow
 
 # Focus Window and Run Self Update Module
-$hwnd = [ConsoleUtils.NativeMethods]::GetConsoleWindow()
-[ConsoleUtils.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+$hwnd = [HMT.NativeMethods]::GetConsoleWindow()
+[HMT.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'
 . "$UpdateModPath"
 if ($ForceExit -eq $true) {exit 0}
