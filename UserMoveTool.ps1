@@ -209,7 +209,7 @@ $MoveGUI.Controls.Add($chkUser)
 # Master Browser Checkbox
 $y += 25
 $chkBrowsers = New-Object System.Windows.Forms.CheckBox
-$chkBrowsers.Text = "Browser Data (Bookmarks, History)"
+$chkBrowsers.Text = "Browser Data (Bookmarks, History, etc.)"
 $chkBrowsers.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $chkBrowsers.Location = New-Object System.Drawing.Point(30, $y); $chkBrowsers.Width = 350; $chkBrowsers.Checked = $true
 $MoveGUI.Controls.Add($chkBrowsers)
@@ -237,7 +237,7 @@ $MoveGUI.Controls.Add($chkFirefox)
 
 $y += 25
 $chkSettings = New-Object System.Windows.Forms.CheckBox
-$chkSettings.Text = 'OS Settings, Printers & Network Drives'
+$chkSettings.Text = 'OS Settings, Printers, Network Drives, etc.'
 $chkSettings.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $chkSettings.Location = New-Object System.Drawing.Point(30, $y); $chkSettings.Width = 350; $chkSettings.Checked = $true
 $MoveGUI.Controls.Add($chkSettings)

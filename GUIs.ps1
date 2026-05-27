@@ -186,9 +186,19 @@ $AboutTitle.AutoSize = $true
 $AboutTitle.Location = New-Object System.Drawing.Point(85, 175)
 $AboutGUI.Controls.Add($AboutTitle)
 
+# Pull current version number
+$jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
+if (Test-Path -Path $jsonPath) {
+    $configData = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+    $CurVerAbout = $configData.version
+} else {
+	$CurVerAbout = "X.X.X"
+    Log-Message "Failed to locate version number: Could not find $jsonPath" "Error"
+}
+
 # Version Label
 $AboutVersion = New-Object System.Windows.Forms.Label
-$AboutVersion.Text = "v$Global:currentVersionString"
+$AboutVersion.Text = "v$CurVerAbout"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $AboutVersion.AutoSize = $true
 $AboutVersion.Location = New-Object System.Drawing.Point(135, 210)
