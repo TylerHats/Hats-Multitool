@@ -92,6 +92,12 @@ $MainMenuExitButton.FlatStyle = 'Flat'
 $MainMenuExitButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuExitButton)
 
+$MainMenu.Add_Shown({
+    $this.Activate()
+    $this.BringToFront()
+    [HMT.NativeMethods]::SetForegroundWindow($this.Handle)
+})
+
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
 	# Scrub the GUI: Reset all checkboxes to unchecked
@@ -182,7 +188,7 @@ $AboutGUI.Controls.Add($AboutTitle)
 
 # Version Label
 $AboutVersion = New-Object System.Windows.Forms.Label
-$AboutVersion.Text = if ($Global:currentVersionString) { "v$Global:currentVersionString" } else { "Version Unknown" }
+$AboutVersion.Text = "v$Global:currentVersionString"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $AboutVersion.AutoSize = $true
 $AboutVersion.Location = New-Object System.Drawing.Point(135, 210)
@@ -431,6 +437,7 @@ $EButton.Text = "Empty"
 $EButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $EButton.FlatStyle = 'Flat'
 $EButton.FlatAppearance.BorderSize = 1
+$E2Button.Enabled = $false
 $ToolsGUI.Controls.Add($EButton)
 
 # Empty Agent Button Tooltip
@@ -597,7 +604,7 @@ $E2Button.Text = "Empty"
 $E2Button.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $E2Button.FlatStyle = 'Flat'
 $E2Button.FlatAppearance.BorderSize = 1
-$E2Button.Enabled = $true
+$E2Button.Enabled = $false
 $ToolsGUI.Controls.Add($E2Button)
 
 # Empty Button Tooltip

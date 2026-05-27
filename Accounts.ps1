@@ -46,7 +46,8 @@ $A1GUI.Controls.Add($PasswordInput)
 $ShowPWButton = New-Object System.Windows.Forms.Button
 $ShowPWButton.Location = New-Object System.Drawing.Point(245, ($y - 1))
 $ShowPWButton.Size = New-Object System.Drawing.Size(45, 25)
-$ShowPWButton.Text = '👁'
+$ShowPWButton.Font = New-Object System.Drawing.Font("Segoe UI Symbol", 10)
+$ShowPWButton.Text = [char]0xE11B
 $ShowPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ShowPWButton.FlatStyle = 'Flat'
 $ShowPWButton.FlatAppearance.BorderSize = 1

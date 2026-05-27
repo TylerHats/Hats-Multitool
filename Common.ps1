@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.20
+# Common File - Tyler Hatfield - v1.21
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -112,10 +112,6 @@ namespace HMT {
         // Signature for passing icon handles
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        // Signature for passing strings (like text box Cue Banners)
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern int SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
 
         // --- DWM & Theming (Dark Mode) ---
         [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]

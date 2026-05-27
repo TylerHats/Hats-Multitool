@@ -1,4 +1,4 @@
-# User Move Tool - Tyler Hatfield - v1.7
+# User Move Tool - Tyler Hatfield - v1.8
 
 # Instantly pop a tiny loading indicator before loading the heavy C# assemblies
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -237,7 +237,7 @@ $MoveGUI.Controls.Add($chkFirefox)
 
 $y += 25
 $chkSettings = New-Object System.Windows.Forms.CheckBox
-$chkSettings.Text = "OS Settings, Printers & Network Drives"
+$chkSettings.Text = 'OS Settings, Printers & Network Drives'
 $chkSettings.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $chkSettings.Location = New-Object System.Drawing.Point(30, $y); $chkSettings.Width = 350; $chkSettings.Checked = $true
 $MoveGUI.Controls.Add($chkSettings)
