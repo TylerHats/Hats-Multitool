@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.7
+# GUI Setup File - Tyler Hatfield - v2.8
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -11,7 +11,8 @@ $MainMenu.Icon = $HMTIcon
 $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
 $MainMenu.Font = $font
-$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$MainMenu.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $MainMenu
 
 # Form size variables
@@ -159,7 +160,8 @@ $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $AboutGUI.MaximizeBox = $false
 $AboutGUI.Font = $font
-$AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$AboutGUI.$MainMenu.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $AboutGUI
 
 # Big Icon (Pulls the crisp PNG from script root)
@@ -258,7 +260,8 @@ $ModGUI.Icon = $HMTIcon
 $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.Font = $font
-$ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$ModGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $ModGUI
 
 # Form size variables
@@ -397,7 +400,8 @@ $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
-$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$ToolsGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $ToolsGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
@@ -944,7 +948,8 @@ $TroubleGUI.Icon = $HMTIcon
 $TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TroubleGUI.MaximizeBox = $false
 $TroubleGUI.Font = $font
-$TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$TroubleGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $TroubleGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
