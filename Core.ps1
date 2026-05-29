@@ -1,10 +1,19 @@
-# Core Script - Tyler Hatfield - v1.6
+# Core Script - Tyler Hatfield - v1.7
 
-# Elevation check
+
+# Check bit-ness and elevated status
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
-if (-not $IsElevated) {
-    Write-Host "This script requires elevation. Please grant Administrator permissions." -ForegroundColor Yellow
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Minimized
+$IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
+
+if (-not $IsElevated -or $IsTrappedIn32Bit) {
+    Write-Host "Elevation: $IsElevated - Is 64bit: #IsTrappedIn32Bit - Relaunching..."
+    $ExePath = if ($IsTrappedIn32Bit) { 
+        "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
+    } else { 
+        "powershell.exe" 
+    }
+    # Launch the corrected environment. -Verb RunAs triggers the Admin UAC prompt.
+    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Minimized
     exit
 }
 
