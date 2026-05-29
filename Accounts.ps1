@@ -1,12 +1,15 @@
 # Accounts Module - Tyler Hatfield - v2.5
 
+# Force load the LocalAccounts module (Requires 64-bit PowerShell)
+Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
+
 $EM_SETCUEBANNER = 0x1501
 
-# Prepare form (Increased height to fit the new row)
+# Prepare form 
 $A1GUI = New-Object System.Windows.Forms.Form
 $A1GUI.Text = "Hat's Multitool"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$A1GUI.Size = New-Object System.Drawing.Size(315, 280)
+$A1GUI.Size = New-Object System.Drawing.Size(315, 330)
 $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -26,43 +29,43 @@ $A1label.AutoSize = $true
 $A1label.TextAlign = 'TopLeft'
 $A1GUI.Controls.Add($A1label)
 
-# Add username input
-$y += 30
+# Add username input 
+$y += 35
 $UsernameInput = New-Object System.Windows.Forms.TextBox
 $UsernameInput.location = New-Object System.Drawing.Point(10, $y)
 $UsernameInput.Width = 280
 $A1GUI.Controls.Add($UsernameInput)
 [HMT.NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
 
-# Add password input (Shortened width to fit the button)
-$y += 35
+# Add password input 
+$y += 40
 $PasswordInput = New-Object System.Windows.Forms.TextBox
 $PasswordInput.location = New-Object System.Drawing.Point(10, $y)
 $PasswordInput.Width = 230
 $A1GUI.Controls.Add($PasswordInput)
 [HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
 
-# Add show password button (The peek button)
+# Add show password button 
 $ShowPWButton = New-Object System.Windows.Forms.Button
 $ShowPWButton.Location = New-Object System.Drawing.Point(245, ($y - 1))
 $ShowPWButton.Size = New-Object System.Drawing.Size(45, 25)
-$ShowPWButton.Font = New-Object System.Drawing.Font("Segoe UI Symbol", 10)
-$ShowPWButton.Text = [char]0xE11B
+$ShowPWButton.Font = New-Object System.Drawing.Font("Segoe MDL2 Assets", 10)
+$ShowPWButton.Text = [char]0xE052
 $ShowPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ShowPWButton.FlatStyle = 'Flat'
 $ShowPWButton.FlatAppearance.BorderSize = 1
 $A1GUI.Controls.Add($ShowPWButton)
 
-# Add password confirm input
-$y += 35
+# Add password confirm input 
+$y += 40
 $PasswordConfirmInput = New-Object System.Windows.Forms.TextBox
 $PasswordConfirmInput.location = New-Object System.Drawing.Point(10, $y)
 $PasswordConfirmInput.Width = 230
 $A1GUI.Controls.Add($PasswordConfirmInput)
 [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
 
-# Update Password Check
-$y += 35
+# Update Password Check 
+$y += 40
 $PWCheckbox = New-Object System.Windows.Forms.CheckBox
 $PWCheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $PWCheckbox.Text = 'Update Password'
@@ -70,8 +73,8 @@ $PWCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $PWCheckbox.AutoSize = $true
 $A1GUI.Controls.Add($PWCheckbox)
 
-# Make local admin
-$y += 25
+# Make local admin 
+$y += 30
 $LACheckbox = New-Object System.Windows.Forms.CheckBox
 $LACheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $LACheckbox.Text = 'Make Local Admin'
@@ -79,8 +82,8 @@ $LACheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $LACheckbox.AutoSize = $true
 $A1GUI.Controls.Add($LACheckbox)
 
-# Add Okay button
-$y += 35
+# Add Okay and Skip buttons 
+$y += 45
 $A1OkayButton = New-Object System.Windows.Forms.Button
 $A1OkayButton.Location = New-Object System.Drawing.Point(160, $y)
 $A1OkayButton.Size = New-Object System.Drawing.Size(75, 30)
@@ -92,7 +95,6 @@ $A1GUI.Controls.Add($A1OkayButton)
 $A1GUI.AcceptButton = $A1OkayButton
 $A1OkayButton.Enabled = $false
 
-# Add Skip button
 $A1Skip = New-Object System.Windows.Forms.Button
 $A1Skip.Location = New-Object System.Drawing.Point(60, $y)
 $A1Skip.Size = New-Object System.Drawing.Size(75, 30)
@@ -103,7 +105,7 @@ $A1Skip.FlatAppearance.BorderSize = 1
 $A1GUI.Controls.Add($A1Skip)
 $A1GUI.CancelButton = $A1Skip
 
-# Password masking Code (Maintained your Cue Banner setup)
+# Password masking Code
 $script:PasswordMaskApplied = $false
 $script:ConfirmMaskApplied = $false
 
@@ -128,13 +130,11 @@ $ShowPWButton.Add_MouseDown({
 })
 
 $ShowPWButton.Add_MouseUp({
-    # Only re-mask if they have actually been clicked into
     if ($script:PasswordMaskApplied) { $PasswordInput.UseSystemPasswordChar = $true }
     if ($script:ConfirmMaskApplied) { $PasswordConfirmInput.UseSystemPasswordChar = $true }
 })
 
 $ShowPWButton.Add_MouseLeave({
-    # Catch-all: If the user clicks, drags the mouse off the button, and releases
     if ($script:PasswordMaskApplied) { $PasswordInput.UseSystemPasswordChar = $true }
     if ($script:ConfirmMaskApplied) { $PasswordConfirmInput.UseSystemPasswordChar = $true }
 })
@@ -144,7 +144,6 @@ $script:ValidateInputs = {
     $userFilled = -not [string]::IsNullOrWhiteSpace($UsernameInput.Text)
     $pwMatch = ($PasswordInput.Text -eq $PasswordConfirmInput.Text)
 
-    # Enable if Username has text AND the passwords match
     if ($userFilled -and $pwMatch) {
         $A1OkayButton.Enabled = $true
     } else {
@@ -152,7 +151,6 @@ $script:ValidateInputs = {
     }
 }
 
-# Attach validation to all text boxes so it updates instantly as you type
 $UsernameInput.Add_TextChanged($script:ValidateInputs)
 $PasswordInput.Add_TextChanged($script:ValidateInputs)
 $PasswordConfirmInput.Add_TextChanged($script:ValidateInputs)
@@ -163,7 +161,6 @@ $A1OkayButton.Add_Click({
 
     $UExists = Get-LocalUser -Name $UsernameInput.Text -ErrorAction SilentlyContinue
 
-    # Safely handle the password input
     $SecurePassword = if (-not [string]::IsNullOrEmpty($PasswordInput.Text)) {
         ConvertTo-SecureString $PasswordInput.Text -AsPlainText -Force
     } else {
@@ -243,6 +240,11 @@ $A1Skip.Add_Click({
     $A1Skip.Enabled = $false
     $A1GUI.Close()
 })
+
+# UX FIX: Assign the form's active control to the Skip button
+# This allows quick keyboard bypassing and ensures the textboxes 
+# do not immediately pull focus on load, preserving the cue banners.
+$A1GUI.ActiveControl = $A1Skip
 
 # Display First GUI
 $A1GUI.ShowDialog() | Out-Null
