@@ -1,4 +1,4 @@
-# Time Zone Module - Tyler Hatfield - v2.3
+# Time Zone Module - Tyler Hatfield - v2.4
 
 # Create TZ GUI
 # Prepare form
@@ -78,7 +78,8 @@ $TZOkayButton.Add_Click({
 	if ((Get-Service -Name w32time).Status -ne 'Running') {
 		Start-Service -Name w32time | Out-File -Append -FilePath $logPath
 	}
-	w32tm /resync | Out-File -Append -FilePath $logPath
+	Start-Sleep -Seconds 1
+	w32tm /resync /rediscover | Out-File -Append -FilePath $logPath
 	$TZGUI.Close()
 })
 
