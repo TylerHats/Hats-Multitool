@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.4
+# System Management Module - Tyler Hatfield - v2.5
 
 # Add C method for placeholder text
 Add-Type @"
@@ -24,7 +24,8 @@ $SMGUI.Icon = $HMTIcon
 $SMGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $SMGUI.MaximizeBox = $false
 $SMGUI.Font = $font
-$SMGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$SMGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$SMGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $SMGUI
 
 # Add descriptive label

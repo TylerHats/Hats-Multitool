@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.5
+# Accounts Module - Tyler Hatfield - v2.6
 
 # Force load the LocalAccounts module (Requires 64-bit PowerShell)
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
@@ -15,7 +15,8 @@ $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $A1GUI.MaximizeBox = $false
 $A1GUI.Font = $font
-$A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$A1GUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $A1GUI
 
 # Add descriptive label

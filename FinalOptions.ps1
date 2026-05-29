@@ -1,4 +1,4 @@
-# Final Setup Options Module - Tyler Hatfield - v1.3
+# Final Setup Options Module - Tyler Hatfield - v1.4
 
 # Create Options GUI
 # Prepare form
@@ -11,7 +11,9 @@ $FOGUI.Icon = $HMTIcon
 $FOGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $FOGUI.MaximizeBox = $false
 $FOGUI.Font = $font
-$FOGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$FOGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$FOGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+Set-DarkTitleBar -TargetForm $FOGUI
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox

@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v2.5
+# Self Update Module - Tyler Hatfield - v2.6
 
 # Define the path to your JSON file in the current directory
 $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
@@ -29,7 +29,9 @@ $UpdateGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $UpdateGUI.MaximizeBox = $false
 $UpdateGUI.Font = $font
 $UpdateGUI.TopMost = $true
-$UpdateGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$UpdateGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$UpdateGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+Set-DarkTitleBar -TargetForm $UpdateGUI
 
 # Add descriptive label
 $y = 10

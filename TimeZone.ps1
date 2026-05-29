@@ -11,7 +11,8 @@ $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TZGUI.MaximizeBox = $false
 $TZGUI.Font = $font
-$TZGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+$TZGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$TZGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $TZGUI
 
 # Form size variables

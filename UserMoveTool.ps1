@@ -1,4 +1,4 @@
-# User Move Tool - Tyler Hatfield - v1.8
+# User Move Tool - Tyler Hatfield - v1.9
 
 # Instantly pop a tiny loading indicator before loading the heavy C# assemblies
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -90,6 +90,8 @@ $MoveGUI.Icon = $HMTIcon
 $MoveGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MoveGUI.MaximizeBox = $false
 $MoveGUI.Font = $font
+$MoveGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$MoveGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 
 # Force Handle Creation so we can apply the Dark Mode Title Bar
 $MoveGUI.Handle | Out-Null

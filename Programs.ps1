@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.11
+# Programs Module - Tyler Hatfield - v1.12
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
@@ -16,6 +16,8 @@ $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $font = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Font = $font
+$form.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $form
 
 # Dynamic size based on number of programs
