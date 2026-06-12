@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.22
+# Common File - Tyler Hatfield - v1.23
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -216,14 +216,7 @@ Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed'
 
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cleanupCommand))
         
-        $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName        = 'powershell.exe'
-        $psi.Arguments       = "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedCommand"
-        $psi.WorkingDirectory = $env:TEMP 
-        $psi.CreateNoWindow  = $true
-        $psi.UseShellExecute = $false
-        
-        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedCommand" -WorkingDirectory $env:TEMP
         
         [System.Environment]::Exit(0)
     }
