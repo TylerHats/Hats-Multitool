@@ -85,27 +85,9 @@ $UNOkayButton.Add_Click({
 function Invoke-SelfUpdateCleanup {
     param([string]$OutPath)
     
-    $updateCleanup = @"
-    Wait-Process -Id $PID -ErrorAction SilentlyContinue
-
-    # Loop to catch any lingering or child processes running from our folder
-    while (`$true) {
-        `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like "$PSScriptRoot\*" }
-        if (-not `$lockingProcs) { break }
-        `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue
-    }
-
-    Start-Sleep -Seconds 1 
-    if (Test-Path -LiteralPath "$PSScriptRoot") {
-        Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
-    }
-
-    Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed during self update'
-    Start-Process -FilePath "$OutPath" -WindowStyle Minimized
-"@
+    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
     
-    $encodedUpdate = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($updateCleanup))
-    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedUpdate" -WorkingDirectory $env:TEMP
+    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$updateCleanup`"" -WorkingDirectory $env:TEMP
 }
 
 # Check program version against remote, update if needed
