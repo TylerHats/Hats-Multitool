@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v2.7
+# Self Update Module - Tyler Hatfield - v2.9
 
 # Define the path to your JSON file in the current directory
 $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
@@ -13,8 +13,8 @@ if (Test-Path -Path $jsonPath) {
     
     Log-Message "Loaded version: $Global:currentVersionString" "Info"
 } else {
-	$Global:currentVersionString = $null
-	$skipUpdate = 1
+    $Global:currentVersionString = $null
+    $skipUpdate = 1
     Log-Message "Update check failed: Could not find $jsonPath" "Error"
 }
 
@@ -34,21 +34,21 @@ $UpdateGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $UpdateGUI
 
 # Add descriptive label
-$y = 10
+$y = 15
 $ULabel = New-Object System.Windows.Forms.Label
 $ULabel.Text = "Update text:"
 $ULabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ULabel.Size = New-Object System.Drawing.Size(340, 50)
-$ULabel.Location = New-Object System.Drawing.Point(20, $y)
+$ULabel.Location = New-Object System.Drawing.Point(30, $y)
 $ULabel.AutoSize = $false
 $ULabel.TextAlign = 'TopCenter'
 $UpdateGUI.Controls.Add($ULabel)
 
-# Add yes button
-$y += 57
+# Add Yes button
+$y += 55
 $UYOkayButton = New-Object System.Windows.Forms.Button
-$UYOkayButton.Location = New-Object System.Drawing.Point(115, $y)
-$UYOkayButton.Size = New-Object System.Drawing.Size(50, 30)
+$UYOkayButton.Location = New-Object System.Drawing.Point(95, $y)
+$UYOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $UYOkayButton.Text = 'Yes'
 $UYOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UYOkayButton.FlatStyle = 'Flat'
@@ -56,10 +56,10 @@ $UYOkayButton.FlatAppearance.BorderSize = 1
 $UpdateGUI.Controls.Add($UYOkayButton)
 $UpdateGUI.AcceptButton = $UYOkayButton
 
-# Add no button
+# Add No button
 $UNOkayButton = New-Object System.Windows.Forms.Button
 $UNOkayButton.Location = New-Object System.Drawing.Point(210, $y)
-$UNOkayButton.Size = New-Object System.Drawing.Size(50, 30)
+$UNOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $UNOkayButton.Text = 'No'
 $UNOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UNOkayButton.FlatStyle = 'Flat'
@@ -69,82 +69,108 @@ $UpdateGUI.CancelButton = $UNOkayButton
 
 # Define a function to handle the yes button click
 $UYOkayButton.Add_Click({
-	$UYOkayButton.Enabled = $false
+    $UYOkayButton.Enabled = $false
     $script:GUIResponse = "y"
-	$UpdateGUI.Close()
+    $UpdateGUI.Close()
 })
 
 # Define a function to handle the no button click
 $UNOkayButton.Add_Click({
-	$UNOkayButton.Enabled = $false
+    $UNOkayButton.Enabled = $false
     $script:GUIResponse = "n"
-	$UpdateGUI.Close()
+    $UpdateGUI.Close()
 })
+
+# Cleanup Function for Updates
+function Invoke-SelfUpdateCleanup {
+    param([string]$OutPath)
+    
+    $updateCleanup = @"
+    Wait-Process -Id $PID -ErrorAction SilentlyContinue
+
+    # Loop to catch any lingering or child processes running from our folder
+    while (`$true) {
+        `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like "$PSScriptRoot\*" }
+        if (-not `$lockingProcs) { break }
+        `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue
+    }
+
+    Start-Sleep -Seconds 1 
+    if (Test-Path -LiteralPath "$PSScriptRoot") {
+        Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
+    }
+
+    Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed during self update'
+    Start-Process -FilePath "$OutPath" -WindowStyle Minimized
+"@
+    
+    $encodedUpdate = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($updateCleanup))
+    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedUpdate" -WorkingDirectory $env:TEMP
+}
 
 # Check program version against remote, update if needed
 if ($skipUpdate -ne 1) {
-	$shell = New-Object -ComObject Shell.Application
-	$downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
-	[version]$currentVersion = $Global:currentVersionString
-	$skipUpdate = 0
-	Try {
-		$remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt" -UseBasicParsing
-	} catch {
-		Log-Message "Unable to determine remote version, skipping self update check."
-		Write-Host ""
-		$skipUpdate = 1
-	}
+    $shell = New-Object -ComObject Shell.Application
+    $downloadsFolder = $shell.Namespace('shell:Downloads').Self.Path
+    [version]$currentVersion = $Global:currentVersionString
+    $skipUpdate = 0
+    Try {
+        $remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt" -UseBasicParsing
+    } catch {
+        Log-Message "Unable to determine remote version, skipping self update check." "Error"
+        Write-Host ""
+        $skipUpdate = 1
+    }
 }
+
 if ($skipUpdate -ne 1) {
-	$remoteVersionString = $remoteRequest.Content.Trim()
-	[version]$remoteVersion = $remoteVersionString
-	if ($currentVersion -eq $remoteVersion) {
-		if ($env:hatsUpdated -eq "1") {
-			Log-Message "Program updated successfully! (Version $currentVersion)" "Success"
-		} else {
-			Log-Message "The Hat's Multitool is up to date. (Version $currentVersion)" "Info"
-			Write-Host ""
-		}
-	} elseif ($currentVersion -gt $remoteVersion) {
-		$ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$Global:currentVersionString > v$remoteVersionString)"
-		Close-ImageSplash
-		$UpdateGUI.ShowDialog() | Out-Null
-		if ($script:GUIResponse -match 'y|yes') {
-			Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
-			$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
-			$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-			Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
-			Try {
-				Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
-			} catch {
-				PopupError "Failed to download update, please update manually." "Error"
-				$ForceExit = $true
-			}
-			# Cleanup and exit current script, then launch updated script
-			$folderToDelete = "$PSScriptRoot"
-			$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath' -WindowStyle Minimized"
-			Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-			$ForceExit = $true
-		} else {
-			Log-Message "Proceed with caution, and if you run into errors please redownload from the web.`n" "Skip"
-		}
-	} else {
-		Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
-		$sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
-		$outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-		Add-MpPreference -ExclusionPath $downloadsFolder | Out-File -FilePath $logPath -Append
-		Try {
-			Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
-		} catch {
-			Log-Message "Failed to download update, please update manually." "Error"
-			Pause
-			$ForceExit = $true
-		}
-		# Cleanup and exit current script, then launch updated script
-		$env:hatsUpdated = "1"
-		$folderToDelete = "$PSScriptRoot"
-		$deletionCommand = "Start-Sleep -Seconds 2; Remove-Item -Path '$folderToDelete' -Recurse -Force; Add-Content -Path '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process '$outputPath' -WindowStyle Minimized"
-		Start-Process powershell.exe -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $deletionCommand
-		$ForceExit = $true
-	}
+    $remoteVersionString = $remoteRequest.Content.Trim()
+    [version]$remoteVersion = $remoteVersionString
+    if ($currentVersion -eq $remoteVersion) {
+        if ($env:hatsUpdated -eq "1") {
+            Log-Message "Program updated successfully! (Version $currentVersion)" "Success"
+        } else {
+            Log-Message "The Hat's Multitool is up to date. (Version $currentVersion)" "Info"
+            Write-Host ""
+        }
+    } elseif ($currentVersion -gt $remoteVersion) {
+        $ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$Global:currentVersionString > v$remoteVersionString)"
+        Close-ImageSplash
+        $UpdateGUI.ShowDialog() | Out-Null
+        
+        if ($script:GUIResponse -match 'y|yes') {
+            Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
+            $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
+            $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+            Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
+            Try {
+                Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+            } catch {
+                PopupError "Failed to download update, please update manually." "Error"
+                $ForceExit = $true
+            }
+            if (-not $ForceExit) {
+                Invoke-SelfUpdateCleanup -OutPath $outputPath
+                $ForceExit = $true
+            }
+        } else {
+            Log-Message "Proceed with caution, and if you run into errors please redownload from the web.`n" "Skip"
+        }
+    } else {
+        Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
+        $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
+        $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+        Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
+        Try {
+            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+        } catch {
+            Log-Message "Failed to download update, please update manually." "Error"
+            $ForceExit = $true
+        }
+        if (-not $ForceExit) {
+            $env:hatsUpdated = "1"
+            Invoke-SelfUpdateCleanup -OutPath $outputPath
+            $ForceExit = $true
+        }
+    }
 }
