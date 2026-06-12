@@ -186,39 +186,9 @@ function User-Exit {
         
         [System.Windows.Forms.Application]::Exit()
         
-        # We inject $Global:IRMExeTarget directly into the string so the background process knows the exact path
-        $cleanupCommand = @"
-Wait-Process -Id $PID -ErrorAction SilentlyContinue
+        $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed'"
 
-# Loop to catch any lingering or child processes running from our folder
-while (`$true) {
-    `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like "$PSScriptRoot\*" }
-    if (-not `$lockingProcs) { break }
-    `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue
-}
-
-Start-Sleep -Seconds 1 
-if (Test-Path -LiteralPath "$PSScriptRoot") {
-    Remove-Item -LiteralPath "$PSScriptRoot" -Recurse -Force
-}
-
-# Clean up downloaded EXE if triggered via IRM
-`$irmTarget = "$($Global:IRMExeTarget)"
-if (`$irmTarget -ne "" -and (Test-Path -LiteralPath `$irmTarget)) {
-    `$retry = 0
-    while ((Test-Path -LiteralPath `$irmTarget) -and `$retry -lt 5) {
-        Remove-Item -LiteralPath `$irmTarget -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Milliseconds 500
-        `$retry++
-    }
-}
-
-Add-Content -LiteralPath "$logPath" -Value 'Script self cleanup completed'
-"@
-
-        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cleanupCommand))
-        
-        Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -EncodedCommand $encodedCommand" -WorkingDirectory $env:TEMP
+        Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$cleanupCommand`"" -WorkingDirectory $env:TEMP       
         
         [System.Environment]::Exit(0)
     }
