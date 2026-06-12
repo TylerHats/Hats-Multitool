@@ -1,6 +1,5 @@
 # Core Script - Tyler Hatfield - v1.7
 
-
 # Check bit-ness and elevated status
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)

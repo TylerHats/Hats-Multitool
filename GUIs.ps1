@@ -160,14 +160,14 @@ $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $AboutGUI.MaximizeBox = $false
 $AboutGUI.Font = $font
-$AboutGUI.$MainMenu.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$AboutGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $AboutGUI
 
 # Big Icon (Pulls the crisp PNG from script root)
 $IconBox = New-Object System.Windows.Forms.PictureBox
 $IconBox.Size = New-Object System.Drawing.Size(128, 128)
-$IconBox.Location = New-Object System.Drawing.Point(110, 30)
+$IconBox.Location = New-Object System.Drawing.Point(111, 30) # Centered exactly (350-128)/2
 $IconBox.SizeMode = 'StretchImage'
 
 $PngIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIcon.png"
@@ -184,8 +184,10 @@ $AboutTitle = New-Object System.Windows.Forms.Label
 $AboutTitle.Text = "Hat's Multitool"
 $AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold)
 $AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$AboutTitle.AutoSize = $true
-$AboutTitle.Location = New-Object System.Drawing.Point(85, 175)
+$AboutTitle.AutoSize = $false
+$AboutTitle.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 30)
+$AboutTitle.Location = New-Object System.Drawing.Point(0, 175)
+$AboutTitle.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutTitle)
 
 # Pull current version number
@@ -202,28 +204,31 @@ if (Test-Path -Path $jsonPath) {
 $AboutVersion = New-Object System.Windows.Forms.Label
 $AboutVersion.Text = "v$CurVerAbout"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-$AboutVersion.AutoSize = $true
-$AboutVersion.Location = New-Object System.Drawing.Point(135, 210)
+$AboutVersion.AutoSize = $false
+$AboutVersion.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
+$AboutVersion.Location = New-Object System.Drawing.Point(0, 205)
+$AboutVersion.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutVersion)
 
 # Author / Copyright Label
 $AboutAuthor = New-Object System.Windows.Forms.Label
-# Added the GPLv3 line to explicitly state the open-source nature
 $AboutAuthor.Text = "Created by Tyler Hatfield`n$([char]0x00A9) $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
-$AboutAuthor.TextAlign = 'TopCenter'
 $AboutAuthor.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$AboutAuthor.AutoSize = $true
-# Shifted the X coordinate slightly left (from 90 to 75) so the wider text stays centered
-$AboutAuthor.Location = New-Object System.Drawing.Point(75, 245)
+$AboutAuthor.AutoSize = $false
+$AboutAuthor.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 60)
+$AboutAuthor.Location = New-Object System.Drawing.Point(0, 235)
+$AboutAuthor.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutAuthor)
 
 # GitHub Link
 $GithubLink = New-Object System.Windows.Forms.LinkLabel
 $GithubLink.Text = "View Source on GitHub"
-$GithubLink.LinkColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2") # A nice discord-ish blue
+$GithubLink.LinkColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 $GithubLink.ActiveLinkColor = [System.Drawing.ColorTranslator]::FromHtml("#7289DA")
-$GithubLink.AutoSize = $true
-$GithubLink.Location = New-Object System.Drawing.Point(100, 300)
+$GithubLink.AutoSize = $false
+$GithubLink.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
+$GithubLink.Location = New-Object System.Drawing.Point(0, 305)
+$GithubLink.TextAlign = 'MiddleCenter'
 $GithubLink.Add_LinkClicked({
     Start-Process "https://github.com/TylerHats/Hats-Multitool/"
 })
@@ -233,7 +238,7 @@ $AboutGUI.Controls.Add($GithubLink)
 $AboutCloseBtn = New-Object System.Windows.Forms.Button
 $AboutCloseBtn.Text = "Close"
 $AboutCloseBtn.Size = New-Object System.Drawing.Size(100, 40)
-$AboutCloseBtn.Location = New-Object System.Drawing.Point(115, 360)
+$AboutCloseBtn.Location = New-Object System.Drawing.Point(125, 360) # Centered exactly (350-100)/2
 $AboutCloseBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutCloseBtn.FlatStyle = 'Flat'
 $AboutCloseBtn.FlatAppearance.BorderSize = 1
