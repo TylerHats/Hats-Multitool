@@ -829,7 +829,7 @@ if (-not `$Remaining) {
         $ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ProfileOOBE.lnk"
         $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
         $Shortcut.TargetPath = "powershell.exe"
-        $Shortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$GhostScriptPath`""
+        $Shortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$GhostScriptPath`""
         $Shortcut.Save()
 
         $StatusLabel.Text = "Status: Restore Staging Complete!"
