@@ -142,7 +142,6 @@ if ($skipUpdate -ne 1) {
             Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
             $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
             $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-            Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
             Try {
                 Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
             } catch {
@@ -160,7 +159,6 @@ if ($skipUpdate -ne 1) {
         Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
         $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
         $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-        Add-MpPreference -ExclusionPath $downloadsFolder *>&1 | Out-File -FilePath $logPath -Append
         Try {
             Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
         } catch {
