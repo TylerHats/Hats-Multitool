@@ -1,4 +1,4 @@
-# One Line Runner Script - Tyler Hatfield - v1.8
+# One Line Runner Script - Tyler Hatfield - v1.9
 
 # Script setup
 $host.UI.RawUI.BackgroundColor = "Black"
@@ -20,12 +20,20 @@ $remoteVersionString = $remoteRequest.Content.Trim()
 Write-Host "Downloading and launching Hat's Multitool..."
 $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
 $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+
 Try {
-	Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -ErrorAction Stop
+    Import-Module BitsTransfer
+    Start-BitsTransfer -Source $sourceURL -Destination $outputPath -ErrorAction Stop
 } catch {
-	Write-Host "Failed to download Hat's Multitool, please download manually."
-	Pause
-	exit
+    Write-Host "Failed to download Hat's Multitool via BITS, falling back..."
+    # You can keep Invoke-WebRequest here as a fallback in case BITS is disabled
+    Try {
+        Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -ErrorAction Stop
+    } catch {
+        Write-Host "Download completely failed. Please download manually."
+        Pause
+        exit
+    }
 }
 
 # Drop a breadcrumb for the cleanup script so it knows where to find this EXE
