@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.5
+# System Management Module - Tyler Hatfield - v2.6
 
 # Add C method for placeholder text
 Add-Type @"
@@ -18,7 +18,7 @@ $IsPro = if ($WindowsEdition -match 'Pro|Enterprise') { 1 } else { 0 }
 $SMGUI = New-Object System.Windows.Forms.Form
 $SMGUI.Text = "Hat's Multitool"
 $SMGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$SMGUI.Size = New-Object System.Drawing.Size(315, 290)
+$SMGUI.ClientSize = New-Object System.Drawing.Size(315, 290)
 $SMGUI.StartPosition = 'CenterScreen'
 $SMGUI.Icon = $HMTIcon
 $SMGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -111,8 +111,8 @@ $SMGUI.Controls.Add($DomainNameInput)
 # Add Okay button
 $y += 40
 $SMOkayButton = New-Object System.Windows.Forms.Button
-$SMOkayButton.Location = New-Object System.Drawing.Point(160, $y)
-$SMOkayButton.Size = New-Object System.Drawing.Size(75, 30)
+$SMOkayButton.Location = New-Object System.Drawing.Point(110, $y)
+$SMOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $SMOkayButton.Text = 'OK'
 $SMOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SMOkayButton.FlatStyle = 'Flat'

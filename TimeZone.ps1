@@ -1,11 +1,11 @@
-# Time Zone Module - Tyler Hatfield - v2.4
+# Time Zone Module - Tyler Hatfield - v2.5
 
 # Create TZ GUI
 # Prepare form
 $TZGUI = New-Object System.Windows.Forms.Form
 $TZGUI.Text = "Hat's Multitool"
 $TZGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$TZGUI.Size = New-Object System.Drawing.Size(200, 500)
+$TZGUI.ClientSize = New-Object System.Drawing.Size(200, 500)
 $TZGUI.StartPosition = 'CenterScreen'
 $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -17,7 +17,7 @@ Set-DarkTitleBar -TargetForm $TZGUI
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
-$buttonHeight = 80      # Height of the OK button
+$buttonHeight = 90      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
@@ -50,8 +50,8 @@ $TZGUI.Controls.Add($comboBox)
 # Add Okay button
 $y += 50
 $TZOkayButton = New-Object System.Windows.Forms.Button
-$TZOkayButton.Location = New-Object System.Drawing.Point(155, $y)
-$TZOkayButton.Size = New-Object System.Drawing.Size(75, 30)
+$TZOkayButton.Location = New-Object System.Drawing.Point(152, $y)
+$TZOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $TZOkayButton.Text = 'OK'
 $TZOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TZOkayButton.FlatStyle = 'Flat'

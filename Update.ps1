@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v2.6
+# Self Update Module - Tyler Hatfield - v2.7
 
 # Define the path to your JSON file in the current directory
 $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
@@ -22,7 +22,7 @@ if (Test-Path -Path $jsonPath) {
 $UpdateGUI = New-Object System.Windows.Forms.Form
 $UpdateGUI.Text = "Hat's Multitool"
 $UpdateGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$UpdateGUI.Size = New-Object System.Drawing.Size(400, 160)
+$UpdateGUI.ClientSize = New-Object System.Drawing.Size(400, 160)
 $UpdateGUI.StartPosition = 'CenterScreen'
 $UpdateGUI.Icon = $HMTIcon
 $UpdateGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -47,7 +47,7 @@ $UpdateGUI.Controls.Add($ULabel)
 # Add yes button
 $y += 57
 $UYOkayButton = New-Object System.Windows.Forms.Button
-$UYOkayButton.Location = New-Object System.Drawing.Point(120, $y)
+$UYOkayButton.Location = New-Object System.Drawing.Point(115, $y)
 $UYOkayButton.Size = New-Object System.Drawing.Size(50, 30)
 $UYOkayButton.Text = 'Yes'
 $UYOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -58,7 +58,7 @@ $UpdateGUI.AcceptButton = $UYOkayButton
 
 # Add no button
 $UNOkayButton = New-Object System.Windows.Forms.Button
-$UNOkayButton.Location = New-Object System.Drawing.Point(215, $y)
+$UNOkayButton.Location = New-Object System.Drawing.Point(210, $y)
 $UNOkayButton.Size = New-Object System.Drawing.Size(50, 30)
 $UNOkayButton.Text = 'No'
 $UNOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")

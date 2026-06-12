@@ -1,9 +1,9 @@
-# User Move Tool - Tyler Hatfield - v1.9
+# User Move Tool - Tyler Hatfield - v1.10
 
 # Instantly pop a tiny loading indicator before loading the heavy C# assemblies
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 $MicroLoader = New-Object System.Windows.Forms.Form
-$MicroLoader.Size = New-Object System.Drawing.Size(220, 40)
+$MicroLoader.ClientSize = New-Object System.Drawing.Size(220, 40)
 $MicroLoader.StartPosition = 'CenterScreen'
 $MicroLoader.FormBorderStyle = 'None'
 $MicroLoader.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -84,7 +84,7 @@ if (Test-Path $IconPath) {
 $MoveGUI = New-Object System.Windows.Forms.Form
 $MoveGUI.Text = "Hat's User Migration Tool"
 $MoveGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$MoveGUI.Size = New-Object System.Drawing.Size(450, 750)
+$MoveGUI.ClientSize = New-Object System.Drawing.Size(450, 750)
 $MoveGUI.StartPosition = 'CenterScreen'
 $MoveGUI.Icon = $HMTIcon
 $MoveGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog

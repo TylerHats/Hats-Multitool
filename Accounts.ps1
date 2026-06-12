@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.6
+# Accounts Module - Tyler Hatfield - v2.7
 
 # Force load the LocalAccounts module (Requires 64-bit PowerShell)
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
@@ -9,7 +9,7 @@ $EM_SETCUEBANNER = 0x1501
 $A1GUI = New-Object System.Windows.Forms.Form
 $A1GUI.Text = "Hat's Multitool"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$A1GUI.Size = New-Object System.Drawing.Size(315, 330)
+$A1GUI.ClientSize = New-Object System.Drawing.Size(315, 330)
 $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -86,8 +86,8 @@ $A1GUI.Controls.Add($LACheckbox)
 # Add Okay and Skip buttons 
 $y += 45
 $A1OkayButton = New-Object System.Windows.Forms.Button
-$A1OkayButton.Location = New-Object System.Drawing.Point(160, $y)
-$A1OkayButton.Size = New-Object System.Drawing.Size(75, 30)
+$A1OkayButton.Location = New-Object System.Drawing.Point(165, $y)
+$A1OkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $A1OkayButton.Text = 'OK'
 $A1OkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $A1OkayButton.FlatStyle = 'Flat'
@@ -97,8 +97,8 @@ $A1GUI.AcceptButton = $A1OkayButton
 $A1OkayButton.Enabled = $false
 
 $A1Skip = New-Object System.Windows.Forms.Button
-$A1Skip.Location = New-Object System.Drawing.Point(60, $y)
-$A1Skip.Size = New-Object System.Drawing.Size(75, 30)
+$A1Skip.Location = New-Object System.Drawing.Point(55, $y)
+$A1Skip.Size = New-Object System.Drawing.Size(95, 40)
 $A1Skip.Text = 'Skip'
 $A1Skip.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $A1Skip.FlatStyle = 'Flat'

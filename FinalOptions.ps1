@@ -1,11 +1,11 @@
-# Final Setup Options Module - Tyler Hatfield - v1.4
+# Final Setup Options Module - Tyler Hatfield - v1.5
 
 # Create Options GUI
 # Prepare form
 $FOGUI = New-Object System.Windows.Forms.Form
 $FOGUI.Text = "Hat's Multitool"
 $FOGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$FOGUI.Size = New-Object System.Drawing.Size(200, 530)
+$FOGUI.ClientSize = New-Object System.Drawing.Size(200, 530)
 $FOGUI.StartPosition = 'CenterScreen'
 $FOGUI.Icon = $HMTIcon
 $FOGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -17,13 +17,13 @@ Set-DarkTitleBar -TargetForm $FOGUI
 
 # Form size variables
 $checkboxHeight = 30    # Height of each checkbox
-$buttonHeight = 80      # Height of the OK button
+$buttonHeight = 90      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
 $FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 8)
-$FOGUI.Size = New-Object System.Drawing.Size(600, $FOGUIHeight)
+$FOGUI.ClientSize = New-Object System.Drawing.Size(600, $FOGUIHeight)
 $FOGUI.StartPosition = 'CenterScreen'
 
 # Add descriptive label
@@ -67,8 +67,8 @@ foreach ($u in $list) {
 # Add Okay button
 $y += 140
 $FOOkayButton = New-Object System.Windows.Forms.Button
-$FOOkayButton.Location = New-Object System.Drawing.Point(250, $y)
-$FOOkayButton.Size = New-Object System.Drawing.Size(75, 30)
+$FOOkayButton.Location = New-Object System.Drawing.Point(252, $y)
+$FOOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $FOOkayButton.Text = 'OK'
 $FOOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $FOOkayButton.FlatStyle = 'Flat'

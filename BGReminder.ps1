@@ -1,10 +1,10 @@
-# Background Reminder Module - Tyler Hatfield - v1.3
+# Background Reminder Module - Tyler Hatfield - v1.4
 
 # Prepare form
 $BGR = New-Object System.Windows.Forms.Form
 $BGR.Text = "HMT"
 $BGR.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$BGR.Size = New-Object System.Drawing.Size(275, 100)
+$BGR.ClientSize = New-Object System.Drawing.Size(275, 100)
 $BGR.StartPosition = 'CenterScreen'
 $BGR.Icon = $HMTIcon
 $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog

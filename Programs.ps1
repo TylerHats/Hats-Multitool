@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.Drawing
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Program Selection List'
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$form.Size = New-Object System.Drawing.Size(400, 500)
+$form.ClientSize = New-Object System.Drawing.Size(400, 500)
 $form.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -23,7 +23,7 @@ Set-DarkTitleBar -TargetForm $form
 # Dynamic size based on number of programs
 $checkboxHeight = 30    # Height of each checkbox
 $progressBarHeight = 70 # Height of the progress bar
-$buttonHeight = 80      # Height of the OK button
+$buttonHeight = 90      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20           # Padding around the elements
 
@@ -49,7 +49,7 @@ $programs = @(
 
 # Adjust form size based on the number of programs
 $formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + $labelHeight
-$form.Size = New-Object System.Drawing.Size(400, $formHeight)
+$form.ClientSize = New-Object System.Drawing.Size(400, $formHeight)
 $form.StartPosition = 'CenterScreen'
 
 # Prepare Program Checkboxes
@@ -132,8 +132,8 @@ $trackPanel.Controls.Add($fillPanel)
 # Add OK button
 $okButton = New-Object System.Windows.Forms.Button
 $y += 40
-$okButton.Location = New-Object System.Drawing.Point(150, $y)
-$okButton.Size = New-Object System.Drawing.Size(75, 30)
+$okButton.Location = New-Object System.Drawing.Point(152, $y)
+$okButton.Size = New-Object System.Drawing.Size(95, 40)
 $okButton.Text = "OK"
 $okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $okButton.FlatStyle = 'Flat'
