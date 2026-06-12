@@ -16,15 +16,8 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
     exit
 }
 
-# Force PowerShell to be DPI Aware to prevent UI scaling issues
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class DpiHelper {
-    [DllImport("user32.dll")]
-    public static extern bool SetProcessDPIAware();
-}
-"@
+# Load Native Methods and DpiHelper DLL and Force PowerShell to be DPI Aware to prevent UI scaling issues
+Add-Type -Path (Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.dll')
 [DpiHelper]::SetProcessDPIAware() | Out-Null
 
 # Add WinForms Assembly and Setup Global Forms Styling

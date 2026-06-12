@@ -91,46 +91,6 @@ function PopupError {
 	)
 }
 
-# Load Master C# Native Methods for Windows API Interactions
-$HMT_CSharpCode = @"
-using System;
-using System.Runtime.InteropServices;
-
-namespace HMT {
-    public static class NativeMethods {
-
-        // --- Console & Window Visibility ---
-        [DllImport("kernel32.dll")]
-        public static extern IntPtr GetConsoleWindow();
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        // --- Window Messaging (Icons & UI Elements) ---
-        // Signature for passing icon handles
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        // --- DWM & Theming (Dark Mode) ---
-        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
-        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-
-        [DllImport("dwmapi.dll")]
-        public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-        // --- Taskbar Management ---
-        [DllImport("shell32.dll", SetLastError = true)]
-        public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
-    }
-}
-"@
-# Compile the type once
-Add-Type -TypeDefinition $HMT_CSharpCode -Language CSharp
-
 # constants for WM_SETICON
 $WM_SETICON = 0x80
 $ICON_SMALL = 0
