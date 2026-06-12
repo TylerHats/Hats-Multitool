@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.21
+# Common File - Tyler Hatfield - v1.22
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -25,7 +25,7 @@ $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
 $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
-$font = New-Object System.Drawing.Font("Segoe UI", 10)
+$font = New-Object System.Drawing.Font("Segoe UI", 9)
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
