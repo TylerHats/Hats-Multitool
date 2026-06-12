@@ -1,8 +1,10 @@
-# Common File - Tyler Hatfield - v1.23
+# Common File - Tyler Hatfield - v1.24
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
-    Install-Module -Name WindowsCompatibility -Scope CurrentUser -Force   # only once
+    if (-not (Get-Module -ListAvailable -Name WindowsCompatibility)) {
+    Install-Module -Name WindowsCompatibility -Scope CurrentUser -Force
+    }
     Import-Module WindowsCompatibility
     Import-WinModule -Name 'System.Windows.Forms'
     Import-WinModule -Name 'System.Drawing.Common'
