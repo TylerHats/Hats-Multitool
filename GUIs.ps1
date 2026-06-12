@@ -1146,7 +1146,7 @@ $SFCButton.Add_Click({
 # Define Safe Boot button functions
 $SafeBootButton.Add_Click({
 	$SafeBootButton.Enabled = $false
-	Start-Process cmd.exe -ArgumentList '/c bcdedit /set {default} safeboot networking' -Verb RunAs
+	Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
 	$SafeBootButton.Enabled = $true
 })
 
@@ -1173,15 +1173,16 @@ $RelMonButton.Add_Click({
 # Define Network Reset button functions
 $NetResetButton.Add_Click({
     $NetResetButton.Enabled = $false
-    Start-Process cmd.exe -ArgumentList '/c ipconfig /release & ipconfig /renew & ipconfig /flushdns & arp -d * & pause' -Verb RunAs
-    $NetResetButton.Enabled = $true
+    Clear-DnsClientCache
+	Restart-NetAdapter -Name "*"
+	$NetResetButton.Enabled = $true
 })
 
 # Define Restart Explorer button functions
 $ExpButton.Add_Click({
     $ExpButton.Enabled = $false
-    # Using taskkill and start ensures it explicitly comes back online
-    Start-Process cmd.exe -ArgumentList '/c taskkill /f /im explorer.exe & start explorer.exe' -WindowStyle Hidden
+	Stop-Process -Name explorer -Force
+	Start-Process "$env:WINDIR\explorer.exe"
     $ExpButton.Enabled = $true
 })
 
