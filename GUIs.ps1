@@ -5,7 +5,7 @@
 $MainMenu = New-Object System.Windows.Forms.Form
 $MainMenu.Text = "Hat's Multitool"
 $MainMenu.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$MainMenu.Size = New-Object System.Drawing.Size(200, 500)
+$MainMenu.ClientSize = New-Object System.Drawing.Size(200, 500)
 $MainMenu.StartPosition = 'CenterScreen'
 $MainMenu.Icon = $HMTIcon
 $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -23,7 +23,7 @@ $padding = 20
 
 # Adjust GUI Height
 $MainMenuHeight = ($buttonHeight * 5)
-$MainMenu.Size = New-Object System.Drawing.Size(300, $MainMenuHeight)
+$MainMenu.ClientSize = New-Object System.Drawing.Size(300, $MainMenuHeight)
 $MainMenu.StartPosition = 'CenterScreen'
 
 # Add Setup button
@@ -154,7 +154,7 @@ $MainMenu.Add_FormClosing({
 $AboutGUI = New-Object System.Windows.Forms.Form
 $AboutGUI.Text = "About Hat's Multitool"
 $AboutGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$AboutGUI.Size = New-Object System.Drawing.Size(350, 480)
+$AboutGUI.ClientSize = New-Object System.Drawing.Size(350, 480)
 $AboutGUI.StartPosition = 'CenterScreen'
 $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -259,7 +259,7 @@ $AboutGUI.Add_FormClosing({
 $ModGUI = New-Object System.Windows.Forms.Form
 $ModGUI.Text = "Hat's Multitool"
 $ModGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$ModGUI.Size = New-Object System.Drawing.Size(400, 500)
+$ModGUI.ClientSize = New-Object System.Drawing.Size(400, 500)
 $ModGUI.StartPosition = 'CenterScreen'
 $ModGUI.Icon = $HMTIcon
 $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -287,7 +287,7 @@ $modules = @(
 
 # Adjust GUI Height
 $ModGUIHeight = ($modules.Count * $checkboxHeight) + ($buttonHeight * 2) + ($padding * 3) + $labelHeight
-$ModGUI.Size = New-Object System.Drawing.Size(300, $ModGUIHeight)
+$ModGUI.ClientSize = New-Object System.Drawing.Size(300, $ModGUIHeight)
 $ModGUI.StartPosition = 'CenterScreen'
 
 # Prepare Module Checkboxes
@@ -399,7 +399,7 @@ $ModGUI.Add_FormClosing({
 $ToolsGUI = New-Object System.Windows.Forms.Form
 $ToolsGUI.Text = "Hat's Multitool"
 $ToolsGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$ToolsGUI.Size = New-Object System.Drawing.Size(400, 500)
+$ToolsGUI.ClientSize = New-Object System.Drawing.Size(400, 500)
 $ToolsGUI.StartPosition = 'CenterScreen'
 $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -418,7 +418,7 @@ $padding = 20
 # Adjust GUI Height
 $y = 20
 $ToolsGUIHeight = ($buttonHeight * 11) + ($padding * 0) + ($labelHeight * 1)
-$ToolsGUI.Size = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
+$ToolsGUI.ClientSize = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
 # Add info text
@@ -947,7 +947,7 @@ $ToolsGUI.Add_FormClosing({
 $TroubleGUI = New-Object System.Windows.Forms.Form
 $TroubleGUI.Text = "Hat's Multitool"
 $TroubleGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$TroubleGUI.Size = New-Object System.Drawing.Size(400, 500)
+$TroubleGUI.ClientSize = New-Object System.Drawing.Size(400, 500)
 $TroubleGUI.StartPosition = 'CenterScreen'
 $TroubleGUI.Icon = $HMTIcon
 $TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -966,7 +966,7 @@ $padding = 20
 # Adjust GUI Height (Increased multiplier to 6 to fit new rows)
 $y = 20
 $TroubleGUIHeight = ($buttonHeight * 6) + ($padding * 0) + ($labelHeight * 1)
-$TroubleGUI.Size = New-Object System.Drawing.Size(705, $TroubleGUIHeight)
+$TroubleGUI.ClientSize = New-Object System.Drawing.Size(705, $TroubleGUIHeight)
 $TroubleGUI.StartPosition = 'CenterScreen'
 
 # Add info text
