@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.9
+# GUI Setup File - Tyler Hatfield - v2.10
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -29,7 +29,7 @@ $MainMenu.StartPosition = 'CenterScreen'
 # Add Setup button
 $y = 25
 $MainMenuSetupButton = New-Object System.Windows.Forms.Button
-$MainMenuSetupButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuSetupButton.Location = New-Object System.Drawing.Point(50, $y)
 $MainMenuSetupButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuSetupButton.Text = 'PC Setup and Config'
 $MainMenuSetupButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -40,7 +40,7 @@ $MainMenu.Controls.Add($MainMenuSetupButton)
 # Add Tools button
 $MainMenuToolsButton = New-Object System.Windows.Forms.Button
 $y += 65
-$MainMenuToolsButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuToolsButton.Location = New-Object System.Drawing.Point(50, $y)
 $MainMenuToolsButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuToolsButton.Text = 'Tools'
 $MainMenuToolsButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -51,7 +51,7 @@ $MainMenu.Controls.Add($MainMenuToolsButton)
 # Add Troubleshooting button
 $MainMenuTroubleshootingButton = New-Object System.Windows.Forms.Button
 $y += 65
-$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuTroubleshootingButton.Location = New-Object System.Drawing.Point(50, $y)
 $MainMenuTroubleshootingButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuTroubleshootingButton.Text = 'Troubleshooting'
 $MainMenuTroubleshootingButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -63,7 +63,7 @@ $MainMenuTroubleshootingButton.Enabled = $true
 # Add Account button
 $MainMenuAccountButton = New-Object System.Windows.Forms.Button
 $y += 65
-$MainMenuAccountButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuAccountButton.Location = New-Object System.Drawing.Point(50, $y)
 $MainMenuAccountButton.Size = New-Object System.Drawing.Size(200, 40)
 $MainMenuAccountButton.Text = 'Account'
 $MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -75,7 +75,7 @@ $MainMenuAccountButton.Enabled = $false # Disabled, WIP
 # About button
 $MainMenuAboutButton = New-Object System.Windows.Forms.Button
 $y += 65
-$MainMenuAboutButton.Location = New-Object System.Drawing.Point(42, $y)
+$MainMenuAboutButton.Location = New-Object System.Drawing.Point(50, $y)
 $MainMenuAboutButton.Size = New-Object System.Drawing.Size(95, 40)
 $MainMenuAboutButton.Text = 'About'
 $MainMenuAboutButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -85,7 +85,7 @@ $MainMenu.Controls.Add($MainMenuAboutButton)
 
 # Exit button
 $MainMenuExitButton = New-Object System.Windows.Forms.Button
-$MainMenuExitButton.Location = New-Object System.Drawing.Point(147, $y)
+$MainMenuExitButton.Location = New-Object System.Drawing.Point(155, $y)
 $MainMenuExitButton.Size = New-Object System.Drawing.Size(95, 40)
 $MainMenuExitButton.Text = 'Exit'
 $MainMenuExitButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -154,7 +154,7 @@ $MainMenu.Add_FormClosing({
 $AboutGUI = New-Object System.Windows.Forms.Form
 $AboutGUI.Text = "About Hat's Multitool"
 $AboutGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$AboutGUI.ClientSize = New-Object System.Drawing.Size(350, 480)
+$AboutGUI.ClientSize = New-Object System.Drawing.Size(350, 420)
 $AboutGUI.StartPosition = 'CenterScreen'
 $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -316,7 +316,7 @@ $SelectAllButton = New-Object System.Windows.Forms.Button
 $y += 15
 $SelectAllButton.Text = "Select All"
 $SelectAllButton.Size = New-Object System.Drawing.Size(115,40)
-$SelectAllButton.Location = New-Object System.Drawing.Point(85, $y)
+$SelectAllButton.Location = New-Object System.Drawing.Point(92, $y)
 $SelectAllButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SelectAllButton.FlatStyle = 'Flat'
 $SelectAllButton.FlatAppearance.BorderSize = 1
@@ -325,7 +325,7 @@ $ModGUI.Controls.Add($SelectAllButton)
 # Add OK button
 $ModGUIokButton = New-Object System.Windows.Forms.Button
 $y += 55
-$ModGUIokButton.Location = New-Object System.Drawing.Point(85, $y)
+$ModGUIokButton.Location = New-Object System.Drawing.Point(92, $y)
 $ModGUIokButton.Size = New-Object System.Drawing.Size(115, 40)
 $ModGUIokButton.Text = "OK"
 $ModGUIokButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -336,7 +336,7 @@ $ModGUI.Controls.Add($ModGUIokButton)
 # Add Back button
 $ModGUIBackButton = New-Object System.Windows.Forms.Button
 $y += 55
-$ModGUIBackButton.Location = New-Object System.Drawing.Point(85, $y)
+$ModGUIBackButton.Location = New-Object System.Drawing.Point(92, $y)
 $ModGUIBackButton.Size = New-Object System.Drawing.Size(115, 40)
 $ModGUIBackButton.Text = "Back"
 $ModGUIBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
