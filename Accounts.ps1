@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.9
+# Accounts Module - Tyler Hatfield - v2.10
 
 # Force load the LocalAccounts module (Requires 64-bit PowerShell)
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
@@ -9,7 +9,6 @@ $EM_SETCUEBANNER = 0x1501
 $A1GUI = New-Object System.Windows.Forms.Form
 $A1GUI.Text = "Hat's Multitool"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$A1GUI.ClientSize = New-Object System.Drawing.Size(315, 300)
 $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -246,6 +245,9 @@ $A1Skip.Add_Click({
 # UX FIX: Assign the form's active control to the Skip button
 # This allows quick keyboard bypassing and ensures the textboxes do not immediately pull focus on load, preserving the cue banners.
 $A1GUI.ActiveControl = $A1Skip
+
+# Dynamically wrap the window height to the bottom of the lowest control (plus 20px of padding)
+$A1GUI.ClientSize = New-Object System.Drawing.Size(315, ($A1Skip.Bottom + 20))
 
 # Display First GUI
 $A1GUI.ShowDialog() | Out-Null
