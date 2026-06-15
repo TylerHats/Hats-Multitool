@@ -47,8 +47,8 @@ $A1GUI.Controls.Add($PasswordInput)
 
 # Add show password button 
 $ShowPWButton = New-Object System.Windows.Forms.Button
-$ShowPWButton.Location = New-Object System.Drawing.Point(252, ($y - 1))
-$ShowPWButton.Size = New-Object System.Drawing.Size(45, 25)
+$ShowPWButton.Location = New-Object System.Drawing.Point(252, $y)
+$ShowPWButton.Size = New-Object System.Drawing.Size(45, 23)
 $ShowPWButton.Font = New-Object System.Drawing.Font("Segoe MDL2 Assets", 10)
 $ShowPWButton.Text = [char]0xE052
 $ShowPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
