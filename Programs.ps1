@@ -303,7 +303,8 @@ $okButton.Add_Click({
                     "--disable-interactivity",
                     "--scope", "machine",
                     "--accept-package-agreements",
-                    "--accept-source-agreements"
+                    "--accept-source-agreements",
+                    "--source", "winget"
                 )
 
                 # Use Start-Process with the correct arguments
