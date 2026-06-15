@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.13
+# Programs Module - Tyler Hatfield - v1.14
 
 # Force initialize WinGet source
 Log-Message "Initializing WinGet and updating sources..."
