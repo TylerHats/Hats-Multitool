@@ -12,7 +12,7 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
         "powershell.exe" 
     }
     # Launch the corrected environment. -Verb RunAs triggers the Admin UAC prompt.
-    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Hidden
+    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Hidden
     exit
 }
 
