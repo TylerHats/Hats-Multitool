@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.8
+# Accounts Module - Tyler Hatfield - v2.9
 
 # Force load the LocalAccounts module (Requires 64-bit PowerShell)
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
@@ -228,6 +228,7 @@ $A1OkayButton.Add_Click({
     $script:PasswordMaskApplied = $false
     $script:ConfirmMaskApplied = $false
 
+    [HMT.NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
     [HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
     [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
 
@@ -243,8 +244,7 @@ $A1Skip.Add_Click({
 })
 
 # UX FIX: Assign the form's active control to the Skip button
-# This allows quick keyboard bypassing and ensures the textboxes 
-# do not immediately pull focus on load, preserving the cue banners.
+# This allows quick keyboard bypassing and ensures the textboxes do not immediately pull focus on load, preserving the cue banners.
 $A1GUI.ActiveControl = $A1Skip
 
 # Display First GUI

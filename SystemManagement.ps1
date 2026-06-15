@@ -1,14 +1,5 @@
-# System Management Module - Tyler Hatfield - v2.7
+# System Management Module - Tyler Hatfield - v2.8
 
-# Add C method for placeholder text
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class NativeMethods {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern Int32 SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
-}
-"@
 $EM_SETCUEBANNER = 0x1501
 
 # Determine if Windows edition is domain/EntraID joinable
@@ -69,7 +60,7 @@ $PCNameInput.location = New-Object System.Drawing.Point(10, $y)
 $PCNameInput.Width = 280
 $PCNameInput.MaxLength = 15
 $SMGUI.Controls.Add($PCNameInput)
-[NativeMethods]::SendMessage($PCNameInput.Handle, $EM_SETCUEBANNER, 1, "Computer Name")
+[HMT.NativeMethods]::SendMessage($PCNameInput.Handle, $EM_SETCUEBANNER, 1, "Computer Name")
 
 # Add domain Check
 $y += 30
@@ -106,7 +97,7 @@ $DomainNameInput.location = New-Object System.Drawing.Point(10, $y)
 $DomainNameInput.Width = 280
 $DomainNameInput.Enabled = $false
 $SMGUI.Controls.Add($DomainNameInput)
-[NativeMethods]::SendMessage($DomainNameInput.Handle, $EM_SETCUEBANNER, 1, "Domain Name")
+[HMT.NativeMethods]::SendMessage($DomainNameInput.Handle, $EM_SETCUEBANNER, 1, "Domain Name")
 
 # Add Okay button
 $y += 40
