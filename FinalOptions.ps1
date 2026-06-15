@@ -1,4 +1,4 @@
-# Final Setup Options Module - Tyler Hatfield - v1.5
+# Final Setup Options Module - Tyler Hatfield - v1.6
 
 # Create Options GUI
 # Prepare form
@@ -22,7 +22,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 8)
+$FOGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 7)
 $FOGUI.ClientSize = New-Object System.Drawing.Size(600, $FOGUIHeight)
 $FOGUI.StartPosition = 'CenterScreen'
 
@@ -32,7 +32,7 @@ $FOlabel = New-Object System.Windows.Forms.Label
 $FOlabel.Text = "Select setup options:"
 $FOlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $FOlabel.Size = New-Object System.Drawing.Size(260, 20)
-$FOlabel.Location = New-Object System.Drawing.Point(10, $y)
+$FOlabel.Location = New-Object System.Drawing.Point(15, $y)
 $FOlabel.AutoSize = $true
 $FOlabel.TextAlign = 'TopLeft'
 $FOGUI.Controls.Add($FOlabel)
@@ -46,8 +46,8 @@ $FOLV.FullRowSelect = $true
 $FOLV.Scrollable    = $true
 $FOLV.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
 $FOLV.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$FOLV.Location      = [System.Drawing.Point]::new(20, $y)
-$FOLV.Size          = [System.Drawing.Size]::new(540,120)
+$FOLV.Location      = [System.Drawing.Point]::new(25, $y)
+$FOLV.Size          = [System.Drawing.Size]::new(550,120)
 $FOLV.Columns.Add("Option",530) | Out-Null
 $FOGUI.Controls.Add($FOLV)
 
