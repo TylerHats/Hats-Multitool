@@ -1,11 +1,11 @@
-# Time Zone Module - Tyler Hatfield - v2.5
+# Time Zone Module - Tyler Hatfield - v2.6
 
 # Create TZ GUI
 # Prepare form
 $TZGUI = New-Object System.Windows.Forms.Form
 $TZGUI.Text = "Hat's Multitool"
 $TZGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$TZGUI.ClientSize = New-Object System.Drawing.Size(200, 500)
+$TZGUI.ClientSize = New-Object System.Drawing.Size(200, 450)
 $TZGUI.StartPosition = 'CenterScreen'
 $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -22,7 +22,7 @@ $labelHeight = 30       # Height of text labels
 $padding = 20
 
 # Adjust GUI Height
-$TZGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 4)
+$TZGUIHeight = ($buttonHeight * 1) + $labelHeight + ($padding * 3)
 $TZGUI.Size = New-Object System.Drawing.Size(400, $TZGUIHeight)
 $TZGUI.StartPosition = 'CenterScreen'
 
@@ -32,7 +32,7 @@ $TZlabel = New-Object System.Windows.Forms.Label
 $TZlabel.Text = "Select a Time Zone from the dropdown:"
 $TZlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TZlabel.Size = New-Object System.Drawing.Size(260, 20)
-$TZlabel.Location = New-Object System.Drawing.Point(10, $y)
+$TZlabel.Location = New-Object System.Drawing.Point(15, $y)
 $TZlabel.AutoSize = $true
 $TZlabel.TextAlign = 'TopLeft'
 $TZGUI.Controls.Add($TZlabel)
@@ -40,7 +40,7 @@ $TZGUI.Controls.Add($TZlabel)
 # Add dropdown list
 $y += 35
 $comboBox = New-Object System.Windows.Forms.ComboBox
-$comboBox.Location = New-Object System.Drawing.Point(10,$y)
+$comboBox.Location = New-Object System.Drawing.Point(20,$y)
 $comboBox.Size = New-Object System.Drawing.Size(360,30)
 $comboBox.DropDownStyle = 'DropDownList' # Prevents text input
 $comboBox.Items.AddRange(@("Eastern Standard Time", "Central Standard Time", "Mountain Standard Time", "Pacific Standard Time"))
