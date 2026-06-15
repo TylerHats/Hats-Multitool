@@ -13,8 +13,19 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
+# Determine logged in user's Downloads folder
+$InteractiveUser = (Get-CimInstance Win32_ComputerSystem).UserName
+if ($InteractiveUser) {
+    $UserAccount = New-Object System.Security.Principal.NTAccount($InteractiveUser)
+    $UserSID = $UserAccount.Translate([System.Security.Principal.SecurityIdentifier]).Value
+    $ProfilePath = (G
+    $DownloadsPath = Join-Path -Path $ProfilePath -ChildPath "Downloads"
+} else {
+    # Fallback: If no one is interactively logged in (e.g., running over an entirely headless remote shell)
+    $DownloadsPath = Join-Path -Path $env:USERPROFILE -ChildPath "Downloads"
+}
 $logPathName = "Hats-Multitool-Log.txt"
-$logPath = Join-Path $DocumentsPath $logPathName
+$logPath = Join-Path $DownloadsPath $logPathName
 # Check for an IRM launch breadcrumb
 $breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
 $Global:IRMExeTarget = $null
@@ -147,9 +158,16 @@ function User-Exit {
         [System.Windows.Forms.Application]::Exit()
         
         $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed'"
+     
+        # Use .NET to spawn the process completely invisibly (prevents the momentary console flash)
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "powershell.exe"
+        $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$cleanupCommand`""
+        $psi.WorkingDirectory = $env:TEMP
+        $psi.CreateNoWindow = $true
+        $psi.UseShellExecute = $false
+        [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-        Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$cleanupCommand`"" -WorkingDirectory $env:TEMP       
-        
         [System.Environment]::Exit(0)
     }
 }
