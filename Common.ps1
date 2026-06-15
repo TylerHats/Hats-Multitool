@@ -296,6 +296,11 @@ function Show-DownloadDialog {
 
     # Show dialog until done
     $dform.ShowDialog() | Out-Null
+
+    # Strip the "Mark of the Web" to prevent SmartScreen/Defender launch delays
+    if (Test-Path -LiteralPath $OutputPath) {
+        Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+    }
 }
 
 <#
