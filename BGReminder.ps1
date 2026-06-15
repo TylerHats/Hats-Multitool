@@ -10,8 +10,8 @@ $BGR.Icon = $HMTIcon
 $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $BGR.MaximizeBox = $false
 $BGR.Font = $font
-$BRG.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$BRG.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$BGR.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $BGR
 
 # Add descriptive label
