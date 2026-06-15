@@ -456,7 +456,7 @@ $EButton.Text = "Empty"
 $EButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $EButton.FlatStyle = 'Flat'
 $EButton.FlatAppearance.BorderSize = 1
-$E2Button.Enabled = $false
+$EButton.Enabled = $false
 $ToolsGUI.Controls.Add($EButton)
 
 # Empty Agent Button Tooltip
