@@ -1,10 +1,10 @@
-# Background Reminder Module - Tyler Hatfield - v1.4
+# Background Reminder Module - Tyler Hatfield - v1.5
 
 # Prepare form
 $BGR = New-Object System.Windows.Forms.Form
 $BGR.Text = "HMT"
 $BGR.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$BGR.ClientSize = New-Object System.Drawing.Size(275, 100)
+$BGR.ClientSize = New-Object System.Drawing.Size(275, 60)
 $BGR.StartPosition = 'CenterScreen'
 $BGR.Icon = $HMTIcon
 $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -19,7 +19,7 @@ $y = 15
 $BGRlabel = New-Object System.Windows.Forms.Label
 $BGRlabel.Text = "Hat's Multitool is running..."
 $BGRlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BGRlabel.Size = New-Object System.Drawing.Size(265, 20)
+$BGRlabel.Size = New-Object System.Drawing.Size(275, 20)
 $BGRlabel.Location = New-Object System.Drawing.Point(0, $y)
 $BGRlabel.AutoSize = $false
 $BGRlabel.TextAlign = 'MiddleCenter'
