@@ -1,4 +1,4 @@
-# Core Script - Tyler Hatfield - v1.8
+# Core Script - Tyler Hatfield - v1.9
 
 # Check bit-ness and elevated status
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
@@ -12,7 +12,7 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
         "powershell.exe" 
     }
     # Launch the corrected environment. -Verb RunAs triggers the Admin UAC prompt.
-    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Minimized
+    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Hidden
     exit
 }
 
