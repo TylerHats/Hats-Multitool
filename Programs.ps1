@@ -1,4 +1,9 @@
-# Programs Module - Tyler Hatfield - v1.12
+# Programs Module - Tyler Hatfield - v1.13
+
+# Force initialize WinGet source
+Log-Message "Initializing WinGet and updating sources..."
+winget source reset --force | Out-Null
+winget source update | Out-Null
 
 # Install programs based on selections, prepare Windows "Form"
 Log-Message "Preparing Software List..."
