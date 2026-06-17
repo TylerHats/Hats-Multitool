@@ -238,9 +238,9 @@ $okButton.Add_Click({
                 &$updateLocalProgress $currentIndex $totalPrograms 90 "Launching Setup: $displayName (90%)"
                 
                 Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -WindowStyle Hidden
-                Log-Message "$displayName: Installer launched in background." "Success"
+                Log-Message "$($displayName): Installer launched in background." "Success"
             } catch {
-                Log-Message "$displayName: Installation failed, please review log." "Error"
+                Log-Message "$($displayName): Installation failed, please review log." "Error"
             }
         } elseif ($program.Type -eq "Teams") {
             try {
