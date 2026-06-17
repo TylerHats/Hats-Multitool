@@ -1,4 +1,7 @@
-# Programs Module - Tyler Hatfield - v1.14
+# Programs Module - Tyler Hatfield - v1.15
+
+# Force TLS 1.2 for reliable WebClient downloads
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Force initialize WinGet source
 Log-Message "Initializing WinGet and updating sources..."
@@ -12,7 +15,6 @@ Add-Type -AssemblyName System.Drawing
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Program Selection List'
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$form.ClientSize = New-Object System.Drawing.Size(400, 500)
 $form.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -25,10 +27,8 @@ $form.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $form
 
-# Dynamic size based on number of programs
+# Component sizing variables
 $checkboxHeight = 30    # Height of each checkbox
-$progressBarHeight = 70 # Height of the progress bar
-$buttonHeight = 90      # Height of the OK button
 $labelHeight = 30       # Height of text labels
 $padding = 20           # Padding around the elements
 
@@ -40,22 +40,20 @@ Type = Program type, current options are: Winget, MSOffice
 #>
 $programs = @(
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit'; Type = 'Winget' },
-	@{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud'; Type = 'Winget' },
+    @{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud'; Type = 'Winget' },
     @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome'; Type = 'Winget' },
     @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox'; Type = 'Winget' },
     @{ Name = '7-Zip'; WingetID = '7zip.7zip'; Type = 'Winget' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox'; Type = 'Winget' },
-	@{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
+    @{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
     @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
-	@{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
+    @{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
-# Adjust form size based on the number of programs
-$formHeight = ($programs.Count * $checkboxHeight) + $progressBarHeight + $buttonHeight + ($padding * 2) + $labelHeight
-$form.ClientSize = New-Object System.Drawing.Size(400, $formHeight)
-$form.StartPosition = 'CenterScreen'
+# Set an initial reasonable width; height will be calculated right before loading
+$form.ClientSize = New-Object System.Drawing.Size(400, 500)
 
 # Prepare Program Checkboxes
 $checkboxes = @{ }
@@ -67,11 +65,12 @@ $label.Location = New-Object System.Drawing.Point(20, $y)
 $label.AutoSize = $true
 $form.Controls.Add($label)
 $y += $labelHeight
+
 foreach ($program in $programs) {
     $checkbox = New-Object System.Windows.Forms.CheckBox
     $checkbox.Location = New-Object System.Drawing.Point(20, $y)
     $checkbox.Text = $program.Name
-	$checkbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $checkbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $checkbox.AutoSize = $true
     $form.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
@@ -81,28 +80,21 @@ foreach ($program in $programs) {
 $outlookCheckbox = $checkboxes["Outlook Classic"]
 $officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]
 
-# Add an event handler for the Outlook checkbox:
+# Event handlers to restrict Outlook/Office crossover
 $outlookCheckbox.Add_CheckedChanged({
     if ($outlookCheckbox.Checked) {
-        # When Outlook is checked, disable and uncheck Microsoft Office
         $officeCheckbox.Enabled = $false
         $officeCheckbox.Checked = $false
-    }
-    else {
-        # When Outlook is unchecked, re-enable Microsoft Office
+    } else {
         $officeCheckbox.Enabled = $true
     }
 })
 
-# Add an event handler for the Microsoft Office checkbox:
 $officeCheckbox.Add_CheckedChanged({
     if ($officeCheckbox.Checked) {
-        # When Microsoft Office is checked, disable and uncheck Outlook
         $outlookCheckbox.Enabled = $false
         $outlookCheckbox.Checked = $false
-    }
-    else {
-        # When Microsoft Office is unchecked, re-enable Outlook
+    } else {
         $outlookCheckbox.Enabled = $true
     }
 })
@@ -146,13 +138,54 @@ $okButton.FlatAppearance.BorderSize = 1
 $form.Controls.Add($okButton)
 $form.AcceptButton = $okButton
 
-# Define a function to handle the OK button click
+# Dynamic Sizing Trigger - Sets height right before the form appears
+$form.Add_Load({
+    $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $padding))
+})
+
+# Progress Logic Helper
+$updateLocalProgress = {
+    param([int]$Index, [int]$Total, [double]$LocalPct)
+    $maxWidth = $trackPanel.ClientSize.Width - 2
+    # Base fill from previously completed apps
+    $baseWidth = ($Index / $Total) * $maxWidth
+    # Addition from currently processing app
+    $chunkWidth = (1 / $Total) * ($LocalPct / 100) * $maxWidth
+    
+    $newWidth = [math]::Min([int]($baseWidth + $chunkWidth), $maxWidth)
+    # Prevent backward jumping if winget output parsing gets messy
+    if ($fillPanel.Width -lt $newWidth) {
+        $fillPanel.Width = $newWidth
+    }
+}
+
+# Async Download Helper to keep UI responsive
+$downloadWithProgress = {
+    param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms)
+    $global:DlProgress = 0
+    $global:DlDone = $false
+    $webClient = New-Object System.Net.WebClient
+    
+    $onProg = Register-ObjectEvent -InputObject $webClient -EventName DownloadProgressChanged -Action { $global:DlProgress = $EventArgs.ProgressPercentage }
+    $onComp = Register-ObjectEvent -InputObject $webClient -EventName DownloadFileCompleted -Action { $global:DlDone = $true }
+    
+    $webClient.DownloadFileAsync([System.Uri]$Url, $OutFile)
+    while (-not $global:DlDone) {
+        # Scale download up to 80% of local segment
+        &$updateLocalProgress $ProgIndex $TotPrograms ($global:DlProgress * 0.8)
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 50
+    }
+    
+    Unregister-Event -SourceIdentifier $onProg.Name
+    Unregister-Event -SourceIdentifier $onComp.Name
+    $webClient.Dispose()
+}
+
 $okButton.Add_Click({
-    # Disable OK button to prevent further clicks
     $okButton.Enabled = $false
 
-    # Install selected programs
-    $selectedPrograms = $checkboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
+    $selectedPrograms = @($checkboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key })
     $totalPrograms = $selectedPrograms.Count
     if ($totalPrograms -eq 0) {
         Log-Message "No programs selected for installation." "Skip"
@@ -160,231 +193,218 @@ $okButton.Add_Click({
         return
     }
 
-    # Kill WinGet executable if running to prevent hangs from previous use while updating
+    # Kill WinGet executable if running to prevent hangs
     Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
 
-    # Set progress bar maximum
-    $progressValueMax = $totalPrograms
-    $maxWidth = $trackPanel.ClientSize.Width - 2
-
-    # Install programs and update progress bar
-    $progressValue = 0
     $failedWinget = @()
+    $currentIndex = 0
+
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
-        if ($program.Type -eq "MSOffice") {
-			try {
-			Log-Message "Starting Install of Microsoft Office (x64)..." "Info"
-            $statuslabel.Text = 'Starting Install: Microsoft Office (x64)...'
-            [System.Windows.Forms.Application]::DoEvents()
-			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
-			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
-			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
-			if (-Not (Test-Path $odtExe)) {
-			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try {
-					Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe *>&1 | Out-File -Append -FilePath $logPath
-					Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
-				} catch {
-                    Log-Message "ODT download failed, check your internet connection." "Error"
-                    Continue # Skip to next program selected
+        &$updateLocalProgress $currentIndex $totalPrograms 0
+
+        if ($program.Type -eq "MSOffice" -or $program.Type -eq "MSOutlook") {
+            try {
+                $displayName = if ($program.Type -eq "MSOffice") { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
+                $productID = if ($program.Type -eq "MSOffice") { "O365BusinessRetail" } else { "OutlookRetail" }
+                
+                Log-Message "Starting Install of $displayName..." "Info"
+                $statuslabel.Text = "Starting Install: $displayName..."
+                [System.Windows.Forms.Application]::DoEvents()
+
+                $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
+                if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
+                $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
+                $odtExe = "$workingDir\OfficeDeploymentTool.exe"
+                
+                if (-Not (Test-Path $odtExe)) {
+                    Log-Message "Downloading Office Deployment Tool..." "Info"
+                    try {
+                        &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms
+                        Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
+                    } catch {
+                        Log-Message "ODT download failed, check internet connection." "Error"
+                        $currentIndex++
+                        Continue
+                    }
                 }
-			}
-			Log-Message "Extracting Office Deployment Tool..." "Info"
-			try {
-				Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -Wait
-				if ($LASTEXITCODE -ne 0) { throw "ODT extraction failed with exit code $LASTEXITCODE" }
-			} catch {
-				Log-Message "ODT extraction failed (exit code $LASTEXITCODE)" "Error"
-                Continue # Skip to next program selected
-			}
-			$configXml = @'
+                
+                Log-Message "Extracting Office Deployment Tool..." "Info"
+                $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
+                while (-not $extractProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
+
+                $configXml = @"
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Current">
-    <Product ID="O365BusinessRetail">
+    <Product ID="$productID">
       <Language ID="en-us" />
     </Product>
   </Add>
   <Display Level="Basic" AcceptEULA="TRUE" />
   <Property Name="AUTOACTIVATE" Value="1"/>
 </Configuration>
-'@
-			$configFile = "$workingDir\office365configuration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding ascii
-			try {
-				Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`""
-			} catch {
-				Log-Message "ODT execution failed" "Error"
-				throw "ODT execution failed"
-			}
-			Log-Message "Microsoft Office: Install started successfully." "Success"
-			 } catch {
-				Log-Message "Microsoft Office: Installation failed, please review the log." "Error"
-			}
-		} elseif ($program.Type -eq "MSOutlook") {
-			try {
-			Log-Message "Starting Install of Microsoft Outlook (Classic)..." "Info"
-            $statuslabel.Text = 'Starting Install: Outlook (Classic)...'
-            [System.Windows.Forms.Application]::DoEvents()
-			$workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
-			if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
-			$odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-			$odtExe = "$workingDir\OfficeDeploymentTool.exe"
-			if (-Not (Test-Path $odtExe)) {
-			    Log-Message "Downloading Office Deployment Tool..." "Info"
-			    try {
-					Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe *>&1 | Out-File -Append -FilePath $logPath
-					Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
-				} catch {
-                    Log-Message "ODT download failed, check your internet connection." "Error"
-                    Continue # Skip to next program selected
+"@
+                $configFile = "$workingDir\configuration.xml"
+                $configXml | Out-File -FilePath $configFile -Encoding ascii
+
+                # Assume Setup takes the remaining 20%. Lock to 80% while setup runs.
+                &$updateLocalProgress $currentIndex $totalPrograms 80
+                
+                Log-Message "Running Office Setup..." "Info"
+                $setupProc = Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -PassThru -WindowStyle Hidden
+                while (-not $setupProc.HasExited) {
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 100
                 }
-			}
-			Log-Message "Extracting Office Deployment Tool..." "Info"
-			try {
-				Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -Wait
-				if ($LASTEXITCODE -ne 0) { throw "ODT extraction failed with exit code $LASTEXITCODE" }
-			} catch {
-				Log-Message "ODT extraction failed (exit code $LASTEXITCODE)" "Error"
-                Continue # Skip to next program selected
-			}
-			$configXml = @'
-<Configuration>
-  <Add OfficeClientEdition="64" Channel="Current">
-    <Product ID="OutlookRetail">
-      <Language ID="en-us" />
-    </Product>
-  </Add>
-  <Display Level="Basic" AcceptEULA="TRUE" />
-  <Property Name="AUTOACTIVATE" Value="1"/>
-</Configuration>
-'@
-			$configFile = "$workingDir\outlookconfiguration.xml"
-			$configXml | Out-File -FilePath $configFile -Encoding ascii
-			try {
-				Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`""
-			} catch {
-				Log-Message "ODT execution failed" "Error"
-				throw "ODT execution failed"
-			}
-			Log-Message "Microsoft Outlook: Install started successfully." "Success"
-			 } catch {
-				Log-Message "Microsoft Outlook: Installation failed, please review the log." "Error"
-			}
-		} elseif ($program.Type -eq "Teams") {
-			Log-Message "Starting Install of Microsoft Teams..."
-            $statuslabel.Text = 'Starting Install: Microsoft Teams...'
-            [System.Windows.Forms.Application]::DoEvents()
-			try {
-				#Teams Installation code
-				$bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
+                
+                Log-Message "$displayName: Install completed successfully." "Success"
+            } catch {
+                Log-Message "$displayName: Installation failed, please review log." "Error"
+            }
+        } elseif ($program.Type -eq "Teams") {
+            try {
+                Log-Message "Starting Install of Microsoft Teams..." "Info"
+                $statuslabel.Text = 'Starting Install: Microsoft Teams...'
+                [System.Windows.Forms.Application]::DoEvents()
+                
+                $bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
                 $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "Teams"
-                if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir }
-				$teamsEXE = "$workingDir\teamsbootstrapper.exe"
-				Log-Message "Downloading Teams Bootstrapper..." "Info"
-			    try {Invoke-WebRequest -Uri $bootstrapperURL -OutFile $teamsEXE *>&1 | Out-File -Append -FilePath $logPath} catch {Log-Message "Bootstrapper download failed, check your internet connection." "Error"}
-				Unblock-File -Path $teamsEXE *>&1 | Out-File -Append -FilePath $logPath
-				Start-Process -FilePath "$teamsEXE" -ArgumentList "-p"
-			} catch {
-				Log-Message "Microsoft Teams installation failed." "Error"
-			}
-		} elseif ($program -ne $null) {
-            Log-Message "Installing $($program.Name)..."
+                if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
+                $teamsEXE = "$workingDir\teamsbootstrapper.exe"
+                
+                Log-Message "Downloading Teams Bootstrapper..." "Info"
+                &$downloadWithProgress $bootstrapperURL $teamsEXE $currentIndex $totalPrograms
+                Unblock-File -Path $teamsEXE *>&1 | Out-File -Append -FilePath $logPath
+                
+                # Setup portion runs - bump local progress to 80 and wait
+                &$updateLocalProgress $currentIndex $totalPrograms 80
+                $teamsProc = Start-Process -FilePath "$teamsEXE" -ArgumentList "-p" -PassThru -WindowStyle Hidden
+                while (-not $teamsProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
+
+                Log-Message "Microsoft Teams: Install completed." "Success"
+            } catch {
+                Log-Message "Microsoft Teams installation failed." "Error"
+            }
+        } elseif ($program -ne $null) {
+            Log-Message "Installing $($program.Name)..." "Info"
             $statuslabel.Text = "Installing: $($program.Name)..."
             [System.Windows.Forms.Application]::DoEvents()
+            
             try {
-                # Corrected WinGet command execution
-                $wingetArgs = @(
-                    "install",
-                    "-e",  # Exact match flag
-                    "--id", $program.WingetID,
-                    "--silent",
-                    "--disable-interactivity",
-                    "--scope", "machine",
-                    "--accept-package-agreements",
-                    "--accept-source-agreements",
-                    "--source", "winget"
-                )
+                $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $procInfo.FileName = "winget.exe"
+                $procInfo.Arguments = "install -e --id `"$($program.WingetID)`" --disable-interactivity --scope machine --accept-package-agreements --accept-source-agreements --source winget"
+                $procInfo.RedirectStandardOutput = $true
+                $procInfo.UseShellExecute = $false
+                $procInfo.CreateNoWindow = $true
+                $procInfo.StandardOutputEncoding = [System.Text.Encoding]::UTF8
 
-                # Use Start-Process with the correct arguments
-                $process = Start-Process -FilePath "winget.exe" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
+                $proc = New-Object System.Diagnostics.Process
+                $proc.StartInfo = $procInfo
+                $proc.Start() | Out-Null
 
-                # Capture the result
-                if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
-                    $message = "$($program.Name): Installed successfully."
-                    Log-Message $message "Success"
-					Start-Sleep -Seconds 1 # Allow a moment for MSIExec to cleanup before next app
-
+                $buffer = ""
+                # Actively read Winget output buffer to parse percentage and prevent UI freezing
+                while (-not $proc.HasExited) {
+                    while ($proc.StandardOutput.Peek() -gt -1) {
+                        $char = [char]$proc.StandardOutput.Read()
+                        $buffer += $char
+                        if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
+                            if ($buffer -match "(\d{1,3})\s*%") {
+                                $pct = [int]$matches[1]
+                                if ($pct -le 100) { &$updateLocalProgress $currentIndex $totalPrograms $pct }
+                            }
+                            if ($char -ne "%") { $buffer = "" }
+                        }
+                    }
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 30
+                }
+                
+                # Catch any residual output before confirming exit code
+                while ($proc.StandardOutput.Peek() -gt -1) { $null = $proc.StandardOutput.Read() }
+                $proc.WaitForExit()
+                
+                if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
+                    Log-Message "$($program.Name): Installed successfully." "Success"
+                    Start-Sleep -Seconds 1
                 } else {
-                    $message = "$($program.Name): Installation failed with exit code $($process.ExitCode)."
-                    Log-Message $message "Error"
+                    Log-Message "$($program.Name): Installation failed with exit code $($proc.ExitCode)." "Error"
                     $failedWinget += $program.Name
-                    $progressValueMax += 1
                     Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
                 }
             } catch {
-                $message = "$($program.Name): Installation failed. Error: $_"
-                Log-Message $message "Error"
+                Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
             }
         }
-        $progressValue += 1
-        $progressPercent = ($progressValue / $progressValueMax)
-        $fillPanel.Width = [int]($maxWidth * $progressPercent)
-        # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
+        
+        # Advance segment mapping to force it to 100% completion before moving index
+        &$updateLocalProgress $currentIndex $totalPrograms 100
+        $currentIndex++
     }
+
     if ($failedWinget.Count -gt 0) {
-        Log-Message "Retrying failed programs..."
-        # Clear MSIExec and WinGet to ensure no overlapping issues
+        Log-Message "Retrying failed programs..." "Info"
         Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
         Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
-        Start-Sleep -Seconds 1 # Allow a moment for MSIExec to cleanup
-    foreach ($programName in $failedWinget) {
-        $program = $programs | Where-Object { $_.Name -eq $programName }
-        if ($program -ne $null) {
-            Log-Message "(Retrying) Installing $($program.Name)..."
-            $statuslabel.Text = "(Retrying) Installing: $($program.Name)..."
-            [System.Windows.Forms.Application]::DoEvents()
-            try {
-                # Corrected WinGet command execution
-                $wingetArgs = @(
-                    "install",
-                    "-e",  # Exact match flag
-                    "--id", $program.WingetID,
-                    "--silent",
-                    "--disable-interactivity",
-                    "--scope", "machine",
-                    "--accept-package-agreements",
-                    "--accept-source-agreements"
-                )
+        Start-Sleep -Seconds 1
+        
+        $retryTotal = $failedWinget.Count
+        $retryIndex = 0
+        # Reset progress bar for retries
+        $fillPanel.Width = 0
 
-                # Use Start-Process with the correct arguments
-                $process = Start-Process -FilePath "winget.exe" -ArgumentList $wingetArgs -PassThru -Wait -WindowStyle Hidden
+        foreach ($programName in $failedWinget) {
+            $program = $programs | Where-Object { $_.Name -eq $programName }
+            if ($program -ne $null) {
+                Log-Message "(Retrying) Installing $($program.Name)..." "Info"
+                $statuslabel.Text = "(Retrying) Installing: $($program.Name)..."
+                &$updateLocalProgress $retryIndex $retryTotal 0
+                
+                try {
+                    $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $procInfo.FileName = "winget.exe"
+                    $procInfo.Arguments = "install -e --id `"$($program.WingetID)`" --disable-interactivity --scope machine --accept-package-agreements --accept-source-agreements"
+                    $procInfo.RedirectStandardOutput = $true
+                    $procInfo.UseShellExecute = $false
+                    $procInfo.CreateNoWindow = $true
 
-                # Capture the result
-                if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
-                    $message = "$($program.Name): Installed successfully."
-                    Log-Message $message "Success"
-					Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+                    $proc = New-Object System.Diagnostics.Process
+                    $proc.StartInfo = $procInfo
+                    $proc.Start() | Out-Null
 
-                } else {
-                    $message = "$($program.Name): Installation failed again with exit code $($process.ExitCode)."
-                    Log-Message $message "Error"
-                    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+                    $buffer = ""
+                    while (-not $proc.HasExited) {
+                        while ($proc.StandardOutput.Peek() -gt -1) {
+                            $char = [char]$proc.StandardOutput.Read()
+                            $buffer += $char
+                            if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
+                                if ($buffer -match "(\d{1,3})\s*%") {
+                                    $pct = [int]$matches[1]
+                                    if ($pct -le 100) { &$updateLocalProgress $retryIndex $retryTotal $pct }
+                                }
+                                if ($char -ne "%") { $buffer = "" }
+                            }
+                        }
+                        [System.Windows.Forms.Application]::DoEvents()
+                        Start-Sleep -Milliseconds 30
+                    }
+                    $proc.WaitForExit()
+
+                    if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
+                        Log-Message "$($program.Name): Installed successfully." "Success"
+                    } else {
+                        Log-Message "$($program.Name): Installation failed again with exit code $($proc.ExitCode)." "Error"
+                    }
+                } catch {
+                    Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
                 }
-            } catch {
-                $message = "$($program.Name): Installation failed. Error: $_"
-                Log-Message $message "Error"
             }
+            &$updateLocalProgress $retryIndex $retryTotal 100
+            $retryIndex++
         }
-        $progressValue += 1
-        $progressPercent = ($progressValue / $progressValueMax)
-        $fillPanel.Width = [int]($maxWidth * $progressPercent)
-        # Start-Sleep -Milliseconds 200 # Simulate progress bar movement
-    }
     }
 
-    # Close the form once installation is complete
     $form.Close()
 })
 
