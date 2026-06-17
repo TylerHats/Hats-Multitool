@@ -70,21 +70,22 @@ function Log-Message {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "$timestamp [$level] - $message"
     $consoleMessage = "[$level] - $message"
-    $logMessage | Out-File -FilePath $logPath -Append  # Write to log
     if ($level.ToLower() -eq "info") {
-        Write-Host $consoleMessage  # Output to console
+        Write-Host $consoleMessage
     } elseif ($level.ToLower() -eq "prompt") {
         Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
     } elseif ($level.ToLower() -eq "error") {
         Write-Host $consoleMessage -ForegroundColor "Red"
+        $logMessage | Out-File -FilePath $logPath -Append
     } elseif ($level.ToLower() -eq "success") {
         Write-Host $consoleMessage -ForegroundColor "Green"
 	} elseif ($level.ToLower() -eq "skip") {
 		Write-Host $consoleMessage -ForegroundColor "Cyan"
     } elseif ($level.ToLower() -eq "logonly") {
-		$null = $null
+		$logMessage | Out-File -FilePath $logPath -Append
 	} else {
         Write-Host $consoleMessage
+        $logMessage | Out-File -FilePath $logPath -Append
     }
 }
 
