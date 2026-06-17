@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.15
+# Programs Module - Tyler Hatfield - v1.16
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -28,16 +28,10 @@ $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $form
 
 # Component sizing variables
-$checkboxHeight = 30    # Height of each checkbox
-$labelHeight = 30       # Height of text labels
-$padding = 20           # Padding around the elements
+$checkboxHeight = 30
+$labelHeight = 30
+$padding = 20
 
-<#
-Program list using multiple variable per program in an array:
-Name = The Program's display name, should be human readable
-WingetID = If the program is to be installed using Winget, this must be filled out
-Type = Program type, current options are: Winget, MSOffice
-#>
 $programs = @(
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit'; Type = 'Winget' },
     @{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud'; Type = 'Winget' },
@@ -52,7 +46,6 @@ $programs = @(
     @{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
 )
 
-# Set an initial reasonable width; height will be calculated right before loading
 $form.ClientSize = New-Object System.Drawing.Size(400, 500)
 
 # Prepare Program Checkboxes
@@ -80,7 +73,6 @@ foreach ($program in $programs) {
 $outlookCheckbox = $checkboxes["Outlook Classic"]
 $officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]
 
-# Event handlers to restrict Outlook/Office crossover
 $outlookCheckbox.Add_CheckedChanged({
     if ($outlookCheckbox.Checked) {
         $officeCheckbox.Enabled = $false
@@ -99,7 +91,6 @@ $officeCheckbox.Add_CheckedChanged({
     }
 })
 
-# Status label
 $y += 15
 $statuslabel = New-Object System.Windows.Forms.Label
 $statuslabel.Text = "Status: Idle"
@@ -110,7 +101,6 @@ $statuslabel.AutoSize = $true
 $statuslabel.TextAlign = 'TopLeft'
 $form.Controls.Add($statuslabel)
 
-# Container panel with border
 $y += 20
 $trackPanel = New-Object System.Windows.Forms.Panel
 $trackPanel.Size        = [System.Drawing.Size]::new(340,22)
@@ -119,14 +109,12 @@ $trackPanel.BorderStyle = 'FixedSingle'
 $trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
 $form.Controls.Add($trackPanel)
 
-# Fill panel for progress
 $fillPanel = New-Object System.Windows.Forms.Panel
 $fillPanel.Size      = [System.Drawing.Size]::new(0,19)
 $fillPanel.Location  = [System.Drawing.Point]::new(1,1)
 $fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
 $trackPanel.Controls.Add($fillPanel)
 
-# Add OK button
 $okButton = New-Object System.Windows.Forms.Button
 $y += 40
 $okButton.Location = New-Object System.Drawing.Point(152, $y)
@@ -138,30 +126,30 @@ $okButton.FlatAppearance.BorderSize = 1
 $form.Controls.Add($okButton)
 $form.AcceptButton = $okButton
 
-# Dynamic Sizing Trigger - Sets height right before the form appears
+# Dynamic Sizing Trigger
 $form.Add_Load({
     $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $padding))
 })
 
-# Progress Logic Helper
+# Progress & UI Logic Helper
 $updateLocalProgress = {
-    param([int]$Index, [int]$Total, [double]$LocalPct)
+    param([int]$Index, [int]$Total, [double]$LocalPct, [string]$StatusText)
     $maxWidth = $trackPanel.ClientSize.Width - 2
-    # Base fill from previously completed apps
     $baseWidth = ($Index / $Total) * $maxWidth
-    # Addition from currently processing app
     $chunkWidth = (1 / $Total) * ($LocalPct / 100) * $maxWidth
     
     $newWidth = [math]::Min([int]($baseWidth + $chunkWidth), $maxWidth)
-    # Prevent backward jumping if winget output parsing gets messy
     if ($fillPanel.Width -lt $newWidth) {
         $fillPanel.Width = $newWidth
     }
+    if (-not [string]::IsNullOrEmpty($StatusText)) {
+        $statuslabel.Text = $StatusText
+    }
 }
 
-# Async Download Helper to keep UI responsive
+# Async Download Helper 
 $downloadWithProgress = {
-    param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms)
+    param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms, [string]$AppName)
     $global:DlProgress = 0
     $global:DlDone = $false
     $webClient = New-Object System.Net.WebClient
@@ -171,8 +159,9 @@ $downloadWithProgress = {
     
     $webClient.DownloadFileAsync([System.Uri]$Url, $OutFile)
     while (-not $global:DlDone) {
+        $pct = $global:DlProgress
         # Scale download up to 80% of local segment
-        &$updateLocalProgress $ProgIndex $TotPrograms ($global:DlProgress * 0.8)
+        &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Downloading: $AppName ($pct%)"
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 50
     }
@@ -193,7 +182,6 @@ $okButton.Add_Click({
         return
     }
 
-    # Kill WinGet executable if running to prevent hangs
     Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
 
     $failedWinget = @()
@@ -201,7 +189,7 @@ $okButton.Add_Click({
 
     foreach ($programName in $selectedPrograms) {
         $program = $programs | Where-Object { $_.Name -eq $programName }
-        &$updateLocalProgress $currentIndex $totalPrograms 0
+        &$updateLocalProgress $currentIndex $totalPrograms 0 "Starting: $($program.Name)..."
 
         if ($program.Type -eq "MSOffice" -or $program.Type -eq "MSOutlook") {
             try {
@@ -209,8 +197,6 @@ $okButton.Add_Click({
                 $productID = if ($program.Type -eq "MSOffice") { "O365BusinessRetail" } else { "OutlookRetail" }
                 
                 Log-Message "Starting Install of $displayName..." "Info"
-                $statuslabel.Text = "Starting Install: $displayName..."
-                [System.Windows.Forms.Application]::DoEvents()
 
                 $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
                 if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
@@ -220,7 +206,7 @@ $okButton.Add_Click({
                 if (-Not (Test-Path $odtExe)) {
                     Log-Message "Downloading Office Deployment Tool..." "Info"
                     try {
-                        &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms
+                        &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms $displayName
                         Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
                     } catch {
                         Log-Message "ODT download failed, check internet connection." "Error"
@@ -230,6 +216,7 @@ $okButton.Add_Click({
                 }
                 
                 Log-Message "Extracting Office Deployment Tool..." "Info"
+                &$updateLocalProgress $currentIndex $totalPrograms 80 "Extracting: $displayName (80%)"
                 $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
                 while (-not $extractProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
 
@@ -247,37 +234,28 @@ $okButton.Add_Click({
                 $configFile = "$workingDir\configuration.xml"
                 $configXml | Out-File -FilePath $configFile -Encoding ascii
 
-                # Assume Setup takes the remaining 20%. Lock to 80% while setup runs.
-                &$updateLocalProgress $currentIndex $totalPrograms 80
+                Log-Message "Launching Office Setup asynchronously..." "Info"
+                &$updateLocalProgress $currentIndex $totalPrograms 90 "Launching Setup: $displayName (90%)"
                 
-                Log-Message "Running Office Setup..." "Info"
-                $setupProc = Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -PassThru -WindowStyle Hidden
-                while (-not $setupProc.HasExited) {
-                    [System.Windows.Forms.Application]::DoEvents()
-                    Start-Sleep -Milliseconds 100
-                }
-                
-                Log-Message "$displayName: Install completed successfully." "Success"
+                Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -WindowStyle Hidden
+                Log-Message "$displayName: Installer launched in background." "Success"
             } catch {
                 Log-Message "$displayName: Installation failed, please review log." "Error"
             }
         } elseif ($program.Type -eq "Teams") {
             try {
                 Log-Message "Starting Install of Microsoft Teams..." "Info"
-                $statuslabel.Text = 'Starting Install: Microsoft Teams...'
-                [System.Windows.Forms.Application]::DoEvents()
-                
-                $bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
                 $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "Teams"
                 if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
+                
+                $bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
                 $teamsEXE = "$workingDir\teamsbootstrapper.exe"
                 
                 Log-Message "Downloading Teams Bootstrapper..." "Info"
-                &$downloadWithProgress $bootstrapperURL $teamsEXE $currentIndex $totalPrograms
+                &$downloadWithProgress $bootstrapperURL $teamsEXE $currentIndex $totalPrograms "Microsoft Teams"
                 Unblock-File -Path $teamsEXE *>&1 | Out-File -Append -FilePath $logPath
                 
-                # Setup portion runs - bump local progress to 80 and wait
-                &$updateLocalProgress $currentIndex $totalPrograms 80
+                &$updateLocalProgress $currentIndex $totalPrograms 80 "Installing: Microsoft Teams (80%)"
                 $teamsProc = Start-Process -FilePath "$teamsEXE" -ArgumentList "-p" -PassThru -WindowStyle Hidden
                 while (-not $teamsProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
 
@@ -287,8 +265,7 @@ $okButton.Add_Click({
             }
         } elseif ($program -ne $null) {
             Log-Message "Installing $($program.Name)..." "Info"
-            $statuslabel.Text = "Installing: $($program.Name)..."
-            [System.Windows.Forms.Application]::DoEvents()
+            &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing: $($program.Name)..."
             
             try {
                 $procInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -304,7 +281,6 @@ $okButton.Add_Click({
                 $proc.Start() | Out-Null
 
                 $buffer = ""
-                # Actively read Winget output buffer to parse percentage and prevent UI freezing
                 while (-not $proc.HasExited) {
                     while ($proc.StandardOutput.Peek() -gt -1) {
                         $char = [char]$proc.StandardOutput.Read()
@@ -312,7 +288,9 @@ $okButton.Add_Click({
                         if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
                             if ($buffer -match "(\d{1,3})\s*%") {
                                 $pct = [int]$matches[1]
-                                if ($pct -le 100) { &$updateLocalProgress $currentIndex $totalPrograms $pct }
+                                if ($pct -le 100) { 
+                                    &$updateLocalProgress $currentIndex $totalPrograms $pct "Installing: $($program.Name) ($pct%)" 
+                                }
                             }
                             if ($char -ne "%") { $buffer = "" }
                         }
@@ -321,7 +299,6 @@ $okButton.Add_Click({
                     Start-Sleep -Milliseconds 30
                 }
                 
-                # Catch any residual output before confirming exit code
                 while ($proc.StandardOutput.Peek() -gt -1) { $null = $proc.StandardOutput.Read() }
                 $proc.WaitForExit()
                 
@@ -339,7 +316,7 @@ $okButton.Add_Click({
         }
         
         # Advance segment mapping to force it to 100% completion before moving index
-        &$updateLocalProgress $currentIndex $totalPrograms 100
+        &$updateLocalProgress $currentIndex $totalPrograms 100 "Finished: $($program.Name)"
         $currentIndex++
     }
 
@@ -351,15 +328,13 @@ $okButton.Add_Click({
         
         $retryTotal = $failedWinget.Count
         $retryIndex = 0
-        # Reset progress bar for retries
         $fillPanel.Width = 0
 
         foreach ($programName in $failedWinget) {
             $program = $programs | Where-Object { $_.Name -eq $programName }
             if ($program -ne $null) {
                 Log-Message "(Retrying) Installing $($program.Name)..." "Info"
-                $statuslabel.Text = "(Retrying) Installing: $($program.Name)..."
-                &$updateLocalProgress $retryIndex $retryTotal 0
+                &$updateLocalProgress $retryIndex $retryTotal 0 "(Retrying) Installing: $($program.Name)..."
                 
                 try {
                     $procInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -381,7 +356,9 @@ $okButton.Add_Click({
                             if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
                                 if ($buffer -match "(\d{1,3})\s*%") {
                                     $pct = [int]$matches[1]
-                                    if ($pct -le 100) { &$updateLocalProgress $retryIndex $retryTotal $pct }
+                                    if ($pct -le 100) { 
+                                        &$updateLocalProgress $retryIndex $retryTotal $pct "(Retrying) $($program.Name) ($pct%)"
+                                    }
                                 }
                                 if ($char -ne "%") { $buffer = "" }
                             }
@@ -400,7 +377,7 @@ $okButton.Add_Click({
                     Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
                 }
             }
-            &$updateLocalProgress $retryIndex $retryTotal 100
+            &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)"
             $retryIndex++
         }
     }
@@ -408,5 +385,4 @@ $okButton.Add_Click({
     $form.Close()
 })
 
-# Show the GUI
 $form.ShowDialog() | Out-Null
