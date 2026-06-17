@@ -94,9 +94,14 @@ $MainMenuExitButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuExitButton)
 
 $MainMenu.Add_Shown({
+    # Temporarily force the window to draw above everything else OS-wide
+    $this.TopMost = $true 
+    # Grab the foreground focus
+    [HMT.NativeMethods]::SetForegroundWindow($this.Handle) | Out-Null
     $this.Activate()
     $this.BringToFront()
-    [HMT.NativeMethods]::SetForegroundWindow($this.Handle)
+    # Relinquish the top-level overlay status so it behaves like a normal window again
+    $this.TopMost = $false 
 })
 
 # Define a function to handle the Setup button click
