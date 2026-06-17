@@ -115,8 +115,8 @@ $hIcon = $HMTIcon.Handle
 $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
 $wParamBig   = New-Object System.IntPtr($ICON_BIG)
 $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
-[HMT.NativeMethods]::SendMessage($hwnd, [uint]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
-[HMT.NativeMethods]::SendMessage($hwnd, [uint]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+[HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+[HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
 
 # Set a unique ID for Hat's Multitool
 [HMT.NativeMethods]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.App") | Out-Null
