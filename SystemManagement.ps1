@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.8
+# System Management Module - Tyler Hatfield - v2.9
 
 $EM_SETCUEBANNER = 0x1501
 
