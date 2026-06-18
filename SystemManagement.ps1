@@ -25,7 +25,7 @@ $SMlabel = New-Object System.Windows.Forms.Label
 $SMlabel.Text = "Enter new device name:"
 $SMlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SMlabel.Size = New-Object System.Drawing.Size(300, 20)
-$SMlabel.Location = New-Object System.Drawing.Point(10, $y)
+$SMlabel.Location = New-Object System.Drawing.Point(17, $y)
 $SMlabel.AutoSize = $true
 $SMlabel.TextAlign = 'TopLeft'
 $SMGUI.Controls.Add($SMlabel)
@@ -36,7 +36,7 @@ $SMlabel = New-Object System.Windows.Forms.Label
 $SMlabel.Text = "(Currently: $env:computername)"
 $SMlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SMlabel.Size = New-Object System.Drawing.Size(300, 20)
-$SMlabel.Location = New-Object System.Drawing.Point(10, $y)
+$SMlabel.Location = New-Object System.Drawing.Point(17, $y)
 $SMlabel.AutoSize = $true
 $SMlabel.TextAlign = 'TopLeft'
 $SMGUI.Controls.Add($SMlabel)
@@ -47,7 +47,7 @@ $SerialLabel = New-Object System.Windows.Forms.Label
 $SerialLabel.Text = "Serial Number: $serialNumber"
 $SerialLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $SerialLabel.Size = New-Object System.Drawing.Size(300, 20)
-$SerialLabel.Location = New-Object System.Drawing.Point(10, $y)
+$SerialLabel.Location = New-Object System.Drawing.Point(17, $y)
 $SerialLabel.AutoSize = $true
 $SerialLabel.TextAlign = 'TopLeft'
 $SerialLabel.Cursor = [Windows.Forms.Cursors]::Hand
@@ -56,7 +56,7 @@ $SMGUI.Controls.Add($SerialLabel)
 # Add PC name input
 $y += 30
 $PCNameInput = New-Object System.Windows.Forms.TextBox
-$PCNameInput.location = New-Object System.Drawing.Point(10, $y)
+$PCNameInput.location = New-Object System.Drawing.Point(17, $y)
 $PCNameInput.Width = 280
 $PCNameInput.MaxLength = 15
 $SMGUI.Controls.Add($PCNameInput)
@@ -93,7 +93,7 @@ $SMGUI.Controls.Add($EntraCheckbox)
 # Add domain name input
 $y += 30
 $DomainNameInput = New-Object System.Windows.Forms.TextBox
-$DomainNameInput.location = New-Object System.Drawing.Point(10, $y)
+$DomainNameInput.location = New-Object System.Drawing.Point(17, $y)
 $DomainNameInput.Width = 280
 $DomainNameInput.Enabled = $false
 $SMGUI.Controls.Add($DomainNameInput)
@@ -237,6 +237,11 @@ $SMOkayButton.Add_Click({
 $SMSkip.Add_Click({
 	$SMSkip.Enabled = $false
 	$SMGUI.Close()
+})
+
+# Dynamically wrap the window height AFTER Windows applies DPI scaling
+$SMGUI.Add_Load({
+    $SMGUI.ClientSize = [System.Drawing.Size]::new(315, ($SMSkip.Bottom + 20))
 })
 
 # Display First GUI

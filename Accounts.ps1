@@ -246,8 +246,15 @@ $A1Skip.Add_Click({
 # This allows quick keyboard bypassing and ensures the textboxes do not immediately pull focus on load, preserving the cue banners.
 $A1GUI.ActiveControl = $A1Skip
 
-# Dynamically wrap the window height to the bottom of the lowest control (plus 20px of padding)
-$A1GUI.ClientSize = New-Object System.Drawing.Size(315, ($A1Skip.Bottom + 20))
+# Dynamically calculate sizes AFTER Windows applies DPI scaling
+$A1GUI.Add_Load({
+    # Snap the eye icon to the exact scaled dimensions of the password input
+    $ShowPWButton.Height = $PasswordInput.Height
+    $ShowPWButton.Top = $PasswordInput.Top
+    
+    # Wrap the window height to the bottom of the lowest control (plus 20px padding)
+    $A1GUI.ClientSize = [System.Drawing.Size]::new(315, ($A1Skip.Bottom + 20))
+})
 
 # Display First GUI
 $A1GUI.ShowDialog() | Out-Null
