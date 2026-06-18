@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.11
+# GUI Setup File - Tyler Hatfield - v2.12
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -452,21 +452,21 @@ $ToolsGUI.Controls.Add($UserDataButton)
 $UserDataTooltip = New-Object System.Windows.Forms.ToolTip
 $UserDataTooltip.SetToolTip($UserDataButton, "A tool to help collect user and system data for transferring to new machines.")
 
-# CURRENTLY EMPTY BUTTON!
-$EButton = New-Object System.Windows.Forms.Button
+# McAfee MCPR Tool
+$MCPRButton = New-Object System.Windows.Forms.Button
 $y += 0
-$EButton.Location = New-Object System.Drawing.Point(380, $y)
-$EButton.Size = New-Object System.Drawing.Size(250, 40)
-$EButton.Text = "Empty"
-$EButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$EButton.FlatStyle = 'Flat'
-$EButton.FlatAppearance.BorderSize = 1
-$EButton.Enabled = $false
-$ToolsGUI.Controls.Add($EButton)
+$MCPRButton.Location = New-Object System.Drawing.Point(380, $y)
+$MCPRButton.Size = New-Object System.Drawing.Size(250, 40)
+$MCPRButton.Text = "McAfee MCPR Tool"
+$MCPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MCPRButton.FlatStyle = 'Flat'
+$MCPRButton.FlatAppearance.BorderSize = 1
+$MCPRButton.Enabled = $false
+$ToolsGUI.Controls.Add($MCPRButton)
 
-# Empty Agent Button Tooltip
-$ETooltip = New-Object System.Windows.Forms.ToolTip
-$ETooltip.SetToolTip($EButton, "Currently Empty Button.")
+# MCPR Tooltip
+$MCPRTooltip = New-Object System.Windows.Forms.ToolTip
+$MCPRTooltip.SetToolTip($MCPRButton, "Removes installed McAfee consumer products.")
 
 # Add Ninja Agent Removal button
 $NRButton = New-Object System.Windows.Forms.Button
@@ -740,10 +740,14 @@ $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($BackButton)
 
-# Define empty button functions
-$EButton.Add_Click({
-	$EButton.Enabled = $false
-	$EButton.Enabled = $true
+# Define MCPR Tool button functions
+$MCPRButton.Add_Click({
+	$MCPRButton.Enabled = $false
+	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
+	$MCPRPath = Join-Path -Path $ExtProgramDir -ChildPath "MCPR.exe"
+	Show-DownloadDialog -DisplayName 'McAfee MCPR Tool' -Url 'https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe' -OutputPath "$MCPRPath"
+    Start-Process $MCPRPath
+	$MCPRButton.Enabled = $true
 })
 
 # Define User Data Migration Tool button functions

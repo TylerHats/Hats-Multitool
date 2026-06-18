@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.16
+# Programs Module - Tyler Hatfield - v1.17
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
