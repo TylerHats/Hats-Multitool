@@ -1,12 +1,19 @@
-# Programs Module - Tyler Hatfield - v1.17
+# Programs Module - Tyler Hatfield - v1.18
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Force initialize NuGet and Trust PSGallery to prevent console prompts
+Log-Message "Preparing Package Providers..."
+if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
+}
+Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+
 # Load / Install WinGet PS Module
 if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Client)) {
     Log-Message "Installing Microsoft.WinGet.Client module..."
-    Install-Module -Name Microsoft.WinGet.Client -Force -AcceptLicense -Scope CurrentUser
+    Install-Module -Name Microsoft.WinGet.Client -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
 }
 Import-Module Microsoft.WinGet.Client
 
@@ -109,7 +116,16 @@ $statuslabel.AutoSize = $true
 $statuslabel.TextAlign = 'TopLeft'
 $form.Controls.Add($statuslabel)
 
-$y += 20
+$detailLabel = New-Object System.Windows.Forms.Label
+$detailLabel.Text = ""
+$detailLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0") # Dimmer grey for sub-text
+$detailLabel.Size = New-Object System.Drawing.Size(340, 20)
+$detailLabel.Location = New-Object System.Drawing.Point(20, ($y+10))
+$detailLabel.AutoSize = $true
+$detailLabel.TextAlign = 'TopLeft'
+$form.Controls.Add($detailLabel)
+
+$y += 35
 $trackPanel = New-Object System.Windows.Forms.Panel
 $trackPanel.Size        = [System.Drawing.Size]::new(340,22)
 $trackPanel.Location    = [System.Drawing.Point]::new(20,$y)
@@ -141,17 +157,26 @@ $form.Add_Load({
 
 # Progress & UI Logic Helper
 $updateLocalProgress = {
-    param([int]$Index, [int]$Total, [double]$LocalPct, [string]$StatusText)
+    param([int]$Index, [int]$Total, [double]$LocalPct, [string]$StatusText, [string]$DetailText)
+    
+    # Cap bounds to prevent visual tearing
+    if ($LocalPct -lt 0) { $LocalPct = 0 }
+    if ($LocalPct -gt 100) { $LocalPct = 100 }
+
     $maxWidth = $trackPanel.ClientSize.Width - 2
     $baseWidth = ($Index / $Total) * $maxWidth
-    $chunkWidth = (1 / $Total) * ($LocalPct / 100) * $maxWidth
+    $chunkWidth = ($LocalPct / 100) * ($maxWidth / $Total)
     
     $newWidth = [math]::Min([int]($baseWidth + $chunkWidth), $maxWidth)
-    if ($fillPanel.Width -lt $newWidth) {
-        $fillPanel.Width = $newWidth
-    }
+    
+    # Direct assignment allows the bar to reflect true state, even if a download restarts
+    $fillPanel.Width = $newWidth
+    
     if (-not [string]::IsNullOrEmpty($StatusText)) {
         $statuslabel.Text = $StatusText
+    }
+    if ($null -ne $DetailText) {
+        $detailLabel.Text = $DetailText
     }
 }
 
@@ -168,8 +193,8 @@ $downloadWithProgress = {
     $webClient.DownloadFileAsync([System.Uri]$Url, $OutFile)
     while (-not $global:DlDone) {
         $pct = $global:DlProgress
-        # Scale download up to 80% of local segment
-        &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Downloading: $AppName ($pct%)"
+        # Pass both the main status and the secondary detail text
+        &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 50
     }
@@ -250,63 +275,57 @@ $okButton.Add_Click({
             } catch {
                 Log-Message "$($displayName): Installation failed, please review log." "Error"
             }
-        } elseif ($program.Type -eq "Teams") {
-            try {
-                Log-Message "Starting Install of Microsoft Teams..." "Info"
-                $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "Teams"
-                if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
-                
-                $bootstrapperURL = "https://statics.teams.cdn.office.net/production-teamsprovision/lkg/teamsbootstrapper.exe"
-                $teamsEXE = "$workingDir\teamsbootstrapper.exe"
-                
-                Log-Message "Downloading Teams Bootstrapper..." "Info"
-                &$downloadWithProgress $bootstrapperURL $teamsEXE $currentIndex $totalPrograms "Microsoft Teams"
-                Unblock-File -Path $teamsEXE *>&1 | Out-File -Append -FilePath $logPath
-                
-                &$updateLocalProgress $currentIndex $totalPrograms 80 "Installing: Microsoft Teams (80%)"
-                $teamsProc = Start-Process -FilePath "$teamsEXE" -ArgumentList "-p" -PassThru -WindowStyle Hidden
-                while (-not $teamsProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
-
-                Log-Message "Microsoft Teams: Install completed." "Success"
-            } catch {
-                Log-Message "Microsoft Teams installation failed." "Error"
-            }
         } elseif ($program -ne $null) {
             Log-Message "Installing $($program.Name)..." "Info"
-            &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing: $($program.Name)..."
+            &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" "Initializing WinGet..."
             
             try {
-                # Shadow the native Write-Progress cmdlet to hijack its data
-                $global:originalWriteProgress = Get-Command Write-Progress
+                # Create an isolated Runspace
+                $ps = [System.Management.Automation.PowerShell]::Create()
                 
-                function Write-Progress {
-                    param(
-                        [Parameter(Position=0, Mandatory=$false)] $Activity,
-                        [Parameter(Mandatory=$false)] $Status,
-                        [Parameter(Mandatory=$false)] $Id,
-                        [Parameter(Mandatory=$false)] $PercentComplete
-                    )
-                    
-                    # Feed the WinGet percentage directly into your UI helper
-                    if ($null -ne $PercentComplete -and $PercentComplete -ge 0 -and $PercentComplete -le 100) {
-                        &$updateLocalProgress $currentIndex $totalPrograms $PercentComplete "Installing: $($program.Name) ($PercentComplete%)"
-                        [System.Windows.Forms.Application]::DoEvents()
+                # Build the command payload for the background thread
+                $scriptBlock = "Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; Find-WinGetPackage -Id '$($program.WingetID)' -Source winget | Install-WinGetPackage -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent"
+                $ps.AddScript($scriptBlock) | Out-Null
+                
+                # Fire the execution asynchronously
+                $asyncResult = $ps.BeginInvoke()
+                
+                # Poll the background thread's progress stream while keeping WinForms alive
+                while (-not $asyncResult.IsCompleted) {
+                    if ($ps.Streams.Progress.Count -gt 0) {
+                        $progRecords = $ps.Streams.Progress.ReadAll()
+                        foreach ($record in $progRecords) {
+                            $pct = $record.PercentComplete
+                            
+                            # Fallbacks if WinGet telemetry drops parts of the string
+                            $statusMsg = $record.StatusDescription
+                            if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = $record.Activity }
+                            if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = "Processing..." }
+                            
+                            # A -1 percentage means the progress is indeterminate (usually the execution phase)
+                            $displayPct = if ($pct -ge 0) { $pct } else { 99 }
+                            if ($pct -lt 0) { $statusMsg = "Running Installer... (99%)" } 
+                            else { $statusMsg = "$statusMsg ($displayPct%)" }
+                            
+                            &$updateLocalProgress $currentIndex $totalPrograms $displayPct "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" $statusMsg
+                        }
                     }
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 50
                 }
-
-                # Execute the native PowerShell command
-                Install-WinGetPackage -Id $program.WingetID -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent
-
-                # Restore standard Write-Progress behavior
-                Remove-Item Function:\Write-Progress
+                
+                # Throw back any terminating errors from the runspace
+                if ($ps.Streams.Error.Count -gt 0) {
+                    throw $ps.Streams.Error[0].Exception.Message
+                }
                 
                 Log-Message "$($program.Name): Installed successfully." "Success"
                 Start-Sleep -Seconds 1
             } catch {
                 Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
                 $failedWinget += $program.Name
-                # Ensure Write-Progress is restored even if it crashes
-                if (Test-Path Function:\Write-Progress) { Remove-Item Function:\Write-Progress }
+            } finally {
+                if ($null -ne $ps) { $ps.Dispose() }
             }
         }
         
@@ -329,41 +348,56 @@ $okButton.Add_Click({
             $program = $programs | Where-Object { $_.Name -eq $programName }
             if ($program -ne $null) {
                 Log-Message "(Retrying) Installing $($program.Name)..." "Info"
-                &$updateLocalProgress $retryIndex $retryTotal 0 "(Retrying) Installing: $($program.Name)..."
+                &$updateLocalProgress $retryIndex $retryTotal 0 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Initializing WinGet..."
                 
                 try {
-                    # Shadow the native Write-Progress cmdlet to hijack its data
-                    $global:originalWriteProgress = Get-Command Write-Progress
+                    # Create an isolated Runspace for the retry
+                    $ps = [System.Management.Automation.PowerShell]::Create()
                     
-                    function Write-Progress {
-                        param(
-                            [Parameter(Position=0, Mandatory=$false)] $Activity,
-                            [Parameter(Mandatory=$false)] $Status,
-                            [Parameter(Mandatory=$false)] $Id,
-                            [Parameter(Mandatory=$false)] $PercentComplete
-                        )
-                        
-                        # Feed the WinGet percentage directly into your UI helper for retries
-                        if ($null -ne $PercentComplete -and $PercentComplete -ge 0 -and $PercentComplete -le 100) {
-                            &$updateLocalProgress $retryIndex $retryTotal $PercentComplete "(Retrying) $($program.Name) ($PercentComplete%)"
-                            [System.Windows.Forms.Application]::DoEvents()
+                    # Build the command payload
+                    $scriptBlock = "Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; Find-WinGetPackage -Id '$($program.WingetID)' -Source winget | Install-WinGetPackage -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent"
+                    $ps.AddScript($scriptBlock) | Out-Null
+                    
+                    # Fire the execution asynchronously
+                    $asyncResult = $ps.BeginInvoke()
+                    
+                    # Poll the background thread's progress stream
+                    while (-not $asyncResult.IsCompleted) {
+                        if ($ps.Streams.Progress.Count -gt 0) {
+                            $progRecords = $ps.Streams.Progress.ReadAll()
+                            foreach ($record in $progRecords) {
+                                $pct = $record.PercentComplete
+                                
+                                $statusMsg = $record.StatusDescription
+                                if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = $record.Activity }
+                                if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = "Processing..." }
+                                
+                                $displayPct = if ($pct -ge 0) { $pct } else { 99 }
+                                if ($pct -lt 0) { $statusMsg = "Running Installer... (99%)" } 
+                                else { $statusMsg = "$statusMsg ($displayPct%)" }
+                                
+                                # Note: Using $retryIndex and $retryTotal here
+                                &$updateLocalProgress $retryIndex $retryTotal $displayPct "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" $statusMsg
+                            }
                         }
+                        [System.Windows.Forms.Application]::DoEvents()
+                        Start-Sleep -Milliseconds 50
                     }
-
-                    # Execute the native PowerShell command
-                    Install-WinGetPackage -Id $program.WingetID -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent
-
-                    # Restore standard Write-Progress behavior
-                    Remove-Item Function:\Write-Progress
-
-                    Log-Message "$($program.Name): Installed successfully." "Success"
+                    
+                    if ($ps.Streams.Error.Count -gt 0) {
+                        throw $ps.Streams.Error[0].Exception.Message
+                    }
+                    
+                    Log-Message "$($program.Name): Installed successfully on retry." "Success"
+                    Start-Sleep -Seconds 1
                 } catch {
                     Log-Message "$($program.Name): Installation failed again. Error: $_" "Error"
-                    # Ensure Write-Progress is restored even if it crashes
-                    if (Test-Path Function:\Write-Progress) { Remove-Item Function:\Write-Progress }
+                } finally {
+                    if ($null -ne $ps) { $ps.Dispose() }
                 }
             }
-            &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)"
+            # Advance segment mapping to force it to 100% completion before moving index
+            &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)" ""
             $retryIndex++
         }
     }
