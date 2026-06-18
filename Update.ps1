@@ -38,8 +38,8 @@ $y = 15
 $ULabel = New-Object System.Windows.Forms.Label
 $ULabel.Text = "Update text:"
 $ULabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ULabel.Size = New-Object System.Drawing.Size(340, 50)
-$ULabel.Location = New-Object System.Drawing.Point(30, $y)
+$ULabel.Size = New-Object System.Drawing.Size($UpdateGUI.ClientSize.Width, 50)
+$ULabel.Location = New-Object System.Drawing.Point(0, $y)
 $ULabel.AutoSize = $false
 $ULabel.TextAlign = 'TopCenter'
 $UpdateGUI.Controls.Add($ULabel)
@@ -47,8 +47,8 @@ $UpdateGUI.Controls.Add($ULabel)
 # Add Yes button
 $y += 55
 $UYOkayButton = New-Object System.Windows.Forms.Button
-$UYOkayButton.Location = New-Object System.Drawing.Point(95, $y)
 $UYOkayButton.Size = New-Object System.Drawing.Size(95, 40)
+$UYOkayButton.Top = $y
 $UYOkayButton.Text = 'Yes'
 $UYOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UYOkayButton.FlatStyle = 'Flat'
@@ -58,14 +58,24 @@ $UpdateGUI.AcceptButton = $UYOkayButton
 
 # Add No button
 $UNOkayButton = New-Object System.Windows.Forms.Button
-$UNOkayButton.Location = New-Object System.Drawing.Point(210, $y)
 $UNOkayButton.Size = New-Object System.Drawing.Size(95, 40)
+$UNOkayButton.Top = $y
 $UNOkayButton.Text = 'No'
 $UNOkayButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $UNOkayButton.FlatStyle = 'Flat'
 $UNOkayButton.FlatAppearance.BorderSize = 1
 $UpdateGUI.Controls.Add($UNOkayButton)
 $UpdateGUI.CancelButton = $UNOkayButton
+
+# Fix Scaling and Layout Dynamically
+$UpdateGUI.Add_Load({
+    $ULabel.Width = $UpdateGUI.ClientSize.Width
+    $totalButtonWidth = $UYOkayButton.Width + 20 + $UNOkayButton.Width
+    $startX = ($UpdateGUI.ClientSize.Width - $totalButtonWidth) / 2
+    $UYOkayButton.Left = $startX
+    $UNOkayButton.Left = $startX + $UYOkayButton.Width + 20
+    $UpdateGUI.ClientSize = [System.Drawing.Size]::new($UpdateGUI.ClientSize.Width, ($UYOkayButton.Bottom + 20))
+})
 
 # Define a function to handle the yes button click
 $UYOkayButton.Add_Click({
