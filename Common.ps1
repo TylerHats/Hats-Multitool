@@ -156,11 +156,14 @@ function User-Exit {
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
-        [System.Windows.Forms.Application]::Exit()
+        # 1. Visually close instantly
+        [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
+        [System.Windows.Forms.Application]::DoEvents()
         
+        # 2. Stage the cleanup command
         $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed'"
      
-        # Use .NET to spawn the process completely invisibly (prevents the momentary console flash)
+        # 3. Spawn the invisible background cleanup process
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = "powershell.exe"
         $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$cleanupCommand`""
@@ -169,7 +172,8 @@ function User-Exit {
         $psi.UseShellExecute = $false
         [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-        [System.Environment]::Exit(0)
+        # 4. Instantly terminate the script
+        [System.Diagnostics.Process]::GetCurrentProcess().Kill()
     }
 }
 
