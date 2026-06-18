@@ -3,6 +3,13 @@
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Load / Install WinGet PS Module
+if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Client)) {
+    Log-Message "Installing Microsoft.WinGet.Client module..."
+    Install-Module -Name Microsoft.WinGet.Client -Force -AcceptLicense -Scope CurrentUser
+}
+Import-Module Microsoft.WinGet.Client
+
 # Force initialize WinGet source
 Log-Message "Initializing WinGet and updating sources..."
 winget source reset --force | Out-Null
@@ -33,17 +40,18 @@ $labelHeight = 30
 $padding = 20
 
 $programs = @(
+    @{ Name = '7-Zip'; WingetID = '7zip.7zip'; Type = 'Winget' },
     @{ Name = 'Acrobat Reader'; WingetID = 'Adobe.Acrobat.Reader.64-bit'; Type = 'Winget' },
     @{ Name = 'Creative Cloud'; WingetID = 'Adobe.CreativeCloud'; Type = 'Winget' },
-    @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome'; Type = 'Winget' },
-    @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox'; Type = 'Winget' },
-    @{ Name = '7-Zip'; WingetID = '7zip.7zip'; Type = 'Winget' },
-    @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
     @{ Name = 'Dropbox'; WingetID = 'Dropbox.Dropbox'; Type = 'Winget' },
+    @{ Name = 'Firefox'; WingetID = 'Mozilla.Firefox'; Type = 'Winget' },
+    @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome'; Type = 'Winget' },
+    @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
+    @{ Name = 'Notepad++'; WingetID = 'Notepad++.Notepad++'; Type = 'Winget' },
     @{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
-    @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' },
-    @{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' }
+    @{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' },
+    @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' }
 )
 
 $form.ClientSize = New-Object System.Drawing.Size(400, 500)
@@ -268,50 +276,37 @@ $okButton.Add_Click({
             &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing: $($program.Name)..."
             
             try {
-                $procInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $procInfo.FileName = "winget.exe"
-                $procInfo.Arguments = "install -e --id `"$($program.WingetID)`" --disable-interactivity --scope machine --accept-package-agreements --accept-source-agreements --source winget"
-                $procInfo.RedirectStandardOutput = $true
-                $procInfo.UseShellExecute = $false
-                $procInfo.CreateNoWindow = $true
-                $procInfo.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-
-                $proc = New-Object System.Diagnostics.Process
-                $proc.StartInfo = $procInfo
-                $proc.Start() | Out-Null
-
-                $buffer = ""
-                while (-not $proc.HasExited) {
-                    while ($proc.StandardOutput.Peek() -gt -1) {
-                        $char = [char]$proc.StandardOutput.Read()
-                        $buffer += $char
-                        if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
-                            if ($buffer -match "(\d{1,3})\s*%") {
-                                $pct = [int]$matches[1]
-                                if ($pct -le 100) { 
-                                    &$updateLocalProgress $currentIndex $totalPrograms $pct "Installing: $($program.Name) ($pct%)" 
-                                }
-                            }
-                            if ($char -ne "%") { $buffer = "" }
-                        }
+                # Shadow the native Write-Progress cmdlet to hijack its data
+                $global:originalWriteProgress = Get-Command Write-Progress
+                
+                function Write-Progress {
+                    param(
+                        [Parameter(Position=0, Mandatory=$false)] $Activity,
+                        [Parameter(Mandatory=$false)] $Status,
+                        [Parameter(Mandatory=$false)] $Id,
+                        [Parameter(Mandatory=$false)] $PercentComplete
+                    )
+                    
+                    # Feed the WinGet percentage directly into your UI helper
+                    if ($null -ne $PercentComplete -and $PercentComplete -ge 0 -and $PercentComplete -le 100) {
+                        &$updateLocalProgress $currentIndex $totalPrograms $PercentComplete "Installing: $($program.Name) ($PercentComplete%)"
+                        [System.Windows.Forms.Application]::DoEvents()
                     }
-                    [System.Windows.Forms.Application]::DoEvents()
-                    Start-Sleep -Milliseconds 30
                 }
+
+                # Execute the native PowerShell command
+                Install-WinGetPackage -Id $program.WingetID -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent
+
+                # Restore standard Write-Progress behavior
+                Remove-Item Function:\Write-Progress
                 
-                while ($proc.StandardOutput.Peek() -gt -1) { $null = $proc.StandardOutput.Read() }
-                $proc.WaitForExit()
-                
-                if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                    Log-Message "$($program.Name): Installed successfully." "Success"
-                    Start-Sleep -Seconds 1
-                } else {
-                    Log-Message "$($program.Name): Installation failed with exit code $($proc.ExitCode)." "Error"
-                    $failedWinget += $program.Name
-                    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
-                }
+                Log-Message "$($program.Name): Installed successfully." "Success"
+                Start-Sleep -Seconds 1
             } catch {
                 Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
+                $failedWinget += $program.Name
+                # Ensure Write-Progress is restored even if it crashes
+                if (Test-Path Function:\Write-Progress) { Remove-Item Function:\Write-Progress }
             }
         }
         
@@ -337,44 +332,35 @@ $okButton.Add_Click({
                 &$updateLocalProgress $retryIndex $retryTotal 0 "(Retrying) Installing: $($program.Name)..."
                 
                 try {
-                    $procInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    $procInfo.FileName = "winget.exe"
-                    $procInfo.Arguments = "install -e --id `"$($program.WingetID)`" --disable-interactivity --scope machine --accept-package-agreements --accept-source-agreements"
-                    $procInfo.RedirectStandardOutput = $true
-                    $procInfo.UseShellExecute = $false
-                    $procInfo.CreateNoWindow = $true
-
-                    $proc = New-Object System.Diagnostics.Process
-                    $proc.StartInfo = $procInfo
-                    $proc.Start() | Out-Null
-
-                    $buffer = ""
-                    while (-not $proc.HasExited) {
-                        while ($proc.StandardOutput.Peek() -gt -1) {
-                            $char = [char]$proc.StandardOutput.Read()
-                            $buffer += $char
-                            if ($char -eq "`r" -or $char -eq "`n" -or $char -eq "%") {
-                                if ($buffer -match "(\d{1,3})\s*%") {
-                                    $pct = [int]$matches[1]
-                                    if ($pct -le 100) { 
-                                        &$updateLocalProgress $retryIndex $retryTotal $pct "(Retrying) $($program.Name) ($pct%)"
-                                    }
-                                }
-                                if ($char -ne "%") { $buffer = "" }
-                            }
+                    # Shadow the native Write-Progress cmdlet to hijack its data
+                    $global:originalWriteProgress = Get-Command Write-Progress
+                    
+                    function Write-Progress {
+                        param(
+                            [Parameter(Position=0, Mandatory=$false)] $Activity,
+                            [Parameter(Mandatory=$false)] $Status,
+                            [Parameter(Mandatory=$false)] $Id,
+                            [Parameter(Mandatory=$false)] $PercentComplete
+                        )
+                        
+                        # Feed the WinGet percentage directly into your UI helper for retries
+                        if ($null -ne $PercentComplete -and $PercentComplete -ge 0 -and $PercentComplete -le 100) {
+                            &$updateLocalProgress $retryIndex $retryTotal $PercentComplete "(Retrying) $($program.Name) ($PercentComplete%)"
+                            [System.Windows.Forms.Application]::DoEvents()
                         }
-                        [System.Windows.Forms.Application]::DoEvents()
-                        Start-Sleep -Milliseconds 30
                     }
-                    $proc.WaitForExit()
 
-                    if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                        Log-Message "$($program.Name): Installed successfully." "Success"
-                    } else {
-                        Log-Message "$($program.Name): Installation failed again with exit code $($proc.ExitCode)." "Error"
-                    }
+                    # Execute the native PowerShell command
+                    Install-WinGetPackage -Id $program.WingetID -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent
+
+                    # Restore standard Write-Progress behavior
+                    Remove-Item Function:\Write-Progress
+
+                    Log-Message "$($program.Name): Installed successfully." "Success"
                 } catch {
-                    Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
+                    Log-Message "$($program.Name): Installation failed again. Error: $_" "Error"
+                    # Ensure Write-Progress is restored even if it crashes
+                    if (Test-Path Function:\Write-Progress) { Remove-Item Function:\Write-Progress }
                 }
             }
             &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)"
