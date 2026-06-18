@@ -129,6 +129,7 @@ if ($skipUpdate -ne 1) {
     if ($currentVersion -eq $remoteVersion) {
         if ($env:hatsUpdated -eq "1") {
             Log-Message "Program updated successfully! (Version $currentVersion)" "Success"
+            $env:hatsUpdated = $null
         } else {
             Log-Message "The Hat's Multitool is up to date. (Version $currentVersion)" "Info"
             Write-Host ""
