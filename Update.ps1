@@ -1,4 +1,4 @@
-# Self Update Module - Tyler Hatfield - v2.9
+# Self Update Module - Tyler Hatfield - v2.10
 
 # Define the path to your JSON file in the current directory
 $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
@@ -83,11 +83,29 @@ $UNOkayButton.Add_Click({
 
 # Cleanup Function for Updates
 function Invoke-SelfUpdateCleanup {
-    param([string]$OutPath)
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutPath
+    )
     
+    # 1. Visually close instantly
+    [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
+    [System.Windows.Forms.Application]::DoEvents()
+
+    # 2. Stage the cleanup and relaunch command
     $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
     
-    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$updateCleanup`"" -WorkingDirectory $env:TEMP
+    # 3. Spawn the invisible background cleanup process via .NET (prevents console flash)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "powershell.exe"
+    $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$updateCleanup`""
+    $psi.WorkingDirectory = $env:TEMP
+    $psi.CreateNoWindow = $true
+    $psi.UseShellExecute = $false
+    [System.Diagnostics.Process]::Start($psi) | Out-Null
+
+    # 4. Instant close
+    [System.Diagnostics.Process]::GetCurrentProcess().Kill()
 }
 
 # Check program version against remote, update if needed
