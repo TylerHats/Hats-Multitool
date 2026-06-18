@@ -123,21 +123,6 @@ $PasswordConfirmInput.Add_Enter({
     }
 })
 
-# Restore the Cue Banner if the user leaves the field empty
-$PasswordInput.Add_Leave({
-    if ([string]::IsNullOrEmpty($PasswordInput.Text)) {
-        $PasswordInput.UseSystemPasswordChar = $false
-        $script:PasswordMaskApplied = $false
-    }
-})
-
-$PasswordConfirmInput.Add_Leave({
-    if ([string]::IsNullOrEmpty($PasswordConfirmInput.Text)) {
-        $PasswordConfirmInput.UseSystemPasswordChar = $false
-        $script:ConfirmMaskApplied = $false
-    }
-})
-
 # Show Password Button Logic (Hold to Peek)
 $ShowPWButton.Add_MouseDown({
     $PasswordInput.UseSystemPasswordChar = $false

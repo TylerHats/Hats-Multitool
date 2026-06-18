@@ -145,7 +145,7 @@ $MainMenuAboutButton.Add_Click({
 })
 
 $MainMenu.Add_Load({
-    $MainMenu.ClientSize = [System.Drawing.Size]::new(300, ($MainMenuExitButton.Bottom + 20))
+    $MainMenu.ClientSize = [System.Drawing.Size]::new(300, ($MainMenuExitButton.Bottom + 30))
 })
 
 # Catch closes to close program properly
@@ -211,7 +211,7 @@ if (Test-Path -Path $jsonPath) {
 }
 
 # Version Label
-$y += 30
+$y += 40
 $AboutVersion = New-Object System.Windows.Forms.Label
 $AboutVersion.Text = "v$CurVerAbout"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
@@ -252,7 +252,7 @@ $y += 35
 $AboutCloseBtn = New-Object System.Windows.Forms.Button
 $AboutCloseBtn.Text = "Close"
 $AboutCloseBtn.Size = New-Object System.Drawing.Size(100, 40)
-$AboutCloseBtn.Location = New-Object System.Drawing.Point(125, 360) # Centered exactly (350-100)/2
+$AboutCloseBtn.Location = New-Object System.Drawing.Point(125, $y) 
 $AboutCloseBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutCloseBtn.FlatStyle = 'Flat'
 $AboutCloseBtn.FlatAppearance.BorderSize = 1
@@ -490,7 +490,7 @@ $MCPRButton.Text = "McAfee MCPR Tool"
 $MCPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MCPRButton.FlatStyle = 'Flat'
 $MCPRButton.FlatAppearance.BorderSize = 1
-$MCPRButton.Enabled = $false
+$MCPRButton.Enabled = $true
 $ToolsGUI.Controls.Add($MCPRButton)
 
 # MCPR Tooltip
@@ -759,15 +759,15 @@ $CDITooltip = New-Object System.Windows.Forms.ToolTip
 $CDITooltip.SetToolTip($CDIButton, "Runs Crystal Disk Info utility.")
 
 # Add back button
-$BackButton = New-Object System.Windows.Forms.Button
+$TBackButton = New-Object System.Windows.Forms.Button
 $y += 80
-$BackButton.Location = New-Object System.Drawing.Point(300, $y)
-$BackButton.Size = New-Object System.Drawing.Size(95, 40)
-$BackButton.Text = "Back"
-$BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BackButton.FlatStyle = 'Flat'
-$BackButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($BackButton)
+$TBackButton.Location = New-Object System.Drawing.Point(300, $y)
+$TBackButton.Size = New-Object System.Drawing.Size(95, 40)
+$TBackButton.Text = "Back"
+$TBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TBackButton.FlatStyle = 'Flat'
+$TBackButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($TBackButton)
 
 # Define MCPR Tool button functions
 $MCPRButton.Add_Click({
@@ -965,12 +965,12 @@ $CDIButton.Add_Click({
 })
 
 # Define back button
-$BackButton.Add_Click({
+$TBackButton.Add_Click({
 	$ToolsGUI.Hide()
 })
 
 $ToolsGUI.Add_Load({
-    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 20))
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(705, ($TBackButton.Bottom + 40))
 })
 
 # Catch closes to close program properly
@@ -1247,7 +1247,7 @@ $BackButton.Add_Click({
 })
 
 $TroubleGUI.Add_Load({
-    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 20))
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 40))
 })
 
 # Catch closes to close program properly
