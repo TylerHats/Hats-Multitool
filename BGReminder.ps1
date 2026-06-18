@@ -31,6 +31,7 @@ $BGR.Add_FormClosed({
     }
 })
 
+# Animation Timer Logic
 $global:bgrDotCount = 0
 $BGRTimer = New-Object System.Windows.Forms.Timer
 $BGRTimer.Interval = 1000 # Updates every 1000 milliseconds (a second)
