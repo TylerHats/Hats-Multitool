@@ -144,6 +144,10 @@ $MainMenuAboutButton.Add_Click({
     $MainMenu.Show()
 })
 
+$MainMenu.Add_Load({
+    $MainMenu.ClientSize = [System.Drawing.Size]::new(300, ($MainMenuExitButton.Bottom + 20))
+})
+
 # Catch closes to close program properly
 $MainMenu.Add_FormClosing({
     param($sender, $e)
@@ -159,7 +163,7 @@ $MainMenu.Add_FormClosing({
 $AboutGUI = New-Object System.Windows.Forms.Form
 $AboutGUI.Text = "About Hat's Multitool"
 $AboutGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$AboutGUI.ClientSize = New-Object System.Drawing.Size(350, 420)
+$AboutGUI.ClientSize = New-Object System.Drawing.Size(320, 380)
 $AboutGUI.StartPosition = 'CenterScreen'
 $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -171,8 +175,8 @@ Set-DarkTitleBar -TargetForm $AboutGUI
 
 # Big Icon (Pulls the crisp PNG from script root)
 $IconBox = New-Object System.Windows.Forms.PictureBox
-$IconBox.Size = New-Object System.Drawing.Size(128, 128)
-$IconBox.Location = New-Object System.Drawing.Point(111, 30) # Centered exactly (350-128)/2
+$IconBox.Size = New-Object System.Drawing.Size(100, 100)
+$IconBox.Top = 20
 $IconBox.SizeMode = 'StretchImage'
 
 $PngIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIcon.png"
@@ -185,13 +189,14 @@ if (Test-Path $PngIconPath) {
 $AboutGUI.Controls.Add($IconBox)
 
 # Program Title Label
+$y = 135
 $AboutTitle = New-Object System.Windows.Forms.Label
 $AboutTitle.Text = "Hat's Multitool"
 $AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold)
 $AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutTitle.AutoSize = $false
 $AboutTitle.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 30)
-$AboutTitle.Location = New-Object System.Drawing.Point(0, 175)
+$AboutTitle.Location = New-Object System.Drawing.Point(0, $y)
 $AboutTitle.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutTitle)
 
@@ -206,33 +211,36 @@ if (Test-Path -Path $jsonPath) {
 }
 
 # Version Label
+$y += 30
 $AboutVersion = New-Object System.Windows.Forms.Label
 $AboutVersion.Text = "v$CurVerAbout"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $AboutVersion.AutoSize = $false
 $AboutVersion.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
-$AboutVersion.Location = New-Object System.Drawing.Point(0, 205)
+$AboutVersion.Location = New-Object System.Drawing.Point(0, $y)
 $AboutVersion.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutVersion)
 
 # Author / Copyright Label
+$y += 30
 $AboutAuthor = New-Object System.Windows.Forms.Label
 $AboutAuthor.Text = "Created by Tyler Hatfield`n$([char]0x00A9) $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
 $AboutAuthor.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutAuthor.AutoSize = $false
 $AboutAuthor.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 60)
-$AboutAuthor.Location = New-Object System.Drawing.Point(0, 235)
+$AboutAuthor.Location = New-Object System.Drawing.Point(0, $y)
 $AboutAuthor.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutAuthor)
 
 # GitHub Link
+$y += 65
 $GithubLink = New-Object System.Windows.Forms.LinkLabel
 $GithubLink.Text = "View Source on GitHub"
 $GithubLink.LinkColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 $GithubLink.ActiveLinkColor = [System.Drawing.ColorTranslator]::FromHtml("#7289DA")
 $GithubLink.AutoSize = $false
 $GithubLink.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
-$GithubLink.Location = New-Object System.Drawing.Point(0, 305)
+$GithubLink.Location = New-Object System.Drawing.Point(0, $y)
 $GithubLink.TextAlign = 'MiddleCenter'
 $GithubLink.Add_LinkClicked({
     Start-Process "https://github.com/TylerHats/Hats-Multitool/"
@@ -240,6 +248,7 @@ $GithubLink.Add_LinkClicked({
 $AboutGUI.Controls.Add($GithubLink)
 
 # Close Button
+$y += 35
 $AboutCloseBtn = New-Object System.Windows.Forms.Button
 $AboutCloseBtn.Text = "Close"
 $AboutCloseBtn.Size = New-Object System.Drawing.Size(100, 40)
@@ -249,6 +258,22 @@ $AboutCloseBtn.FlatStyle = 'Flat'
 $AboutCloseBtn.FlatAppearance.BorderSize = 1
 $AboutCloseBtn.Add_Click({ $AboutGUI.Hide() })
 $AboutGUI.Controls.Add($AboutCloseBtn)
+
+# Fix Scaling and Layout Dynamically
+$AboutGUI.Add_Load({
+    # 1. Update text element widths to match the scaled window width
+    $AboutTitle.Width = $AboutGUI.ClientSize.Width
+    $AboutVersion.Width = $AboutGUI.ClientSize.Width
+    $AboutAuthor.Width = $AboutGUI.ClientSize.Width
+    $GithubLink.Width = $AboutGUI.ClientSize.Width
+
+    # 2. Calculate the exact center for the Image and the Button
+    $IconBox.Left = ($AboutGUI.ClientSize.Width - $IconBox.Width) / 2
+    $AboutCloseBtn.Left = ($AboutGUI.ClientSize.Width - $AboutCloseBtn.Width) / 2
+
+    # 3. Wrap the window height to the bottom of the close button with padding
+    $AboutGUI.ClientSize = [System.Drawing.Size]::new($AboutGUI.ClientSize.Width, ($AboutCloseBtn.Bottom + 20))
+})
 
 # Catch Close to just hide instead of exit completely
 $AboutGUI.Add_FormClosing({
@@ -387,6 +412,10 @@ $ModGUIokButton.Add_Click({
 # Define back button function
 $ModGUIBackButton.Add_Click({
 	$ModGUI.Hide()
+})
+
+$ModGUI.Add_Load({
+    $ModGUI.ClientSize = [System.Drawing.Size]::new(300, ($ModGUIBackButton.Bottom + 20))
 })
 
 # Catch closes to close program properly
@@ -940,6 +969,10 @@ $BackButton.Add_Click({
 	$ToolsGUI.Hide()
 })
 
+$ToolsGUI.Add_Load({
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 20))
+})
+
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
     param($sender, $e)
@@ -1211,6 +1244,10 @@ $ConsoleButton.Add_Click({
 # Define back button
 $BackButton.Add_Click({
 	$TroubleGUI.Hide()
+})
+
+$TroubleGUI.Add_Load({
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 20))
 })
 
 # Catch closes to close program properly
