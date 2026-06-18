@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.9
+# System Management Module - Tyler Hatfield - v2.10
 
 $EM_SETCUEBANNER = 0x1501
 
@@ -215,11 +215,11 @@ $SMOkayButton.Add_Click({
 			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
 			Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
 		} elseif (($EntraCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-			Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
-			Start-Process 'ms-settings:workplace'
-		} elseif (($EntraCheckbox.Checked) -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-			Start-Process 'ms-settings:workplace'
+            if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
+            Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+            Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
+        } elseif (($EntraCheckbox.Checked) -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
+            Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
 		} else {
 			throw "Unexpected error"
 		}
