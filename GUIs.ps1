@@ -828,7 +828,16 @@ $WizTreeButton.Add_Click({
 	$WizTreeButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
-	Show-DownloadDialog -DisplayName 'WizTree' -Url 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip' -OutputPath "$WizTreeZipPath"
+	
+	$wizTreeUrl = 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip'
+	try {
+		$wtPage = Invoke-WebRequest -Uri "https://diskanalyzer.com/download" -UseBasicParsing -ErrorAction Stop
+		if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
+			$wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
+		}
+	} catch { }
+	
+	Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
 	Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
 	$WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
 	Start-Process $WizTreeExePath
@@ -840,7 +849,16 @@ $BleachButton.Add_Click({
 	$BleachButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
-	Show-DownloadDialog -DisplayName 'BleachBit' -Url 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip' -OutputPath "$BleachZipPath"
+	
+	$bbUrl = 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip'
+	try {
+		$bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
+		if ($bbPage.Content -match 'href="(https://download\.bleachbit\.org/[^"]+portable\.zip)"') {
+			$bbUrl = $matches[1]
+		}
+	} catch { }
+	
+	Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
 	Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
 	$BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
 	Start-Process $BleachExePath
@@ -874,7 +892,15 @@ $DISMPPButton.Add_Click({
 	$DISMPPButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
-	Show-DownloadDialog -DisplayName 'DISM++' -Url 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip' -OutputPath "$DISMPPPath"
+	
+	$dismUrl = 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip'
+	try {
+		$ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
+		$ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
+		if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
+	} catch { }
+	
+	Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
 	Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
 	$DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
     Start-Process $DISMPPEPath
@@ -945,7 +971,14 @@ $CDMButton.Add_Click({
 	$CDMButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-	Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1' -OutputPath "$CDMPath"
+	
+	$cdmUrl = 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1'
+	try {
+		$sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
+		if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
+	} catch { }
+	
+	Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
 	Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
 	$CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
     Start-Process $CDMEPath
@@ -957,7 +990,14 @@ $CDIButton.Add_Click({
 	$CDIButton.Enabled = $false
 	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
 	$CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1' -OutputPath "$CDIPath"
+	
+	$cdiUrl = 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1'
+	try {
+		$sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
+		if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
+	} catch { }
+	
+	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
 	Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
 	$CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
     Start-Process $CDIEPath
