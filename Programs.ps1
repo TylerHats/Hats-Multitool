@@ -141,7 +141,7 @@ $trackPanel.Controls.Add($fillPanel)
 
 $okButton = New-Object System.Windows.Forms.Button
 $y += 40
-$okButton.Location = New-Object System.Drawing.Point(152, $y)
+$okButton.Location = New-Object System.Drawing.Point(95, $y)
 $okButton.Size = New-Object System.Drawing.Size(95, 40)
 $okButton.Text = "OK"
 $okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -149,6 +149,21 @@ $okButton.FlatStyle = 'Flat'
 $okButton.FlatAppearance.BorderSize = 1
 $form.Controls.Add($okButton)
 $form.AcceptButton = $okButton
+
+$skipButton = New-Object System.Windows.Forms.Button
+$skipButton.Location = New-Object System.Drawing.Point(210, $y)
+$skipButton.Size = New-Object System.Drawing.Size(95, 40)
+$skipButton.Text = "Skip Current"
+$skipButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$skipButton.FlatStyle = 'Flat'
+$skipButton.FlatAppearance.BorderSize = 1
+$skipButton.Enabled = $false
+$form.Controls.Add($skipButton)
+
+$script:SkipCurrent = $false
+$skipButton.Add_Click({
+    $script:SkipCurrent = $true
+})
 
 # Dynamic Sizing Trigger
 $form.Add_Load({
@@ -192,6 +207,10 @@ $downloadWithProgress = {
     
     $webClient.DownloadFileAsync([System.Uri]$Url, $OutFile)
     while (-not $global:DlDone) {
+        if ($script:SkipCurrent) {
+            $webClient.CancelAsync()
+            break
+        }
         $pct = $global:DlProgress
         # Pass both the main status and the secondary detail text
         &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
@@ -288,52 +307,109 @@ $okButton.Add_Click({
             &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" "Initializing WinGet..."
             
             try {
-                # Create an isolated Runspace
-                $ps = [System.Management.Automation.PowerShell]::Create()
+                $script:SkipCurrent = $false
+                $skipButton.Enabled = $true
                 
-                # Build the command payload for the background thread
-                $scriptBlock = "Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; Find-WinGetPackage -Id '$($program.WingetID)' -Source winget | Install-WinGetPackage -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent"
-                $ps.AddScript($scriptBlock) | Out-Null
+                # 1. Scrape WinGet for URL and Silent Switches
+                $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $procInfo.FileName = "winget.exe"
+                $procInfo.Arguments = "show --id `"$($program.WingetID)`" --machine --exact --accept-source-agreements --architecture x64"
+                $procInfo.RedirectStandardOutput = $true
+                $procInfo.UseShellExecute = $false
+                $procInfo.CreateNoWindow = $true
+
+                $proc = New-Object System.Diagnostics.Process
+                $proc.StartInfo = $procInfo
+                $proc.Start() | Out-Null
                 
-                # Fire the execution asynchronously
-                $asyncResult = $ps.BeginInvoke()
+                $wingetOutput = $proc.StandardOutput.ReadToEnd()
+                $proc.WaitForExit()
+
+                $installerUrl = $null
+                $silentArgs = $null
+                $installerType = $null
+
+                foreach ($line in ($wingetOutput -split "`n")) {
+                    if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
+                    if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
+                    if ($line -match 'Silent( with Progress)?:\s+(.+)') { $silentArgs = $matches[2].Trim() }
+                }
+
+                if ([string]::IsNullOrWhiteSpace($installerUrl)) {
+                    throw "Failed to locate direct download URL from WinGet."
+                }
                 
-                # Poll the background thread's progress stream while keeping WinForms alive
-                while (-not $asyncResult.IsCompleted) {
-                    if ($ps.Streams.Progress.Count -gt 0) {
-                        $progRecords = $ps.Streams.Progress.ReadAll()
-                        foreach ($record in $progRecords) {
-                            $pct = $record.PercentComplete
-                            
-                            # Fallbacks if WinGet telemetry drops parts of the string
-                            $statusMsg = $record.StatusDescription
-                            if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = $record.Activity }
-                            if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = "Processing..." }
-                            
-                            # A -1 percentage means the progress is indeterminate (usually the execution phase)
-                            $displayPct = if ($pct -ge 0) { $pct } else { 99 }
-                            if ($pct -lt 0) { $statusMsg = "Running Installer... (99%)" } 
-                            else { $statusMsg = "$statusMsg ($displayPct%)" }
-                            
-                            &$updateLocalProgress $currentIndex $totalPrograms $displayPct "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" $statusMsg
-                        }
+                if ([string]::IsNullOrWhiteSpace($silentArgs)) {
+                    # Fallbacks
+                    if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
+                    elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
+                    elseif ($installerType -match "nullsoft") { $silentArgs = "/S" }
+                    else { $silentArgs = "/S" }
+                }
+
+                # 2. Download
+                $urlExt = [System.IO.Path]::GetExtension($installerUrl).Split('?')[0]
+                if ([string]::IsNullOrWhiteSpace($urlExt) -or $urlExt -notmatch "msi|exe|msix") {
+                    $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
+                }
+                $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
+                &$downloadWithProgress $installerUrl $tempPath $currentIndex $totalPrograms $program.Name
+                
+                if ($script:SkipCurrent) {
+                    Log-Message "$($program.Name): Installation skipped by user." "Warning"
+                    $skipButton.Enabled = $false
+                    $currentIndex++
+                    Continue
+                }
+
+                # 3. Execute
+                Log-Message "Running Installer..." "Info"
+                
+                $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $installProcInfo.FileName = $tempPath
+                $installProcInfo.Arguments = $silentArgs
+                $installProcInfo.UseShellExecute = $false
+                $installProcInfo.CreateNoWindow = $true
+
+                $installProc = New-Object System.Diagnostics.Process
+                $installProc.StartInfo = $installProcInfo
+                $installProc.Start() | Out-Null
+                
+                $dotCount = 0
+                while (-not $installProc.HasExited) {
+                    if ($script:SkipCurrent) {
+                        Log-Message "$($program.Name): Installation aborted by user." "Warning"
+                        try { $installProc.Kill() } catch {}
+                        break
                     }
+                    $dotCount++
+                    if ($dotCount -gt 3) { $dotCount = 0 }
+                    $dots = "." * $dotCount
+                    
+                    &$updateLocalProgress $currentIndex $totalPrograms 99 "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" "Running Installer$dots"
+                    
                     [System.Windows.Forms.Application]::DoEvents()
-                    Start-Sleep -Milliseconds 50
+                    Start-Sleep -Milliseconds 500
                 }
                 
-                # Throw back any terminating errors from the runspace
-                if ($ps.Streams.Error.Count -gt 0) {
-                    throw $ps.Streams.Error[0].Exception.Message
+                if (-not $script:SkipCurrent) {
+                    if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
+                        Log-Message "$($program.Name): Installed successfully." "Success"
+                    } else {
+                        Log-Message "$($program.Name): Installation exited with code $($installProc.ExitCode)." "Warning"
+                        $failedWinget += $program.Name
+                    }
                 }
                 
-                Log-Message "$($program.Name): Installed successfully." "Success"
+                # Cleanup
+                Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+                
                 Start-Sleep -Seconds 1
+                $skipButton.Enabled = $false
             } catch {
                 Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
                 $failedWinget += $program.Name
-            } finally {
-                if ($null -ne $ps) { $ps.Dispose() }
+                $skipButton.Enabled = $false
             }
         }
         
@@ -367,49 +443,93 @@ $okButton.Add_Click({
                 &$updateLocalProgress $retryIndex $retryTotal 0 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Initializing WinGet..."
                 
                 try {
-                    # Create an isolated Runspace for the retry
-                    $ps = [System.Management.Automation.PowerShell]::Create()
+                    $script:SkipCurrent = $false
+                    $skipButton.Enabled = $true
                     
-                    # Build the command payload
-                    $scriptBlock = "Import-Module Microsoft.WinGet.Client -ErrorAction SilentlyContinue; Find-WinGetPackage -Id '$($program.WingetID)' -Source winget | Install-WinGetPackage -AcceptPackageAgreements -AcceptSourceAgreements -Scope Machine -Mode Silent"
-                    $ps.AddScript($scriptBlock) | Out-Null
+                    $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $procInfo.FileName = "winget.exe"
+                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --machine --exact --accept-source-agreements --architecture x64"
+                    $procInfo.RedirectStandardOutput = $true
+                    $procInfo.UseShellExecute = $false
+                    $procInfo.CreateNoWindow = $true
+
+                    $proc = New-Object System.Diagnostics.Process
+                    $proc.StartInfo = $procInfo
+                    $proc.Start() | Out-Null
                     
-                    # Fire the execution asynchronously
-                    $asyncResult = $ps.BeginInvoke()
+                    $wingetOutput = $proc.StandardOutput.ReadToEnd()
+                    $proc.WaitForExit()
+
+                    $installerUrl = $null
+                    $silentArgs = $null
+                    $installerType = $null
+
+                    foreach ($line in ($wingetOutput -split "`n")) {
+                        if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
+                        if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
+                        if ($line -match 'Silent( with Progress)?:\s+(.+)') { $silentArgs = $matches[2].Trim() }
+                    }
+
+                    if ([string]::IsNullOrWhiteSpace($installerUrl)) { throw "Failed to locate direct download URL from WinGet." }
+                    if ([string]::IsNullOrWhiteSpace($silentArgs)) {
+                        if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
+                        elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
+                        else { $silentArgs = "/S" }
+                    }
+
+                    $urlExt = [System.IO.Path]::GetExtension($installerUrl).Split('?')[0]
+                    if ([string]::IsNullOrWhiteSpace($urlExt) -or $urlExt -notmatch "msi|exe|msix") {
+                        $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
+                    }
+                    $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
+                    &$downloadWithProgress $installerUrl $tempPath $retryIndex $retryTotal $program.Name
                     
-                    # Poll the background thread's progress stream
-                    while (-not $asyncResult.IsCompleted) {
-                        if ($ps.Streams.Progress.Count -gt 0) {
-                            $progRecords = $ps.Streams.Progress.ReadAll()
-                            foreach ($record in $progRecords) {
-                                $pct = $record.PercentComplete
-                                
-                                $statusMsg = $record.StatusDescription
-                                if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = $record.Activity }
-                                if ([string]::IsNullOrWhiteSpace($statusMsg)) { $statusMsg = "Processing..." }
-                                
-                                $displayPct = if ($pct -ge 0) { $pct } else { 99 }
-                                if ($pct -lt 0) { $statusMsg = "Running Installer... (99%)" } 
-                                else { $statusMsg = "$statusMsg ($displayPct%)" }
-                                
-                                # Note: Using $retryIndex and $retryTotal here
-                                &$updateLocalProgress $retryIndex $retryTotal $displayPct "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" $statusMsg
-                            }
+                    if ($script:SkipCurrent) {
+                        Log-Message "$($program.Name): Installation skipped by user on retry." "Warning"
+                        $skipButton.Enabled = $false
+                        $retryIndex++
+                        Continue
+                    }
+
+                    Log-Message "Running Installer..." "Info"
+                    $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $installProcInfo.FileName = $tempPath
+                    $installProcInfo.Arguments = $silentArgs
+                    $installProcInfo.UseShellExecute = $false
+                    $installProcInfo.CreateNoWindow = $true
+
+                    $installProc = New-Object System.Diagnostics.Process
+                    $installProc.StartInfo = $installProcInfo
+                    $installProc.Start() | Out-Null
+                    
+                    $dotCount = 0
+                    while (-not $installProc.HasExited) {
+                        if ($script:SkipCurrent) {
+                            try { $installProc.Kill() } catch {}
+                            break
                         }
+                        $dotCount++
+                        if ($dotCount -gt 3) { $dotCount = 0 }
+                        $dots = "." * $dotCount
+                        &$updateLocalProgress $retryIndex $retryTotal 99 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Running Installer$dots"
                         [System.Windows.Forms.Application]::DoEvents()
-                        Start-Sleep -Milliseconds 50
+                        Start-Sleep -Milliseconds 500
                     }
                     
-                    if ($ps.Streams.Error.Count -gt 0) {
-                        throw $ps.Streams.Error[0].Exception.Message
+                    if (-not $script:SkipCurrent) {
+                        if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
+                            Log-Message "$($program.Name): Installed successfully on retry." "Success"
+                        } else {
+                            Log-Message "$($program.Name): Installation failed again with code $($installProc.ExitCode)." "Error"
+                        }
                     }
                     
-                    Log-Message "$($program.Name): Installed successfully on retry." "Success"
+                    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
                     Start-Sleep -Seconds 1
+                    $skipButton.Enabled = $false
                 } catch {
                     Log-Message "$($program.Name): Installation failed again. Error: $_" "Error"
-                } finally {
-                    if ($null -ne $ps) { $ps.Dispose() }
+                    $skipButton.Enabled = $false
                 }
             }
             # Advance segment mapping to force it to 100% completion before moving index
