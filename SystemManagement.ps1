@@ -207,16 +207,40 @@ $SMOkayButton.Add_Click({
 		if ($DomainCheckbox.Checked -and (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
 			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
 			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainNameInput.Text):"
-			Add-Computer -DomainName $DomainNameInput.Text -NewName $PCNameInput.Text -Credential $DomainCredential -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+			try {
+				Add-Computer -DomainName $DomainNameInput.Text -NewName $PCNameInput.Text -Credential $DomainCredential -ErrorAction Stop
+				Log-Message "Successfully added computer to domain $($DomainNameInput.Text) and renamed to $($PCNameInput.Text)." "Success"
+			} catch {
+				Log-Message "Add-Computer failed: $_" "Error"
+				throw
+			}
 		} elseif ($DomainCheckbox.Checked -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
 			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainNameInput.Text):"
-			Add-Computer -DomainName $DomainNameInput.Text -Credential $DomainCredential -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+			try {
+				Add-Computer -DomainName $DomainNameInput.Text -Credential $DomainCredential -ErrorAction Stop
+				Log-Message "Successfully added computer to domain $($DomainNameInput.Text)." "Success"
+			} catch {
+				Log-Message "Add-Computer failed: $_" "Error"
+				throw
+			}
 		} elseif ((-not $DomainCheckbox.Checked) -and ($PCNameInput.Text -ne "")) {
 			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-			Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+			try {
+				Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop
+				Log-Message "Successfully renamed computer to $($PCNameInput.Text)." "Success"
+			} catch {
+				Log-Message "Rename-Computer failed: $_" "Error"
+				throw
+			}
 		} elseif (($EntraCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
             if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-            Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop *>&1 | Out-File -Append -FilePath $logPath
+            try {
+                Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop
+                Log-Message "Successfully renamed computer to $($PCNameInput.Text)." "Success"
+            } catch {
+                Log-Message "Rename-Computer failed: $_" "Error"
+                throw
+            }
             Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
         } elseif (($EntraCheckbox.Checked) -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
             Start-Process explorer.exe -ArgumentList "ms-settings:workplace"

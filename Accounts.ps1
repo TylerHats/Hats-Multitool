@@ -177,7 +177,7 @@ $A1OkayButton.Add_Click({
             }
             Log-Message "Created local user $($UsernameInput.Text)." "Success"
         } catch {
-            $_.Exception.Message | Out-File -Append -FilePath $logPath
+            Log-Message "Exception: $($_.Exception.Message)" "Error"
             PopupError "Failed to create user. Please check log." "Error"
         }
     } else {
@@ -189,7 +189,7 @@ $A1OkayButton.Add_Click({
                 Set-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop
                 Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
             } catch {
-                $_.Exception.Message | Out-File -Append -FilePath $logPath
+                Log-Message "Exception: $($_.Exception.Message)" "Error"
                 PopupError "Failed to update user password. Please check log." "Error"
             }
         } elseif ($PWCheckbox.Checked -and -not $SecurePassword) {
@@ -208,7 +208,7 @@ $A1OkayButton.Add_Click({
                 Add-LocalGroupMember -Group "Administrators" -Member $UsernameInput.Text -ErrorAction Stop
                 Log-Message "Successfully elevated $($UsernameInput.Text) to Administrator." "Success"
             } catch {
-                $_.Exception.Message | Out-File -Append -FilePath $logPath
+                Log-Message "Exception: $($_.Exception.Message)" "Error"
                 PopupError "Failed to elevate user. Please check log." "Error"
             }
         } else {

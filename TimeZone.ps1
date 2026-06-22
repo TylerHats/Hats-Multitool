@@ -68,16 +68,16 @@ $TZOkayButton.Add_Click({
     
     if ($TimeZone -like "*eastern*") {
         Log-Message "Setting Time Zone to Eastern Standard Time..."
-        Set-TimeZone -Name "Eastern Standard Time" *>&1 | Out-File -Append -FilePath $logPath
+        try { Set-TimeZone -Name "Eastern Standard Time" -ErrorAction Stop } catch { Log-Message "Failed to set Time Zone: $_" "Error" }
     } elseif ($TimeZone -like "*central*") {
         Log-Message "Setting Time Zone to Central Standard Time..."
-        Set-TimeZone -Name "Central Standard Time" *>&1 | Out-File -Append -FilePath $logPath
+        try { Set-TimeZone -Name "Central Standard Time" -ErrorAction Stop } catch { Log-Message "Failed to set Time Zone: $_" "Error" }
     } elseif ($TimeZone -like "*mountain*") {
         Log-Message "Setting Time Zone to Mountain Standard Time..."
-        Set-TimeZone -Name "Mountain Standard Time" *>&1 | Out-File -Append -FilePath $logPath
+        try { Set-TimeZone -Name "Mountain Standard Time" -ErrorAction Stop } catch { Log-Message "Failed to set Time Zone: $_" "Error" }
     } elseif ($TimeZone -like "*pacific*") {
         Log-Message "Setting Time Zone to Pacific Standard Time..."
-        Set-TimeZone -Name "Pacific Standard Time" *>&1 | Out-File -Append -FilePath $logPath
+        try { Set-TimeZone -Name "Pacific Standard Time" -ErrorAction Stop } catch { Log-Message "Failed to set Time Zone: $_" "Error" }
     }
     
     Log-Message "Syncing Windows Time Service..." "Info"
@@ -85,16 +85,18 @@ $TZOkayButton.Add_Click({
     # Robust Time Sync Logic
     Set-Service -Name w32time -StartupType Automatic -ErrorAction SilentlyContinue
     if ((Get-Service -Name w32time).Status -ne 'Running') {
-        Start-Service -Name w32time -ErrorAction SilentlyContinue | Out-File -Append -FilePath $logPath
+        try { Start-Service -Name w32time -ErrorAction Stop } catch { Log-Message "Failed to start w32time: $_" "Error" }
     } else {
         # If it is running, restart it to flush stale peer connections
-        Restart-Service -Name w32time -Force -ErrorAction SilentlyContinue | Out-File -Append -FilePath $logPath
+        try { Restart-Service -Name w32time -Force -ErrorAction Stop } catch { Log-Message "Failed to restart w32time: $_" "Error" }
     }
     
     # Force the config to update, give the service 2 seconds to poll NTP servers, then force resync
-    w32tm /config /update *>&1 | Out-File -Append -FilePath $logPath
+    $cmdOutput = w32tm /config /update 2>&1
+    if ($LASTEXITCODE -ne 0) { Log-Message "w32tm config update failed: $cmdOutput" "Error" }
     Start-Sleep -Seconds 2
-    w32tm /resync /force *>&1 | Out-File -Append -FilePath $logPath
+    $cmdOutput = w32tm /resync /force 2>&1
+    if ($LASTEXITCODE -ne 0) { Log-Message "w32tm resync failed: $cmdOutput" "Error" }
     
     $TZGUI.Close()
 })

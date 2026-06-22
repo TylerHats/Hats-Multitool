@@ -26,6 +26,8 @@ if ($InteractiveUser) {
 }
 $logPathName = "Hats-Multitool-Log.txt"
 $logPath = Join-Path $DownloadsPath $logPathName
+$global:TempLogPath = Join-Path $env:TEMP $logPathName
+$global:HasErrors = $false
 # Check for an IRM launch breadcrumb
 $breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
 $Global:IRMExeTarget = $null
@@ -76,16 +78,17 @@ function Log-Message {
         Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
     } elseif ($level.ToLower() -eq "error") {
         Write-Host $consoleMessage -ForegroundColor "Red"
-        $logMessage | Out-File -FilePath $logPath -Append
+        $global:HasErrors = $true
+        $logMessage | Out-File -FilePath $global:TempLogPath -Append
     } elseif ($level.ToLower() -eq "success") {
         Write-Host $consoleMessage -ForegroundColor "Green"
 	} elseif ($level.ToLower() -eq "skip") {
 		Write-Host $consoleMessage -ForegroundColor "Cyan"
     } elseif ($level.ToLower() -eq "logonly") {
-		$logMessage | Out-File -FilePath $logPath -Append
+		$logMessage | Out-File -FilePath $global:TempLogPath -Append
 	} else {
         Write-Host $consoleMessage
-        $logMessage | Out-File -FilePath $logPath -Append
+        $logMessage | Out-File -FilePath $global:TempLogPath -Append
     }
 }
 
@@ -160,8 +163,13 @@ function User-Exit {
         [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
         [System.Windows.Forms.Application]::DoEvents()
         
+        # 1.5 Handle Logging Output
+        if ($global:HasErrors -eq $true) {
+            Copy-Item -Path $global:TempLogPath -Destination $logPath -Force -ErrorAction SilentlyContinue
+        }
+
         # 2. Stage the cleanup command
-        $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed'"
+        $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue"
      
         # 3. Spawn the invisible background cleanup process
         $psi = New-Object System.Diagnostics.ProcessStartInfo

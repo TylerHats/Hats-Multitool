@@ -28,10 +28,14 @@ if ($OSVersion.Build -lt 22000) {
 
 # Standalone Logging Function
 $logPath = Join-Path [Environment]::GetFolderPath('MyDocuments') "Hats-UserMove-Log.txt"
+$global:TempUserMoveLog = Join-Path $env:TEMP "Hats-UserMove-Log.txt"
+$global:UserMoveHasErrors = $false
+
 function Log-Message {
     param( [string]$message, [string]$level = "Info" )
+    if ($level.ToLower() -eq "error") { $global:UserMoveHasErrors = $true }
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "$timestamp [$level] - $message" | Out-File -FilePath $logPath -Append
+    "$timestamp [$level] - $message" | Out-File -FilePath $global:TempUserMoveLog -Append
     Write-Host "[$level] - $message"
 }
 
@@ -845,4 +849,11 @@ if (-not `$Remaining) {
 # Kill the loader and show the real GUI
 $MicroLoader.Close()
 $MicroLoader.Dispose()
+
+$MoveGUI.Add_FormClosed({
+    if ($global:UserMoveHasErrors) {
+        Copy-Item -Path $global:TempUserMoveLog -Destination $logPath -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item -Path $global:TempUserMoveLog -Force -ErrorAction SilentlyContinue
+})
 $MoveGUI.ShowDialog() | Out-Null

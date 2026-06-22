@@ -103,7 +103,8 @@ function Invoke-SelfUpdateCleanup {
     [System.Windows.Forms.Application]::DoEvents()
 
     # 2. Stage the cleanup and relaunch command
-    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; Add-Content -LiteralPath '$logPath' -Value 'Script self cleanup completed during self update'; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
+    $copyLogCmd = if ($global:HasErrors) { "Copy-Item -Path '$($global:TempLogPath)' -Destination '$logPath' -Force -ErrorAction SilentlyContinue;" } else { "" }
+    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; $copyLogCmd Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
     
     # 3. Spawn the invisible background cleanup process via .NET (prevents console flash)
     $psi = New-Object System.Diagnostics.ProcessStartInfo

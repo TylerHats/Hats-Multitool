@@ -215,7 +215,11 @@ $okButton.Add_Click({
         return
     }
 
-    Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+    try {
+        Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
+    } catch {
+        Log-Message "Failed to stop winget: $_" "Error"
+    }
 
     $failedWinget = @()
     $currentIndex = 0
@@ -240,7 +244,11 @@ $okButton.Add_Click({
                     Log-Message "Downloading Office Deployment Tool..." "Info"
                     try {
                         &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms $displayName
-                        Unblock-File -Path $odtExe *>&1 | Out-File -Append -FilePath $logPath
+                        try {
+                            Unblock-File -Path $odtExe -ErrorAction Stop
+                        } catch {
+                            Log-Message "Failed to unblock $odtExe : $_" "Error"
+                        }
                     } catch {
                         Log-Message "ODT download failed, check internet connection." "Error"
                         $currentIndex++
@@ -336,8 +344,16 @@ $okButton.Add_Click({
 
     if ($failedWinget.Count -gt 0) {
         Log-Message "Retrying failed programs..." "Info"
-        Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
-        Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue *>&1 | Out-File -Append -FilePath $logPath
+        try {
+            Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
+        } catch {
+            Log-Message "Failed to stop winget process: $_" "Error"
+        }
+        try {
+            Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
+        } catch {
+            Log-Message "Failed to stop msiexec process: $_" "Error"
+        }
         Start-Sleep -Seconds 1
         
         $retryTotal = $failedWinget.Count
