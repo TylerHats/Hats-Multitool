@@ -176,7 +176,7 @@ Set-DarkTitleBar -TargetForm $AboutGUI
 # Big Icon (Pulls the crisp PNG from script root)
 $IconBox = New-Object System.Windows.Forms.PictureBox
 $IconBox.Size = New-Object System.Drawing.Size(100, 100)
-$IconBox.Top = 20
+$IconBox.Location = New-Object System.Drawing.Point(110, 20)
 $IconBox.SizeMode = 'StretchImage'
 
 $PngIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIcon.png"
@@ -195,7 +195,7 @@ $AboutTitle.Text = "Hat's Multitool"
 $AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold)
 $AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutTitle.AutoSize = $false
-$AboutTitle.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 30)
+$AboutTitle.Size = New-Object System.Drawing.Size(320, 30)
 $AboutTitle.Location = New-Object System.Drawing.Point(0, $y)
 $AboutTitle.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutTitle)
@@ -216,7 +216,7 @@ $AboutVersion = New-Object System.Windows.Forms.Label
 $AboutVersion.Text = "v$CurVerAbout"
 $AboutVersion.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $AboutVersion.AutoSize = $false
-$AboutVersion.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
+$AboutVersion.Size = New-Object System.Drawing.Size(320, 25)
 $AboutVersion.Location = New-Object System.Drawing.Point(0, $y)
 $AboutVersion.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutVersion)
@@ -227,7 +227,7 @@ $AboutAuthor = New-Object System.Windows.Forms.Label
 $AboutAuthor.Text = "Created by Tyler Hatfield`n$([char]0x00A9) $(Get-Date -Format 'yyyy') Hat's Things LLC`nReleased under the GPLv3 License"
 $AboutAuthor.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutAuthor.AutoSize = $false
-$AboutAuthor.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 60)
+$AboutAuthor.Size = New-Object System.Drawing.Size(320, 60)
 $AboutAuthor.Location = New-Object System.Drawing.Point(0, $y)
 $AboutAuthor.TextAlign = 'MiddleCenter'
 $AboutGUI.Controls.Add($AboutAuthor)
@@ -239,7 +239,7 @@ $GithubLink.Text = "View Source on GitHub"
 $GithubLink.LinkColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 $GithubLink.ActiveLinkColor = [System.Drawing.ColorTranslator]::FromHtml("#7289DA")
 $GithubLink.AutoSize = $false
-$GithubLink.Size = New-Object System.Drawing.Size($AboutGUI.ClientSize.Width, 25)
+$GithubLink.Size = New-Object System.Drawing.Size(320, 25)
 $GithubLink.Location = New-Object System.Drawing.Point(0, $y)
 $GithubLink.TextAlign = 'MiddleCenter'
 $GithubLink.Add_LinkClicked({
@@ -252,26 +252,15 @@ $y += 35
 $AboutCloseBtn = New-Object System.Windows.Forms.Button
 $AboutCloseBtn.Text = "Close"
 $AboutCloseBtn.Size = New-Object System.Drawing.Size(100, 40)
-$AboutCloseBtn.Location = New-Object System.Drawing.Point(125, $y) 
+$AboutCloseBtn.Location = New-Object System.Drawing.Point(110, $y) 
 $AboutCloseBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutCloseBtn.FlatStyle = 'Flat'
 $AboutCloseBtn.FlatAppearance.BorderSize = 1
 $AboutCloseBtn.Add_Click({ $AboutGUI.Hide() })
 $AboutGUI.Controls.Add($AboutCloseBtn)
 
-# Fix Scaling and Layout Dynamically
+# Wrap the window height dynamically in case of scaling
 $AboutGUI.Add_Load({
-    # 1. Update text element widths to match the scaled window width
-    $AboutTitle.Width = $AboutGUI.ClientSize.Width
-    $AboutVersion.Width = $AboutGUI.ClientSize.Width
-    $AboutAuthor.Width = $AboutGUI.ClientSize.Width
-    $GithubLink.Width = $AboutGUI.ClientSize.Width
-
-    # 2. Calculate the exact center for the Image and the Button
-    $IconBox.Left = ($AboutGUI.ClientSize.Width - $IconBox.Width) / 2
-    $AboutCloseBtn.Left = ($AboutGUI.ClientSize.Width - $AboutCloseBtn.Width) / 2
-
-    # 3. Wrap the window height to the bottom of the close button with padding
     $AboutGUI.ClientSize = [System.Drawing.Size]::new($AboutGUI.ClientSize.Width, ($AboutCloseBtn.Bottom + 20))
 })
 
@@ -456,570 +445,247 @@ $ToolsGUI.ClientSize = New-Object System.Drawing.Size(705, $ToolsGUIHeight)
 $ToolsGUI.StartPosition = 'CenterScreen'
 
 # Add info text
+$y = 20
 $ToolsInfo = New-Object System.Windows.Forms.Label
-$ToolsInfo.Text = "Press a button to launch the relevant tool:"
+$ToolsInfo.Text = "Select a tool from the list below to run it:"
 $ToolsInfo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsInfo.Location = New-Object System.Drawing.Point(30, $y)
 $ToolsInfo.AutoSize = $true
-$ToolsInfo.TextAlign = 'TopCenter'
+$ToolsInfo.TextAlign = 'TopLeft'
 $ToolsGUI.Controls.Add($ToolsInfo)
-$y += $labelHeight
+$y += 30
 
-# Add User Data Tool button
-$UserDataButton = New-Object System.Windows.Forms.Button
-$y += 10
-$UserDataButton.Location = New-Object System.Drawing.Point(65, $y)
-$UserDataButton.Size = New-Object System.Drawing.Size(250, 40)
-$UserDataButton.Text = "Hat's User Move Tool"
-$UserDataButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$UserDataButton.FlatStyle = 'Flat'
-$UserDataButton.FlatAppearance.BorderSize = 1
-$UserDataButton.Enabled = $true
-$ToolsGUI.Controls.Add($UserDataButton)
+# Add ListView
+$ToolsListView = New-Object System.Windows.Forms.ListView
+$ToolsListView.Location = New-Object System.Drawing.Point(30, $y)
+$ToolsListView.Size = New-Object System.Drawing.Size(590, 350)
+$ToolsListView.View = [System.Windows.Forms.View]::Details
+$ToolsListView.FullRowSelect = $true
+$ToolsListView.GridLines = $false
+$ToolsListView.HeaderStyle = [System.Windows.Forms.ColumnHeaderStyle]::Nonclickable
+$ToolsListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$ToolsListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ToolsListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$ToolsListView.Columns.Add("Tool", 180) | Out-Null
+$ToolsListView.Columns.Add("Description", 380) | Out-Null
+$ToolsGUI.Controls.Add($ToolsListView)
 
-# User Data Tool Button Tooltip
-$UserDataTooltip = New-Object System.Windows.Forms.ToolTip
-$UserDataTooltip.SetToolTip($UserDataButton, "A tool to help collect user and system data for transferring to new machines.")
+# Define Tools
+$toolsList = @(
+    [pscustomobject]@{ Name = "Hat's User Move Tool"; Desc = "A tool to help collect user and system data for transferring to new machines." }
+    [pscustomobject]@{ Name = "McAfee MCPR Tool"; Desc = "Removes installed McAfee consumer products." }
+    [pscustomobject]@{ Name = "Ninja Removal Script"; Desc = "Launches the Ninja Agent removal script." }
+    [pscustomobject]@{ Name = "Windows Disk Cleanup"; Desc = "Launches the Windows Disk Cleanup GUI." }
+    [pscustomobject]@{ Name = "Patch Cleaner"; Desc = "Scans and allows removal of unnecessary driver store files." }
+    [pscustomobject]@{ Name = "WizTree"; Desc = "Scans a selected drive or folder and displays all contents and their relative sizes." }
+    [pscustomobject]@{ Name = "BleachBit"; Desc = "A system and program temporary data cleaner to help reclaim drive space." }
+    [pscustomobject]@{ Name = "BlueScreenView"; Desc = "A memory dump and minidump reader to help identify causes of BSOD events." }
+    [pscustomobject]@{ Name = "User Profile Wizard"; Desc = "A tool to migrate user profile data between domains or computers." }
+    [pscustomobject]@{ Name = "Little Registry Cleaner"; Desc = "A simple registry cleaner program." }
+    [pscustomobject]@{ Name = "DISM++"; Desc = "An advanced GUI tool based around DISM for Windows image management." }
+    [pscustomobject]@{ Name = ".NET 3.5 (Includes v2 and v3)"; Desc = "Installs .NET 3.5, which includes versions 2 and 3." }
+    [pscustomobject]@{ Name = "Display Driver Uninstaller"; Desc = "Runs the Display Driver Uninstaller tool to clean graphics drivers for fresh installs." }
+    [pscustomobject]@{ Name = "HDDScan"; Desc = "Runs the HDDScan program to verify the block health and SMART data of a drive." }
+    [pscustomobject]@{ Name = "Win11 Upgrade Assistant"; Desc = "Runs the Windows 11 Upgrade Assistant program." }
+    [pscustomobject]@{ Name = "Crystal Disk Mark"; Desc = "Runs Crystal Disk Mark SSD/HDD testing utility." }
+    [pscustomobject]@{ Name = "Crystal Disk Info"; Desc = "Runs Crystal Disk Info utility." }
+)
 
-# McAfee MCPR Tool
-$MCPRButton = New-Object System.Windows.Forms.Button
-$y += 0
-$MCPRButton.Location = New-Object System.Drawing.Point(380, $y)
-$MCPRButton.Size = New-Object System.Drawing.Size(250, 40)
-$MCPRButton.Text = "McAfee MCPR Tool"
-$MCPRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$MCPRButton.FlatStyle = 'Flat'
-$MCPRButton.FlatAppearance.BorderSize = 1
-$MCPRButton.Enabled = $true
-$ToolsGUI.Controls.Add($MCPRButton)
+foreach ($t in $toolsList) {
+    $item = New-Object System.Windows.Forms.ListViewItem($t.Name)
+    $item.SubItems.Add($t.Desc) | Out-Null
+    $ToolsListView.Items.Add($item) | Out-Null
+}
 
-# MCPR Tooltip
-$MCPRTooltip = New-Object System.Windows.Forms.ToolTip
-$MCPRTooltip.SetToolTip($MCPRButton, "Removes installed McAfee consumer products.")
+$y += 365
+$TLaunchButton = New-Object System.Windows.Forms.Button
+$TLaunchButton.Location = New-Object System.Drawing.Point(30, $y)
+$TLaunchButton.Size = New-Object System.Drawing.Size(200, 40)
+$TLaunchButton.Text = "Launch Selected Tool"
+$TLaunchButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TLaunchButton.FlatStyle = 'Flat'
+$TLaunchButton.FlatAppearance.BorderSize = 1
+$ToolsGUI.Controls.Add($TLaunchButton)
 
-# Add Ninja Agent Removal button
-$NRButton = New-Object System.Windows.Forms.Button
-$y += 65
-$NRButton.Location = New-Object System.Drawing.Point(65, $y)
-$NRButton.Size = New-Object System.Drawing.Size(250, 40)
-$NRButton.Text = "Ninja Removal Script"
-$NRButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$NRButton.FlatStyle = 'Flat'
-$NRButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($NRButton)
-
-# Ninja Agent Removal Button Tooltip
-$NRTooltip = New-Object System.Windows.Forms.ToolTip
-$NRTooltip.SetToolTip($NRButton, "Launches the Ninja Agent removal script.")
-
-# Add Windows Disk Cleanup button
-$DCleanButton = New-Object System.Windows.Forms.Button
-$y += 0
-$DCleanButton.Location = New-Object System.Drawing.Point(380, $y)
-$DCleanButton.Size = New-Object System.Drawing.Size(250, 40)
-$DCleanButton.Text = "Windows Disk Cleanup"
-$DCleanButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DCleanButton.FlatStyle = 'Flat'
-$DCleanButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($DCleanButton)
-
-# Disk Cleanup Button Tooltip
-$DCleanTooltip = New-Object System.Windows.Forms.ToolTip
-$DCleanTooltip.SetToolTip($DCleanButton, "Launches the Windows Disk Cleanup GUI.")
-
-# Add Windows Debloat Tool button
-$DebloatButton = New-Object System.Windows.Forms.Button
-$y += 65
-$DebloatButton.Location = New-Object System.Drawing.Point(65, $y)
-$DebloatButton.Size = New-Object System.Drawing.Size(250, 40)
-$DebloatButton.Text = "Empty"
-$DebloatButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DebloatButton.FlatStyle = 'Flat'
-$DebloatButton.FlatAppearance.BorderSize = 1
-$DebloatButton.Enabled = $false
-$ToolsGUI.Controls.Add($DebloatButton)
-
-# Windows Debloat Button Tooltip
-$DebloatTooltip = New-Object System.Windows.Forms.ToolTip
-$DebloatTooltip.SetToolTip($DebloatButton, "Empty button.")
-
-# Add Patch Cleaner button
-$PatchCButton = New-Object System.Windows.Forms.Button
-$y += 0
-$PatchCButton.Location = New-Object System.Drawing.Point(380, $y)
-$PatchCButton.Size = New-Object System.Drawing.Size(250, 40)
-$PatchCButton.Text = "Patch Cleaner"
-$PatchCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$PatchCButton.FlatStyle = 'Flat'
-$PatchCButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($PatchCButton)
-
-# PatchCleaner Button Tooltip
-$PatchCTooltip = New-Object System.Windows.Forms.ToolTip
-$PatchCTooltip.SetToolTip($PatchCButton, "Scans and allows removal of unnecessary driver store files.")
-
-# Add WizTree button
-$WizTreeButton = New-Object System.Windows.Forms.Button
-$y += 65
-$WizTreeButton.Location = New-Object System.Drawing.Point(65, $y)
-$WizTreeButton.Size = New-Object System.Drawing.Size(250, 40)
-$WizTreeButton.Text = "WizTree"
-$WizTreeButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$WizTreeButton.FlatStyle = 'Flat'
-$WizTreeButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($WizTreeButton)
-
-# WizTree Button Tooltip
-$WizTreeTooltip = New-Object System.Windows.Forms.ToolTip
-$WizTreeTooltip.SetToolTip($WizTreeButton, "Scans a selected drive or folder and displays all contents and their relative sizes.")
-
-# Add BleachBit button
-$BleachButton = New-Object System.Windows.Forms.Button
-$y += 0
-$BleachButton.Location = New-Object System.Drawing.Point(380, $y)
-$BleachButton.Size = New-Object System.Drawing.Size(250, 40)
-$BleachButton.Text = "BleachBit"
-$BleachButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BleachButton.FlatStyle = 'Flat'
-$BleachButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($BleachButton)
-
-# BleachBit Button Tooltip
-$BleachTooltip = New-Object System.Windows.Forms.ToolTip
-$BleachTooltip.SetToolTip($BleachButton, "A system and program temporary data cleaner to help reclaim drive space.")
-
-# Add BlueScreenView button
-$BSVButton = New-Object System.Windows.Forms.Button
-$y += 65
-$BSVButton.Location = New-Object System.Drawing.Point(65, $y)
-$BSVButton.Size = New-Object System.Drawing.Size(250, 40)
-$BSVButton.Text = "BlueScreenView"
-$BSVButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BSVButton.FlatStyle = 'Flat'
-$BSVButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($BSVButton)
-
-# BlueScreenView Button Tooltip
-$BSVTooltip = New-Object System.Windows.Forms.ToolTip
-$BSVTooltip.SetToolTip($BSVButton, "A memory dump and minidump reader to help identify causes of BSOD events.")
-
-# Add UserProfWiz button
-$UPWButton = New-Object System.Windows.Forms.Button
-$y += 0
-$UPWButton.Location = New-Object System.Drawing.Point(380, $y)
-$UPWButton.Size = New-Object System.Drawing.Size(250, 40)
-$UPWButton.Text = "User Profile Wizard"
-$UPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$UPWButton.FlatStyle = 'Flat'
-$UPWButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($UPWButton)
-
-# UserProfWiz Button Tooltip
-$UPWTooltip = New-Object System.Windows.Forms.ToolTip
-$UPWTooltip.SetToolTip($UPWButton, "A tool to migrate user profile data between domains on one computer or between two seperate computers.")
-
-# Add LittleRegCleaner button
-$LRCButton = New-Object System.Windows.Forms.Button
-$y += 65
-$LRCButton.Location = New-Object System.Drawing.Point(65, $y)
-$LRCButton.Size = New-Object System.Drawing.Size(250, 40)
-$LRCButton.Text = "Little Registry Cleaner"
-$LRCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$LRCButton.FlatStyle = 'Flat'
-$LRCButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($LRCButton)
-
-# LittleRegCleaner Button Tooltip
-$LRCTooltip = New-Object System.Windows.Forms.ToolTip
-$LRCTooltip.SetToolTip($LRCButton, "A simple registry cleaner program.")
-
-# Add DISM++ button
-$DISMPPButton = New-Object System.Windows.Forms.Button
-$y += 0
-$DISMPPButton.Location = New-Object System.Drawing.Point(380, $y)
-$DISMPPButton.Size = New-Object System.Drawing.Size(250, 40)
-$DISMPPButton.Text = "DISM++"
-$DISMPPButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DISMPPButton.FlatStyle = 'Flat'
-$DISMPPButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($DISMPPButton)
-
-# DISM++ Button Tooltip
-$DISMPPTooltip = New-Object System.Windows.Forms.ToolTip
-$DISMPPTooltip.SetToolTip($DISMPPButton, "An advanced GUI tool based around DISM for Windows image management.")
-
-# EMPTY BUTTON 2!
-$E2Button = New-Object System.Windows.Forms.Button
-$y += 65
-$E2Button.Location = New-Object System.Drawing.Point(65, $y)
-$E2Button.Size = New-Object System.Drawing.Size(250, 40)
-$E2Button.Text = "Empty"
-$E2Button.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$E2Button.FlatStyle = 'Flat'
-$E2Button.FlatAppearance.BorderSize = 1
-$E2Button.Enabled = $false
-$ToolsGUI.Controls.Add($E2Button)
-
-# Empty Button Tooltip
-$E2Tooltip = New-Object System.Windows.Forms.ToolTip
-$E2Tooltip.SetToolTip($E2Button, "An empty button.")
-
-# Add .NET 3.5 button
-$NETButton = New-Object System.Windows.Forms.Button
-$y += 0
-$NETButton.Location = New-Object System.Drawing.Point(380, $y)
-$NETButton.Size = New-Object System.Drawing.Size(250, 40)
-$NETButton.Text = ".NET 3.5 (Includes v2 and v3)"
-$NETButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$NETButton.FlatStyle = 'Flat'
-$NETButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($NETButton)
-
-# NET Button Tooltip
-$NETTooltip = New-Object System.Windows.Forms.ToolTip
-$NETTooltip.SetToolTip($NETButton, "Installs .NET 3.5, which includes versions 2 and 3.")
-
-# Add DDU Button
-$DDUButton = New-Object System.Windows.Forms.Button
-$y += 65
-$DDUButton.Location = New-Object System.Drawing.Point(65, $y)
-$DDUButton.Size = New-Object System.Drawing.Size(250, 40)
-$DDUButton.Text = "Display Driver Uninstaller"
-$DDUButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DDUButton.FlatStyle = 'Flat'
-$DDUButton.FlatAppearance.BorderSize = 1
-$DDUButton.Enabled = $true
-$ToolsGUI.Controls.Add($DDUButton)
-
-# DDU Button Tooltip
-$DDUTooltip = New-Object System.Windows.Forms.ToolTip
-$DDUTooltip.SetToolTip($DDUButton, "Runs the Display Driver Uninstaller tool to clean graphics drivers for fresh installs.")
-
-# Add HDDScan Button
-$HDDSButton = New-Object System.Windows.Forms.Button
-$y += 0
-$HDDSButton.Location = New-Object System.Drawing.Point(380, $y)
-$HDDSButton.Size = New-Object System.Drawing.Size(250, 40)
-$HDDSButton.Text = "HDDScan"
-$HDDSButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$HDDSButton.FlatStyle = 'Flat'
-$HDDSButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($HDDSButton)
-
-# Add HDDScan Tooltip
-$HDDSTooltip = New-Object System.Windows.Forms.ToolTip
-$HDDSTooltip.SetToolTip($HDDSButton, "Runs the HDDScan program to verify the block health and SMART data of a drive.")
-
-# Add Windows 11 Upgrade Assistant Button
-$W11AButton = New-Object System.Windows.Forms.Button
-$y += 65
-$W11AButton.Location = New-Object System.Drawing.Point(65, $y)
-$W11AButton.Size = New-Object System.Drawing.Size(250, 40)
-$W11AButton.Text = "Win11 Upgrade Assistant"
-$W11AButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$W11AButton.FlatStyle = 'Flat'
-$W11AButton.FlatAppearance.BorderSize = 1
-$W11AButton.Enabled = $true
-$ToolsGUI.Controls.Add($W11AButton)
-
-# Add W11A Tooltip
-$W11ATooltip = New-Object System.Windows.Forms.ToolTip
-$W11ATooltip.SetToolTip($W11AButton, "Runs the Windows 11 Upgrade Assistant program.")
-
-# Add CDM Button
-$CDMButton = New-Object System.Windows.Forms.Button
-$y += 0
-$CDMButton.Location = New-Object System.Drawing.Point(380, $y)
-$CDMButton.Size = New-Object System.Drawing.Size(250, 40)
-$CDMButton.Text = "Crystal Disk Mark"
-$CDMButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$CDMButton.FlatStyle = 'Flat'
-$CDMButton.FlatAppearance.BorderSize = 1
-$CDMButton.Enabled = $true
-$ToolsGUI.Controls.Add($CDMButton)
-
-# Add CDM Tooltop
-$CDMTooltip = New-Object System.Windows.Forms.ToolTip
-$CDMTooltip.SetToolTip($CDMButton, "Runs Crystal Disk Mark SSD/HDD testing utility.")
-
-# Add CDI Button
-$CDIButton = New-Object System.Windows.Forms.Button
-$y += 65
-$CDIButton.Location = New-Object System.Drawing.Point(65, $y)
-$CDIButton.Size = New-Object System.Drawing.Size(250, 40)
-$CDIButton.Text = "Crystal Disk Info"
-$CDIButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$CDIButton.FlatStyle = 'Flat'
-$CDIButton.FlatAppearance.BorderSize = 1
-$CDIButton.Enabled = $true
-$ToolsGUI.Controls.Add($CDIButton)
-
-# Add CDI Tooltip
-$CDITooltip = New-Object System.Windows.Forms.ToolTip
-$CDITooltip.SetToolTip($CDIButton, "Runs Crystal Disk Info utility.")
-
-# Add back button
 $TBackButton = New-Object System.Windows.Forms.Button
-$y += 80
-$TBackButton.Location = New-Object System.Drawing.Point(300, $y)
-$TBackButton.Size = New-Object System.Drawing.Size(95, 40)
+$TBackButton.Location = New-Object System.Drawing.Point(505, $y)
+$TBackButton.Size = New-Object System.Drawing.Size(115, 40)
 $TBackButton.Text = "Back"
 $TBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TBackButton.FlatStyle = 'Flat'
 $TBackButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($TBackButton)
 
-# Define MCPR Tool button functions
-$MCPRButton.Add_Click({
-	$MCPRButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$MCPRPath = Join-Path -Path $ExtProgramDir -ChildPath "MCPR.exe"
-	Show-DownloadDialog -DisplayName 'McAfee MCPR Tool' -Url 'https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe' -OutputPath "$MCPRPath"
-    Start-Process $MCPRPath
-	$MCPRButton.Enabled = $true
+$ToolsListView.Add_DoubleClick({ $TLaunchButton.PerformClick() })
+
+$TLaunchButton.Add_Click({
+    if ($ToolsListView.SelectedItems.Count -eq 0) { return }
+    $selected = $ToolsListView.SelectedItems[0].Text
+    $TLaunchButton.Enabled = $false
+    
+    switch ($selected) {
+        "Hat's User Move Tool" {
+            $MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$MoveToolPath`""
+        }
+        "McAfee MCPR Tool" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $MCPRPath = Join-Path -Path $ExtProgramDir -ChildPath "MCPR.exe"
+            Show-DownloadDialog -DisplayName 'McAfee MCPR Tool' -Url 'https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe' -OutputPath "$MCPRPath"
+            Start-Process $MCPRPath
+        }
+        "Ninja Removal Script" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $NRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
+            Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$NRScriptPath"
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$NRScriptPath`""
+        }
+        "Windows Disk Cleanup" {
+            Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
+            Start-Process -FilePath cleanmgr.exe -Verb RunAs
+        }
+        "Patch Cleaner" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
+            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://phoenixnap.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
+            Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
+            $PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
+            Start-Process $PatchCleanerExePath
+        }
+        "WizTree" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
+            $wizTreeUrl = 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip'
+            try {
+                $wtPage = Invoke-WebRequest -Uri "https://diskanalyzer.com/download" -UseBasicParsing -ErrorAction Stop
+                if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
+                    $wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
+                }
+            } catch { }
+            Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
+            Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
+            $WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
+            Start-Process $WizTreeExePath
+        }
+        "BleachBit" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
+            $bbUrl = 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip'
+            try {
+                $bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
+                if ($bbPage.Content -match 'href="(https://download\.bleachbit\.org/[^"]+portable\.zip)"') {
+                    $bbUrl = $matches[1]
+                }
+            } catch { }
+            Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
+            Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
+            $BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
+            Start-Process $BleachExePath
+        }
+        "BlueScreenView" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
+            Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
+            Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
+            $BSVExePath = Join-Path -Path $ExtProgramDir -ChildPath "BlueScreenView.exe"
+            Start-Process $BSVExePath
+        }
+        "User Profile Wizard" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
+            Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
+            Start-Process $UPWPath
+        }
+        "Little Registry Cleaner" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
+            Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
+            Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
+            $LRCEPath = Join-Path -Path $ExtProgramDir -ChildPath "Little Registry Cleaner.exe"
+            Start-Process $LRCEPath
+        }
+        "DISM++" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
+            $dismUrl = 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip'
+            try {
+                $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
+                $ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
+                if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
+            } catch { }
+            Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
+            Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
+            $DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
+            Start-Process $DISMPPEPath
+        }
+        ".NET 3.5 (Includes v2 and v3)" {
+            Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy RemoteSigned", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
+        }
+        "Display Driver Uninstaller" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.zip"
+            Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$DDUPath"
+            Expand-Archive -LiteralPath $DDUPath -DestinationPath $ExtProgramDir -Force
+            $DDUEPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU v18.1.1.5.exe"
+            Start-Process $DDUEPath
+        }
+        "HDDScan" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
+            Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
+            Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
+            $HDDSEPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDScan.exe"
+            Start-Process $HDDSEPath
+        }
+        "Win11 Upgrade Assistant" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
+            Show-DownloadDialog -DisplayName 'Win11 Upgrade Asisstant' -Url 'https://download.microsoft.com/download/6/8/3/683178b7-baac-4b0d-95be-065a945aadee/Windows11InstallationAssistant.exe' -OutputPath "$W11APath"
+            Start-Process $W11APath
+        }
+        "Crystal Disk Mark" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
+            $cdmUrl = 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1'
+            try {
+                $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
+                if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
+            } catch { }
+            Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
+            Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
+            $CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
+            Start-Process $CDMEPath
+        }
+        "Crystal Disk Info" {
+            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+            $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
+            $cdiUrl = 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1'
+            try {
+                $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
+                if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
+            } catch { }
+            Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
+            Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
+            $CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
+            Start-Process $CDIEPath
+        }
+    }
+    
+    $TLaunchButton.Enabled = $true
 })
 
-# Define User Data Migration Tool button functions
-$UserDataButton.Add_Click({
-	$UserDataButton.Enabled = $false
-	$MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
-	Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$MoveToolPath`""
-	$UserDataButton.Enabled = $true
-})
-
-# Define Ninja Removal Script button functions
-$NRButton.Add_Click({
-    $NRButton.Enabled = $false
-    if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-    $NRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
-    Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$NRScriptPath"
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$NRScriptPath`""
-    $NRButton.Enabled = $true
-})
-
-# Define Windows Disk Cleanup button functions
-$DCleanButton.Add_Click({
-	$DCleanButton.Enabled = $false
-	Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
-	Start-Process -FilePath cleanmgr.exe -Verb RunAs
-	$DCleanButton.Enabled = $true
-})
-
-# Define debloat tool (empty) button functions
-$DebloatButton.Add_Click({
-	$DebloatButton.Enabled = $false
-	$DebloatButton.Enabled = $true
-})
-
-# Define Patch Cleaner button functions
-$PatchCButton.Add_Click({
-	$PatchCButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-	Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://phoenixnap.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
-	Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
-	$PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
-	Start-Process $PatchCleanerExePath
-	$PatchCButton.Enabled = $true
-})
-
-# Define WizTree button functions
-$WizTreeButton.Add_Click({
-	$WizTreeButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
-	
-	$wizTreeUrl = 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip'
-	try {
-		$wtPage = Invoke-WebRequest -Uri "https://diskanalyzer.com/download" -UseBasicParsing -ErrorAction Stop
-		if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
-			$wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
-		}
-	} catch { }
-	
-	Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
-	Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
-	$WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
-	Start-Process $WizTreeExePath
-	$WizTreeButton.Enabled = $true
-})
-
-# Define BleachBit button functions
-$BleachButton.Add_Click({
-	$BleachButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
-	
-	$bbUrl = 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip'
-	try {
-		$bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
-		if ($bbPage.Content -match 'href="(https://download\.bleachbit\.org/[^"]+portable\.zip)"') {
-			$bbUrl = $matches[1]
-		}
-	} catch { }
-	
-	Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
-	Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
-	$BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
-	Start-Process $BleachExePath
-	$BleachButton.Enabled = $true
-})
-
-# Define BlueScreenView button functions
-$BSVButton.Add_Click({
-	$BSVButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
-	Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
-	Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
-	$BSVExePath = Join-Path -Path $ExtProgramDir -ChildPath "BlueScreenView.exe"
-	Start-Process $BSVExePath
-	$BSVButton.Enabled = $true
-})
-
-# Define UserProfileWizard button functions
-$UPWButton.Add_Click({
-	$UPWButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
-	Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
-	Start-Process $UPWPath
-	$UPWButton.Enabled = $true
-})
-
-# Define DISM++ button functions
-$DISMPPButton.Add_Click({
-	$DISMPPButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
-	
-	$dismUrl = 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip'
-	try {
-		$ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
-		$ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
-		if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
-	} catch { }
-	
-	Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
-	Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
-	$DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
-    Start-Process $DISMPPEPath
-	$DISMPPButton.Enabled = $true
-})
-
-# Define LittleRegCleaner button functions
-$LRCButton.Add_Click({
-	$LRCButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
-	Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
-	Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
-	$LRCEPath = Join-Path -Path $ExtProgramDir -ChildPath "Little Registry Cleaner.exe"
-    Start-Process $LRCEPath
-	$LRCButton.Enabled = $true
-})
-
-# Define empty2 button functions
-$E2Button.Add_Click({
-	$E2Button.Enabled = $false
-	$E2Button.Enabled = $true
-})
-
-# Define .NET button functions
-$NETButton.Add_Click({
-	$NETButton.Enabled = $false
-	Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy RemoteSigned", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
-	$NETButton.Enabled = $true
-})
-
-# Define DDU button functions
-$DDUButton.Add_Click({
-	$DDUButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.zip"
-	Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$DDUPath"
-	Expand-Archive -LiteralPath $DDUPath -DestinationPath $ExtProgramDir -Force
-	$DDUEPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU v18.1.1.5.exe"
-    Start-Process $DDUEPath
-	$DDUButton.Enabled = $true
-})
-
-# Define HDDS button functions
-$HDDSButton.Add_Click({
-	$HDDSButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
-	Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
-	Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
-	$HDDSEPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDScan.exe"
-    Start-Process $HDDSEPath
-	$HDDSButton.Enabled = $true
-})
-
-# Define W11A button functions
-$W11AButton.Add_Click({
-	$W11AButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
-	Show-DownloadDialog -DisplayName 'Win11 Upgrade Asisstant' -Url 'https://download.microsoft.com/download/6/8/3/683178b7-baac-4b0d-95be-065a945aadee/Windows11InstallationAssistant.exe' -OutputPath "$W11APath"
-    Start-Process $W11APath
-	$W11AButton.Enabled = $true
-})
-
-# Define CDM button functions
-$CDMButton.Add_Click({
-	$CDMButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-	
-	$cdmUrl = 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1'
-	try {
-		$sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
-		if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
-	} catch { }
-	
-	Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
-	Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
-	$CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
-    Start-Process $CDMEPath
-	$CDMButton.Enabled = $true
-})
-
-# Define CDI button functions
-$CDIButton.Add_Click({
-	$CDIButton.Enabled = $false
-	if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir }
-	$CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-	
-	$cdiUrl = 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1'
-	try {
-		$sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
-		if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
-	} catch { }
-	
-	Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
-	Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
-	$CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
-    Start-Process $CDIEPath
-	$CDIButton.Enabled = $true
-})
-
-# Define back button
 $TBackButton.Add_Click({
-	$ToolsGUI.Hide()
+    $ToolsGUI.Hide()
 })
 
 $ToolsGUI.Add_Load({
-    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(705, ($TBackButton.Bottom + 40))
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(650, ($TBackButton.Bottom + 20))
 })
 
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
     param($sender, $e)
-    # $e.CloseReason tells you why it's closing
-    # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
-        # Do your “cleanup” or alternate logic here
         User-Exit
     }
 })
@@ -1059,133 +725,53 @@ $TroubleInfo.Location = New-Object System.Drawing.Point(30, $y)
 $TroubleInfo.AutoSize = $true
 $TroubleInfo.TextAlign = 'TopCenter'
 $TroubleGUI.Controls.Add($TroubleInfo)
-$y += $labelHeight
+$y += 30
 
-# Add Check Disk button
-$ChkDskButton = New-Object System.Windows.Forms.Button
-$y += 10
-$ChkDskButton.Location = New-Object System.Drawing.Point(65, $y)
-$ChkDskButton.Size = New-Object System.Drawing.Size(250, 40)
-$ChkDskButton.Text = "Check Disk (Read Only)"
-$ChkDskButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ChkDskButton.FlatStyle = 'Flat'
-$ChkDskButton.FlatAppearance.BorderSize = 1
-$ChkDskButton.Enabled = $true
-$TroubleGUI.Controls.Add($ChkDskButton)
+# Add ListView
+$TrListView = New-Object System.Windows.Forms.ListView
+$TrListView.Location = New-Object System.Drawing.Point(30, $y)
+$TrListView.Size = New-Object System.Drawing.Size(590, 250)
+$TrListView.View = [System.Windows.Forms.View]::Details
+$TrListView.FullRowSelect = $true
+$TrListView.GridLines = $false
+$TrListView.HeaderStyle = [System.Windows.Forms.ColumnHeaderStyle]::Nonclickable
+$TrListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$TrListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TrListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$TrListView.Columns.Add("Tool", 180) | Out-Null
+$TrListView.Columns.Add("Description", 380) | Out-Null
+$TroubleGUI.Controls.Add($TrListView)
 
-# Check Disk button Tooltip
-$ChkDskTooltip = New-Object System.Windows.Forms.ToolTip
-$ChkDskTooltip.SetToolTip($ChkDskButton, "Runs Check Disk in read only mode on C: to check for errors in the file system.")
+# Define Tools
+$troubleList = @(
+    [pscustomobject]@{ Name = "Check Disk (Read Only)"; Desc = "Runs Check Disk in read only mode on C: to check for errors in the file system." }
+    [pscustomobject]@{ Name = "DISM Repair"; Desc = "Launches DISM targeting the running image with restore and cleanup options." }
+    [pscustomobject]@{ Name = "SFC Repair"; Desc = "Launches standard SFC repair command." }
+    [pscustomobject]@{ Name = "Enable Safe Boot (w/Network)"; Desc = "Sets the BCD file to boot with Safe Boot with networking enabled." }
+    [pscustomobject]@{ Name = "Generate Battery Report"; Desc = "Generates and opens a detailed HTML report of laptop battery health and cycle history." }
+    [pscustomobject]@{ Name = "Reliability Monitor"; Desc = "Opens the Windows Reliability Monitor timeline to view crash and software installation history." }
+    [pscustomobject]@{ Name = "Flush DNS & Reset IP"; Desc = "Releases IP, Renews IP, Flushes DNS, and clears the ARP cache." }
+    [pscustomobject]@{ Name = "Restart Windows Explorer"; Desc = "Forcefully kills and restarts the explorer.exe process to resolve frozen taskbars or stuck folders." }
+)
 
-# Add DISM button
-$DISMButton = New-Object System.Windows.Forms.Button
-$y += 0
-$DISMButton.Location = New-Object System.Drawing.Point(380, $y)
-$DISMButton.Size = New-Object System.Drawing.Size(250, 40)
-$DISMButton.Text = "DISM Repair"
-$DISMButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$DISMButton.FlatStyle = 'Flat'
-$DISMButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($DISMButton)
+foreach ($t in $troubleList) {
+    $item = New-Object System.Windows.Forms.ListViewItem($t.Name)
+    $item.SubItems.Add($t.Desc) | Out-Null
+    $TrListView.Items.Add($item) | Out-Null
+}
 
-# DISM Button Tooltip
-$DISMTooltip = New-Object System.Windows.Forms.ToolTip
-$DISMTooltip.SetToolTip($DISMButton, "Launches DISM targeting the running image with restore and cleanup options.")
+$y += 265
+$TrLaunchButton = New-Object System.Windows.Forms.Button
+$TrLaunchButton.Location = New-Object System.Drawing.Point(30, $y)
+$TrLaunchButton.Size = New-Object System.Drawing.Size(200, 40)
+$TrLaunchButton.Text = "Launch Selected Tool"
+$TrLaunchButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$TrLaunchButton.FlatStyle = 'Flat'
+$TrLaunchButton.FlatAppearance.BorderSize = 1
+$TroubleGUI.Controls.Add($TrLaunchButton)
 
-# Add SFC button
-$SFCButton = New-Object System.Windows.Forms.Button
-$y += 65
-$SFCButton.Location = New-Object System.Drawing.Point(65, $y)
-$SFCButton.Size = New-Object System.Drawing.Size(250, 40)
-$SFCButton.Text = "SFC Repair"
-$SFCButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$SFCButton.FlatStyle = 'Flat'
-$SFCButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($SFCButton)
-
-# SFC Button Tooltip
-$SFCTooltip = New-Object System.Windows.Forms.ToolTip
-$SFCTooltip.SetToolTip($SFCButton, "Launches standard SFC repair command.")
-
-# Add SafeBoot button
-$SafeBootButton = New-Object System.Windows.Forms.Button
-$y += 0
-$SafeBootButton.Location = New-Object System.Drawing.Point(380, $y)
-$SafeBootButton.Size = New-Object System.Drawing.Size(250, 40)
-$SafeBootButton.Text = "Enable Safe Boot (w/Network)"
-$SafeBootButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$SafeBootButton.FlatStyle = 'Flat'
-$SafeBootButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($SafeBootButton)
-
-# Safe Boot Button Tooltip
-$SafeBootTooltip = New-Object System.Windows.Forms.ToolTip
-$SafeBootTooltip.SetToolTip($SafeBootButton, "Sets the BCD file to boot with Safe Boot with networking enabled.")
-
-# Add Battery Report button
-$BatteryButton = New-Object System.Windows.Forms.Button
-$y += 65
-$BatteryButton.Location = New-Object System.Drawing.Point(65, $y)
-$BatteryButton.Size = New-Object System.Drawing.Size(250, 40)
-$BatteryButton.Text = "Generate Battery Report"
-$BatteryButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BatteryButton.FlatStyle = 'Flat'
-$BatteryButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($BatteryButton)
-
-# Battery Report Tooltip
-$BatteryTooltip = New-Object System.Windows.Forms.ToolTip
-$BatteryTooltip.SetToolTip($BatteryButton, "Generates and opens a detailed HTML report of laptop battery health and cycle history.")
-
-# Add Reliability Monitor button
-$RelMonButton = New-Object System.Windows.Forms.Button
-$y += 0
-$RelMonButton.Location = New-Object System.Drawing.Point(380, $y)
-$RelMonButton.Size = New-Object System.Drawing.Size(250, 40)
-$RelMonButton.Text = "Reliability Monitor"
-$RelMonButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$RelMonButton.FlatStyle = 'Flat'
-$RelMonButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($RelMonButton)
-
-# Reliability Monitor Tooltip
-$RelMonTooltip = New-Object System.Windows.Forms.ToolTip
-$RelMonTooltip.SetToolTip($RelMonButton, "Opens the Windows Reliability Monitor timeline to view crash and software installation history.")
-
-# Add Network Reset button
-$NetResetButton = New-Object System.Windows.Forms.Button
-$y += 65
-$NetResetButton.Location = New-Object System.Drawing.Point(65, $y)
-$NetResetButton.Size = New-Object System.Drawing.Size(250, 40)
-$NetResetButton.Text = "Flush DNS & Reset IP"
-$NetResetButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$NetResetButton.FlatStyle = 'Flat'
-$NetResetButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($NetResetButton)
-
-# Network Reset Tooltip
-$NetResetTooltip = New-Object System.Windows.Forms.ToolTip
-$NetResetTooltip.SetToolTip($NetResetButton, "Releases IP, Renews IP, Flushes DNS, and clears the ARP cache.")
-
-# Add Restart Explorer button
-$ExpButton = New-Object System.Windows.Forms.Button
-$y += 0
-$ExpButton.Location = New-Object System.Drawing.Point(380, $y)
-$ExpButton.Size = New-Object System.Drawing.Size(250, 40)
-$ExpButton.Text = "Restart Windows Explorer"
-$ExpButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ExpButton.FlatStyle = 'Flat'
-$ExpButton.FlatAppearance.BorderSize = 1
-$TroubleGUI.Controls.Add($ExpButton)
-
-# Restart Explorer Tooltip
-$ExpTooltip = New-Object System.Windows.Forms.ToolTip
-$ExpTooltip.SetToolTip($ExpButton, "Forcefully kills and restarts the explorer.exe process to resolve frozen taskbars or stuck folders.")
-
-# Add show console button
 $ConsoleButton = New-Object System.Windows.Forms.Button
-$y += 80
-$ConsoleButton.Location = New-Object System.Drawing.Point(200, $y)
+$ConsoleButton.Location = New-Object System.Drawing.Point(375, $y)
 $ConsoleButton.Size = New-Object System.Drawing.Size(115, 40)
 $ConsoleButton.Text = "Show Console"
 $ConsoleButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -1194,9 +780,8 @@ $ConsoleButton.FlatAppearance.BorderSize = 1
 $TroubleGUI.Controls.Add($ConsoleButton)
 $script:ConsoleClicked = 0
 
-# Add back button
 $BackButton = New-Object System.Windows.Forms.Button
-$BackButton.Location = New-Object System.Drawing.Point(380, $y)
+$BackButton.Location = New-Object System.Drawing.Point(505, $y)
 $BackButton.Size = New-Object System.Drawing.Size(115, 40)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -1204,68 +789,49 @@ $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
 $TroubleGUI.Controls.Add($BackButton)
 
-# Define check disk button functions
-$ChkDskButton.Add_Click({
-	$ChkDskButton.Enabled = $false
-	Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
-	$ChkDskButton.Enabled = $true
-})
+$TrListView.Add_DoubleClick({ $TrLaunchButton.PerformClick() })
 
-# Define dism button functions
-$DISMButton.Add_Click({
-	$DISMButton.Enabled = $false
-	Start-Process cmd.exe -ArgumentList '/c dism /online /cleanup-image /restorehealth & pause' -Verb RunAs
-	$DISMButton.Enabled = $true
-})
-
-# Define SFC button functions
-$SFCButton.Add_Click({
-	$SFCButton.Enabled = $false
-	Start-Process cmd.exe -ArgumentList '/c sfc /scannow & pause' -Verb RunAs
-	$SFCButton.Enabled = $true
-})
-
-# Define Safe Boot button functions
-$SafeBootButton.Add_Click({
-	$SafeBootButton.Enabled = $false
-	Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
-	$SafeBootButton.Enabled = $true
-})
-
-# Define Battery Report button functions
-$BatteryButton.Add_Click({
-    $BatteryButton.Enabled = $false
-    $ReportPath = Join-Path $env:TEMP "battery-report.html"
-    Start-Process powercfg.exe -ArgumentList "/batteryreport /output `"$ReportPath`"" -Wait -WindowStyle Hidden
-    if (Test-Path $ReportPath) {
-        Start-Process $ReportPath
-    } else {
-        Log-Message "Battery report failed to generate." "Error"
+$TrLaunchButton.Add_Click({
+    if ($TrListView.SelectedItems.Count -eq 0) { return }
+    $selected = $TrListView.SelectedItems[0].Text
+    $TrLaunchButton.Enabled = $false
+    
+    switch ($selected) {
+        "Check Disk (Read Only)" {
+            Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
+        }
+        "DISM Repair" {
+            Start-Process cmd.exe -ArgumentList '/c dism /online /cleanup-image /restorehealth & pause' -Verb RunAs
+        }
+        "SFC Repair" {
+            Start-Process cmd.exe -ArgumentList '/c sfc /scannow & pause' -Verb RunAs
+        }
+        "Enable Safe Boot (w/Network)" {
+            Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
+        }
+        "Generate Battery Report" {
+            $ReportPath = Join-Path $env:TEMP "battery-report.html"
+            Start-Process powercfg.exe -ArgumentList "/batteryreport /output `"$ReportPath`"" -Wait -WindowStyle Hidden
+            if (Test-Path $ReportPath) {
+                Start-Process $ReportPath
+            } else {
+                Log-Message "Battery report failed to generate." "Error"
+            }
+        }
+        "Reliability Monitor" {
+            Start-Process perfmon.exe -ArgumentList "/rel"
+        }
+        "Flush DNS & Reset IP" {
+            Clear-DnsClientCache
+            Restart-NetAdapter -Name "*"
+        }
+        "Restart Windows Explorer" {
+            Stop-Process -Name explorer -Force
+            Start-Process "$env:WINDIR\explorer.exe"
+        }
     }
-    $BatteryButton.Enabled = $true
-})
-
-# Define Reliability Monitor button functions
-$RelMonButton.Add_Click({
-    $RelMonButton.Enabled = $false
-    Start-Process perfmon.exe -ArgumentList "/rel"
-    $RelMonButton.Enabled = $true
-})
-
-# Define Network Reset button functions
-$NetResetButton.Add_Click({
-    $NetResetButton.Enabled = $false
-    Clear-DnsClientCache
-	Restart-NetAdapter -Name "*"
-	$NetResetButton.Enabled = $true
-})
-
-# Define Restart Explorer button functions
-$ExpButton.Add_Click({
-    $ExpButton.Enabled = $false
-	Stop-Process -Name explorer -Force
-	Start-Process "$env:WINDIR\explorer.exe"
-    $ExpButton.Enabled = $true
+    
+    $TrLaunchButton.Enabled = $true
 })
 
 # Define console button
@@ -1287,7 +853,7 @@ $BackButton.Add_Click({
 })
 
 $TroubleGUI.Add_Load({
-    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(705, ($BackButton.Bottom + 40))
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(650, ($BackButton.Bottom + 20))
 })
 
 # Catch closes to close program properly
