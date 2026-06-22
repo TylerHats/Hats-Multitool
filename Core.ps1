@@ -33,25 +33,24 @@ function Show-ImageSplash {
         [switch]$TopMost
     )
     if (-not (Test-Path $ImagePath)) { throw "Splash image not found: $ImagePath" }
-    $script:_splashImage = [System.Drawing.Image]::FromFile($ImagePath)
-    $w = $script:_splashImage.Width  + (2*$Margin)
-    $h = $script:_splashImage.Height + (2*$Margin)
-	$key = [System.Drawing.Color]::FromArgb(255, 1, 1, 1)
-    $form = New-Object Windows.Forms.Form
-    $form.FormBorderStyle = 'None'
-    $form.StartPosition   = 'CenterScreen'
-    $form.ShowInTaskbar   = $false
-    $form.TopMost         = $TopMost.IsPresent
-	$form.AutoScaleMode   = 'None'
-    $form.Size            = [Drawing.Size]::new(600, 225)
-    $keyColor = [Drawing.Color]::Fuchsia
-    $form.BackColor      = $key
-    $form.TransparencyKey = $key
-    $form.BackgroundImage      = $script:_splashImage
-    $form.BackgroundImageLayout = 'Stretch'
+    
+    # Load as a Bitmap to pass to SetImage
+    $script:_splashImage = [System.Drawing.Bitmap]::new($ImagePath)
+    
+    $form = [HMT.PerPixelAlphaForm]::new()
+    $form.ShowInTaskbar = $false
+    $form.TopMost = $TopMost.IsPresent
+    
+    # Set size so CenterScreen calculates the correct X/Y coordinate
+    $form.Size = [System.Drawing.Size]::new($script:_splashImage.Width, $script:_splashImage.Height)
+    $form.StartPosition = 'CenterScreen'
+    
+    # Show creates the handle, then SetImage draws the alpha buffer
+    $form.Show() | Out-Null
+    $form.SetImage($script:_splashImage)
+    
 	$script:_splashMinMs = 1000
 	$script:_splashSW    = [Diagnostics.Stopwatch]::StartNew()
-    $form.Show() | Out-Null
     [Windows.Forms.Application]::DoEvents()
     $script:_splashForm = $form
 }
