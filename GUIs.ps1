@@ -728,6 +728,8 @@ $ToolsGUI.Add_Load({
     Invoke-HMTScale $ToolsGUI
     $p = [int](20 * $global:HMTScaleFactor)
     
+    $ToolsGUI.MinimumSize = [System.Drawing.Size]::Empty
+    
     $itemHeight = 20
     if ($ToolsListView.Items.Count -gt 0) { $itemHeight = $ToolsListView.GetItemRect(0).Height }
     $reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + [int](30 * $global:HMTScaleFactor)
@@ -744,7 +746,10 @@ $ToolsGUI.Add_Load({
     $TBackButton.Top = $y
     
     $reqFormWidth = $reqListWidth + [int](60 * $global:HMTScaleFactor)
+    $TBackButton.Left = $reqFormWidth - $TBackButton.Width - [int](30 * $global:HMTScaleFactor)
+    
     $ToolsGUI.ClientSize = [System.Drawing.Size]::new($reqFormWidth, ($TBackButton.Bottom + $p))
+    $ToolsGUI.MinimumSize = $ToolsGUI.Size
     
     $ToolsListView.Columns[1].Width = $ToolsListView.ClientSize.Width - $ToolsListView.Columns[0].Width
 })
@@ -956,6 +961,8 @@ $TroubleGUI.Add_Load({
     Invoke-HMTScale $TroubleGUI
     $p = [int](20 * $global:HMTScaleFactor)
     
+    $TroubleGUI.MinimumSize = [System.Drawing.Size]::Empty
+    
     $itemHeight = 20
     if ($TrListView.Items.Count -gt 0) { $itemHeight = $TrListView.GetItemRect(0).Height }
     $reqListHeight = ($TrListView.Items.Count * $itemHeight) + [int](30 * $global:HMTScaleFactor)
@@ -973,7 +980,11 @@ $TroubleGUI.Add_Load({
     $BackButton.Top = $y
     
     $reqFormWidth = $reqListWidth + [int](60 * $global:HMTScaleFactor)
+    $BackButton.Left = $reqFormWidth - $BackButton.Width - [int](30 * $global:HMTScaleFactor)
+    $ConsoleButton.Left = $BackButton.Left - $ConsoleButton.Width - [int](10 * $global:HMTScaleFactor)
+    
     $TroubleGUI.ClientSize = [System.Drawing.Size]::new($reqFormWidth, ($BackButton.Bottom + $p))
+    $TroubleGUI.MinimumSize = $TroubleGUI.Size
     
     $TrListView.Columns[1].Width = $TrListView.ClientSize.Width - $TrListView.Columns[0].Width
 })

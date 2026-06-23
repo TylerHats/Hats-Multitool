@@ -174,19 +174,6 @@ $skipButton.Add_Click({
 $form.Add_Load({
         Invoke-HMTScale $form
         $p = [int]($padding * $global:HMTScaleFactor)
-        
-        $itemHeight = 20
-        if ($checkedListBox.Items.Count -gt 0) { $itemHeight = $checkedListBox.GetItemHeight(0) }
-        $checkedListBox.Height = ($checkedListBox.Items.Count * $itemHeight) + [int](10 * $global:HMTScaleFactor)
-        
-        $y = $checkedListBox.Bottom + $p
-        $progressBar.Top = $y
-        $y += $progressBar.Height + [int](10 * $global:HMTScaleFactor)
-        $statusLabel.Top = $y
-        $y += $statusLabel.Height + [int](15 * $global:HMTScaleFactor)
-        $okButton.Top = $y
-        $skipButton.Top = $y
-        
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
     })
 
