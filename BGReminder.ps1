@@ -24,25 +24,25 @@ $BGR.Controls.Add($BGRlabel)
 
 # Define a function to handle window closing
 $BGR.Add_FormClosed({
-    param($_sender, $e)
-    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and (-not $BGRCodeExit)) {
-        Log-Message "User exited, running cleanup."
-        User-Exit
-    }
-})
+        param($_sender, $e)
+        if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and (-not $BGRCodeExit)) {
+            Log-Message "User exited, running cleanup."
+            User-Exit
+        }
+    })
 
 # Animation Timer Logic
 $global:bgrDotCount = 0
 $BGRTimer = New-Object System.Windows.Forms.Timer
 $BGRTimer.Interval = 1000 # Updates every 1000 milliseconds (a second)
 $BGRTimer.Add_Tick({
-    $global:bgrDotCount++
-    if ($global:bgrDotCount -gt 3) { $global:bgrDotCount = 0 }
+        $global:bgrDotCount++
+        if ($global:bgrDotCount -gt 3) { $global:bgrDotCount = 0 }
     
-    # Multiply the dot character by the count to create the trail
-    $dots = "." * $global:bgrDotCount 
-    $BGRlabel.Text = "Hat's Multitool is running$dots"
-})
+        # Multiply the dot character by the count to create the trail
+        $dots = "." * $global:bgrDotCount 
+        $BGRlabel.Text = "Hat's Multitool is running$dots"
+    })
 
 # Start the timer and Display GUI
 $BGRTimer.Start()
