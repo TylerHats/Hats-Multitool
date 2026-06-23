@@ -70,6 +70,7 @@ function Invoke-HMTScale {
         $TargetForm.Scale((New-Object System.Drawing.SizeF($global:HMTScaleFactor, $global:HMTScaleFactor)))
         $TargetForm.Tag = "Scaled"
     }
+    Set-DarkTitleBar -TargetForm $TargetForm
 }
 
 # Log-Message writes to log path and console

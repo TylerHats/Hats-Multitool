@@ -727,7 +727,25 @@ $TBackButton.Add_Click({
 $ToolsGUI.Add_Load({
     Invoke-HMTScale $ToolsGUI
     $p = [int](20 * $global:HMTScaleFactor)
-    $ToolsGUI.ClientSize = [System.Drawing.Size]::new($ToolsGUI.ClientSize.Width, ($TBackButton.Bottom + $p))
+    
+    $itemHeight = 20
+    if ($ToolsListView.Items.Count -gt 0) { $itemHeight = $ToolsListView.GetItemRect(0).Height }
+    $reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + [int](30 * $global:HMTScaleFactor)
+    $ToolsListView.Height = $reqListHeight
+    
+    $ToolsListView.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::ColumnContent)
+    $minCol0 = [int](180 * $global:HMTScaleFactor)
+    if ($ToolsListView.Columns[0].Width -lt $minCol0) { $ToolsListView.Columns[0].Width = $minCol0 }
+    $reqListWidth = $ToolsListView.Columns[0].Width + $ToolsListView.Columns[1].Width + [int](6 * $global:HMTScaleFactor)
+    $ToolsListView.Width = $reqListWidth
+    
+    $y = $ToolsListView.Bottom + [int](15 * $global:HMTScaleFactor)
+    $TLaunchButton.Top = $y
+    $TBackButton.Top = $y
+    
+    $reqFormWidth = $reqListWidth + [int](60 * $global:HMTScaleFactor)
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new($reqFormWidth, ($TBackButton.Bottom + $p))
+    
     $ToolsListView.Columns[1].Width = $ToolsListView.ClientSize.Width - $ToolsListView.Columns[0].Width
 })
 
@@ -937,7 +955,26 @@ $BackButton.Add_Click({
 $TroubleGUI.Add_Load({
     Invoke-HMTScale $TroubleGUI
     $p = [int](20 * $global:HMTScaleFactor)
-    $TroubleGUI.ClientSize = [System.Drawing.Size]::new($TroubleGUI.ClientSize.Width, ($BackButton.Bottom + $p))
+    
+    $itemHeight = 20
+    if ($TrListView.Items.Count -gt 0) { $itemHeight = $TrListView.GetItemRect(0).Height }
+    $reqListHeight = ($TrListView.Items.Count * $itemHeight) + [int](30 * $global:HMTScaleFactor)
+    $TrListView.Height = $reqListHeight
+    
+    $TrListView.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::ColumnContent)
+    $minCol0 = [int](180 * $global:HMTScaleFactor)
+    if ($TrListView.Columns[0].Width -lt $minCol0) { $TrListView.Columns[0].Width = $minCol0 }
+    $reqListWidth = $TrListView.Columns[0].Width + $TrListView.Columns[1].Width + [int](6 * $global:HMTScaleFactor)
+    $TrListView.Width = $reqListWidth
+    
+    $y = $TrListView.Bottom + [int](15 * $global:HMTScaleFactor)
+    $TrLaunchButton.Top = $y
+    $ConsoleButton.Top = $y
+    $BackButton.Top = $y
+    
+    $reqFormWidth = $reqListWidth + [int](60 * $global:HMTScaleFactor)
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new($reqFormWidth, ($BackButton.Bottom + $p))
+    
     $TrListView.Columns[1].Width = $TrListView.ClientSize.Width - $TrListView.Columns[0].Width
 })
 
