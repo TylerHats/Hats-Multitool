@@ -27,7 +27,7 @@ Automate the tedious parts of Windows setup with built-in modules:
 ### 🧰 Built-in Tools
 Access a curated library of essential sysadmin and maintenance utilities directly from the GUI:
 - **System & Drive Utilities:** WizTree, Windows Disk Cleanup, Patch Cleaner, DISM++, BleachBit, HDDScan, Crystal Disk Mark, Crystal Disk Info.
-- **Driver & Profile Management:** Display Driver Uninstaller (DDU), User Profile Wizard, Hat's User Move Tool.
+- **Driver & Profile Management:** Display Driver Uninstaller (DDU), User Profile Wizard.
 - **Uninstaller & Removal Tools:** McAfee MCPR Tool, Ninja Removal Script.
 - **Misc Tools:** BlueScreenView, Little Registry Cleaner, .NET 3.5 Installer, Windows 11 Upgrade Assistant.
 
@@ -75,13 +75,13 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 These executables are currently built using **NSIS** as simple, silent, self-extracting archives that launch the main `Core.ps1` file. Since version 3.7.4, C# methods are compiled into a DLL (`HMTNative.dll`) using Mono-MCS during the build process.
 
 **To package the project yourself:**
-1. Compile `HMTNative.cs` and `HMTUserMoveNative.cs` into `HMTNative.dll` and `HMTUserMoveNative.dll`, and ensure they are in the root directory alongside the `.ps1` files and icons.
+1. Compile `HMTNative.cs` into `HMTNative.dll` and ensure it is in the root directory alongside the `.ps1` files and icons.
 2. Using your preferred archiving software (like NSIS or 7-Zip SFX), pack the repository files into a self-extracting archive.
 3. Set the archive to extract silently and execute the following command upon extraction:
    ```cmd
    PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "Core.ps1" -WindowStyle Hidden
    ```
-*The multitool can also be opened simply by running* ***Core.ps1*** *directly, but the cs files must still be compiled before hand.*
+*The multitool can also be opened simply by running* ***Core.ps1*** *directly, but the cs file must still be compiled before hand.*
 
 ---
 
