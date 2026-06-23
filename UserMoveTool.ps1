@@ -27,15 +27,10 @@ function Log-Message {
     }
 }
 
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class UIHelpers {
-    [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
-    [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-}
-"@
-[UIHelpers]::SetProcessDPIAware() | Out-Null
+$NativeDll = Join-Path $PSScriptRoot "HMTUserMoveNative.dll"
+if (Test-Path $NativeDll) { Add-Type -Path $NativeDll -ErrorAction Stop }
+
+[HMTUserMoveNative.UIHelpers]::SetProcessDPIAware() | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $MoveGUI = New-Object System.Windows.Forms.Form
@@ -49,7 +44,7 @@ $MoveGUI.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
 $MoveGUI.Handle | Out-Null
 $darkMode = 1
-[UIHelpers]::DwmSetWindowAttribute($MoveGUI.Handle, 20, [ref]$darkMode, 4) | Out-Null
+[HMTUserMoveNative.UIHelpers]::DwmSetWindowAttribute($MoveGUI.Handle, 20, [ref]$darkMode, 4) | Out-Null
 
 $TabControl = New-Object System.Windows.Forms.TabControl
 $TabControl.Location = New-Object System.Drawing.Point(10, 10)
@@ -330,6 +325,13 @@ $StartBackupBtn.Add_Click({
                 }
             } catch {}
         }
+
+        # PC Specs Generation
+        $ProgressLabel.Text = "Generating PC Specs report..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $BIOS = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
+        $CS = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+        "PC Name: $($CS.Name)`nModel: $($CS.Model)`nManufacturer: $($CS.Manufacturer)`nSerial Number: $($BIOS.SerialNumber)" | Out-File (Join-Path $DestRoot "PC_Specs.txt")
     }
 
     if ($chkCreds.Checked) {
@@ -349,12 +351,8 @@ $StartBackupBtn.Add_Click({
             }
         } catch { Log-Message "Failed to download SQLite. Browser passwords will be skipped." "Error" }
 
-        $CredDll = Join-Path $PSScriptRoot "HMTCredentials.cs"
-        if (Test-Path $CredDll) {
-            try {
-                Add-Type -Path $CredDll -ErrorAction Stop
-                $csv = [HMTCredentials.CredentialExtractor]::GetWindowsCredentialsCsv()
-                $csv | Out-File (Join-Path $DestRoot "Windows_Credentials.csv") -Encoding UTF8
+        $csv = [HMTUserMoveNative.CredentialExtractor]::GetWindowsCredentialsCsv()
+        $csv | Out-File (Join-Path $DestRoot "Windows_Credentials.csv") -Encoding UTF8
                 
                 if (Test-Path $SqliteDllPath) {
                     foreach ($u in $ActiveUsers) {
@@ -364,7 +362,7 @@ $StartBackupBtn.Add_Click({
                             
                             $ChromeCsv = ""
                             if ($u -eq $env:USERNAME) {
-                                $ChromeCsv = [HMTCredentials.CredentialExtractor]::GetChromiumPasswordsCsv($LocalState, $LoginData, $SqliteDllPath)
+                                $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsCsv($LocalState, $LoginData, $SqliteDllPath)
                             } else {
                                 # Prompt for offline user password
                                 $PassPrompt = New-Object System.Windows.Forms.Form
@@ -414,7 +412,7 @@ $StartBackupBtn.Add_Click({
                                 while ($true) {
                                     $res = $PassPrompt.ShowDialog()
                                     if ($res -eq 'OK' -and -not [string]::IsNullOrWhiteSpace($txtPass.Text)) {
-                                        $ChromeCsv = [HMTCredentials.CredentialExtractor]::GetChromiumPasswordsImpersonated($LocalState, $LoginData, $SqliteDllPath, $env:USERDOMAIN, $u, $txtPass.Text)
+                                        $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsImpersonated($LocalState, $LoginData, $SqliteDllPath, $env:USERDOMAIN, $u, $txtPass.Text)
                                         if ($ChromeCsv -match "LogonUser Failed") {
                                             [System.Windows.Forms.MessageBox]::Show("Incorrect password. Please try again or click Skip.", "Authentication Failed", 0, 16) | Out-Null
                                             $txtPass.Text = ""
@@ -436,7 +434,6 @@ $StartBackupBtn.Add_Click({
                     }
                 }
             } catch { Log-Message "Credential Extraction failed: $_" "Warning" }
-        }
     }
 
     $JsonConfig | ConvertTo-Json -Depth 5 | Out-File (Join-Path $DestRoot "Migration.json") -Encoding ascii
@@ -539,6 +536,23 @@ $StartRestoreBtn.Add_Click({
     Copy-Item $ConfigPath -Destination $PublicStaging -Force
     Copy-Item (Join-Path $RPathTextBox.Text "WiFi_Profiles") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path $RPathTextBox.Text "ExportedDrivers") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
+    
+    # Driver Export Fix
+    $DriverDest = Join-Path $RPathTextBox.Text "ExportedDrivers"
+    if (-not (Test-Path $DriverDest) -and $chkDrivers.Checked) {
+        Log-Message "Exporting 3rd Party Drivers..."
+        $ProgressLabel.Text = "Exporting Drivers via DISM (This takes a while)..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $DriverDestOut = Join-Path $DestRoot "ExportedDrivers"
+        New-Item -ItemType Directory -Path $DriverDestOut -Force | Out-Null
+        $job = Start-Job { Export-WindowsDriver -Online -Destination $args[0] -ErrorAction SilentlyContinue } -ArgumentList $DriverDestOut
+        while ($job.State -eq 'Running') {
+            [System.Windows.Forms.Application]::DoEvents()
+            Start-Sleep -Milliseconds 100
+        }
+        Remove-Job $job -Force
+    }
+
     Copy-Item (Join-Path $RPathTextBox.Text "*.reg") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path $RPathTextBox.Text "*.csv") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
 

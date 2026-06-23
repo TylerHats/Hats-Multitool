@@ -8,8 +8,14 @@ using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Security.Principal;
 
-namespace HMTCredentials
+namespace HMTUserMoveNative
 {
+    public class UIHelpers 
+    {
+        [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+        [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+    }
+
     public class CredentialExtractor
     {
         // --- Windows Credential Manager ---
