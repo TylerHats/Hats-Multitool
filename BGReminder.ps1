@@ -20,17 +20,18 @@ if (-not $global:BGRBaseText) {
 }
 
 # Add descriptive label
-$BGRlabel = New-Object System.Windows.Forms.Label
-$BGRlabel.Text = $global:BGRBaseText
-$BGRlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BGRlabel.Dock = [System.Windows.Forms.DockStyle]::Fill
-$BGRlabel.TextAlign = 'MiddleCenter'
-$BGR.Controls.Add($BGRlabel)
+$global:BGRlabel = New-Object System.Windows.Forms.Label
+$global:BGRlabel.Text = $global:BGRBaseText
+$global:BGRlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$global:BGRlabel.Dock = [System.Windows.Forms.DockStyle]::Fill
+$global:BGRlabel.TextAlign = 'MiddleCenter'
+$BGR.Controls.Add($global:BGRlabel)
 
 # Define a function to handle window closing
 $BGR.Add_FormClosed({
         param($_sender, $e)
         $null = $_sender
+        $BGRTimer.Stop()
         if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and (-not $BGRCodeExit)) {
             Log-Message "User exited, running cleanup."
             User-Exit
@@ -39,15 +40,22 @@ $BGR.Add_FormClosed({
 
 # Animation Timer Logic
 $global:bgrDotCount = 0
+$global:bgrTickCount = 0
 $BGRTimer = New-Object System.Windows.Forms.Timer
-$BGRTimer.Interval = 1000 # Updates every 1000 milliseconds (a second)
+$BGRTimer.Interval = 250 # Updates every 250 milliseconds
 $BGRTimer.Add_Tick({
-        $global:bgrDotCount++
-        if ($global:bgrDotCount -gt 3) { $global:bgrDotCount = 0 }
+        $global:bgrTickCount++
+        if ($global:bgrTickCount -ge 4) {
+            $global:bgrTickCount = 0
+            $global:bgrDotCount++
+            if ($global:bgrDotCount -gt 3) { $global:bgrDotCount = 0 }
+        }
 
         # Multiply the dot character by the count to create the trail
         $dots = "." * $global:bgrDotCount
-        $BGRlabel.Text = "$($global:BGRBaseText)$dots"
+        if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) {
+            $global:BGRlabel.Text = "$($global:BGRBaseText)$dots"
+        }
     })
 
 # Start the timer and Display GUI

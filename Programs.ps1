@@ -21,6 +21,8 @@ Import-Module Microsoft.WinGet.Client
 
 # Force initialize WinGet source
 $global:BGRBaseText = "Updating WinGet Sources"
+if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) { $global:BGRlabel.Text = $global:BGRBaseText }
+[System.Windows.Forms.Application]::DoEvents()
 Log-Message "Initializing WinGet and updating sources..."
 winget source reset --force | Out-Null
 winget source update | Out-Null
@@ -326,7 +328,7 @@ $okButton.Add_Click({
                 # 1. Scrape WinGet for URL and Silent Switches
                 $procInfo = New-Object System.Diagnostics.ProcessStartInfo
                 $procInfo.FileName = "winget.exe"
-                $procInfo.Arguments = "show --id `"$($program.WingetID)`" --machine --exact --accept-source-agreements --accept-package-agreements --architecture x64"
+                $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --accept-package-agreements --architecture x64 --disable-interactivity"
                 $procInfo.RedirectStandardOutput = $true
                 $procInfo.UseShellExecute = $false
                 $procInfo.CreateNoWindow = $true
@@ -349,7 +351,7 @@ $okButton.Add_Click({
                 }
 
                 if ([string]::IsNullOrWhiteSpace($installerUrl)) {
-                    throw "Failed to locate direct download URL from WinGet."
+                    throw "Failed to locate direct download URL from WinGet. Output: $wingetOutput"
                 }
                 
                 if ([string]::IsNullOrWhiteSpace($silentArgs)) {
@@ -461,7 +463,7 @@ $okButton.Add_Click({
                     
                     $procInfo = New-Object System.Diagnostics.ProcessStartInfo
                     $procInfo.FileName = "winget.exe"
-                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --machine --exact --accept-source-agreements --accept-package-agreements --architecture x64"
+                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --accept-package-agreements --architecture x64 --disable-interactivity"
                     $procInfo.RedirectStandardOutput = $true
                     $procInfo.UseShellExecute = $false
                     $procInfo.CreateNoWindow = $true
@@ -483,7 +485,7 @@ $okButton.Add_Click({
                         if ($line -match 'Silent( with Progress)?:\s+(.+)') { $silentArgs = $matches[2].Trim() }
                     }
 
-                    if ([string]::IsNullOrWhiteSpace($installerUrl)) { throw "Failed to locate direct download URL from WinGet." }
+                    if ([string]::IsNullOrWhiteSpace($installerUrl)) { throw "Failed to locate direct download URL from WinGet. Output: $wingetOutput" }
                     if ([string]::IsNullOrWhiteSpace($silentArgs)) {
                         if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
                         elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }

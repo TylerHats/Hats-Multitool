@@ -49,6 +49,7 @@ $darkMode = 1
 $TabControl = New-Object System.Windows.Forms.TabControl
 $TabControl.Location = New-Object System.Drawing.Point(10, 10)
 $TabControl.Size = New-Object System.Drawing.Size(480, 580)
+[HMT.NativeMethods]::SetWindowTheme($TabControl.Handle, "DarkMode_Explorer", $null) | Out-Null
 $MoveGUI.Controls.Add($TabControl)
 
 # -- BACKUP TAB --

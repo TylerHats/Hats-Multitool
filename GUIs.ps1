@@ -476,7 +476,8 @@ $ToolsListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
 $ToolsListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $ToolsListView.Columns.Add("Tool", 180) | Out-Null
-$ToolsListView.Columns.Add("Description", 380) | Out-Null
+$ToolsListView.Columns.Add("Description", 600) | Out-Null
+[HMT.NativeMethods]::SetWindowTheme($ToolsListView.Handle, "DarkMode_Explorer", $null) | Out-Null
 $ToolsGUI.Controls.Add($ToolsListView)
 
 # Define Tools
@@ -749,7 +750,8 @@ $TrListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
 $TrListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TrListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $TrListView.Columns.Add("Tool", 180) | Out-Null
-$TrListView.Columns.Add("Description", 380) | Out-Null
+$TrListView.Columns.Add("Description", 600) | Out-Null
+[HMT.NativeMethods]::SetWindowTheme($TrListView.Handle, "DarkMode_Explorer", $null) | Out-Null
 $TroubleGUI.Controls.Add($TrListView)
 
 # Define Tools

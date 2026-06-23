@@ -125,9 +125,15 @@ $SMGUI.CancelButton = $SMSkip
 
 # Configure clipboard copy event
 $SerialLabel.Add_Click({
-    [Windows.Forms.Clipboard]::SetText($serialNumber)
-    $tip = New-Object Windows.Forms.ToolTip
-    $tip.Show('Copied!', $SerialLabel, 0, -20, 1200)
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($serialNumber)) {
+            [Windows.Forms.Clipboard]::SetText($serialNumber)
+        } else {
+            [Windows.Forms.Clipboard]::SetText("N/A")
+        }
+        $tip = New-Object Windows.Forms.ToolTip
+        $tip.Show('Copied!', $SerialLabel, 0, -20, 1200)
+    } catch { }
 })
 
 # Enforce NetBIOS naming constraints
@@ -249,22 +255,24 @@ $SMOkayButton.Add_Click({
 
 		$runspace = [runspacefactory]::CreateRunspace()
 		$runspace.Open()
-		$pipeline = $runspace.CreatePipeline()
-		$pipeline.Commands.AddScript($scriptBlock) | Out-Null
-		$pipeline.Commands[0].Parameters.Add("isDomain", $isDomain) | Out-Null
-		$pipeline.Commands[0].Parameters.Add("isEntra", $isEntra) | Out-Null
-		$pipeline.Commands[0].Parameters.Add("pcName", $pcName) | Out-Null
-		$pipeline.Commands[0].Parameters.Add("domainName", $domainName) | Out-Null
-		$pipeline.Commands[0].Parameters.Add("cred", $cred) | Out-Null
+		$ps = [powershell]::Create()
+		$ps.Runspace = $runspace
+		$ps.AddScript($scriptBlock) | Out-Null
+		$ps.AddParameter("isDomain", $isDomain) | Out-Null
+		$ps.AddParameter("isEntra", $isEntra) | Out-Null
+		$ps.AddParameter("pcName", $pcName) | Out-Null
+		$ps.AddParameter("domainName", $domainName) | Out-Null
+		$ps.AddParameter("cred", $cred) | Out-Null
 		
-		$asyncResult = $pipeline.BeginInvoke()
+		$asyncResult = $ps.BeginInvoke()
 		
 		while (-not $asyncResult.IsCompleted) {
 			[System.Windows.Forms.Application]::DoEvents()
 			Start-Sleep -Milliseconds 50
 		}
 		
-		$result = $pipeline.EndInvoke($asyncResult)
+		$result = $ps.EndInvoke($asyncResult)
+		$ps.Dispose()
 		$runspace.Close()
 		$runspace.Dispose()
 		
