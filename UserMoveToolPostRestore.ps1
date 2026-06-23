@@ -51,13 +51,13 @@ if ($MatchFound) {
     # 5. Registry & Themes
     Update-UI "Applying personalization and taskbar settings..."
     $uSettings = $JsonConfig.Settings.$MatchedOldUser
-    if ($uSettings.AppsUseLightTheme -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -Value $uSettings.AppsUseLightTheme -ErrorAction SilentlyContinue }
-    if ($uSettings.SystemUsesLightTheme -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name SystemUsesLightTheme -Value $uSettings.SystemUsesLightTheme -ErrorAction SilentlyContinue }
-    if ($uSettings.ColorPrevalence -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name ColorPrevalence -Value $uSettings.ColorPrevalence -ErrorAction SilentlyContinue }
-    if ($uSettings.TaskbarAl -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarAl -Value $uSettings.TaskbarAl -ErrorAction SilentlyContinue }
-    if ($uSettings.ShowTaskViewButton -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name ShowTaskViewButton -Value $uSettings.ShowTaskViewButton -ErrorAction SilentlyContinue }
-    if ($uSettings.TaskbarDa -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarDa -Value $uSettings.TaskbarDa -ErrorAction SilentlyContinue }
-    if ($uSettings.SearchboxTaskbarMode -ne $null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name SearchboxTaskbarMode -Value $uSettings.SearchboxTaskbarMode -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.AppsUseLightTheme) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -Value $uSettings.AppsUseLightTheme -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.SystemUsesLightTheme) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name SystemUsesLightTheme -Value $uSettings.SystemUsesLightTheme -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.ColorPrevalence) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name ColorPrevalence -Value $uSettings.ColorPrevalence -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.TaskbarAl) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarAl -Value $uSettings.TaskbarAl -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.ShowTaskViewButton) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name ShowTaskViewButton -Value $uSettings.ShowTaskViewButton -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.TaskbarDa) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarDa -Value $uSettings.TaskbarDa -ErrorAction SilentlyContinue }
+    if ($null -ne $uSettings.SearchboxTaskbarMode) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name SearchboxTaskbarMode -Value $uSettings.SearchboxTaskbarMode -ErrorAction SilentlyContinue }
 
     # 6. Desktop Icons
     $IconReg = Join-Path $PublicStaging "DesktopIcons_$MatchedOldUser.reg"

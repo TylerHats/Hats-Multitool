@@ -150,7 +150,7 @@ $MainMenu.Add_Load({
 
 # Catch window close event
 $MainMenu.Add_FormClosing({
-    param($sender, $e)
+    param($_sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
@@ -266,7 +266,7 @@ $AboutGUI.Add_Load({
 
 # Catch Close to just hide instead of exit completely
 $AboutGUI.Add_FormClosing({
-    param($sender, $e)
+    param($_sender, $e)
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
         $e.Cancel = $true
         $AboutGUI.Hide()
@@ -415,7 +415,7 @@ $ModGUI.Add_Load({
 
 # Catch closes to close program properly
 $ModGUI.Add_FormClosing({
-    param($sender, $e)
+    param($_sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
@@ -690,7 +690,7 @@ $ToolsGUI.Add_Load({
 
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
-    param($sender, $e)
+    param($_sender, $e)
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         User-Exit
     }
@@ -864,7 +864,7 @@ $TroubleGUI.Add_Load({
 
 # Catch closes to close program properly
 $TroubleGUI.Add_FormClosing({
-    param($sender, $e)
+    param($_sender, $e)
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {

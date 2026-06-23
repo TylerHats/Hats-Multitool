@@ -1,6 +1,6 @@
 # Bloat Cleanup Module - Tyler Hatfield - v2.0
 
-$RemoveBloat = "y"
+# $RemoveBloat = "y"
 
 <# 
 List of common Windows 11 OEM and Consumer bloatware.
@@ -24,7 +24,7 @@ $bloatApps = @(
     "*ZuneMusic*"          # Old Groove Music
 )
 
-$totalBloat = $bloatApps.Count
+# $totalBloat = $bloatApps.Count
 $removedCount = 0
 
 foreach ($app in $bloatApps) {

@@ -42,7 +42,7 @@ $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $form
 
 # Component sizing variables
-$checkboxHeight = 30
+# $checkboxHeight = 30
 $labelHeight = 30
 $padding = 20
 

@@ -24,7 +24,7 @@ $BGR.Controls.Add($BGRlabel)
 
 # Define a function to handle window closing
 $BGR.Add_FormClosed({
-    param($sender, $e)
+    param($_sender, $e)
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and (-not $BGRCodeExit)) {
         Log-Message "User exited, running cleanup."
         User-Exit

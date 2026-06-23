@@ -11,8 +11,8 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$DesktopPath = [Environment]::GetFolderPath('Desktop')
-$DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
+# $DesktopPath = [Environment]::GetFolderPath('Desktop')
+# $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
 # Locate active user Downloads directory
 $InteractiveUser = (Get-CimInstance Win32_ComputerSystem).UserName
 if ($InteractiveUser) {
@@ -39,7 +39,7 @@ $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
-$SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
+# $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
 $font = New-Object System.Drawing.Font("Segoe UI", 9)
 
 try {
@@ -210,7 +210,7 @@ function Show-DownloadDialog {
 
 	Log-Message "Starting download of file: $DisplayName" "logonly"
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-	$dlCompleteClose = $false
+	$script:dlCompleteClose = $false
 
     # Create the form
     $dform = New-Object System.Windows.Forms.Form
@@ -293,15 +293,15 @@ function Show-DownloadDialog {
     $webClient.add_DownloadFileCompleted({ param($s,$e)
         $uiTimer.Stop()
         $webClient.Dispose()
-		$dlCompleteClose = $true
+		$script:dlCompleteClose = $true
         $dform.Close()
     })
 	
 	$dform.Add_FormClosing({
-		param($sender, $e)
+		param($_sender, $e)
 		# $e.CloseReason tells you why it's closing
 		# UserClosing covers the “X” or Alt-F4
-		if (($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) -and ($dlCompleteClose -ne $true)) {
+		if (($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) -and ($script:dlCompleteClose -ne $true)) {
 			# Do your “cleanup” or alternate logic here
 			if ($webClient.IsBusy) {
 				$e.Cancel = $true             # prevent immediate close; wait for Completed event
