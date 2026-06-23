@@ -105,8 +105,7 @@ $FOOkayButton.Add_Click({
                                 # Using reg.exe natively avoids the .NET file handle locks entirely
                                 & reg.exe add "HKU\DefUser\Control Panel\Keyboard" /v "InitialKeyboardIndicators" /t REG_SZ /d "2" /f | Out-Null
                                 Log-Message "Enabled NUM Lock default for new user profiles." "Success"
-                            }
-                            finally {
+                            } finally {
                                 # Clean unload guaranteed because no PS paths were opened
                                 & reg.exe unload "HKU\DefUser" | Out-Null
                             }
@@ -130,8 +129,7 @@ $FOOkayButton.Add_Click({
                             try {
                                 & reg.exe add "HKU\DefUser\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v "LegacyDefaultPrinterMode" /t REG_DWORD /d 1 /f | Out-Null
                                 Log-Message "Enabled legacy default print management." "Success"
-                            }
-                            finally {
+                            } finally {
                                 & reg.exe unload "HKU\DefUser" | Out-Null
                             }
                         }
@@ -153,8 +151,7 @@ $FOOkayButton.Add_Click({
                     }
                 }
             }
-        }
-        finally {
+        } finally {
             $FOGUI.Close()
         }
     })

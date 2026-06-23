@@ -191,19 +191,4 @@ if ($skipUpdate -ne 1) {
             $ForceExit = $true
         }
     }
-}       $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
-        $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
-        Try {
-            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
-        }
-        catch {
-            Log-Message "Failed to download update, please update manually." "Error"
-            $ForceExit = $true
-        }
-        if (-not $ForceExit) {
-            $env:hatsUpdated = "1"
-            Invoke-SelfUpdateCleanup -OutPath $outputPath
-            $ForceExit = $true
-        }
-    }
 }
