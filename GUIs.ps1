@@ -532,6 +532,7 @@ $itemHeight = 20
 if ($ToolsListView.Items.Count -gt 0) { $itemHeight = $ToolsListView.GetItemRect(0).Height }
 $reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + 30
 $ToolsListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
+$ToolsListView.Columns[1].Width = $ToolsListView.ClientSize.Width - $ToolsListView.Columns[0].Width
 
 $reqFormWidth = $reqListWidth + 60
 $ToolsGUI.MinimumSize = New-Object System.Drawing.Size(($reqFormWidth + 20), ($reqListHeight + 150))
@@ -827,6 +828,7 @@ $itemHeight = 20
 if ($TrListView.Items.Count -gt 0) { $itemHeight = $TrListView.GetItemRect(0).Height }
 $reqListHeight = ($TrListView.Items.Count * $itemHeight) + 30
 $TrListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
+$TrListView.Columns[1].Width = $TrListView.ClientSize.Width - $TrListView.Columns[0].Width
 
 $reqFormWidth = $reqListWidth + 60
 $TroubleGUI.MinimumSize = New-Object System.Drawing.Size(($reqFormWidth + 20), ($reqListHeight + 180))
