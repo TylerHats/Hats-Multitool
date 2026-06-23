@@ -41,7 +41,8 @@ foreach ($app in $bloatApps) {
         }
         
         $removedCount++
-    } catch {
+    }
+    catch {
         Log-Message "Failed to completely remove $app. Error: $_" "Error"
     }
 }
