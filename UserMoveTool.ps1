@@ -49,13 +49,30 @@ $darkMode = 1
 $TabControl = New-Object System.Windows.Forms.TabControl
 $TabControl.Location = New-Object System.Drawing.Point(10, 10)
 $TabControl.Size = New-Object System.Drawing.Size(480, 580)
+$TabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+$TabControl.Add_DrawItem({
+    param($sender, $e)
+    $g = $e.Graphics
+    $tabRect = $e.Bounds
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
+    $g.FillRectangle($brush, $tabRect)
+    $text = $sender.TabPages[$e.Index].Text
+    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"))
+    $format = New-Object System.Drawing.StringFormat
+    $format.Alignment = [System.Drawing.StringAlignment]::Center
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $g.DrawString($text, $sender.Font, $textBrush, $tabRect, $format)
+    $brush.Dispose()
+    $textBrush.Dispose()
+    $format.Dispose()
+})
 [HMT.NativeMethods]::SetWindowTheme($TabControl.Handle, "DarkMode_Explorer", $null) | Out-Null
 $MoveGUI.Controls.Add($TabControl)
 
 # -- BACKUP TAB --
 $BackupTab = New-Object System.Windows.Forms.TabPage
 $BackupTab.Text = "Backup (Export)"
-$BackupTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$BackupTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $TabControl.Controls.Add($BackupTab)
 
 $BPathLabel = New-Object System.Windows.Forms.Label
@@ -139,7 +156,7 @@ $BackupTab.Controls.Add($CancelBackupBtn)
 # -- RESTORE TAB --
 $RestoreTab = New-Object System.Windows.Forms.TabPage
 $RestoreTab.Text = "Restore (Import)"
-$RestoreTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$RestoreTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $TabControl.Controls.Add($RestoreTab)
 
 $RPathTextBox = New-Object System.Windows.Forms.TextBox

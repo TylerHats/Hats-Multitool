@@ -575,9 +575,3 @@ $okButton.Add_Click({
     })
 
 $form.ShowDialog() | Out-Null
-    }
-
-    $form.Close()
-})
-
-$form.ShowDialog() | Out-Null

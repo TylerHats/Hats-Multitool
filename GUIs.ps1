@@ -324,7 +324,7 @@ $y += 30
 $ModCLB = New-Object System.Windows.Forms.CheckedListBox
 $ModCLB.Location = New-Object System.Drawing.Point(20, $y)
 $ModCLB.Size = New-Object System.Drawing.Size(240, 180)
-$ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $ModCLB.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModCLB.BorderStyle = [System.Windows.Forms.BorderStyle]::None
 $ModCLB.CheckOnClick = $true
@@ -473,9 +473,23 @@ $ToolsListView.View = [System.Windows.Forms.View]::Details
 $ToolsListView.FullRowSelect = $true
 $ToolsListView.GridLines = $false
 $ToolsListView.HeaderStyle = [System.Windows.Forms.ColumnHeaderStyle]::Nonclickable
-$ToolsListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$ToolsListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $ToolsListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$ToolsListView.OwnerDraw = $true
+$ToolsListView.Add_DrawColumnHeader({
+    param($sender, $e)
+    $g = $e.Graphics
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#2f3136"))
+    $g.FillRectangle($brush, $e.Bounds)
+    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"))
+    $g.DrawString($e.Header.Text, $sender.Font, $textBrush, ($e.Bounds.X + 4), ($e.Bounds.Y + 4))
+    $pen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#555555"))
+    $g.DrawRectangle($pen, $e.Bounds.X, $e.Bounds.Y, $e.Bounds.Width - 1, $e.Bounds.Height - 1)
+})
+$ToolsListView.Add_DrawItem({ param($sender, $e) $e.DrawDefault = $true })
+$ToolsListView.Add_DrawSubItem({ param($sender, $e) $e.DrawDefault = $true })
+
 $ToolsListView.Columns.Add("Tool", 180) | Out-Null
 $ToolsListView.Columns.Add("Description", 600) | Out-Null
 $val = 1
@@ -750,9 +764,23 @@ $TrListView.View = [System.Windows.Forms.View]::Details
 $TrListView.FullRowSelect = $true
 $TrListView.GridLines = $false
 $TrListView.HeaderStyle = [System.Windows.Forms.ColumnHeaderStyle]::Nonclickable
-$TrListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$TrListView.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $TrListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TrListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$TrListView.OwnerDraw = $true
+$TrListView.Add_DrawColumnHeader({
+    param($sender, $e)
+    $g = $e.Graphics
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#2f3136"))
+    $g.FillRectangle($brush, $e.Bounds)
+    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"))
+    $g.DrawString($e.Header.Text, $sender.Font, $textBrush, ($e.Bounds.X + 4), ($e.Bounds.Y + 4))
+    $pen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#555555"))
+    $g.DrawRectangle($pen, $e.Bounds.X, $e.Bounds.Y, $e.Bounds.Width - 1, $e.Bounds.Height - 1)
+})
+$TrListView.Add_DrawItem({ param($sender, $e) $e.DrawDefault = $true })
+$TrListView.Add_DrawSubItem({ param($sender, $e) $e.DrawDefault = $true })
+
 $TrListView.Columns.Add("Tool", 180) | Out-Null
 $TrListView.Columns.Add("Description", 600) | Out-Null
 $val = 1
