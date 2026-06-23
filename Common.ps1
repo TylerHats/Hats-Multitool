@@ -13,7 +13,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
 $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
-# Determine logged in user's Downloads folder
+# Locate active user Downloads directory
 $InteractiveUser = (Get-CimInstance Win32_ComputerSystem).UserName
 if ($InteractiveUser) {
     $UserAccount = New-Object System.Security.Principal.NTAccount($InteractiveUser)
@@ -21,7 +21,7 @@ if ($InteractiveUser) {
     $ProfilePath = (Get-CimInstance Win32_UserProfile | Where-Object SID -eq $UserSID).LocalPath
     $DownloadsPath = Join-Path -Path $ProfilePath -ChildPath "Downloads"
 } else {
-    # Fallback: If no one is interactively logged in (e.g., running over an entirely headless remote shell)
+    # Fallback for headless environments
     $DownloadsPath = Join-Path -Path $env:USERPROFILE -ChildPath "Downloads"
 }
 $logPathName = "Hats-Multitool-Log.txt"
@@ -55,7 +55,7 @@ try {
 }
 
 # Common Functions:
-# Log-Message takes a string or command output and sends it both to the registered $logPath and the PS consol
+# Log-Message writes to log path and console
 function Log-Message {
     param(
         [string]$message,
@@ -106,7 +106,7 @@ $ICON_BIG   = 1
 # grab our icon handle
 $hIcon = $HMTIcon.Handle
 
-# get the console window and swap in our icon
+# Apply icon to console window
 $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
 $wParamBig   = New-Object System.IntPtr($ICON_BIG)
 $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
@@ -151,19 +151,19 @@ function User-Exit {
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
-        # 1. Visually close instantly
+        # Terminate GUI
         [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
         [System.Windows.Forms.Application]::DoEvents()
         
-        # 1.5 Handle Logging Output
+        # Process final log output
         if ($global:HasErrors -eq $true) {
             Copy-Item -Path $global:TempLogPath -Destination $logPath -Force -ErrorAction SilentlyContinue
         }
 
-        # 2. Stage the cleanup command
+        # Prepare cleanup command
         $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue"
      
-        # 3. Spawn the invisible background cleanup process
+        # Execute async cleanup process
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = "powershell.exe"
         $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$cleanupCommand`""
@@ -172,7 +172,7 @@ function User-Exit {
         $psi.UseShellExecute = $false
         [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-        # 4. Instantly terminate the script
+        # Terminate current process
         [System.Diagnostics.Process]::GetCurrentProcess().Kill()
     }
 }
@@ -322,7 +322,7 @@ function Show-DownloadDialog {
     # Show dialog until done
     $dform.ShowDialog() | Out-Null
 
-    # Strip the "Mark of the Web" to prevent SmartScreen/Defender launch delays
+    # Remove Mark of the Web to bypass execution delays
     if (Test-Path -LiteralPath $OutputPath) {
         Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
     }

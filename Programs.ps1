@@ -3,7 +3,7 @@
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Force initialize NuGet and Trust PSGallery to prevent console prompts
+# Configure PSGallery silently
 Log-Message "Preparing Package Providers..."
 if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
@@ -22,7 +22,7 @@ Log-Message "Initializing WinGet and updating sources..."
 winget source reset --force | Out-Null
 winget source update | Out-Null
 
-# Install programs based on selections, prepare Windows "Form"
+# Initialize GUI form
 Log-Message "Preparing Software List..."
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -422,7 +422,7 @@ $okButton.Add_Click({
             }
         }
         
-        # Advance segment mapping to force it to 100% completion before moving index
+        # Finalize segment progress
         &$updateLocalProgress $currentIndex $totalPrograms 100 "Finished: $($program.Name)"
         $currentIndex++
     }
@@ -541,7 +541,7 @@ $okButton.Add_Click({
                     $skipButton.Enabled = $false
                 }
             }
-            # Advance segment mapping to force it to 100% completion before moving index
+            # Finalize segment progress
             &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)" ""
             $retryIndex++
         }

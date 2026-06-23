@@ -94,19 +94,19 @@ $MainMenuExitButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuExitButton)
 
 $MainMenu.Add_Shown({
-    # Temporarily force the window to draw above everything else OS-wide
+    # Enforce TopMost rendering
     $this.TopMost = $true 
     # Grab the foreground focus
     [HMT.NativeMethods]::SetForegroundWindow($this.Handle) | Out-Null
     $this.Activate()
     $this.BringToFront()
-    # Relinquish the top-level overlay status so it behaves like a normal window again
+    # Restore normal window z-order
     $this.TopMost = $false 
 })
 
 # Define a function to handle the Setup button click
 $MainMenuSetupButton.Add_Click({
-	# Scrub the GUI: Reset all checkboxes to unchecked
+	# Reset form inputs
     foreach ($cb in $ModGUIcheckboxes.Values) {
         $cb.Checked = $false
     }
@@ -148,7 +148,7 @@ $MainMenu.Add_Load({
     $MainMenu.ClientSize = [System.Drawing.Size]::new(300, ($MainMenuExitButton.Bottom + 30))
 })
 
-# Catch closes to close program properly
+# Catch window close event
 $MainMenu.Add_FormClosing({
     param($sender, $e)
     # $e.CloseReason tells you why it's closing
@@ -173,7 +173,7 @@ $AboutGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $AboutGUI
 
-# Big Icon (Pulls the crisp PNG from script root)
+# Load high-resolution logo
 $IconBox = New-Object System.Windows.Forms.PictureBox
 $IconBox.Size = New-Object System.Drawing.Size(100, 100)
 $IconBox.Location = New-Object System.Drawing.Point(110, 20)
@@ -259,7 +259,7 @@ $AboutCloseBtn.FlatAppearance.BorderSize = 1
 $AboutCloseBtn.Add_Click({ $AboutGUI.Hide() })
 $AboutGUI.Controls.Add($AboutCloseBtn)
 
-# Wrap the window height dynamically in case of scaling
+# Calculate dynamic layout post-DPI scaling
 $AboutGUI.Add_Load({
     $AboutGUI.ClientSize = [System.Drawing.Size]::new($AboutGUI.ClientSize.Width, ($AboutCloseBtn.Bottom + 20))
 })
@@ -387,13 +387,13 @@ $ModGUIokButton.Add_Click({
         return
     }
 
-    # CRITICAL FIX: Wipe ALL module variables back to $false to clear out previous runs
+    # Reset module configuration state
     foreach ($module in $modules) {
         $varName = "Run_" + ($module.Name -replace '\s','')
         Set-Variable -Name $varName -Value $false -Scope Global
     }
 
-    # Now set only the newly selected modules to $true
+    # Apply current module selection
     foreach ($moduleName in $selectedModules) {
         Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
     }

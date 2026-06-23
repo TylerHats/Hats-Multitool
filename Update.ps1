@@ -1,11 +1,11 @@
 # Self Update Module - Tyler Hatfield - v2.10
 
-# Define the path to your JSON file in the current directory
+# Locate local configuration JSON
 $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update filename if needed
 
-# Check if the file exists to avoid errors
+# Verify configuration existence
 if (Test-Path -Path $jsonPath) {
-    # Read the raw JSON text and convert it to a PowerShell object
+    # Parse JSON configuration
     $configData = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
     
     # Extract the version string
@@ -18,7 +18,7 @@ if (Test-Path -Path $jsonPath) {
     Log-Message "Update check failed: Could not find $jsonPath" "Error"
 }
 
-# Prepare Update GUI
+# Initialize Update GUI
 $UpdateGUI = New-Object System.Windows.Forms.Form
 $UpdateGUI.Text = "Hat's Multitool"
 $UpdateGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -67,7 +67,7 @@ $UNOkayButton.FlatAppearance.BorderSize = 1
 $UpdateGUI.Controls.Add($UNOkayButton)
 $UpdateGUI.CancelButton = $UNOkayButton
 
-# Fix Scaling and Layout Dynamically
+# Calculate dynamic layout post-DPI scaling
 $UpdateGUI.Add_Load({
     $ULabel.Width = $UpdateGUI.ClientSize.Width
     $totalButtonWidth = $UYOkayButton.Width + 20 + $UNOkayButton.Width
@@ -98,15 +98,15 @@ function Invoke-SelfUpdateCleanup {
         [string]$OutPath
     )
     
-    # 1. Visually close instantly
+    # Terminate GUI
     [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
     [System.Windows.Forms.Application]::DoEvents()
 
-    # 2. Stage the cleanup and relaunch command
+    # Prepare cleanup command
     $copyLogCmd = if ($global:HasErrors) { "Copy-Item -Path '$($global:TempLogPath)' -Destination '$logPath' -Force -ErrorAction SilentlyContinue;" } else { "" }
     $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; $copyLogCmd Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
     
-    # 3. Spawn the invisible background cleanup process via .NET (prevents console flash)
+    # Execute async cleanup process
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "powershell.exe"
     $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$updateCleanup`""
@@ -115,7 +115,7 @@ function Invoke-SelfUpdateCleanup {
     $psi.UseShellExecute = $false
     [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-    # 4. Instant close
+    # Terminate current process
     [System.Diagnostics.Process]::GetCurrentProcess().Kill()
 }
 

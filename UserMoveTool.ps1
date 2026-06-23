@@ -1,6 +1,6 @@
 # User Move Tool - Tyler Hatfield - v1.10
 
-# Instantly pop a tiny loading indicator before loading the heavy C# assemblies
+# Display initial loading indicator
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 $MicroLoader = New-Object System.Windows.Forms.Form
 $MicroLoader.ClientSize = New-Object System.Drawing.Size(220, 40)
@@ -97,7 +97,7 @@ $MoveGUI.Font = $font
 $MoveGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $MoveGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 
-# Force Handle Creation so we can apply the Dark Mode Title Bar
+# Create handle to apply dark mode title bar
 $MoveGUI.Handle | Out-Null
 $darkMode = 1
 [UIHelpers]::DwmSetWindowAttribute($MoveGUI.Handle, 20, [ref]$darkMode, 4) | Out-Null
@@ -846,7 +846,7 @@ if (-not `$Remaining) {
     $CancelButton.Enabled = $false
 })
 
-# Kill the loader and show the real GUI
+# Terminate loader and display main GUI
 $MicroLoader.Close()
 $MicroLoader.Dispose()
 

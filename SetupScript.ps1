@@ -1,45 +1,45 @@
 # PC Setup and Config Script - Tyler Hatfield - v1.21
 
-# Open background reminder window to fill any gaps between main GUIs
+# Initialize background reminder UI
 $BackgroundReminderPath = Join-Path -Path $PSScriptRoot -ChildPath 'BGReminder.ps1'
 $BGRCodeExit = $false
 . "$BackgroundReminderPath"
 	
-# Run Time Zone Module
+# Execute Time Zone module
 if ($Run_TimeZone) {
 	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
 	. "$TZPath"
 }
 
-# Run accounts module
+# Execute Local Accounts module
 if ($Run_LocalAccounts) {
 	$AccountsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Accounts.ps1'
 	. "$AccountsModPath"
 }
 
-# Run bloat cleanup module
+# Execute Bloat Cleanup module
 if ($Run_BloatCleanup) {
 	$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
 	. "$BloatCleanupModPath"
 }
 
-# Run program installation module
+# Execute Programs module
 if ($Run_Programs) {
 	$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'
 	. "$ProgramsModPath"
 }
 
-# Run system management module
+# Execute System Management module
 if ($Run_SystemProperties) {
 	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
 	. "$SystemManagementModPath"
 }
 
-# Final setup options
+# Execute Final Options module
 if ($Run_SetupOptions) {
 	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
 	. "$FOPath"
 }
-# Close background reminder window
+# Terminate background reminder UI
 $BGRCodeExit = $true
 $BGR.Close()

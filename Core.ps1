@@ -1,6 +1,6 @@
 # Core Script - Tyler Hatfield - v1.9
 
-# Check bit-ness and elevated status
+# Validate process architecture and elevation
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
 
@@ -11,16 +11,16 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
     } else { 
         "powershell.exe" 
     }
-    # Launch the corrected environment. -Verb RunAs triggers the Admin UAC prompt.
+    # Relaunch with required architecture and elevation
     Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Hidden
     exit
 }
 
-# Load Native Methods and DpiHelper DLL and Force PowerShell to be DPI Aware to prevent UI scaling issues
+# Initialize DPI awareness assemblies
 Add-Type -Path (Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.dll')
 [DpiHelper]::SetProcessDPIAware() | Out-Null
 
-# Add WinForms Assembly and Setup Global Forms Styling
+# Initialize WinForms assemblies and styling
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
@@ -34,18 +34,18 @@ function Show-ImageSplash {
     )
     if (-not (Test-Path $ImagePath)) { throw "Splash image not found: $ImagePath" }
     
-    # Load as a Bitmap to pass to SetImage
+    # Initialize bitmap resource
     $script:_splashImage = [System.Drawing.Bitmap]::new($ImagePath)
     
     $form = [HMT.PerPixelAlphaForm]::new()
     $form.ShowInTaskbar = $false
     $form.TopMost = $TopMost.IsPresent
     
-    # Set size so CenterScreen calculates the correct X/Y coordinate
+    # Pre-calculate dimensions for CenterScreen positioning
     $form.Size = [System.Drawing.Size]::new($script:_splashImage.Width, $script:_splashImage.Height)
     $form.StartPosition = 'CenterScreen'
     
-    # Show creates the handle, then SetImage draws the alpha buffer
+    # Render layered splash window
     $form.Show() | Out-Null
     $form.SetImage($script:_splashImage)
     
@@ -108,7 +108,7 @@ if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 Hide-ConsoleWindow
 
-# Focus Window and Run Self Update Module
+# Execute Self Update module
 $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
 [HMT.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 $UpdateModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Update.ps1'

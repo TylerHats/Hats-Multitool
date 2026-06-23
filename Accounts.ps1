@@ -1,11 +1,11 @@
 # Accounts Module - Tyler Hatfield - v2.10
 
-# Force load the LocalAccounts module (Requires 64-bit PowerShell)
+# Initialize LocalAccounts module
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
 
 $EM_SETCUEBANNER = 0x1501
 
-# Prepare form 
+# Initialize GUI form
 $A1GUI = New-Object System.Windows.Forms.Form
 $A1GUI.Text = "Hat's Multitool"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -64,7 +64,7 @@ $PasswordConfirmInput.Width = 280
 $A1GUI.Controls.Add($PasswordConfirmInput)
 [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
 
-# Update Password Check 
+# Initialize password update CheckBox
 $y += 40
 $PWCheckbox = New-Object System.Windows.Forms.CheckBox
 $PWCheckbox.Location = New-Object System.Drawing.Point(20, $y)
@@ -242,17 +242,16 @@ $A1Skip.Add_Click({
     $A1GUI.Close()
 })
 
-# UX FIX: Assign the form's active control to the Skip button
-# This allows quick keyboard bypassing and ensures the textboxes do not immediately pull focus on load, preserving the cue banners.
+# Set active control to Skip button to preserve cue banners and enable keyboard bypass
 $A1GUI.ActiveControl = $A1Skip
 
-# Dynamically calculate sizes AFTER Windows applies DPI scaling
+# Calculate dynamic layout post-DPI scaling
 $A1GUI.Add_Load({
-    # Snap the eye icon to the exact scaled dimensions of the password input
+    # Align visibility toggle to password input boundaries
     $ShowPWButton.Height = $PasswordInput.Height
     $ShowPWButton.Top = $PasswordInput.Top
     
-    # Wrap the window height to the bottom of the lowest control (plus 20px padding)
+    # Calculate dynamic window height
     $A1GUI.ClientSize = [System.Drawing.Size]::new(315, ($A1Skip.Bottom + 20))
 })
 

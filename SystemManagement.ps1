@@ -2,10 +2,10 @@
 
 $EM_SETCUEBANNER = 0x1501
 
-# Determine if Windows edition is domain/EntraID joinable
+# Validate OS domain join compatibility
 $IsPro = if ($WindowsEdition -match 'Pro|Enterprise') { 1 } else { 0 }
 
-# Prepare form
+# Initialize GUI form
 $SMGUI = New-Object System.Windows.Forms.Form
 $SMGUI.Text = "Hat's Multitool"
 $SMGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
@@ -123,14 +123,14 @@ $SMSkip.FlatAppearance.BorderSize = 1
 $SMGUI.Controls.Add($SMSkip)
 $SMGUI.CancelButton = $SMSkip
 
-# Make serial number click to copy
+# Configure clipboard copy event
 $SerialLabel.Add_Click({
     [Windows.Forms.Clipboard]::SetText($serialNumber)
     $tip = New-Object Windows.Forms.ToolTip
     $tip.Show('Copied!', $SerialLabel, 0, -20, 1200)
 })
 
-# Limit PC names to acceptable Windows NetBIOS names
+# Enforce NetBIOS naming constraints
 $PCNameInput.Add_KeyPress({
     param($s,$e)
     $ch = $e.KeyChar
@@ -145,7 +145,7 @@ function Test-ComputerName([string]$name) {
     return ($name -match '^(?!\d+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')
 }
 
-# Add an event handler for the domain checkbox:
+# Configure domain CheckBox event
 $DomainCheckbox.Add_CheckedChanged({
     if ($DomainCheckbox.Checked) {
 		$DomainNameInput.Enabled = $true
@@ -179,7 +179,7 @@ $EntraCheckbox.Add_CheckedChanged({
     }
 })
 
-# Do not enable Okay until a condition is met
+# Validate form state for Okay button
 $PCNameInput.Add_TextChanged({
     if ($PCNameInput.Text -match '[^A-Za-z0-9-]') {
         $pos   = $PCNameInput.SelectionStart
@@ -263,7 +263,7 @@ $SMSkip.Add_Click({
 	$SMGUI.Close()
 })
 
-# Dynamically wrap the window height AFTER Windows applies DPI scaling
+# Calculate dynamic layout post-DPI scaling
 $SMGUI.Add_Load({
     $SMGUI.ClientSize = [System.Drawing.Size]::new(315, ($SMSkip.Bottom + 20))
 })
