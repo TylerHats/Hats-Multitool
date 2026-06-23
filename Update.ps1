@@ -7,10 +7,10 @@ $jsonPath = Join-Path -Path $PSScriptRoot -ChildPath "AppManifest.json" # Update
 if (Test-Path -Path $jsonPath) {
     # Parse JSON configuration
     $configData = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
-    
+
     # Extract the version string
     $Global:currentVersionString = $configData.version
-    
+
     Log-Message "Loaded version: $Global:currentVersionString" "Info"
 }
 else {
@@ -177,6 +177,21 @@ if ($skipUpdate -ne 1) {
     else {
         Log-Message "Updating and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"
         $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
+        $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
+        Try {
+            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+        }
+        catch {
+            Log-Message "Failed to download update, please update manually." "Error"
+            $ForceExit = $true
+        }
+        if (-not $ForceExit) {
+            $env:hatsUpdated = "1"
+            Invoke-SelfUpdateCleanup -OutPath $outputPath
+            $ForceExit = $true
+        }
+    }
+}       $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
         $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
         Try {
             Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1

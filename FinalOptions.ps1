@@ -32,14 +32,14 @@ $FOGUI.Controls.Add($FOlabel)
 # Add options list
 $y += 35
 $FOLV = [System.Windows.Forms.ListView]::new()
-$FOLV.View          = 'Details'
-$FOLV.CheckBoxes    = $true
+$FOLV.View = 'Details'
+$FOLV.CheckBoxes = $true
 $FOLV.FullRowSelect = $true
-$FOLV.Scrollable    = $true
-$FOLV.BackColor     = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
-$FOLV.ForeColor     = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$FOLV.Location      = [System.Drawing.Point]::new($padding, $y)
-$FOLV.HeaderStyle   = 'None'
+$FOLV.Scrollable = $true
+$FOLV.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
+$FOLV.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$FOLV.Location = [System.Drawing.Point]::new($padding, $y)
+$FOLV.HeaderStyle = 'None'
 # Calculate ListView width dynamically: Form Width minus padding on left and right
 $lvWidth = $FOGUI.ClientSize.Width - ($padding * 2)
 $FOLV.Size = [System.Drawing.Size]::new($lvWidth, 120)
@@ -73,86 +73,91 @@ $FOGUI.AcceptButton = $FOOkayButton
 
 # Fix Scaling and Layout Dynamically
 $FOGUI.Add_Load({
-    $lvScaledWidth = $FOGUI.ClientSize.Width - ($padding * 2)
-    $FOLV.Width = $lvScaledWidth
-    $FOLV.Columns[0].Width = $lvScaledWidth - 5
-    $FOOkayButton.Left = ($FOGUI.ClientSize.Width - $FOOkayButton.Width) / 2
-    $FOGUI.ClientSize = [System.Drawing.Size]::new($FOGUI.ClientSize.Width, ($FOOkayButton.Bottom + $padding))
-})
+        $lvScaledWidth = $FOGUI.ClientSize.Width - ($padding * 2)
+        $FOLV.Width = $lvScaledWidth
+        $FOLV.Columns[0].Width = $lvScaledWidth - 5
+        $FOOkayButton.Left = ($FOGUI.ClientSize.Width - $FOOkayButton.Width) / 2
+        $FOGUI.ClientSize = [System.Drawing.Size]::new($FOGUI.ClientSize.Width, ($FOOkayButton.Bottom + $padding))
+    })
 
 
 # Define a function to handle the Okay button click
 # Define a function to handle the Okay button click
 $FOOkayButton.Add_Click({
-    $FOOkayButton.Enabled = $false
-    try {
-        foreach ($li in $FOLV.CheckedItems) {
-            switch ($li.Tag) {
-                'numlock' {
-                    # 1. Fix for the Login Screen (SYSTEM Profile)
-                    $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
-                    if (-not (Test-Path $regPathNumLock)) { New-Item -Path $regPathNumLock -Force | Out-Null }
+        $FOOkayButton.Enabled = $false
+        try {
+            foreach ($li in $FOLV.CheckedItems) {
+                switch ($li.Tag) {
+                    'numlock' {
+                        # 1. Fix for the Login Screen (SYSTEM Profile)
+                        $regPathNumLock = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
+                        if (-not (Test-Path $regPathNumLock)) { New-Item -Path $regPathNumLock -Force | Out-Null }
                     
-                    Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2" -Type String -Force
-                    Log-Message "Enabled NUM Lock on Login Screen." "Success"
+                        Set-ItemProperty -Path $regPathNumLock -Name "InitialKeyboardIndicators" -Value "2" -Type String -Force
+                        Log-Message "Enabled NUM Lock on Login Screen." "Success"
 
-                    # 2. Fix for all NEW Users (Default Profile Hive)
-                    $defNtUser = 'C:\Users\Default\NTUSER.DAT'
+                        # 2. Fix for all NEW Users (Default Profile Hive)
+                        $defNtUser = 'C:\Users\Default\NTUSER.DAT'
                     
-                    if (Test-Path $defNtUser) {
-                        & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
-                        try {
-                            # Using reg.exe natively avoids the .NET file handle locks entirely
-                            & reg.exe add "HKU\DefUser\Control Panel\Keyboard" /v "InitialKeyboardIndicators" /t REG_SZ /d "2" /f | Out-Null
-                            Log-Message "Enabled NUM Lock default for new user profiles." "Success"
-                        } finally {
-                            # Clean unload guaranteed because no PS paths were opened
-                            & reg.exe unload "HKU\DefUser" | Out-Null
+                        if (Test-Path $defNtUser) {
+                            & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
+                            try {
+                                # Using reg.exe natively avoids the .NET file handle locks entirely
+                                & reg.exe add "HKU\DefUser\Control Panel\Keyboard" /v "InitialKeyboardIndicators" /t REG_SZ /d "2" /f | Out-Null
+                                Log-Message "Enabled NUM Lock default for new user profiles." "Success"
+                            }
+                            finally {
+                                # Clean unload guaranteed because no PS paths were opened
+                                & reg.exe unload "HKU\DefUser" | Out-Null
+                            }
                         }
-                    } else {
-                        Log-Message "Default profile hive not found at $defNtUser" "Error"
-                    }
-                }
-                
-                'defprint' {
-                    # 1. Fix for CURRENT User
-                    $hkcuPrintPath = 'Registry::HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows'
-                    if (-not (Test-Path $hkcuPrintPath)) { New-Item -Path $hkcuPrintPath -Force | Out-Null }
-                    Set-ItemProperty -Path $hkcuPrintPath -Name 'LegacyDefaultPrinterMode' -Value 1 -Type DWord -Force
-
-                    # 2. Fix for NEW Users
-                    $defNtUser = 'C:\Users\Default\NTUSER.DAT'
-
-                    if (Test-Path $defNtUser) {
-                        & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
-                        try {
-                            & reg.exe add "HKU\DefUser\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v "LegacyDefaultPrinterMode" /t REG_DWORD /d 1 /f | Out-Null
-                            Log-Message "Enabled legacy default print management." "Success"
-                        } finally {
-                            & reg.exe unload "HKU\DefUser" | Out-Null
+                        else {
+                            Log-Message "Default profile hive not found at $defNtUser" "Error"
                         }
-                    } else {
-                        Log-Message "Default profile hive not found at $defNtUser" "Error"
                     }
-                }
                 
-                'hellopin' {
-                    $PassportPath = "Registry::HKLM\SOFTWARE\Policies\Microsoft\PassportForWork"
+                    'defprint' {
+                        # 1. Fix for CURRENT User
+                        $hkcuPrintPath = 'Registry::HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows'
+                        if (-not (Test-Path $hkcuPrintPath)) { New-Item -Path $hkcuPrintPath -Force | Out-Null }
+                        Set-ItemProperty -Path $hkcuPrintPath -Name 'LegacyDefaultPrinterMode' -Value 1 -Type DWord -Force
+
+                        # 2. Fix for NEW Users
+                        $defNtUser = 'C:\Users\Default\NTUSER.DAT'
+
+                        if (Test-Path $defNtUser) {
+                            & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
+                            try {
+                                & reg.exe add "HKU\DefUser\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v "LegacyDefaultPrinterMode" /t REG_DWORD /d 1 /f | Out-Null
+                                Log-Message "Enabled legacy default print management." "Success"
+                            }
+                            finally {
+                                & reg.exe unload "HKU\DefUser" | Out-Null
+                            }
+                        }
+                        else {
+                            Log-Message "Default profile hive not found at $defNtUser" "Error"
+                        }
+                    }
+                
+                    'hellopin' {
+                        $PassportPath = "Registry::HKLM\SOFTWARE\Policies\Microsoft\PassportForWork"
                     
-                    if (-not (Test-Path $PassportPath)) { New-Item -Path $PassportPath -Force | Out-Null }
+                        if (-not (Test-Path $PassportPath)) { New-Item -Path $PassportPath -Force | Out-Null }
                     
-                    # Set Enabled = 0 to completely disable Windows Hello for Business
-                    Set-ItemProperty -Path $PassportPath -Name "Enabled" -Value 0 -Type DWord -Force
-                    Set-ItemProperty -Path $PassportPath -Name "DisablePostLogonProvisioning" -Value 1 -Type DWord -Force
+                        # Set Enabled = 0 to completely disable Windows Hello for Business
+                        Set-ItemProperty -Path $PassportPath -Name "Enabled" -Value 0 -Type DWord -Force
+                        Set-ItemProperty -Path $PassportPath -Name "DisablePostLogonProvisioning" -Value 1 -Type DWord -Force
                     
-                    Log-Message "Disabled automatic Windows Hello PIN setup prompt." "Success"
+                        Log-Message "Disabled automatic Windows Hello PIN setup prompt." "Success"
+                    }
                 }
             }
         }
-    } finally {
-        $FOGUI.Close()
-    }
-})
+        finally {
+            $FOGUI.Close()
+        }
+    })
 
 # Display GUI
 $FOGUI.ShowDialog() | Out-Null

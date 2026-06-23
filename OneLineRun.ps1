@@ -16,7 +16,13 @@ Try {
 	exit
 }
 $remoteVersionString = $remoteRequest.Content.Trim()
-[version]$remoteVersion = $remoteVersionString
+try {
+    [version]$remoteVersion = $remoteVersionString
+} catch {
+    Write-Host "Failed to parse remote version string: $remoteVersionString"
+    pause
+    exit
+}
 Write-Host "Downloading and launching Hat's Multitool..."
 $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
 $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
