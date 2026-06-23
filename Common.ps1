@@ -66,8 +66,9 @@ function Invoke-HMTScale {
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm
     )
-    if ($global:HMTScaleFactor -ne 1.0) {
+    if ($global:HMTScaleFactor -ne 1.0 -and $TargetForm.Tag -ne "Scaled") {
         $TargetForm.Scale((New-Object System.Drawing.SizeF($global:HMTScaleFactor, $global:HMTScaleFactor)))
+        $TargetForm.Tag = "Scaled"
     }
 }
 

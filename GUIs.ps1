@@ -326,7 +326,7 @@ $y += 30
 $ModCLB = New-Object System.Windows.Forms.CheckedListBox
 $ModCLB.Location = New-Object System.Drawing.Point(20, $y)
 $ModCLB.Size = New-Object System.Drawing.Size(260, 180)
-$ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+$ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ModCLB.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModCLB.BorderStyle = [System.Windows.Forms.BorderStyle]::None
 $ModCLB.CheckOnClick = $true
@@ -416,9 +416,8 @@ $ModGUIBackButton.Add_Click({
 
 $ModGUI.Add_Load({
     Invoke-HMTScale $ModGUI
-    $w = [int](300 * $global:HMTScaleFactor)
     $p = [int](20 * $global:HMTScaleFactor)
-    $ModGUI.ClientSize = [System.Drawing.Size]::new($w, ($ModGUIBackButton.Bottom + $p))
+    $ModGUI.ClientSize = [System.Drawing.Size]::new($ModGUI.ClientSize.Width, ($ModGUIBackButton.Bottom + $p))
 })
 
 # Catch closes to close program properly
@@ -727,9 +726,9 @@ $TBackButton.Add_Click({
 
 $ToolsGUI.Add_Load({
     Invoke-HMTScale $ToolsGUI
-    $w = [int](650 * $global:HMTScaleFactor)
     $p = [int](20 * $global:HMTScaleFactor)
-    $ToolsGUI.ClientSize = [System.Drawing.Size]::new($w, ($TBackButton.Bottom + $p))
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new($ToolsGUI.ClientSize.Width, ($TBackButton.Bottom + $p))
+    $ToolsListView.Columns[1].Width = $ToolsListView.ClientSize.Width - $ToolsListView.Columns[0].Width
 })
 
 # Catch closes to close program properly
@@ -937,9 +936,9 @@ $BackButton.Add_Click({
 
 $TroubleGUI.Add_Load({
     Invoke-HMTScale $TroubleGUI
-    $w = [int](650 * $global:HMTScaleFactor)
     $p = [int](20 * $global:HMTScaleFactor)
-    $TroubleGUI.ClientSize = [System.Drawing.Size]::new($w, ($BackButton.Bottom + $p))
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new($TroubleGUI.ClientSize.Width, ($BackButton.Bottom + $p))
+    $TrListView.Columns[1].Width = $TrListView.ClientSize.Width - $TrListView.Columns[0].Width
 })
 
 # Catch closes to close program properly
