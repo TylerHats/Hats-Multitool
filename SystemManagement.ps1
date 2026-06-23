@@ -203,57 +203,80 @@ $DomainCheckbox.Add_CheckedChanged({
 # Define a function to handle the Okay button click
 $SMOkayButton.Add_Click({
 	$SMOkayButton.Enabled = $false
+	$SMOkayButton.Text = "Processing..."
+	
+	$isDomain = $DomainCheckbox.Checked
+	$isEntra = $EntraCheckbox.Checked
+	$pcName = $PCNameInput.Text
+	$domainName = $DomainNameInput.Text
+	$cred = $null
+
+	if (-not [string]::IsNullOrWhiteSpace($pcName) -and (-not (Test-ComputerName $pcName))) {
+		$SMOkayButton.Text = "OK"
+		$SMOkayButton.Enabled = $true
+		PopupError "Invalid PC Name. Must be 1-15 characters, alphanumeric/hyphens only." "Error"
+		return
+	}
+
 	try {
-		if ($DomainCheckbox.Checked -and (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainNameInput.Text):"
-			try {
-				Add-Computer -DomainName $DomainNameInput.Text -NewName $PCNameInput.Text -Credential $DomainCredential -ErrorAction Stop
-				Log-Message "Successfully added computer to domain $($DomainNameInput.Text) and renamed to $($PCNameInput.Text)." "Success"
-			} catch {
-				Log-Message "Add-Computer failed: $_" "Error"
-				throw
-			}
-		} elseif ($DomainCheckbox.Checked -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-			$DomainCredential = Get-Credential -Message "Enter credentials with permission to add this device to $($DomainNameInput.Text):"
-			try {
-				Add-Computer -DomainName $DomainNameInput.Text -Credential $DomainCredential -ErrorAction Stop
-				Log-Message "Successfully added computer to domain $($DomainNameInput.Text)." "Success"
-			} catch {
-				Log-Message "Add-Computer failed: $_" "Error"
-				throw
-			}
-		} elseif ((-not $DomainCheckbox.Checked) -and ($PCNameInput.Text -ne "")) {
-			if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-			try {
-				Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop
-				Log-Message "Successfully renamed computer to $($PCNameInput.Text)." "Success"
-			} catch {
-				Log-Message "Rename-Computer failed: $_" "Error"
-				throw
-			}
-		} elseif (($EntraCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-            if (-not (Test-ComputerName $PCNameInput.Text)) {throw "Bad PC Name"}
-            try {
-                Rename-Computer -NewName $PCNameInput.Text -Force -ErrorAction Stop
-                Log-Message "Successfully renamed computer to $($PCNameInput.Text)." "Success"
-            } catch {
-                Log-Message "Rename-Computer failed: $_" "Error"
-                throw
-            }
-            Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
-        } elseif (($EntraCheckbox.Checked) -and ([string]::IsNullOrWhiteSpace($PCNameInput.Text))) {
-            Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
-		} else {
-			throw "Unexpected error"
+		if ($isDomain) {
+			$cred = Get-Credential -Message "Enter credentials with permission to add this device to ${domainName}:"
 		}
+		
+		$scriptBlock = {
+			param([bool]$isDomain, [bool]$isEntra, [string]$pcName, [string]$domainName, [pscredential]$cred)
+			
+			if ($isDomain -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
+				Add-Computer -DomainName $domainName -NewName $pcName -Credential $cred -ErrorAction Stop
+				return "Successfully added computer to domain $domainName and renamed to $pcName."
+			} elseif ($isDomain -and ([string]::IsNullOrWhiteSpace($pcName))) {
+				Add-Computer -DomainName $domainName -Credential $cred -ErrorAction Stop
+				return "Successfully added computer to domain $domainName."
+			} elseif ((-not $isDomain) -and ($pcName -ne "")) {
+				Rename-Computer -NewName $pcName -Force -ErrorAction Stop
+				return "Successfully renamed computer to $pcName."
+			} elseif (($isEntra) -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
+				Rename-Computer -NewName $pcName -Force -ErrorAction Stop
+				Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
+				return "Successfully renamed computer to $pcName. Opening workplace settings..."
+			} elseif (($isEntra) -and ([string]::IsNullOrWhiteSpace($pcName))) {
+				Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
+				return "Opening workplace settings..."
+			} else {
+				throw "Unexpected error"
+			}
+		}
+
+		$runspace = [runspacefactory]::CreateRunspace()
+		$runspace.Open()
+		$pipeline = $runspace.CreatePipeline()
+		$pipeline.Commands.AddScript($scriptBlock) | Out-Null
+		$pipeline.Commands[0].Parameters.Add("isDomain", $isDomain) | Out-Null
+		$pipeline.Commands[0].Parameters.Add("isEntra", $isEntra) | Out-Null
+		$pipeline.Commands[0].Parameters.Add("pcName", $pcName) | Out-Null
+		$pipeline.Commands[0].Parameters.Add("domainName", $domainName) | Out-Null
+		$pipeline.Commands[0].Parameters.Add("cred", $cred) | Out-Null
+		
+		$asyncResult = $pipeline.BeginInvoke()
+		
+		while (-not $asyncResult.IsCompleted) {
+			[System.Windows.Forms.Application]::DoEvents()
+			Start-Sleep -Milliseconds 50
+		}
+		
+		$result = $pipeline.EndInvoke($asyncResult)
+		$runspace.Close()
+		$runspace.Dispose()
+		
+		Log-Message $result "Success"
 		$SMGUI.Close()
 	} catch {
 		$PCNameInput.Clear()
 		$DomainNameInput.Clear()
 		$DomainCheckbox.Checked = $false
 		$EntraCheckbox.Checked = $false
-		PopupError "PC Naming and/or Domain Joining failed." "Error"
+		$SMOkayButton.Text = "OK"
+		PopupError "PC Naming and/or Domain Joining failed.`nError: $_" "Error"
 	}
 })
 

@@ -29,6 +29,29 @@ $A1label.AutoSize = $true
 $A1label.TextAlign = 'TopLeft'
 $A1GUI.Controls.Add($A1label)
 
+# Parse local password policy
+$minPasswordLength = 0
+try {
+    $netAcc = net accounts
+    foreach ($line in $netAcc) {
+        if ($line -match "Minimum password length:\s+(\d+)") {
+            $minPasswordLength = [int]$matches[1]
+        }
+    }
+} catch {}
+
+$policyText = if ($minPasswordLength -gt 0) { "Local Policy: Minimum Password Length is $minPasswordLength characters." } else { "Local Policy: No password required." }
+
+$y += 20
+$PolicyLabel = New-Object System.Windows.Forms.Label
+$PolicyLabel.Text = $policyText
+$PolicyLabel.ForeColor = if ($minPasswordLength -gt 0) { [System.Drawing.ColorTranslator]::FromHtml("#faa61a") } else { [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0") }
+$PolicyLabel.Size = New-Object System.Drawing.Size(260, 20)
+$PolicyLabel.Location = New-Object System.Drawing.Point(10, $y)
+$PolicyLabel.AutoSize = $true
+$PolicyLabel.TextAlign = 'TopLeft'
+$A1GUI.Controls.Add($PolicyLabel)
+
 # Add username input 
 $y += 35
 $UsernameInput = New-Object System.Windows.Forms.TextBox

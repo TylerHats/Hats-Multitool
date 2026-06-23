@@ -252,7 +252,7 @@ $StartBackupBtn.Add_Click({
 
         if ($chkSoftware.Checked) {
             Log-Message "Extracting Installed Software Lists..."
-            function Get-UninstallKeys($path) {
+            function Get-UninstallKey($path) {
                 if (Test-Path "Registry::$path") {
                     Get-ChildItem -Path "Registry::$path" -ErrorAction SilentlyContinue | ForEach-Object {
                         $name = (Get-ItemProperty -Path $_.PSPath -Name DisplayName -ErrorAction SilentlyContinue).DisplayName
@@ -260,8 +260,8 @@ $StartBackupBtn.Add_Click({
                     }
                 }
             }
-            $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-            $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            $JsonConfig.SystemSoftware += Get-UninstallKey "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+            $JsonConfig.SystemSoftware += Get-UninstallKey "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
             $JsonConfig.SystemSoftware = $JsonConfig.SystemSoftware | Select-Object -Unique
         }
 
@@ -289,7 +289,7 @@ $StartBackupBtn.Add_Click({
 
                     if ($chkSoftware.Checked) {
                         $JsonConfig.UserSoftware.$u = @()
-                        $JsonConfig.UserSoftware.$u += Get-UninstallKeys "$TargetHive\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+                        $JsonConfig.UserSoftware.$u += Get-UninstallKey "$TargetHive\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
                     }
 
                     $ThemeKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
@@ -342,18 +342,24 @@ $StartBackupBtn.Add_Click({
             $ProgressLabel.Text = "Extracting Credentials..."
             [System.Windows.Forms.Application]::DoEvents()
 
-            $SQLiteUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite.Core/1.0.118"
             $SqliteDllPath = Join-Path $env:TEMP "System.Data.SQLite.dll"
-            try {
-                if (-not (Test-Path $SqliteDllPath)) {
-                    $ZipPath = Join-Path $env:TEMP "sqlite.zip"
-                    Invoke-WebRequest -Uri $SQLiteUrl -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
-                    Expand-Archive -Path $ZipPath -DestinationPath (Join-Path $env:TEMP "sqlite_extract") -Force
-                    Copy-Item (Join-Path $env:TEMP "sqlite_extract\lib\net46\System.Data.SQLite.dll") -Destination $SqliteDllPath -Force
-                    Remove-Item $ZipPath -Force; Remove-Item (Join-Path $env:TEMP "sqlite_extract") -Recurse -Force
+            $LocalDll = Join-Path $PSScriptRoot "System.Data.SQLite.dll"
+            
+            if (Test-Path $LocalDll) {
+                $SqliteDllPath = $LocalDll
+            } else {
+                $SQLiteUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite.Core/1.0.118"
+                try {
+                    if (-not (Test-Path $SqliteDllPath)) {
+                        $ZipPath = Join-Path $env:TEMP "sqlite.zip"
+                        Invoke-WebRequest -Uri $SQLiteUrl -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
+                        Expand-Archive -Path $ZipPath -DestinationPath (Join-Path $env:TEMP "sqlite_extract") -Force
+                        Copy-Item (Join-Path $env:TEMP "sqlite_extract\lib\net46\System.Data.SQLite.dll") -Destination $SqliteDllPath -Force
+                        Remove-Item $ZipPath -Force; Remove-Item (Join-Path $env:TEMP "sqlite_extract") -Recurse -Force
+                    }
                 }
+                catch { Log-Message "Failed to download SQLite. Browser passwords will be skipped." "Error" }
             }
-            catch { Log-Message "Failed to download SQLite. Browser passwords will be skipped." "Error" }
 
             try {
                 $csv = [HMTUserMoveNative.CredentialExtractor]::GetWindowsCredentialsCsv()

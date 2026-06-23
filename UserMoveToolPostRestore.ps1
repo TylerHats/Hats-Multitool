@@ -72,7 +72,7 @@ if ($MatchFound) {
 
     # 7. Missing Software Logic
     Update-UI "Analyzing installed software..."
-    function Get-UninstallKeys($path) {
+    function Get-UninstallKey($path) {
         $keys = @()
         if (Test-Path "Registry::$path") {
             Get-ChildItem -Path "Registry::$path" -ErrorAction SilentlyContinue | ForEach-Object {
@@ -84,9 +84,9 @@ if ($MatchFound) {
     }
     
     $CurrentSys = @()
-    $CurrentSys += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-    $CurrentSys += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-    $CurrentUsr = Get-UninstallKeys "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    $CurrentSys += Get-UninstallKey "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    $CurrentSys += Get-UninstallKey "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+    $CurrentUsr = Get-UninstallKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
     $CurrentAll = $CurrentSys + $CurrentUsr | Select-Object -Unique
 
     $OldAll = @()
@@ -101,7 +101,7 @@ if ($MatchFound) {
 
     # 8. Drop Recovery Info Folder
     Update-UI "Finalizing..."
-    $InfoDrop = Join-Path [Environment]::GetFolderPath('Desktop') "Migration_Recovery_Info"
+    $InfoDrop = Join-Path -Path [Environment]::GetFolderPath('Desktop') -ChildPath "Migration_Recovery_Info"
     New-Item -ItemType Directory -Path $InfoDrop -Force | Out-Null
     
     if (Test-Path $CredFile) { Copy-Item $CredFile -Destination $InfoDrop -Force -ErrorAction SilentlyContinue }
