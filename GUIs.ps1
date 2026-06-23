@@ -60,17 +60,9 @@ $MainMenuTroubleshootingButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuTroubleshootingButton)
 $MainMenuTroubleshootingButton.Enabled = $true
 
-# Add Account button
-$MainMenuAccountButton = New-Object System.Windows.Forms.Button
+# Account button removed to leave blank space
 $y += 65
-$MainMenuAccountButton.Location = New-Object System.Drawing.Point(50, $y)
-$MainMenuAccountButton.Size = New-Object System.Drawing.Size(200, 40)
-$MainMenuAccountButton.Text = 'Account'
-$MainMenuAccountButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$MainMenuAccountButton.FlatStyle = 'Flat'
-$MainMenuAccountButton.FlatAppearance.BorderSize = 1
-$MainMenu.Controls.Add($MainMenuAccountButton)
-$MainMenuAccountButton.Enabled = $false # Disabled, WIP
+
 
 # About button
 $MainMenuAboutButton = New-Object System.Windows.Forms.Button
@@ -129,8 +121,6 @@ $MainMenuTroubleshootingButton.Add_Click({
     $MainMenu.Show()
 })
 
-# Define Account button click
-#WIP
 
 # Define Exit button click
 $MainMenuExitButton.Add_Click({
