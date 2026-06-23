@@ -151,6 +151,7 @@ $MainMenu.Add_Load({
 # Catch window close event
 $MainMenu.Add_FormClosing({
     param($_sender, $e)
+    [void]$_sender
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
@@ -267,6 +268,7 @@ $AboutGUI.Add_Load({
 # Catch Close to just hide instead of exit completely
 $AboutGUI.Add_FormClosing({
     param($_sender, $e)
+    [void]$_sender
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
         $e.Cancel = $true
         $AboutGUI.Hide()
@@ -416,6 +418,7 @@ $ModGUI.Add_Load({
 # Catch closes to close program properly
 $ModGUI.Add_FormClosing({
     param($_sender, $e)
+    [void]$_sender
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
@@ -567,7 +570,7 @@ $TLaunchButton.Add_Click({
                 if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
                     $wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
                 }
-            } catch { }
+            } catch { Write-Warning "Failed to fetch WizTree download URL." }
             Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
             Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
             $WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
@@ -582,7 +585,7 @@ $TLaunchButton.Add_Click({
                 if ($bbPage.Content -match 'href="(https://download\.bleachbit\.org/[^"]+portable\.zip)"') {
                     $bbUrl = $matches[1]
                 }
-            } catch { }
+            } catch { Write-Warning "Failed to fetch BleachBit download URL." }
             Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
             Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
             $BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
@@ -618,7 +621,7 @@ $TLaunchButton.Add_Click({
                 $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
                 $ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
                 if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
-            } catch { }
+            } catch { Write-Warning "Failed to fetch DISM++ download URL." }
             Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
             Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
             $DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
@@ -656,7 +659,7 @@ $TLaunchButton.Add_Click({
             try {
                 $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
                 if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
-            } catch { }
+            } catch { Write-Warning "Failed to fetch Crystal Disk Mark download URL." }
             Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
             Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
             $CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
@@ -669,7 +672,7 @@ $TLaunchButton.Add_Click({
             try {
                 $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
                 if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
-            } catch { }
+            } catch { Write-Warning "Failed to fetch Crystal Disk Info download URL." }
             Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
             Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
             $CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
@@ -691,6 +694,7 @@ $ToolsGUI.Add_Load({
 # Catch closes to close program properly
 $ToolsGUI.Add_FormClosing({
     param($_sender, $e)
+    [void]$_sender
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
         User-Exit
     }
@@ -865,6 +869,7 @@ $TroubleGUI.Add_Load({
 # Catch closes to close program properly
 $TroubleGUI.Add_FormClosing({
     param($_sender, $e)
+    [void]$_sender
     # $e.CloseReason tells you why it's closing
     # UserClosing covers the “X” or Alt-F4
     if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and $Global:IntClose -ne $true) {
