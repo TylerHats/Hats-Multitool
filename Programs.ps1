@@ -174,6 +174,18 @@ $skipButton.Add_Click({
 $form.Add_Load({
         Invoke-HMTScale $form
         $p = [int]($padding * $global:HMTScaleFactor)
+        
+        $y = $programFlow.Bottom + [int](30 * $global:HMTScaleFactor)
+        $statuslabel.Top = $y - [int](10 * $global:HMTScaleFactor)
+        $detailLabel.Top = $y + [int](10 * $global:HMTScaleFactor)
+        
+        $y += [int](35 * $global:HMTScaleFactor)
+        $trackPanel.Top = $y
+        
+        $y += [int](40 * $global:HMTScaleFactor)
+        $okButton.Top = $y
+        $skipButton.Top = $y
+        
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
     })
 
