@@ -252,7 +252,14 @@ $AboutGUI.Controls.Add($AboutCloseBtn)
 
 # Calculate dynamic layout post-DPI scaling
 $AboutGUI.Add_Load({
-    $AboutGUI.ClientSize = [System.Drawing.Size]::new($AboutGUI.ClientSize.Width, ($AboutCloseBtn.Bottom + 20))
+    $w = $AboutGUI.ClientSize.Width
+    $IconBox.Left = ($w - $IconBox.Width) / 2
+    $AboutTitle.Width = $w
+    $AboutVersion.Width = $w
+    $AboutAuthor.Width = $w
+    $GithubLink.Width = $w
+    $AboutCloseBtn.Left = ($w - $AboutCloseBtn.Width) / 2
+    $AboutGUI.ClientSize = [System.Drawing.Size]::new($w, ($AboutCloseBtn.Bottom + 20))
 })
 
 # Catch Close to just hide instead of exit completely
