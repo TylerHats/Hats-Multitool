@@ -46,50 +46,74 @@ $MoveGUI.Handle | Out-Null
 $darkMode = 1
 [HMTUserMoveNative.UIHelpers]::DwmSetWindowAttribute($MoveGUI.Handle, 20, [ref]$darkMode, 4) | Out-Null
 
-$TabControl = New-Object System.Windows.Forms.TabControl
-$TabControl.Location = New-Object System.Drawing.Point(10, 10)
-$TabControl.Size = New-Object System.Drawing.Size(480, 580)
-$TabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
-$TabControl.Add_DrawItem({
-    param($sender, $e)
-    $g = $e.Graphics
-    $tabRect = $e.Bounds
-    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
-    $g.FillRectangle($brush, $tabRect)
-    $text = $sender.TabPages[$e.Index].Text
-    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"))
-    $format = New-Object System.Drawing.StringFormat
-    $format.Alignment = [System.Drawing.StringAlignment]::Center
-    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $g.DrawString($text, $sender.Font, $textBrush, $tabRect, $format)
-    $brush.Dispose()
-    $textBrush.Dispose()
-    $format.Dispose()
+$BackupTabBtn = New-Object System.Windows.Forms.Button
+$BackupTabBtn.Text = "Backup (Export)"
+$BackupTabBtn.Location = New-Object System.Drawing.Point(10, 10)
+$BackupTabBtn.Size = New-Object System.Drawing.Size(240, 40)
+$BackupTabBtn.FlatStyle = 'Flat'
+$BackupTabBtn.FlatAppearance.BorderSize = 0
+$BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$MoveGUI.Controls.Add($BackupTabBtn)
+
+$RestoreTabBtn = New-Object System.Windows.Forms.Button
+$RestoreTabBtn.Text = "Restore (Import)"
+$RestoreTabBtn.Location = New-Object System.Drawing.Point(250, 10)
+$RestoreTabBtn.Size = New-Object System.Drawing.Size(240, 40)
+$RestoreTabBtn.FlatStyle = 'Flat'
+$RestoreTabBtn.FlatAppearance.BorderSize = 0
+$RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+$RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
+$MoveGUI.Controls.Add($RestoreTabBtn)
+
+$BackupPanel = New-Object System.Windows.Forms.Panel
+$BackupPanel.Location = New-Object System.Drawing.Point(10, 50)
+$BackupPanel.Size = New-Object System.Drawing.Size(480, 540)
+$BackupPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$MoveGUI.Controls.Add($BackupPanel)
+
+$RestorePanel = New-Object System.Windows.Forms.Panel
+$RestorePanel.Location = New-Object System.Drawing.Point(10, 50)
+$RestorePanel.Size = New-Object System.Drawing.Size(480, 540)
+$RestorePanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$RestorePanel.Visible = $false
+$MoveGUI.Controls.Add($RestorePanel)
+
+$BackupTabBtn.Add_Click({
+    $BackupPanel.Visible = $true
+    $RestorePanel.Visible = $false
+    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
 })
-[HMT.NativeMethods]::SetWindowTheme($TabControl.Handle, "DarkMode_Explorer", $null) | Out-Null
-$MoveGUI.Controls.Add($TabControl)
+
+$RestoreTabBtn.Add_Click({
+    $RestorePanel.Visible = $true
+    $BackupPanel.Visible = $false
+    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
+})
 
 # -- BACKUP TAB --
-$BackupTab = New-Object System.Windows.Forms.TabPage
-$BackupTab.Text = "Backup (Export)"
-$BackupTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-$TabControl.Controls.Add($BackupTab)
 
 $BPathLabel = New-Object System.Windows.Forms.Label
 $BPathLabel.Text = "Destination Folder:"
 $BPathLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BPathLabel.Location = New-Object System.Drawing.Point(10, 15); $BPathLabel.AutoSize = $true
-$BackupTab.Controls.Add($BPathLabel)
+$BackupPanel.Controls.Add($BPathLabel)
 
 $BMediaLabel = New-Object System.Windows.Forms.Label
 $BMediaLabel.Text = ""
 $BMediaLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $BMediaLabel.Location = New-Object System.Drawing.Point(150, 15); $BMediaLabel.AutoSize = $true
-$BackupTab.Controls.Add($BMediaLabel)
+$BackupPanel.Controls.Add($BMediaLabel)
 
 $BPathTextBox = New-Object System.Windows.Forms.TextBox
 $BPathTextBox.Location = New-Object System.Drawing.Point(10, 40); $BPathTextBox.Width = 360
-$BackupTab.Controls.Add($BPathTextBox)
+$BackupPanel.Controls.Add($BPathTextBox)
 
 $BBrowseButton = New-Object System.Windows.Forms.Button
 $BBrowseButton.Text = "Browse"
@@ -100,7 +124,7 @@ $BBrowseButton.Add_Click({
         $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
         if ($fbd.ShowDialog() -eq 'OK') { $BPathTextBox.Text = $fbd.SelectedPath }
     })
-$BackupTab.Controls.Add($BBrowseButton)
+$BackupPanel.Controls.Add($BBrowseButton)
 
 $BPathTextBox.Add_TextChanged({
         if (Test-Path $BPathTextBox.Text) {
@@ -120,7 +144,7 @@ $BPathTextBox.Add_TextChanged({
 $UserListBox = New-Object System.Windows.Forms.CheckedListBox
 $UserListBox.Location = New-Object System.Drawing.Point(10, 85); $UserListBox.Size = New-Object System.Drawing.Size(450, 80)
 $UserListBox.CheckOnClick = $true; $UserListBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#40444b"); $UserListBox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$BackupTab.Controls.Add($UserListBox)
+$BackupPanel.Controls.Add($UserListBox)
 
 $LocalUsers = Get-ChildItem -Path "C:\Users" -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Public', 'Default', 'Default User', 'All Users') }
 foreach ($u in $LocalUsers) {
@@ -129,14 +153,14 @@ foreach ($u in $LocalUsers) {
 }
 
 $y = 175
-$chkRoot = New-Object System.Windows.Forms.CheckBox; $chkRoot.Text = "C:\ Root Data (Excl. Windows/ProgFiles)"; $chkRoot.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkRoot.Location = New-Object System.Drawing.Point(20, $y); $chkRoot.Width = 400; $chkRoot.Checked = $true; $BackupTab.Controls.Add($chkRoot); $y += 25
-$chkUser = New-Object System.Windows.Forms.CheckBox; $chkUser.Text = "Selected User Profiles (Excl. Cloud Sync)"; $chkUser.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkUser.Location = New-Object System.Drawing.Point(20, $y); $chkUser.Width = 400; $chkUser.Checked = $true; $BackupTab.Controls.Add($chkUser); $y += 25
-$chkBrowsers = New-Object System.Windows.Forms.CheckBox; $chkBrowsers.Text = "Browser Data (Bookmarks, History, Extensions)"; $chkBrowsers.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkBrowsers.Location = New-Object System.Drawing.Point(20, $y); $chkBrowsers.Width = 400; $chkBrowsers.Checked = $true; $BackupTab.Controls.Add($chkBrowsers); $y += 25
-$chkSettings = New-Object System.Windows.Forms.CheckBox; $chkSettings.Text = "OS Settings, Printers, Taskbar & Wi-Fi Profiles"; $chkSettings.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkSettings.Location = New-Object System.Drawing.Point(20, $y); $chkSettings.Width = 400; $chkSettings.Checked = $true; $BackupTab.Controls.Add($chkSettings); $y += 25
-$chkSoftware = New-Object System.Windows.Forms.CheckBox; $chkSoftware.Text = "Generate Missing Software Report"; $chkSoftware.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkSoftware.Location = New-Object System.Drawing.Point(20, $y); $chkSoftware.Width = 400; $chkSoftware.Checked = $true; $BackupTab.Controls.Add($chkSoftware); $y += 25
-$chkDrivers = New-Object System.Windows.Forms.CheckBox; $chkDrivers.Text = "Extract 3rd Party Drivers (Takes a while)"; $chkDrivers.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkDrivers.Location = New-Object System.Drawing.Point(20, $y); $chkDrivers.Width = 400; $chkDrivers.Checked = $false; $BackupTab.Controls.Add($chkDrivers); $y += 25
-$chkCreds = New-Object System.Windows.Forms.CheckBox; $chkCreds.Text = "Extract Win Credentials & Browser Passwords"; $chkCreds.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkCreds.Location = New-Object System.Drawing.Point(20, $y); $chkCreds.Width = 400; $chkCreds.Checked = $false; $BackupTab.Controls.Add($chkCreds); $y += 25
-$chkIntegrity = New-Object System.Windows.Forms.CheckBox; $chkIntegrity.Text = "Perform Post-Transfer File Integrity Check"; $chkIntegrity.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkIntegrity.Location = New-Object System.Drawing.Point(20, $y); $chkIntegrity.Width = 400; $chkIntegrity.Checked = $true; $BackupTab.Controls.Add($chkIntegrity)
+$chkRoot = New-Object System.Windows.Forms.CheckBox; $chkRoot.Text = "C:\ Root Data (Excl. Windows/ProgFiles)"; $chkRoot.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkRoot.Location = New-Object System.Drawing.Point(20, $y); $chkRoot.Width = 400; $chkRoot.Checked = $true; $BackupPanel.Controls.Add($chkRoot); $y += 25
+$chkUser = New-Object System.Windows.Forms.CheckBox; $chkUser.Text = "Selected User Profiles (Excl. Cloud Sync)"; $chkUser.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkUser.Location = New-Object System.Drawing.Point(20, $y); $chkUser.Width = 400; $chkUser.Checked = $true; $BackupPanel.Controls.Add($chkUser); $y += 25
+$chkBrowsers = New-Object System.Windows.Forms.CheckBox; $chkBrowsers.Text = "Browser Data (Bookmarks, History, Extensions)"; $chkBrowsers.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkBrowsers.Location = New-Object System.Drawing.Point(20, $y); $chkBrowsers.Width = 400; $chkBrowsers.Checked = $true; $BackupPanel.Controls.Add($chkBrowsers); $y += 25
+$chkSettings = New-Object System.Windows.Forms.CheckBox; $chkSettings.Text = "OS Settings, Printers, Taskbar & Wi-Fi Profiles"; $chkSettings.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkSettings.Location = New-Object System.Drawing.Point(20, $y); $chkSettings.Width = 400; $chkSettings.Checked = $true; $BackupPanel.Controls.Add($chkSettings); $y += 25
+$chkSoftware = New-Object System.Windows.Forms.CheckBox; $chkSoftware.Text = "Generate Missing Software Report"; $chkSoftware.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkSoftware.Location = New-Object System.Drawing.Point(20, $y); $chkSoftware.Width = 400; $chkSoftware.Checked = $true; $BackupPanel.Controls.Add($chkSoftware); $y += 25
+$chkDrivers = New-Object System.Windows.Forms.CheckBox; $chkDrivers.Text = "Extract 3rd Party Drivers (Takes a while)"; $chkDrivers.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkDrivers.Location = New-Object System.Drawing.Point(20, $y); $chkDrivers.Width = 400; $chkDrivers.Checked = $false; $BackupPanel.Controls.Add($chkDrivers); $y += 25
+$chkCreds = New-Object System.Windows.Forms.CheckBox; $chkCreds.Text = "Extract Win Credentials & Browser Passwords"; $chkCreds.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkCreds.Location = New-Object System.Drawing.Point(20, $y); $chkCreds.Width = 400; $chkCreds.Checked = $false; $BackupPanel.Controls.Add($chkCreds); $y += 25
+$chkIntegrity = New-Object System.Windows.Forms.CheckBox; $chkIntegrity.Text = "Perform Post-Transfer File Integrity Check"; $chkIntegrity.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $chkIntegrity.Location = New-Object System.Drawing.Point(20, $y); $chkIntegrity.Width = 400; $chkIntegrity.Checked = $true; $BackupPanel.Controls.Add($chkIntegrity)
 
 $StartBackupBtn = New-Object System.Windows.Forms.Button
 $StartBackupBtn.Text = "Start Backup"
@@ -144,24 +168,20 @@ $StartBackupBtn.Location = New-Object System.Drawing.Point(10, 480)
 $StartBackupBtn.Size = New-Object System.Drawing.Size(350, 40)
 $StartBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da")
 $StartBackupBtn.ForeColor = [System.Drawing.Color]::White; $StartBackupBtn.FlatStyle = 'Flat'
-$BackupTab.Controls.Add($StartBackupBtn)
+$BackupPanel.Controls.Add($StartBackupBtn)
 
 $CancelBackupBtn = New-Object System.Windows.Forms.Button
 $CancelBackupBtn.Text = "Cancel"
 $CancelBackupBtn.Location = New-Object System.Drawing.Point(370, 480); $CancelBackupBtn.Size = New-Object System.Drawing.Size(90, 40)
 $CancelBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#f04747"); $CancelBackupBtn.ForeColor = [System.Drawing.Color]::White; $CancelBackupBtn.FlatStyle = 'Flat'
 $CancelBackupBtn.Enabled = $false
-$BackupTab.Controls.Add($CancelBackupBtn)
+$BackupPanel.Controls.Add($CancelBackupBtn)
 
 # -- RESTORE TAB --
-$RestoreTab = New-Object System.Windows.Forms.TabPage
-$RestoreTab.Text = "Restore (Import)"
-$RestoreTab.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-$TabControl.Controls.Add($RestoreTab)
 
 $RPathTextBox = New-Object System.Windows.Forms.TextBox
 $RPathTextBox.Location = New-Object System.Drawing.Point(10, 40); $RPathTextBox.Width = 360
-$RestoreTab.Controls.Add($RPathTextBox)
+$RestorePanel.Controls.Add($RPathTextBox)
 
 $RBrowseButton = New-Object System.Windows.Forms.Button
 $RBrowseButton.Text = "Browse"
@@ -171,18 +191,18 @@ $RBrowseButton.Add_Click({
         $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
         if ($fbd.ShowDialog() -eq 'OK') { $RPathTextBox.Text = $fbd.SelectedPath }
     })
-$RestoreTab.Controls.Add($RBrowseButton)
+$RestorePanel.Controls.Add($RBrowseButton)
 
 $RUserListBox = New-Object System.Windows.Forms.CheckedListBox
 $RUserListBox.Location = New-Object System.Drawing.Point(10, 85); $RUserListBox.Size = New-Object System.Drawing.Size(450, 150)
 $RUserListBox.CheckOnClick = $true; $RUserListBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#40444b"); $RUserListBox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$RestoreTab.Controls.Add($RUserListBox)
+$RestorePanel.Controls.Add($RUserListBox)
 
 $StartRestoreBtn = New-Object System.Windows.Forms.Button
 $StartRestoreBtn.Text = "Stage Migration Data"
 $StartRestoreBtn.Location = New-Object System.Drawing.Point(10, 250); $StartRestoreBtn.Size = New-Object System.Drawing.Size(450, 40)
 $StartRestoreBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da"); $StartRestoreBtn.ForeColor = [System.Drawing.Color]::White; $StartRestoreBtn.FlatStyle = 'Flat'
-$RestoreTab.Controls.Add($StartRestoreBtn)
+$RestorePanel.Controls.Add($StartRestoreBtn)
 
 # -- COMMON ELEMENTS --
 $ProgressLabel = New-Object System.Windows.Forms.Label
@@ -224,7 +244,7 @@ $StartBackupBtn.Add_Click({
         foreach ($item in $UserListBox.CheckedItems) { $ActiveUsers += $item }
         if ($ActiveUsers.Count -eq 0 -and ($chkUser.Checked -or $chkBrowsers.Checked)) { return }
 
-        $StartBackupBtn.Enabled = $false; $TabControl.Enabled = $false; $CancelBackupBtn.Enabled = $true
+        $StartBackupBtn.Enabled = $false; $BackupTabBtn.Enabled = $false; $RestoreTabBtn.Enabled = $false; $CancelBackupBtn.Enabled = $true
         $Global:AbortOperation = $false
         $FillPanel.Width = 0
 
@@ -265,7 +285,7 @@ $StartBackupBtn.Add_Click({
 
         if ($TotalBytes -gt 50GB) {
             $msgRes = [System.Windows.Forms.MessageBox]::Show("The backup is $([math]::Round($TotalBytes/1GB, 2)) GB. Continue?", "Large Backup", 4, 48)
-            if ($msgRes -eq 'No') { $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false; return }
+            if ($msgRes -eq 'No') { $StartBackupBtn.Enabled = $true; $BackupTabBtn.Enabled = $true; $RestoreTabBtn.Enabled = $true; $CancelBackupBtn.Enabled = $false; return }
         }
 
         if ($chkSoftware.Checked) {
@@ -493,7 +513,7 @@ $StartBackupBtn.Add_Click({
             if ($Global:AbortOperation) {
                 $Timer.Stop(); $Runspace.Close(); $Runspace.Dispose()
                 $ProgressLabel.Text = "Operation Cancelled."
-                $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
+                $StartBackupBtn.Enabled = $true; $BackupTabBtn.Enabled = $true; $RestoreTabBtn.Enabled = $true; $CancelBackupBtn.Enabled = $false
                 return
             }
 
@@ -521,7 +541,7 @@ $StartBackupBtn.Add_Click({
 
                 $ProgressLabel.Text = "Backup Complete!"
                 Log-Message "Backup successfully completed."
-                $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
+                $StartBackupBtn.Enabled = $true; $BackupTabBtn.Enabled = $true; $RestoreTabBtn.Enabled = $true; $CancelBackupBtn.Enabled = $false
                 $Runspace.Close(); $Runspace.Dispose()
             }
             else {
@@ -560,7 +580,7 @@ $StartRestoreBtn.Add_Click({
         $ActiveRestoreUsers = @(); foreach ($item in $RUserListBox.CheckedItems) { $ActiveRestoreUsers += $item }
         if ($ActiveRestoreUsers.Count -eq 0) { return }
 
-        $StartRestoreBtn.Enabled = $false; $TabControl.Enabled = $false
+        $StartRestoreBtn.Enabled = $false; $BackupTabBtn.Enabled = $false; $RestoreTabBtn.Enabled = $false
         $PublicStaging = "C:\System_Profile_Migration"
         if (-not (Test-Path $PublicStaging)) { New-Item -ItemType Directory -Path $PublicStaging -Force | Out-Null }
         Start-Process cmd.exe -ArgumentList "/c icacls `"$PublicStaging`" /inheritance:r /grant `"SYSTEM:(OI)(CI)F`" `"Administrators:(OI)(CI)F`" /T /C /Q" -WindowStyle Hidden -Wait
@@ -625,7 +645,7 @@ $StartRestoreBtn.Add_Click({
 
         $ProgressLabel.Text = "Restore Staging Complete! Please log off and log in as the user(s) to finalize."
         [System.Windows.Forms.MessageBox]::Show("Staging complete!`nPlease log off and log back in as the migrated user(s). The system will automatically finalize their profile settings upon login.", "Staging Successful", 0, 64)
-        $StartRestoreBtn.Enabled = $true; $TabControl.Enabled = $true
+        $StartRestoreBtn.Enabled = $true; $BackupTabBtn.Enabled = $true; $RestoreTabBtn.Enabled = $true
     })
 
 $MicroLoader.Close(); $MicroLoader.Dispose()

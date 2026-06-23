@@ -323,7 +323,7 @@ $ModGUI.Controls.Add($ModGUIlabel)
 $y += 30
 $ModCLB = New-Object System.Windows.Forms.CheckedListBox
 $ModCLB.Location = New-Object System.Drawing.Point(20, $y)
-$ModCLB.Size = New-Object System.Drawing.Size(240, 180)
+$ModCLB.Size = New-Object System.Drawing.Size(260, 180)
 $ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $ModCLB.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModCLB.BorderStyle = [System.Windows.Forms.BorderStyle]::None
@@ -534,7 +534,7 @@ $reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + 30
 $ToolsListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
 
 $reqFormWidth = $reqListWidth + 60
-$ToolsGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, $reqListHeight + 110)
+$ToolsGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, ($reqListHeight + 110))
 
 $y = $reqListHeight + 65
 $TLaunchButton = New-Object System.Windows.Forms.Button
@@ -827,7 +827,7 @@ $reqListHeight = ($TrListView.Items.Count * $itemHeight) + 30
 $TrListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
 
 $reqFormWidth = $reqListWidth + 60
-$TroubleGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, $reqListHeight + 140)
+$TroubleGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, ($reqListHeight + 140))
 
 $y = $reqListHeight + 95
 $TrLaunchButton = New-Object System.Windows.Forms.Button
