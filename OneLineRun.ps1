@@ -41,7 +41,7 @@ $breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
 $outputPath | Out-File -FilePath $breadcrumbPath -Force -ErrorAction SilentlyContinue
 
 # Launch executable
-try { Unblock-File -Path $outputPath } catch {}
+try { Unblock-File -Path $outputPath } catch { Write-Verbose "Unblock-File failed: $_" }
 Start-Process -FilePath $outputPath -WorkingDirectory $downloadsFolder -WindowStyle Minimized
 # Exit current script
 exit

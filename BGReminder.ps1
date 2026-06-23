@@ -25,6 +25,7 @@ $BGR.Controls.Add($BGRlabel)
 # Define a function to handle window closing
 $BGR.Add_FormClosed({
         param($_sender, $e)
+        $null = $_sender
         if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing -and (-not $BGRCodeExit)) {
             Log-Message "User exited, running cleanup."
             User-Exit
@@ -38,9 +39,9 @@ $BGRTimer.Interval = 1000 # Updates every 1000 milliseconds (a second)
 $BGRTimer.Add_Tick({
         $global:bgrDotCount++
         if ($global:bgrDotCount -gt 3) { $global:bgrDotCount = 0 }
-    
+
         # Multiply the dot character by the count to create the trail
-        $dots = "." * $global:bgrDotCount 
+        $dots = "." * $global:bgrDotCount
         $BGRlabel.Text = "Hat's Multitool is running$dots"
     })
 
