@@ -587,6 +587,7 @@ $okButton.Add_Click({
         }
 
         $form.Close()
+        $global:BGRBaseText = "Hat's Multitool is running"
     })
 
 $form.ShowDialog() | Out-Null
