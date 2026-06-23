@@ -12,7 +12,7 @@ $MainMenu.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $MainMenu.MaximizeBox = $false
 $MainMenu.Font = $font
 $MainMenu.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$MainMenu.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $MainMenu
 
 # Form size variables
@@ -161,7 +161,7 @@ $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $AboutGUI.MaximizeBox = $false
 $AboutGUI.Font = $font
 $AboutGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $AboutGUI
 
 # Load high-resolution logo
@@ -183,7 +183,7 @@ $AboutGUI.Controls.Add($IconBox)
 $y = 135
 $AboutTitle = New-Object System.Windows.Forms.Label
 $AboutTitle.Text = "Hat's Multitool"
-$AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold)
+$AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 22, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 $AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutTitle.AutoSize = $false
 $AboutTitle.Size = New-Object System.Drawing.Size(320, 30)
@@ -284,7 +284,7 @@ $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.Font = $font
 $ModGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $ModGUI
 
 # Form size variables
@@ -436,7 +436,7 @@ $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.Font = $font
 $ToolsGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $ToolsGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 
@@ -742,7 +742,7 @@ $TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialo
 $TroubleGUI.MaximizeBox = $false
 $TroubleGUI.Font = $font
 $TroubleGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $TroubleGUI
 $ExtProgramDir = Join-Path -Path $PSScriptRoot -ChildPath "ExtPrograms"
 

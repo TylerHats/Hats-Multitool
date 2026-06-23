@@ -11,7 +11,7 @@ $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $BGR.MaximizeBox = $false
 $BGR.Font = $font
 $BGR.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $BGR
 
 # Global variable for dynamic text updating from modules

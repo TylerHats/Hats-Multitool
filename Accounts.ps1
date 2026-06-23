@@ -15,7 +15,7 @@ $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $A1GUI.MaximizeBox = $false
 $A1GUI.Font = $font
 $A1GUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $A1GUI
 
 # Add descriptive label
@@ -72,7 +72,7 @@ $A1GUI.Controls.Add($PasswordInput)
 $ShowPWButton = New-Object System.Windows.Forms.Button
 $ShowPWButton.Location = New-Object System.Drawing.Point(252, $y)
 $ShowPWButton.Size = New-Object System.Drawing.Size(45, 23)
-$ShowPWButton.Font = New-Object System.Drawing.Font("Segoe MDL2 Assets", 9)
+$ShowPWButton.Font = New-Object System.Drawing.Font("Segoe MDL2 Assets", 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $ShowPWButton.Text = [char]0xE052
 $ShowPWButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ShowPWButton.FlatStyle = 'Flat'

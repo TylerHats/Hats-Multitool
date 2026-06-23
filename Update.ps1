@@ -31,7 +31,7 @@ $UpdateGUI.MaximizeBox = $false
 $UpdateGUI.Font = $font
 $UpdateGUI.TopMost = $true
 $UpdateGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-$UpdateGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$UpdateGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $UpdateGUI
 
 # Add descriptive label

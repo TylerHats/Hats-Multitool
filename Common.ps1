@@ -224,7 +224,7 @@ function Show-DownloadDialog {
 	$dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 	$dform.Font = $font
 	$dform.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-	$dform.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+	$dform.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 
     # Container panel with border
     $trackPanel = New-Object System.Windows.Forms.Panel
