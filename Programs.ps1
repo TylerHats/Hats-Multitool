@@ -4,6 +4,7 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Configure PSGallery silently
+$global:BGRBaseText = "Preparing Package Providers"
 Log-Message "Preparing Package Providers..."
 if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
@@ -11,6 +12,7 @@ if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyCo
 Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted -ErrorAction SilentlyContinue
 
 # Load / Install WinGet PS Module
+$global:BGRBaseText = "Initializing WinGet Module"
 if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Client)) {
     Log-Message "Installing Microsoft.WinGet.Client module..."
     Install-Module -Name Microsoft.WinGet.Client -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
@@ -18,11 +20,13 @@ if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Client)) {
 Import-Module Microsoft.WinGet.Client
 
 # Force initialize WinGet source
+$global:BGRBaseText = "Updating WinGet Sources"
 Log-Message "Initializing WinGet and updating sources..."
 winget source reset --force | Out-Null
 winget source update | Out-Null
 
 # Initialize GUI form
+$global:BGRBaseText = "Hat's Multitool is running"
 Log-Message "Preparing Software List..."
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

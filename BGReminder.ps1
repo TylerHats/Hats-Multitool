@@ -1,10 +1,10 @@
-# Background Reminder Module - Tyler Hatfield - v1.7
+# Background Reminder Module - Tyler Hatfield - v1.8
 
 # Prepare form
 $BGR = New-Object System.Windows.Forms.Form
 $BGR.Text = "HMT"
 $BGR.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$BGR.ClientSize = New-Object System.Drawing.Size(275, 60)
+$BGR.ClientSize = New-Object System.Drawing.Size(350, 70)
 $BGR.StartPosition = 'CenterScreen'
 $BGR.Icon = $HMTIcon
 $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -14,9 +14,14 @@ $BGR.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 Set-DarkTitleBar -TargetForm $BGR
 
-# Add descriptive label (Removed the dots from the base string)
+# Global variable for dynamic text updating from modules
+if (-not $global:BGRBaseText) {
+    $global:BGRBaseText = "Hat's Multitool is running"
+}
+
+# Add descriptive label
 $BGRlabel = New-Object System.Windows.Forms.Label
-$BGRlabel.Text = "Hat's Multitool is running"
+$BGRlabel.Text = $global:BGRBaseText
 $BGRlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BGRlabel.Dock = [System.Windows.Forms.DockStyle]::Fill
 $BGRlabel.TextAlign = 'MiddleCenter'
@@ -42,7 +47,7 @@ $BGRTimer.Add_Tick({
 
         # Multiply the dot character by the count to create the trail
         $dots = "." * $global:bgrDotCount
-        $BGRlabel.Text = "Hat's Multitool is running$dots"
+        $BGRlabel.Text = "$($global:BGRBaseText)$dots"
     })
 
 # Start the timer and Display GUI
