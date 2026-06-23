@@ -243,10 +243,8 @@ $SMOkayButton.Add_Click({
 				return "Successfully renamed computer to $pcName."
 			} elseif (($isEntra) -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
 				Rename-Computer -NewName $pcName -Force -ErrorAction Stop
-				Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
 				return "Successfully renamed computer to $pcName. Opening workplace settings..."
 			} elseif (($isEntra) -and ([string]::IsNullOrWhiteSpace($pcName))) {
-				Start-Process explorer.exe -ArgumentList "ms-settings:workplace"
 				return "Opening workplace settings..."
 			} else {
 				throw "Unexpected error"
@@ -277,6 +275,9 @@ $SMOkayButton.Add_Click({
 		$runspace.Dispose()
 		
 		Log-Message $result "Success"
+		if ($isEntra) {
+			Start-Process "ms-settings:workplace" -ErrorAction SilentlyContinue
+		}
 		$SMGUI.Close()
 	} catch {
 		$PCNameInput.Clear()
