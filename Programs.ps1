@@ -74,16 +74,25 @@ $label.AutoSize = $true
 $form.Controls.Add($label)
 $y += $labelHeight
 
+$programFlow = New-Object System.Windows.Forms.FlowLayoutPanel
+$programFlow.Location = New-Object System.Drawing.Point(20, $y)
+$programFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
+$programFlow.WrapContents = $false
+$programFlow.AutoSize = $true
+$programFlow.AutoSizeMode = [System.Windows.Forms.AutoSizeMode]::GrowAndShrink
+$form.Controls.Add($programFlow)
+
 foreach ($program in $programs) {
     $checkbox = New-Object System.Windows.Forms.CheckBox
-    $checkbox.Location = New-Object System.Drawing.Point(20, $y)
     $checkbox.Text = $program.Name
     $checkbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $checkbox.AutoSize = $true
-    $form.Controls.Add($checkbox)
+    $checkbox.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 5)
+    $programFlow.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
-    $y += $checkboxHeight
 }
+
+$y = $programFlow.Bottom + 15
 
 $outlookCheckbox = $checkboxes["Outlook Classic"]
 $officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]

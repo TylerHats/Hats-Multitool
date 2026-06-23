@@ -318,17 +318,20 @@ $ModGUIlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUIlabel.Location = New-Object System.Drawing.Point(20, $y)
 $ModGUIlabel.AutoSize = $true
 $ModGUI.Controls.Add($ModGUIlabel)
-$y += $labelHeight
+$ModCLB = New-Object System.Windows.Forms.CheckedListBox
+$ModCLB.Location = New-Object System.Drawing.Point(20, $y)
+$ModCLB.Size = New-Object System.Drawing.Size(240, 180)
+$ModCLB.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
+$ModCLB.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$ModCLB.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+$ModCLB.CheckOnClick = $true
+$ModGUI.Controls.Add($ModCLB)
+
 foreach ($module in $modules) {
-    $ModGUIcheckbox = New-Object System.Windows.Forms.CheckBox
-    $ModGUIcheckbox.Location = New-Object System.Drawing.Point(20, $y)
-    $ModGUIcheckbox.Text = $module.Name
-	$ModGUIcheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $ModGUIcheckbox.AutoSize = $true
-    $ModGUI.Controls.Add($ModGUIcheckbox)
-    $ModGUIcheckboxes[$module.Name] = $ModGUIcheckbox
-    $y += $checkboxHeight
+    $ModCLB.Items.Add($module.Name) | Out-Null
 }
+
+$y += 180
 
 # Add “Select All” button
 $SelectAllButton = New-Object System.Windows.Forms.Button
@@ -365,14 +368,17 @@ $ModGUI.Controls.Add($ModGUIBackButton)
 
 # when clicked, check every checkbox in the hashtable
 $SelectAllButton.Add_Click({
-    foreach ($cb in $ModGUIcheckboxes.Values) {
-        $cb.Checked = $true
+    for ($i = 0; $i -lt $ModCLB.Items.Count; $i++) {
+        $ModCLB.SetItemChecked($i, $true)
     }
 })
 
 # Define a function to handle the OK button click
 $ModGUIokButton.Add_Click({
-    $selectedModules = $ModGUIcheckboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key }
+    $selectedModules = @()
+    foreach ($item in $ModCLB.CheckedItems) {
+        $selectedModules += $item
+    }
     $totalModules = $selectedModules.Count
     
     if ($totalModules -eq 0) {

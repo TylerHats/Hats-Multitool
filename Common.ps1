@@ -45,21 +45,13 @@ $font = New-Object System.Drawing.Font("Segoe UI", 9)
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
 } catch {
-    try {
-        $WindowsEdition = (Get-WmiObject Win32_OperatingSystem).Caption
-    } catch {
-        $WindowsEdition = "Unknown Edition"
-    }
+    $WindowsEdition = "Unknown Edition"
 }
 
 try {
-	$serialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
 } catch {
-	try {
-		$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
-	} catch {
-		$serialNumber = "Unknown"
-	}
+	$serialNumber = "Unknown"
 }
 
 # Common Functions:
