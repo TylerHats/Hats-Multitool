@@ -275,10 +275,23 @@ $StartBackupBtn.Add_Click({
             }
         }
 
-        $TotalBytes = 0; $ValidFolders = @()
+        $ProgressLabel.Text = "Calculating Backup Size (This may take a minute)..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $TotalBytes = 0; $ValidFolders = @(); $dots = 0
         foreach ($folder in $FoldersToScan) {
             if (-not (Test-Path $folder)) { continue }
             if ($folder -match "OneDrive|SharePoint|Dropbox|Google Drive") { continue }
+            
+            $shortName = Split-Path $folder -Leaf
+            if ($folder -match "^C:\\Users\\([^\\]+)\\") {
+                $uName = $matches[1]
+                $ProgressLabel.Text = "Indexing $uName\$shortName" + ("." * (($dots % 3) + 1))
+            } else {
+                $ProgressLabel.Text = "Indexing $shortName" + ("." * (($dots % 3) + 1))
+            }
+            [System.Windows.Forms.Application]::DoEvents()
+            $dots++
+
             $found = Get-ChildItem -Path $folder -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch "OneDrive|SharePoint|Dropbox" }
             if ($found) { $TotalBytes += ($found | Measure-Object -Property Length -Sum).Sum; $ValidFolders += $folder }
         }
@@ -407,7 +420,7 @@ $StartBackupBtn.Add_Click({
                 foreach ($u in $ActiveUsers) {
                     $LocalState = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Local State"
                     $LoginData = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Default\Login Data"
-                    if (Test-Path $LocalState -and Test-Path $LoginData) {
+                    if ((Test-Path $LocalState) -and (Test-Path $LoginData)) {
                             
                         $ChromeCsv = ""
                         if ($u -eq $env:USERNAME) {
@@ -494,19 +507,17 @@ $StartBackupBtn.Add_Click({
     $ProgressLabel.Text = "Copying files... 0%"
     $MaxWidth = $TrackPanel.ClientSize.Width
 
-    $RCJobPath = Join-Path $env:TEMP "RobocopyMigration.rcj"
-    @("`"/XD`"", "`"OneDrive*`"", "`"SharePoint*`"", "`"Dropbox`"") | Out-File $RCJobPath -Encoding ascii
-
     $Runspace = [runspacefactory]::CreateRunspace(); $Runspace.Open(); $Pipeline = $Runspace.CreatePipeline()
     $Pipeline.Commands.AddScript({
-            param($ValidFolders, $DataRoot, $RCJobPath)
+            param($ValidFolders, $DataRoot)
             foreach ($folder in $ValidFolders) {
                 $Relative = $folder.Substring(3)
                 $TargetDir = Join-Path $DataRoot $Relative
-                Start-Process robocopy -ArgumentList "`"$folder`" `"$TargetDir`" /E /COPY:DAT /DCOPY:DAT /R:1 /W:2 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np /job:`"$RCJobPath`"" -WindowStyle Hidden -Wait
+                $Args = @("`"$folder`"", "`"$TargetDir`"", "/E", "/COPY:DAT", "/DCOPY:DAT", "/R:1", "/W:2", "/MT:16", "/XD", "`"OneDrive*`"", "`"SharePoint*`"", "`"Dropbox*`"", "/NFL", "/NDL", "/NJH", "/NJS", "/nc", "/ns", "/np")
+                Start-Process robocopy -ArgumentList $Args -WindowStyle Hidden -Wait
             }
         })
-    $Pipeline.Commands[0].Parameters.Add("ValidFolders", $ValidFolders); $Pipeline.Commands[0].Parameters.Add("DataRoot", $DataRoot); $Pipeline.Commands[0].Parameters.Add("RCJobPath", $RCJobPath)
+    $Pipeline.Commands[0].Parameters.Add("ValidFolders", $ValidFolders); $Pipeline.Commands[0].Parameters.Add("DataRoot", $DataRoot)
     $AsyncResult = $Pipeline.BeginInvoke()
 
     $Timer.Add_Tick({
