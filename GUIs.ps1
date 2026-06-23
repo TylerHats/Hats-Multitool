@@ -525,7 +525,18 @@ foreach ($t in $toolsList) {
     $ToolsListView.Items.Add($item) | Out-Null
 }
 
-$y += 365
+$ToolsListView.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::ColumnContent)
+if ($ToolsListView.Columns[0].Width -lt 180) { $ToolsListView.Columns[0].Width = 180 }
+$reqListWidth = $ToolsListView.Columns[0].Width + $ToolsListView.Columns[1].Width + 6
+$itemHeight = 20
+if ($ToolsListView.Items.Count -gt 0) { $itemHeight = $ToolsListView.GetItemRect(0).Height }
+$reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + 30
+$ToolsListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
+
+$reqFormWidth = $reqListWidth + 60
+$ToolsGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, $reqListHeight + 110)
+
+$y = $reqListHeight + 65
 $TLaunchButton = New-Object System.Windows.Forms.Button
 $TLaunchButton.Location = New-Object System.Drawing.Point(30, $y)
 $TLaunchButton.Size = New-Object System.Drawing.Size(200, 40)
@@ -536,7 +547,7 @@ $TLaunchButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($TLaunchButton)
 
 $TBackButton = New-Object System.Windows.Forms.Button
-$TBackButton.Location = New-Object System.Drawing.Point(505, $y)
+$TBackButton.Location = New-Object System.Drawing.Point(($reqFormWidth - 145), $y)
 $TBackButton.Size = New-Object System.Drawing.Size(115, 40)
 $TBackButton.Text = "Back"
 $TBackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -807,7 +818,18 @@ foreach ($t in $troubleList) {
     $TrListView.Items.Add($item) | Out-Null
 }
 
-$y += 265
+$TrListView.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::ColumnContent)
+if ($TrListView.Columns[0].Width -lt 180) { $TrListView.Columns[0].Width = 180 }
+$reqListWidth = $TrListView.Columns[0].Width + $TrListView.Columns[1].Width + 6
+$itemHeight = 20
+if ($TrListView.Items.Count -gt 0) { $itemHeight = $TrListView.GetItemRect(0).Height }
+$reqListHeight = ($TrListView.Items.Count * $itemHeight) + 30
+$TrListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
+
+$reqFormWidth = $reqListWidth + 60
+$TroubleGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, $reqListHeight + 140)
+
+$y = $reqListHeight + 95
 $TrLaunchButton = New-Object System.Windows.Forms.Button
 $TrLaunchButton.Location = New-Object System.Drawing.Point(30, $y)
 $TrLaunchButton.Size = New-Object System.Drawing.Size(200, 40)
@@ -818,7 +840,7 @@ $TrLaunchButton.FlatAppearance.BorderSize = 1
 $TroubleGUI.Controls.Add($TrLaunchButton)
 
 $ConsoleButton = New-Object System.Windows.Forms.Button
-$ConsoleButton.Location = New-Object System.Drawing.Point(375, $y)
+$ConsoleButton.Location = New-Object System.Drawing.Point(($reqFormWidth - 270), $y)
 $ConsoleButton.Size = New-Object System.Drawing.Size(115, 40)
 $ConsoleButton.Text = "Show Console"
 $ConsoleButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
@@ -828,7 +850,7 @@ $TroubleGUI.Controls.Add($ConsoleButton)
 $script:ConsoleClicked = 0
 
 $BackButton = New-Object System.Windows.Forms.Button
-$BackButton.Location = New-Object System.Drawing.Point(505, $y)
+$BackButton.Location = New-Object System.Drawing.Point(($reqFormWidth - 145), $y)
 $BackButton.Size = New-Object System.Drawing.Size(115, 40)
 $BackButton.Text = "Back"
 $BackButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
