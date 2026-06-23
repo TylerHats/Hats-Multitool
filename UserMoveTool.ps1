@@ -79,24 +79,25 @@ $BBrowseButton.Location = New-Object System.Drawing.Point(380, 38); $BBrowseButt
 $BBrowseButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $BBrowseButton.FlatStyle = 'Flat'
 $BBrowseButton.Add_Click({
-    $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
-    if ($fbd.ShowDialog() -eq 'OK') { $BPathTextBox.Text = $fbd.SelectedPath }
-})
+        $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+        if ($fbd.ShowDialog() -eq 'OK') { $BPathTextBox.Text = $fbd.SelectedPath }
+    })
 $BackupTab.Controls.Add($BBrowseButton)
 
 $BPathTextBox.Add_TextChanged({
-    if (Test-Path $BPathTextBox.Text) {
-        try {
-            $DriveLetter = (Split-Path $BPathTextBox.Text -Qualifier).TrimEnd(':')
-            $Disk = Get-Partition -DriveLetter $DriveLetter -ErrorAction SilentlyContinue | Get-Disk -ErrorAction SilentlyContinue
-            if ($Disk) {
-                if ($Disk.BusType -eq "USB") { $BMediaLabel.ForeColor = [System.Drawing.Color]::Yellow; $BMediaLabel.Text = "Media: USB (Verify it is USB 3.0+)" }
-                elseif ($Disk.MediaType -eq "HDD") { $BMediaLabel.ForeColor = [System.Drawing.Color]::Orange; $BMediaLabel.Text = "Warning: HDD Detected (Slow Transfer)" }
-                else { $BMediaLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#43b581"); $BMediaLabel.Text = "Media: $($Disk.MediaType) ($($Disk.BusType))" }
+        if (Test-Path $BPathTextBox.Text) {
+            try {
+                $DriveLetter = (Split-Path $BPathTextBox.Text -Qualifier).TrimEnd(':')
+                $Disk = Get-Partition -DriveLetter $DriveLetter -ErrorAction SilentlyContinue | Get-Disk -ErrorAction SilentlyContinue
+                if ($Disk) {
+                    if ($Disk.BusType -eq "USB") { $BMediaLabel.ForeColor = [System.Drawing.Color]::Yellow; $BMediaLabel.Text = "Media: USB (Verify it is USB 3.0+)" }
+                    elseif ($Disk.MediaType -eq "HDD") { $BMediaLabel.ForeColor = [System.Drawing.Color]::Orange; $BMediaLabel.Text = "Warning: HDD Detected (Slow Transfer)" }
+                    else { $BMediaLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#43b581"); $BMediaLabel.Text = "Media: $($Disk.MediaType) ($($Disk.BusType))" }
+                }
             }
-        } catch { $BMediaLabel.Text = "" }
-    }
-})
+            catch { $BMediaLabel.Text = "" }
+        }
+    })
 
 $UserListBox = New-Object System.Windows.Forms.CheckedListBox
 $UserListBox.Location = New-Object System.Drawing.Point(10, 85); $UserListBox.Size = New-Object System.Drawing.Size(450, 80)
@@ -149,9 +150,9 @@ $RBrowseButton.Text = "Browse"
 $RBrowseButton.Location = New-Object System.Drawing.Point(380, 38); $RBrowseButton.Size = New-Object System.Drawing.Size(80, 27)
 $RBrowseButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $RBrowseButton.FlatStyle = 'Flat'
 $RBrowseButton.Add_Click({
-    $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
-    if ($fbd.ShowDialog() -eq 'OK') { $RPathTextBox.Text = $fbd.SelectedPath }
-})
+        $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+        if ($fbd.ShowDialog() -eq 'OK') { $RPathTextBox.Text = $fbd.SelectedPath }
+    })
 $RestoreTab.Controls.Add($RBrowseButton)
 
 $RUserListBox = New-Object System.Windows.Forms.CheckedListBox
@@ -191,249 +192,255 @@ $Timer.Interval = 500
 $Global:AbortOperation = $false
 
 $CancelBackupBtn.Add_Click({
-    $Global:AbortOperation = $true
-    Log-Message "Aborting operation... Killing background processes." "Warning"
-    Get-Process -Name "robocopy" -ErrorAction SilentlyContinue | Stop-Process -Force
-})
+        $Global:AbortOperation = $true
+        Log-Message "Aborting operation... Killing background processes." "Warning"
+        Get-Process -Name "robocopy" -ErrorAction SilentlyContinue | Stop-Process -Force
+    })
 
 # ---------------------------------------------------------------------------
 # Backup Logic
 # ---------------------------------------------------------------------------
 $StartBackupBtn.Add_Click({
-    if (-not (Test-Path $BPathTextBox.Text)) { [System.Windows.Forms.MessageBox]::Show("Invalid destination.", "Error", 0, 16); return }
-    $ActiveUsers = @()
-    foreach ($item in $UserListBox.CheckedItems) { $ActiveUsers += $item }
-    if ($ActiveUsers.Count -eq 0 -and ($chkUser.Checked -or $chkBrowsers.Checked)) { return }
+        if (-not (Test-Path $BPathTextBox.Text)) { [System.Windows.Forms.MessageBox]::Show("Invalid destination.", "Error", 0, 16); return }
+        $ActiveUsers = @()
+        foreach ($item in $UserListBox.CheckedItems) { $ActiveUsers += $item }
+        if ($ActiveUsers.Count -eq 0 -and ($chkUser.Checked -or $chkBrowsers.Checked)) { return }
 
-    $StartBackupBtn.Enabled = $false; $TabControl.Enabled = $false; $CancelBackupBtn.Enabled = $true
-    $Global:AbortOperation = $false
-    $FillPanel.Width = 0
+        $StartBackupBtn.Enabled = $false; $TabControl.Enabled = $false; $CancelBackupBtn.Enabled = $true
+        $Global:AbortOperation = $false
+        $FillPanel.Width = 0
 
-    $DestRoot = Join-Path $BPathTextBox.Text "HMT_Migration_$(Get-Date -Format 'yyyyMMdd_HHmm')"
-    New-Item -ItemType Directory -Path $DestRoot -Force | Out-Null
-    $DataRoot = Join-Path $DestRoot "C_Drive"
-    New-Item -ItemType Directory -Path $DataRoot -Force | Out-Null
+        $DestRoot = Join-Path $BPathTextBox.Text "HMT_Migration_$(Get-Date -Format 'yyyyMMdd_HHmm')"
+        New-Item -ItemType Directory -Path $DestRoot -Force | Out-Null
+        $DataRoot = Join-Path $DestRoot "C_Drive"
+        New-Item -ItemType Directory -Path $DataRoot -Force | Out-Null
 
-    $JsonConfig = @{ OSBuild = $OSVersion.Build; UsersBackedUp = $ActiveUsers; Domain = $env:USERDOMAIN; Settings = @{}; SystemSoftware = @(); UserSoftware = @{} }
+        $JsonConfig = @{ OSBuild = $OSVersion.Build; UsersBackedUp = $ActiveUsers; Domain = $env:USERDOMAIN; Settings = @{}; SystemSoftware = @(); UserSoftware = @{} }
 
-    Log-Message "Indexing files..."
-    $FoldersToScan = @()
-    if ($chkRoot.Checked) { Get-ChildItem -Path "C:\" -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Windows', 'Program Files', 'Program Files (x86)', 'PerfLogs', '$Recycle.Bin', 'System Volume Information') } | ForEach-Object { $FoldersToScan += $_.FullName } }
-
-    foreach ($u in $ActiveUsers) {
-        $UserRoot = "C:\Users\$u"
-        if ($chkUser.Checked) {
-            $UserFolders = @('Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Favorites')
-            foreach ($uf in $UserFolders) { $p = Join-Path $UserRoot $uf; if (Test-Path $p) { $FoldersToScan += $p } }
-            $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Signatures"
-            $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations"
-            $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
-        }
-        if ($chkBrowsers.Checked) {
-            if (Test-Path "$UserRoot\AppData\Local\Google\Chrome\User Data") { $FoldersToScan += "$UserRoot\AppData\Local\Google\Chrome\User Data" }
-            if (Test-Path "$UserRoot\AppData\Local\Microsoft\Edge\User Data") { $FoldersToScan += "$UserRoot\AppData\Local\Microsoft\Edge\User Data" }
-            if (Test-Path "$UserRoot\AppData\Roaming\Mozilla\Firefox\Profiles") { $FoldersToScan += "$UserRoot\AppData\Roaming\Mozilla\Firefox" }
-        }
-    }
-
-    $TotalBytes = 0; $ValidFolders = @()
-    foreach ($folder in $FoldersToScan) {
-        if (-not (Test-Path $folder)) { continue }
-        if ($folder -match "OneDrive|SharePoint|Dropbox|Google Drive") { continue }
-        $found = Get-ChildItem -Path $folder -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch "OneDrive|SharePoint|Dropbox" }
-        if ($found) { $TotalBytes += ($found | Measure-Object -Property Length -Sum).Sum; $ValidFolders += $folder }
-    }
-
-    if ($TotalBytes -gt 50GB) {
-        $msgRes = [System.Windows.Forms.MessageBox]::Show("The backup is $([math]::Round($TotalBytes/1GB, 2)) GB. Continue?", "Large Backup", 4, 48)
-        if ($msgRes -eq 'No') { $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false; return }
-    }
-
-    if ($chkSoftware.Checked) {
-        Log-Message "Extracting Installed Software Lists..."
-        function Get-UninstallKeys($path) {
-            if (Test-Path "Registry::$path") {
-                Get-ChildItem -Path "Registry::$path" -ErrorAction SilentlyContinue | ForEach-Object {
-                    $name = (Get-ItemProperty -Path $_.PSPath -Name DisplayName -ErrorAction SilentlyContinue).DisplayName
-                    if ($name) { $name }
-                }
-            }
-        }
-        $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-        $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-        $JsonConfig.SystemSoftware = $JsonConfig.SystemSoftware | Select-Object -Unique
-    }
-
-    if ($chkSettings.Checked) {
-        Log-Message "Exporting OS Settings, Printers, Wi-Fi..."
-        $JsonConfig.Printers = Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch "Microsoft|OneNote|PDF|XPS|Root" } | Select-Object Name, DriverName, PortName, Shared
-        
-        # Wi-Fi Export
-        $WifiDir = Join-Path $DestRoot "WiFi_Profiles"
-        New-Item -ItemType Directory -Path $WifiDir -Force | Out-Null
-        Start-Process cmd.exe -ArgumentList "/c netsh wlan export profile key=clear folder=`"$WifiDir`"" -WindowStyle Hidden -Wait
+        Log-Message "Indexing files..."
+        $FoldersToScan = @()
+        if ($chkRoot.Checked) { Get-ChildItem -Path "C:\" -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Windows', 'Program Files', 'Program Files (x86)', 'PerfLogs', '$Recycle.Bin', 'System Volume Information') } | ForEach-Object { $FoldersToScan += $_.FullName } }
 
         foreach ($u in $ActiveUsers) {
-            $JsonConfig.Settings.$u = @{}
-            try {
-                $objUser = New-Object System.Security.Principal.NTAccount($u)
-                $strSID = $objUser.Translate([System.Security.Principal.SecurityIdentifier]).Value
-                $RegLoadedHere = $false
-                if (-not (Test-Path "Registry::HKEY_USERS\$strSID")) {
-                    Start-Process cmd.exe -ArgumentList "/c reg load `"HKU\TempHive_$u`" `"C:\Users\$u\NTUSER.DAT`"" -NoNewWindow -Wait
-                    $TargetHive = "Registry::HKEY_USERS\TempHive_$u"
-                    $RegLoadedHere = $true
-                } else { $TargetHive = "Registry::HKEY_USERS\$strSID" }
-
-                if ($chkSoftware.Checked) {
-                    $JsonConfig.UserSoftware.$u = @()
-                    $JsonConfig.UserSoftware.$u += Get-UninstallKeys "$TargetHive\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-                }
-
-                $ThemeKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-                $JsonConfig.Settings.$u.AppsUseLightTheme = (Get-ItemProperty -Path $ThemeKey -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme
-                $JsonConfig.Settings.$u.SystemUsesLightTheme = (Get-ItemProperty -Path $ThemeKey -Name SystemUsesLightTheme -ErrorAction SilentlyContinue).SystemUsesLightTheme
-                $JsonConfig.Settings.$u.ColorPrevalence = (Get-ItemProperty -Path $ThemeKey -Name ColorPrevalence -ErrorAction SilentlyContinue).ColorPrevalence
-                
-                $TBKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-                $JsonConfig.Settings.$u.TaskbarAl = (Get-ItemProperty -Path $TBKey -Name TaskbarAl -ErrorAction SilentlyContinue).TaskbarAl
-                $JsonConfig.Settings.$u.ShowTaskViewButton = (Get-ItemProperty -Path $TBKey -Name ShowTaskViewButton -ErrorAction SilentlyContinue).ShowTaskViewButton
-                $JsonConfig.Settings.$u.TaskbarDa = (Get-ItemProperty -Path $TBKey -Name TaskbarDa -ErrorAction SilentlyContinue).TaskbarDa
-                
-                $SearchKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Search"
-                $JsonConfig.Settings.$u.SearchboxTaskbarMode = (Get-ItemProperty -Path $SearchKey -Name SearchboxTaskbarMode -ErrorAction SilentlyContinue).SearchboxTaskbarMode
-
-                $BagsKey = "$TargetHive\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
-                if (Test-Path $BagsKey) {
-                    $RegExportFile = Join-Path $DestRoot "DesktopIcons_$u.reg"
-                    Start-Process cmd.exe -ArgumentList "/c reg export `"$BagsKey`" `"$RegExportFile`" /y" -WindowStyle Hidden -Wait
-                }
-
-                $NetworkKey = "$TargetHive\Network"
-                $Drives = @()
-                if (Test-Path $NetworkKey) {
-                    Get-ChildItem -Path $NetworkKey -ErrorAction SilentlyContinue | ForEach-Object {
-                        $RemotePath = (Get-ItemProperty -Path $_.PSPath -Name RemotePath -ErrorAction SilentlyContinue).RemotePath
-                        $Drives += @{ Drive = $_.PSChildName; Path = $RemotePath }
-                    }
-                }
-                $JsonConfig.Settings.$u.MappedDrives = $Drives
-
-                if ($RegLoadedHere) {
-                    [gc]::Collect(); [gc]::WaitForPendingFinalizers()
-                    Start-Process cmd.exe -ArgumentList "/c reg unload `"HKU\TempHive_$u`"" -NoNewWindow -Wait
-                }
-            } catch {}
+            $UserRoot = "C:\Users\$u"
+            if ($chkUser.Checked) {
+                $UserFolders = @('Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Favorites')
+                foreach ($uf in $UserFolders) { $p = Join-Path $UserRoot $uf; if (Test-Path $p) { $FoldersToScan += $p } }
+                $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Signatures"
+                $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations"
+                $FoldersToScan += "$UserRoot\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+            }
+            if ($chkBrowsers.Checked) {
+                if (Test-Path "$UserRoot\AppData\Local\Google\Chrome\User Data") { $FoldersToScan += "$UserRoot\AppData\Local\Google\Chrome\User Data" }
+                if (Test-Path "$UserRoot\AppData\Local\Microsoft\Edge\User Data") { $FoldersToScan += "$UserRoot\AppData\Local\Microsoft\Edge\User Data" }
+                if (Test-Path "$UserRoot\AppData\Roaming\Mozilla\Firefox\Profiles") { $FoldersToScan += "$UserRoot\AppData\Roaming\Mozilla\Firefox" }
+            }
         }
 
-        # PC Specs Generation
-        $ProgressLabel.Text = "Generating PC Specs report..."
-        [System.Windows.Forms.Application]::DoEvents()
-        $BIOS = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
-        $CS = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
-        "PC Name: $($CS.Name)`nModel: $($CS.Model)`nManufacturer: $($CS.Manufacturer)`nSerial Number: $($BIOS.SerialNumber)" | Out-File (Join-Path $DestRoot "PC_Specs.txt")
-    }
+        $TotalBytes = 0; $ValidFolders = @()
+        foreach ($folder in $FoldersToScan) {
+            if (-not (Test-Path $folder)) { continue }
+            if ($folder -match "OneDrive|SharePoint|Dropbox|Google Drive") { continue }
+            $found = Get-ChildItem -Path $folder -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch "OneDrive|SharePoint|Dropbox" }
+            if ($found) { $TotalBytes += ($found | Measure-Object -Property Length -Sum).Sum; $ValidFolders += $folder }
+        }
 
-    if ($chkCreds.Checked) {
-        Log-Message "Extracting Credentials..."
-        $ProgressLabel.Text = "Extracting Credentials..."
-        [System.Windows.Forms.Application]::DoEvents()
+        if ($TotalBytes -gt 50GB) {
+            $msgRes = [System.Windows.Forms.MessageBox]::Show("The backup is $([math]::Round($TotalBytes/1GB, 2)) GB. Continue?", "Large Backup", 4, 48)
+            if ($msgRes -eq 'No') { $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false; return }
+        }
 
-        $SQLiteUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite.Core/1.0.118"
-        $SqliteDllPath = Join-Path $env:TEMP "System.Data.SQLite.dll"
-        try {
-            if (-not (Test-Path $SqliteDllPath)) {
-                $ZipPath = Join-Path $env:TEMP "sqlite.zip"
-                Invoke-WebRequest -Uri $SQLiteUrl -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
-                Expand-Archive -Path $ZipPath -DestinationPath (Join-Path $env:TEMP "sqlite_extract") -Force
-                Copy-Item (Join-Path $env:TEMP "sqlite_extract\lib\net46\System.Data.SQLite.dll") -Destination $SqliteDllPath -Force
-                Remove-Item $ZipPath -Force; Remove-Item (Join-Path $env:TEMP "sqlite_extract") -Recurse -Force
+        if ($chkSoftware.Checked) {
+            Log-Message "Extracting Installed Software Lists..."
+            function Get-UninstallKeys($path) {
+                if (Test-Path "Registry::$path") {
+                    Get-ChildItem -Path "Registry::$path" -ErrorAction SilentlyContinue | ForEach-Object {
+                        $name = (Get-ItemProperty -Path $_.PSPath -Name DisplayName -ErrorAction SilentlyContinue).DisplayName
+                        if ($name) { $name }
+                    }
+                }
             }
-        } catch { Log-Message "Failed to download SQLite. Browser passwords will be skipped." "Error" }
+            $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+            $JsonConfig.SystemSoftware += Get-UninstallKeys "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            $JsonConfig.SystemSoftware = $JsonConfig.SystemSoftware | Select-Object -Unique
+        }
 
-        $csv = [HMTUserMoveNative.CredentialExtractor]::GetWindowsCredentialsCsv()
-        $csv | Out-File (Join-Path $DestRoot "Windows_Credentials.csv") -Encoding UTF8
+        if ($chkSettings.Checked) {
+            Log-Message "Exporting OS Settings, Printers, Wi-Fi..."
+            $JsonConfig.Printers = Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch "Microsoft|OneNote|PDF|XPS|Root" } | Select-Object Name, DriverName, PortName, Shared
+        
+            # Wi-Fi Export
+            $WifiDir = Join-Path $DestRoot "WiFi_Profiles"
+            New-Item -ItemType Directory -Path $WifiDir -Force | Out-Null
+            Start-Process cmd.exe -ArgumentList "/c netsh wlan export profile key=clear folder=`"$WifiDir`"" -WindowStyle Hidden -Wait
+
+            foreach ($u in $ActiveUsers) {
+                $JsonConfig.Settings.$u = @{}
+                try {
+                    $objUser = New-Object System.Security.Principal.NTAccount($u)
+                    $strSID = $objUser.Translate([System.Security.Principal.SecurityIdentifier]).Value
+                    $RegLoadedHere = $false
+                    if (-not (Test-Path "Registry::HKEY_USERS\$strSID")) {
+                        Start-Process cmd.exe -ArgumentList "/c reg load `"HKU\TempHive_$u`" `"C:\Users\$u\NTUSER.DAT`"" -NoNewWindow -Wait
+                        $TargetHive = "Registry::HKEY_USERS\TempHive_$u"
+                        $RegLoadedHere = $true
+                    }
+                    else { $TargetHive = "Registry::HKEY_USERS\$strSID" }
+
+                    if ($chkSoftware.Checked) {
+                        $JsonConfig.UserSoftware.$u = @()
+                        $JsonConfig.UserSoftware.$u += Get-UninstallKeys "$TargetHive\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+                    }
+
+                    $ThemeKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+                    $JsonConfig.Settings.$u.AppsUseLightTheme = (Get-ItemProperty -Path $ThemeKey -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme
+                    $JsonConfig.Settings.$u.SystemUsesLightTheme = (Get-ItemProperty -Path $ThemeKey -Name SystemUsesLightTheme -ErrorAction SilentlyContinue).SystemUsesLightTheme
+                    $JsonConfig.Settings.$u.ColorPrevalence = (Get-ItemProperty -Path $ThemeKey -Name ColorPrevalence -ErrorAction SilentlyContinue).ColorPrevalence
                 
-                if (Test-Path $SqliteDllPath) {
-                    foreach ($u in $ActiveUsers) {
-                        $LocalState = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Local State"
-                        $LoginData = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Default\Login Data"
-                        if (Test-Path $LocalState -and Test-Path $LoginData) {
+                    $TBKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+                    $JsonConfig.Settings.$u.TaskbarAl = (Get-ItemProperty -Path $TBKey -Name TaskbarAl -ErrorAction SilentlyContinue).TaskbarAl
+                    $JsonConfig.Settings.$u.ShowTaskViewButton = (Get-ItemProperty -Path $TBKey -Name ShowTaskViewButton -ErrorAction SilentlyContinue).ShowTaskViewButton
+                    $JsonConfig.Settings.$u.TaskbarDa = (Get-ItemProperty -Path $TBKey -Name TaskbarDa -ErrorAction SilentlyContinue).TaskbarDa
+                
+                    $SearchKey = "$TargetHive\Software\Microsoft\Windows\CurrentVersion\Search"
+                    $JsonConfig.Settings.$u.SearchboxTaskbarMode = (Get-ItemProperty -Path $SearchKey -Name SearchboxTaskbarMode -ErrorAction SilentlyContinue).SearchboxTaskbarMode
+
+                    $BagsKey = "$TargetHive\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
+                    if (Test-Path $BagsKey) {
+                        $RegExportFile = Join-Path $DestRoot "DesktopIcons_$u.reg"
+                        Start-Process cmd.exe -ArgumentList "/c reg export `"$BagsKey`" `"$RegExportFile`" /y" -WindowStyle Hidden -Wait
+                    }
+
+                    $NetworkKey = "$TargetHive\Network"
+                    $Drives = @()
+                    if (Test-Path $NetworkKey) {
+                        Get-ChildItem -Path $NetworkKey -ErrorAction SilentlyContinue | ForEach-Object {
+                            $RemotePath = (Get-ItemProperty -Path $_.PSPath -Name RemotePath -ErrorAction SilentlyContinue).RemotePath
+                            $Drives += @{ Drive = $_.PSChildName; Path = $RemotePath }
+                        }
+                    }
+                    $JsonConfig.Settings.$u.MappedDrives = $Drives
+
+                    if ($RegLoadedHere) {
+                        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+                        Start-Process cmd.exe -ArgumentList "/c reg unload `"HKU\TempHive_$u`"" -NoNewWindow -Wait
+                    }
+                }
+                catch {}
+            }
+
+            # PC Specs Generation
+            $ProgressLabel.Text = "Generating PC Specs report..."
+            [System.Windows.Forms.Application]::DoEvents()
+            $BIOS = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
+            $CS = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+            "PC Name: $($CS.Name)`nModel: $($CS.Model)`nManufacturer: $($CS.Manufacturer)`nSerial Number: $($BIOS.SerialNumber)" | Out-File (Join-Path $DestRoot "PC_Specs.txt")
+        }
+
+        if ($chkCreds.Checked) {
+            Log-Message "Extracting Credentials..."
+            $ProgressLabel.Text = "Extracting Credentials..."
+            [System.Windows.Forms.Application]::DoEvents()
+
+            $SQLiteUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite.Core/1.0.118"
+            $SqliteDllPath = Join-Path $env:TEMP "System.Data.SQLite.dll"
+            try {
+                if (-not (Test-Path $SqliteDllPath)) {
+                    $ZipPath = Join-Path $env:TEMP "sqlite.zip"
+                    Invoke-WebRequest -Uri $SQLiteUrl -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
+                    Expand-Archive -Path $ZipPath -DestinationPath (Join-Path $env:TEMP "sqlite_extract") -Force
+                    Copy-Item (Join-Path $env:TEMP "sqlite_extract\lib\net46\System.Data.SQLite.dll") -Destination $SqliteDllPath -Force
+                    Remove-Item $ZipPath -Force; Remove-Item (Join-Path $env:TEMP "sqlite_extract") -Recurse -Force
+                }
+            }
+            catch { Log-Message "Failed to download SQLite. Browser passwords will be skipped." "Error" }
+
+            $csv = [HMTUserMoveNative.CredentialExtractor]::GetWindowsCredentialsCsv()
+            $csv | Out-File (Join-Path $DestRoot "Windows_Credentials.csv") -Encoding UTF8
+                
+            if (Test-Path $SqliteDllPath) {
+                foreach ($u in $ActiveUsers) {
+                    $LocalState = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Local State"
+                    $LoginData = "C:\Users\$u\AppData\Local\Google\Chrome\User Data\Default\Login Data"
+                    if (Test-Path $LocalState -and Test-Path $LoginData) {
                             
-                            $ChromeCsv = ""
-                            if ($u -eq $env:USERNAME) {
-                                $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsCsv($LocalState, $LoginData, $SqliteDllPath)
-                            } else {
-                                # Prompt for offline user password
-                                $PassPrompt = New-Object System.Windows.Forms.Form
-                                $PassPrompt.Text = "Offline User Credentials"
-                                $PassPrompt.Size = New-Object System.Drawing.Size(400, 200)
-                                $PassPrompt.StartPosition = 'CenterScreen'
-                                $PassPrompt.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-                                $PassPrompt.FormBorderStyle = 'FixedDialog'
-                                $PassPrompt.MaximizeBox = $false
-                                $PassPrompt.MinimizeBox = $false
+                        $ChromeCsv = ""
+                        if ($u -eq $env:USERNAME) {
+                            $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsCsv($LocalState, $LoginData, $SqliteDllPath)
+                        }
+                        else {
+                            # Prompt for offline user password
+                            $PassPrompt = New-Object System.Windows.Forms.Form
+                            $PassPrompt.Text = "Offline User Credentials"
+                            $PassPrompt.Size = New-Object System.Drawing.Size(400, 200)
+                            $PassPrompt.StartPosition = 'CenterScreen'
+                            $PassPrompt.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+                            $PassPrompt.FormBorderStyle = 'FixedDialog'
+                            $PassPrompt.MaximizeBox = $false
+                            $PassPrompt.MinimizeBox = $false
 
-                                $lbl = New-Object System.Windows.Forms.Label
-                                $lbl.Text = "User '$u' is offline. To extract their browser passwords, please enter their Windows password. Leave blank to skip."
-                                $lbl.Location = New-Object System.Drawing.Point(10, 10)
-                                $lbl.Size = New-Object System.Drawing.Size(360, 50)
-                                $lbl.ForeColor = [System.Drawing.Color]::White
-                                $PassPrompt.Controls.Add($lbl)
+                            $lbl = New-Object System.Windows.Forms.Label
+                            $lbl.Text = "User '$u' is offline. To extract their browser passwords, please enter their Windows password. Leave blank to skip."
+                            $lbl.Location = New-Object System.Drawing.Point(10, 10)
+                            $lbl.Size = New-Object System.Drawing.Size(360, 50)
+                            $lbl.ForeColor = [System.Drawing.Color]::White
+                            $PassPrompt.Controls.Add($lbl)
 
-                                $txtPass = New-Object System.Windows.Forms.TextBox
-                                $txtPass.Location = New-Object System.Drawing.Point(10, 70)
-                                $txtPass.Size = New-Object System.Drawing.Size(360, 25)
-                                $txtPass.PasswordChar = '*'
-                                $PassPrompt.Controls.Add($txtPass)
+                            $txtPass = New-Object System.Windows.Forms.TextBox
+                            $txtPass.Location = New-Object System.Drawing.Point(10, 70)
+                            $txtPass.Size = New-Object System.Drawing.Size(360, 25)
+                            $txtPass.PasswordChar = '*'
+                            $PassPrompt.Controls.Add($txtPass)
 
-                                $btnOk = New-Object System.Windows.Forms.Button
-                                $btnOk.Text = "Submit"
-                                $btnOk.Location = New-Object System.Drawing.Point(10, 110)
-                                $btnOk.Size = New-Object System.Drawing.Size(170, 30)
-                                $btnOk.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da")
-                                $btnOk.ForeColor = [System.Drawing.Color]::White
-                                $btnOk.FlatStyle = 'Flat'
-                                $btnOk.DialogResult = 'OK'
-                                $PassPrompt.Controls.Add($btnOk)
+                            $btnOk = New-Object System.Windows.Forms.Button
+                            $btnOk.Text = "Submit"
+                            $btnOk.Location = New-Object System.Drawing.Point(10, 110)
+                            $btnOk.Size = New-Object System.Drawing.Size(170, 30)
+                            $btnOk.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da")
+                            $btnOk.ForeColor = [System.Drawing.Color]::White
+                            $btnOk.FlatStyle = 'Flat'
+                            $btnOk.DialogResult = 'OK'
+                            $PassPrompt.Controls.Add($btnOk)
 
-                                $btnSkip = New-Object System.Windows.Forms.Button
-                                $btnSkip.Text = "Skip"
-                                $btnSkip.Location = New-Object System.Drawing.Point(200, 110)
-                                $btnSkip.Size = New-Object System.Drawing.Size(170, 30)
-                                $btnSkip.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#f04747")
-                                $btnSkip.ForeColor = [System.Drawing.Color]::White
-                                $btnSkip.FlatStyle = 'Flat'
-                                $btnSkip.DialogResult = 'Cancel'
-                                $PassPrompt.Controls.Add($btnSkip)
+                            $btnSkip = New-Object System.Windows.Forms.Button
+                            $btnSkip.Text = "Skip"
+                            $btnSkip.Location = New-Object System.Drawing.Point(200, 110)
+                            $btnSkip.Size = New-Object System.Drawing.Size(170, 30)
+                            $btnSkip.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#f04747")
+                            $btnSkip.ForeColor = [System.Drawing.Color]::White
+                            $btnSkip.FlatStyle = 'Flat'
+                            $btnSkip.DialogResult = 'Cancel'
+                            $PassPrompt.Controls.Add($btnSkip)
 
-                                $PassPrompt.AcceptButton = $btnOk
+                            $PassPrompt.AcceptButton = $btnOk
 
-                                while ($true) {
-                                    $res = $PassPrompt.ShowDialog()
-                                    if ($res -eq 'OK' -and -not [string]::IsNullOrWhiteSpace($txtPass.Text)) {
-                                        $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsImpersonated($LocalState, $LoginData, $SqliteDllPath, $env:USERDOMAIN, $u, $txtPass.Text)
-                                        if ($ChromeCsv -match "LogonUser Failed") {
-                                            [System.Windows.Forms.MessageBox]::Show("Incorrect password. Please try again or click Skip.", "Authentication Failed", 0, 16) | Out-Null
-                                            $txtPass.Text = ""
-                                            continue
-                                        }
-                                        break
-                                    } else {
-                                        Log-Message "Skipped DPAPI extraction for user $u." "Warning"
-                                        break
+                            while ($true) {
+                                $res = $PassPrompt.ShowDialog()
+                                if ($res -eq 'OK' -and -not [string]::IsNullOrWhiteSpace($txtPass.Text)) {
+                                    $ChromeCsv = [HMTUserMoveNative.CredentialExtractor]::GetChromiumPasswordsImpersonated($LocalState, $LoginData, $SqliteDllPath, $env:USERDOMAIN, $u, $txtPass.Text)
+                                    if ($ChromeCsv -match "LogonUser Failed") {
+                                        [System.Windows.Forms.MessageBox]::Show("Incorrect password. Please try again or click Skip.", "Authentication Failed", 0, 16) | Out-Null
+                                        $txtPass.Text = ""
+                                        continue
                                     }
+                                    break
                                 }
-                                $PassPrompt.Dispose()
+                                else {
+                                    Log-Message "Skipped DPAPI extraction for user $u." "Warning"
+                                    break
+                                }
                             }
+                            $PassPrompt.Dispose()
+                        }
 
-                            if (-not [string]::IsNullOrWhiteSpace($ChromeCsv)) {
-                                $ChromeCsv | Out-File (Join-Path $DestRoot "Chrome_Passwords_$u.csv") -Encoding UTF8
-                            }
+                        if (-not [string]::IsNullOrWhiteSpace($ChromeCsv)) {
+                            $ChromeCsv | Out-File (Join-Path $DestRoot "Chrome_Passwords_$u.csv") -Encoding UTF8
                         }
                     }
                 }
-            } catch { Log-Message "Credential Extraction failed: $_" "Warning" }
+            }
+        }
+        catch { Log-Message "Credential Extraction failed: $_" "Warning" }
     }
 
     $JsonConfig | ConvertTo-Json -Depth 5 | Out-File (Join-Path $DestRoot "Migration.json") -Encoding ascii
@@ -447,59 +454,60 @@ $StartBackupBtn.Add_Click({
 
     $Runspace = [runspacefactory]::CreateRunspace(); $Runspace.Open(); $Pipeline = $Runspace.CreatePipeline()
     $Pipeline.Commands.AddScript({
-        param($ValidFolders, $DataRoot, $RCJobPath)
-        foreach ($folder in $ValidFolders) {
-            $Relative = $folder.Substring(3)
-            $TargetDir = Join-Path $DataRoot $Relative
-            Start-Process robocopy -ArgumentList "`"$folder`" `"$TargetDir`" /E /COPY:DAT /DCOPY:DAT /R:1 /W:2 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np /job:`"$RCJobPath`"" -WindowStyle Hidden -Wait
-        }
-    })
+            param($ValidFolders, $DataRoot, $RCJobPath)
+            foreach ($folder in $ValidFolders) {
+                $Relative = $folder.Substring(3)
+                $TargetDir = Join-Path $DataRoot $Relative
+                Start-Process robocopy -ArgumentList "`"$folder`" `"$TargetDir`" /E /COPY:DAT /DCOPY:DAT /R:1 /W:2 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np /job:`"$RCJobPath`"" -WindowStyle Hidden -Wait
+            }
+        })
     $Pipeline.Commands[0].Parameters.Add("ValidFolders", $ValidFolders); $Pipeline.Commands[0].Parameters.Add("DataRoot", $DataRoot); $Pipeline.Commands[0].Parameters.Add("RCJobPath", $RCJobPath)
     $AsyncResult = $Pipeline.BeginInvoke()
 
     $Timer.Add_Tick({
-        if ($Global:AbortOperation) {
-            $Timer.Stop(); $Runspace.Close(); $Runspace.Dispose()
-            $ProgressLabel.Text = "Operation Cancelled."
-            $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
-            return
-        }
+            if ($Global:AbortOperation) {
+                $Timer.Stop(); $Runspace.Close(); $Runspace.Dispose()
+                $ProgressLabel.Text = "Operation Cancelled."
+                $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
+                return
+            }
 
-        if ($AsyncResult.IsCompleted) {
-            $Timer.Stop()
-            $FillPanel.Width = $MaxWidth
+            if ($AsyncResult.IsCompleted) {
+                $Timer.Stop()
+                $FillPanel.Width = $MaxWidth
             
-            if ($chkIntegrity.Checked -and -not $Global:AbortOperation) {
-                $ProgressLabel.Text = "Running File Integrity Validation..."
-                Log-Message "Starting File Integrity Check..."
-                [System.Windows.Forms.Application]::DoEvents()
-                $Failed = 0
-                foreach ($folder in $ValidFolders) {
-                    $TargetDir = Join-Path $DataRoot $folder.Substring(3)
-                    $SrcCount = (Get-ChildItem $folder -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object).Count
-                    $DstCount = (Get-ChildItem $TargetDir -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object).Count
-                    if ($SrcCount -ne $DstCount) { $Failed++ }
+                if ($chkIntegrity.Checked -and -not $Global:AbortOperation) {
+                    $ProgressLabel.Text = "Running File Integrity Validation..."
+                    Log-Message "Starting File Integrity Check..."
+                    [System.Windows.Forms.Application]::DoEvents()
+                    $Failed = 0
+                    foreach ($folder in $ValidFolders) {
+                        $TargetDir = Join-Path $DataRoot $folder.Substring(3)
+                        $SrcCount = (Get-ChildItem $folder -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object).Count
+                        $DstCount = (Get-ChildItem $TargetDir -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object).Count
+                        if ($SrcCount -ne $DstCount) { $Failed++ }
+                    }
+                    if ($Failed -gt 0) { 
+                        Log-Message "Integrity Warning: $Failed folders had mismatched file counts!" "Warning"
+                        "INTEGRITY WARNING: $Failed folders failed to completely transfer after 2 attempts." | Out-File (Join-Path $DataRoot "..\Integrity_Warning.log")
+                    }
+                    else { Log-Message "Integrity Check Passed!" }
                 }
-                if ($Failed -gt 0) { 
-                    Log-Message "Integrity Warning: $Failed folders had mismatched file counts!" "Warning"
-                    "INTEGRITY WARNING: $Failed folders failed to completely transfer after 2 attempts." | Out-File (Join-Path $DataRoot "..\Integrity_Warning.log")
-                }
-                else { Log-Message "Integrity Check Passed!" }
-            }
 
-            $ProgressLabel.Text = "Backup Complete!"
-            Log-Message "Backup successfully completed."
-            $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
-            $Runspace.Close(); $Runspace.Dispose()
-        } else {
-            if ($TotalBytes -gt 0) {
-                $CurrentBytes = (Get-ChildItem -Path $DataRoot -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
-                $Percent = [math]::Min([math]::Round(($CurrentBytes / $TotalBytes) * 100), 99)
-                $ProgressLabel.Text = "Copying files... $Percent%"
-                $FillPanel.Width = [int]($MaxWidth * ($Percent / 100))
+                $ProgressLabel.Text = "Backup Complete!"
+                Log-Message "Backup successfully completed."
+                $StartBackupBtn.Enabled = $true; $TabControl.Enabled = $true; $CancelBackupBtn.Enabled = $false
+                $Runspace.Close(); $Runspace.Dispose()
             }
-        }
-    })
+            else {
+                if ($TotalBytes -gt 0) {
+                    $CurrentBytes = (Get-ChildItem -Path $DataRoot -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+                    $Percent = [math]::Min([math]::Round(($CurrentBytes / $TotalBytes) * 100), 99)
+                    $ProgressLabel.Text = "Copying files... $Percent%"
+                    $FillPanel.Width = [int]($MaxWidth * ($Percent / 100))
+                }
+            }
+        })
     $Timer.Start()
 })
 
@@ -507,77 +515,77 @@ $StartBackupBtn.Add_Click({
 # Restore Logic
 # ---------------------------------------------------------------------------
 $RPathTextBox.Add_TextChanged({
-    if (Test-Path $RPathTextBox.Text) {
-        $ConfigPath = Join-Path $RPathTextBox.Text "Migration.json"
-        if (Test-Path $ConfigPath) {
-            $RUserListBox.Items.Clear()
-            $JsonConfig = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-            if ($JsonConfig.UsersBackedUp) {
-                foreach ($u in $JsonConfig.UsersBackedUp) {
-                    $idx = $RUserListBox.Items.Add($u)
-                    if ($u -eq $env:USERNAME) { $RUserListBox.SetItemChecked($idx, $true) }
+        if (Test-Path $RPathTextBox.Text) {
+            $ConfigPath = Join-Path $RPathTextBox.Text "Migration.json"
+            if (Test-Path $ConfigPath) {
+                $RUserListBox.Items.Clear()
+                $JsonConfig = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+                if ($JsonConfig.UsersBackedUp) {
+                    foreach ($u in $JsonConfig.UsersBackedUp) {
+                        $idx = $RUserListBox.Items.Add($u)
+                        if ($u -eq $env:USERNAME) { $RUserListBox.SetItemChecked($idx, $true) }
+                    }
                 }
             }
         }
-    }
-})
+    })
 
 $StartRestoreBtn.Add_Click({
-    if (-not (Test-Path $RPathTextBox.Text)) { return }
-    $ActiveRestoreUsers = @(); foreach ($item in $RUserListBox.CheckedItems) { $ActiveRestoreUsers += $item }
-    if ($ActiveRestoreUsers.Count -eq 0) { return }
+        if (-not (Test-Path $RPathTextBox.Text)) { return }
+        $ActiveRestoreUsers = @(); foreach ($item in $RUserListBox.CheckedItems) { $ActiveRestoreUsers += $item }
+        if ($ActiveRestoreUsers.Count -eq 0) { return }
 
-    $StartRestoreBtn.Enabled = $false; $TabControl.Enabled = $false
-    $PublicStaging = "C:\System_Profile_Migration"
-    if (-not (Test-Path $PublicStaging)) { New-Item -ItemType Directory -Path $PublicStaging -Force | Out-Null }
-    Start-Process cmd.exe -ArgumentList "/c icacls `"$PublicStaging`" /inheritance:r /grant `"SYSTEM:(OI)(CI)F`" `"Administrators:(OI)(CI)F`" /T /C /Q" -WindowStyle Hidden -Wait
+        $StartRestoreBtn.Enabled = $false; $TabControl.Enabled = $false
+        $PublicStaging = "C:\System_Profile_Migration"
+        if (-not (Test-Path $PublicStaging)) { New-Item -ItemType Directory -Path $PublicStaging -Force | Out-Null }
+        Start-Process cmd.exe -ArgumentList "/c icacls `"$PublicStaging`" /inheritance:r /grant `"SYSTEM:(OI)(CI)F`" `"Administrators:(OI)(CI)F`" /T /C /Q" -WindowStyle Hidden -Wait
 
-    $ConfigPath = Join-Path $RPathTextBox.Text "Migration.json"
-    Copy-Item $ConfigPath -Destination $PublicStaging -Force
-    Copy-Item (Join-Path $RPathTextBox.Text "WiFi_Profiles") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $RPathTextBox.Text "ExportedDrivers") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
+        $ConfigPath = Join-Path $RPathTextBox.Text "Migration.json"
+        Copy-Item $ConfigPath -Destination $PublicStaging -Force
+        Copy-Item (Join-Path $RPathTextBox.Text "WiFi_Profiles") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $RPathTextBox.Text "ExportedDrivers") -Destination $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
     
-    # Driver Export Fix
-    $DriverDest = Join-Path $RPathTextBox.Text "ExportedDrivers"
-    if (-not (Test-Path $DriverDest) -and $chkDrivers.Checked) {
-        Log-Message "Exporting 3rd Party Drivers..."
-        $ProgressLabel.Text = "Exporting Drivers via DISM (This takes a while)..."
-        [System.Windows.Forms.Application]::DoEvents()
-        $DriverDestOut = Join-Path $DestRoot "ExportedDrivers"
-        New-Item -ItemType Directory -Path $DriverDestOut -Force | Out-Null
-        $job = Start-Job { Export-WindowsDriver -Online -Destination $args[0] -ErrorAction SilentlyContinue } -ArgumentList $DriverDestOut
-        while ($job.State -eq 'Running') {
+        # Driver Export Fix
+        $DriverDest = Join-Path $RPathTextBox.Text "ExportedDrivers"
+        if (-not (Test-Path $DriverDest) -and $chkDrivers.Checked) {
+            Log-Message "Exporting 3rd Party Drivers..."
+            $ProgressLabel.Text = "Exporting Drivers via DISM (This takes a while)..."
             [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 100
+            $DriverDestOut = Join-Path $DestRoot "ExportedDrivers"
+            New-Item -ItemType Directory -Path $DriverDestOut -Force | Out-Null
+            $job = Start-Job { Export-WindowsDriver -Online -Destination $args[0] -ErrorAction SilentlyContinue } -ArgumentList $DriverDestOut
+            while ($job.State -eq 'Running') {
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Milliseconds 100
+            }
+            Remove-Job $job -Force
         }
-        Remove-Job $job -Force
-    }
 
-    Copy-Item (Join-Path $RPathTextBox.Text "*.reg") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $RPathTextBox.Text "*.csv") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $RPathTextBox.Text "*.reg") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $RPathTextBox.Text "*.csv") -Destination $PublicStaging -Force -ErrorAction SilentlyContinue
 
-    $DataRoot = Join-Path $RPathTextBox.Text "C_Drive"
-    $FilesStaging = Join-Path $PublicStaging "StagedFiles"
-    if (-not (Test-Path $FilesStaging)) { New-Item -ItemType Directory -Path $FilesStaging -Force | Out-Null }
+        $DataRoot = Join-Path $RPathTextBox.Text "C_Drive"
+        $FilesStaging = Join-Path $PublicStaging "StagedFiles"
+        if (-not (Test-Path $FilesStaging)) { New-Item -ItemType Directory -Path $FilesStaging -Force | Out-Null }
 
-    Log-Message "Copying files to Secure Staging..."
-    $ProgressLabel.Text = "Staging files... (This may take a while)"
-    [System.Windows.Forms.Application]::DoEvents()
+        Log-Message "Copying files to Secure Staging..."
+        $ProgressLabel.Text = "Staging files... (This may take a while)"
+        [System.Windows.Forms.Application]::DoEvents()
 
-    foreach ($u in $ActiveRestoreUsers) {
-        $SrcU = Join-Path $DataRoot "Users\$u"
-        $DstU = Join-Path $FilesStaging $u
-        if (Test-Path $SrcU) { Start-Process robocopy -ArgumentList "`"$SrcU`" `"$DstU`" /E /COPY:DAT /DCOPY:DAT /R:0 /W:0 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np" -WindowStyle Hidden -Wait }
-    }
+        foreach ($u in $ActiveRestoreUsers) {
+            $SrcU = Join-Path $DataRoot "Users\$u"
+            $DstU = Join-Path $FilesStaging $u
+            if (Test-Path $SrcU) { Start-Process robocopy -ArgumentList "`"$SrcU`" `"$DstU`" /E /COPY:DAT /DCOPY:DAT /R:0 /W:0 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np" -WindowStyle Hidden -Wait }
+        }
 
-    Get-ChildItem -Path $DataRoot -Directory | Where-Object { $_.Name -ne "Users" } | ForEach-Object {
-        Start-Process robocopy -ArgumentList "`"$($_.FullName)`" `"C:\$($_.Name)`" /E /COPY:DAT /DCOPY:DAT /R:0 /W:0 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np" -WindowStyle Hidden -Wait
-    }
+        Get-ChildItem -Path $DataRoot -Directory | Where-Object { $_.Name -ne "Users" } | ForEach-Object {
+            Start-Process robocopy -ArgumentList "`"$($_.FullName)`" `"C:\$($_.Name)`" /E /COPY:DAT /DCOPY:DAT /R:0 /W:0 /MT:16 /NFL /NDL /NJH /NJS /nc /ns /np" -WindowStyle Hidden -Wait
+        }
 
-    $PostScriptSrc = Join-Path $PSScriptRoot "UserMoveToolPostRestore.ps1"
-    Copy-Item $PostScriptSrc -Destination (Join-Path $PublicStaging "WindowsSetupIntegration.ps1") -Force
+        $PostScriptSrc = Join-Path $PSScriptRoot "UserMoveToolPostRestore.ps1"
+        Copy-Item $PostScriptSrc -Destination (Join-Path $PublicStaging "WindowsSetupIntegration.ps1") -Force
 
-    $TaskXML = @"
+        $TaskXML = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>
@@ -586,14 +594,414 @@ $StartRestoreBtn.Add_Click({
   <Actions Context="Author"><Exec><Command>powershell.exe</Command><Arguments>-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\System_Profile_Migration\WindowsSetupIntegration.ps1"</Arguments></Exec></Actions>
 </Task>
 "@
-    $TaskXMLPath = Join-Path $env:TEMP "MigrationTask.xml"
-    $TaskXML | Out-File $TaskXMLPath -Encoding ascii
-    Start-Process schtasks.exe -ArgumentList "/create /tn `"WindowsSetupIntegration`" /xml `"$TaskXMLPath`" /f" -WindowStyle Hidden -Wait
+        $TaskXMLPath = Join-Path $env:TEMP "MigrationTask.xml"
+        $TaskXML | Out-File $TaskXMLPath -Encoding ascii
+        Start-Process schtasks.exe -ArgumentList "/create /tn `"WindowsSetupIntegration`" /xml `"$TaskXMLPath`" /f" -WindowStyle Hidden -Wait
 
-    $ProgressLabel.Text = "Restore Staging Complete! Please log off and log in as the user(s) to finalize."
-    [System.Windows.Forms.MessageBox]::Show("Staging complete!`nPlease log off and log back in as the migrated user(s). The system will automatically finalize their profile settings upon login.", "Staging Successful", 0, 64)
-    $StartRestoreBtn.Enabled = $true; $TabControl.Enabled = $true
-})
+        $ProgressLabel.Text = "Restore Staging Complete! Please log off and log in as the user(s) to finalize."
+        [System.Windows.Forms.MessageBox]::Show("Staging complete!`nPlease log off and log back in as the migrated user(s). The system will automatically finalize their profile settings upon login.", "Staging Successful", 0, 64)
+        $StartRestoreBtn.Enabled = $true; $TabControl.Enabled = $true
+    })
 
 $MicroLoader.Close(); $MicroLoader.Dispose()
+$BackupRoot = Split-Path $ConfigFile -Parent
+$DataRoot = Join-Path $BackupRoot "C_Drive"
+
+if (-not (Test-Path $DataRoot)) {
+    [System.Windows.Forms.MessageBox]::Show("Could not find the C_Drive data folder.", "Error", 0, 16)
+    $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+    return
+}
+
+$JsonConfig = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+$ActiveRestoreUsers = @()
+foreach ($item in $RestoreUserListBox.CheckedItems) { $ActiveRestoreUsers += ($item -replace " \(Current User.*", "").Trim() }
+
+if ($ActiveRestoreUsers.Count -eq 0) {
+    if ($JsonConfig.UsersBackedUp) { $ActiveRestoreUsers = $JsonConfig.UsersBackedUp }
+    else {
+        [System.Windows.Forms.MessageBox]::Show("Could not identify users to restore.", "Error", 0, 16)
+        $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+        return
+    }
+}
+
+# 1. Prepare Staging Environment (Generic Naming)
+$PublicStaging = "C:\Users\Public\System_Profile_Migration"
+$FilesStaging = Join-Path $PublicStaging "StagedFiles"
+if (-not (Test-Path $FilesStaging)) { New-Item -ItemType Directory -Path $FilesStaging -Force | Out-Null }
+
+Start-Process cmd.exe -ArgumentList "/c icacls `"$PublicStaging`" /grant `"Everyone:(OI)(CI)M`" /T /C /Q" -WindowStyle Hidden -Wait
+
+$StatusLabel.Text = "Status: Scanning backup files..."
+[System.Windows.Forms.Application]::DoEvents()
+
+$FileList = Get-ChildItem -Path $DataRoot -Recurse -File -Force -ErrorAction SilentlyContinue
+$FilteredFileList = @()
+foreach ($file in $FileList) {
+    $Relative = $file.FullName.Substring($DataRoot.Length + 1)
+    if ($Relative -match "^Users\\") {
+        $uName = ($Relative -split "\\")[1]
+        if ($ActiveRestoreUsers -contains $uName) { $FilteredFileList += $file }
+    } else {
+        if ($chkRoot.Checked) { $FilteredFileList += $file }
+    }
+}
+
+$TotalFiles = $FilteredFileList.Count
+$Copied = 0
+$MaxWidth = $TrackPanel.ClientSize.Width - 2
+
+if ($TotalFiles -gt 0) {
+    foreach ($file in $FilteredFileList) {
+        if ($script:CancelOperation) { break }
+
+        $Relative = $file.FullName.Substring($DataRoot.Length + 1)
+
+        if ($Relative -match "^Users\\") {
+            $uName = ($Relative -split "\\")[1]
+            $UserSubPath = $Relative.Substring("Users\$uName\".Length)
+            $TargetFile = Join-Path "$FilesStaging\$uName" $UserSubPath
+        } else {
+            $TargetFile = Join-Path "C:\" $Relative
+        }
+
+        $TargetDir = Split-Path $TargetFile -Parent
+        if (-not (Test-Path $TargetDir)) { New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null }
+        try { if (-not (Test-Path $TargetFile)) { [System.IO.File]::Copy($file.FullName, $TargetFile, $false) } } catch {}
+
+        $Copied++
+        if ($Copied % 20 -eq 0 -or $Copied -eq $TotalFiles) {
+            $Percent = [math]::Round(($Copied / $TotalFiles) * 100)
+            $StatusLabel.Text = "Status: Staging... $Percent% ($Copied / $TotalFiles files)"
+            $FillPanel.Width = [int]($MaxWidth * ($Copied / $TotalFiles))
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+    }
+}
+
+if ($script:CancelOperation) {
+    $StatusLabel.Text = "Status: Rolling back staging data..."
+    Remove-Item $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
+    $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+    return
+}
+
+# 2. Build the Mandatory OOBE Ghost Agent
+$StatusLabel.Text = "Status: Arming OOBE Agent for first login..."
+[System.Windows.Forms.Application]::DoEvents()
+
+$PendingSettings = @{}
+foreach ($u in $ActiveRestoreUsers) { $PendingSettings[$u] = $JsonConfig.Settings.$u }
+$PendingSettings | ConvertTo-Json -Depth 5 | Out-File (Join-Path $PublicStaging "PendingSettings.json") -Encoding ascii
+
+$GhostScriptPath = Join-Path $PublicStaging "ProfileOOBE.ps1"
+$GhostCode = @"
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+`$SettingsFile = "C:\Users\Public\System_Profile_Migration\PendingSettings.json"
+if (-not (Test-Path `$SettingsFile)) { exit }
+
+`$Pending = Get-Content `$SettingsFile -Raw | ConvertFrom-Json
+`$StagedUsers = Get-ChildItem "C:\Users\Public\System_Profile_Migration\StagedFiles" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+
+`$MatchFound = `$false
+`$MatchedOldUser = ""
+
+foreach (`$oldUser in `$StagedUsers) {
+    # Loose Auto-Matching (e.g. jsmith matches john.smith, or jsmith.DOMAIN)
+    if (`$env:USERNAME -match `$oldUser -or `$oldUser -match `$env:USERNAME) {
+        `$MatchFound = `$true
+        `$MatchedOldUser = `$oldUser
+        break
+    }
+}
+
+if (`$MatchFound) {
+    # 1. Spawn Mandatory Blocking Screen
+    `$Blocker = New-Object System.Windows.Forms.Form
+    `$Blocker.FormBorderStyle = 'None'
+    `$Blocker.WindowState = 'Maximized'
+    `$Blocker.TopMost = `$true
+    `$Blocker.BackColor = [System.Drawing.Color]::Black
+    `$Blocker.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+
+    `$Label = New-Object System.Windows.Forms.Label
+    `$Label.Text = "Finalizing User Profile Integration... Please wait."
+    `$Label.ForeColor = [System.Drawing.Color]::White
+    `$Label.Font = New-Object System.Drawing.Font("Segoe UI", 16)
+    `$Label.AutoSize = `$false
+    `$Label.Dock = 'Fill'
+    `$Label.TextAlign = 'MiddleCenter'
+    `$Blocker.Controls.Add(`$Label)
+
+    `$Blocker.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+
+    # 2. Run Robocopy to instantly move files into active profile
+    `$Src = "C:\Users\Public\System_Profile_Migration\StagedFiles\`$MatchedOldUser"
+    Start-Process cmd.exe -ArgumentList "/c robocopy `"`$Src`" `"`$env:USERPROFILE`" /E /MOVE /IS /IT" -WindowStyle Hidden -Wait
+
+    # 3. Apply Registry Themes
+    `$uSettings = `$Pending.`$MatchedOldUser
+    if (`$uSettings.AppsUseLightTheme -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -Value `$uSettings.AppsUseLightTheme -ErrorAction SilentlyContinue }
+    if (`$uSettings.SystemUsesLightTheme -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name SystemUsesLightTheme -Value `$uSettings.SystemUsesLightTheme -ErrorAction SilentlyContinue }
+    if (`$uSettings.TaskbarAl -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarAl -Value `$uSettings.TaskbarAl -ErrorAction SilentlyContinue }
+
+    # 4. Map Network Drives
+    if (`$uSettings.MappedDrives) {
+        foreach (`$drive in `$uSettings.MappedDrives) {
+            Start-Process cmd.exe -ArgumentList "/c net use `$(`$drive.Drive): `"`$(`$drive.Path)`" /persistent:yes" -WindowStyle Hidden
+        }
+    }
+
+    # Remove user from pending list and cleanup staging folder
+    Remove-Item "C:\Users\Public\System_Profile_Migration\StagedFiles\`$MatchedOldUser" -Recurse -Force -ErrorAction SilentlyContinue
+
+    # Update UI to notify forced sign out
+    `$Label.Text = "Integration Complete.`nSigning out to apply deep system themes..."
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Seconds 10
+
+    # Force Logoff to cleanly reload cached HKCU settings
+    Start-Process cmd.exe -ArgumentList "/c logoff" -WindowStyle Hidden
+}
+
+# Cleanup Agent if Empty
+`$Remaining = Get-ChildItem "C:\Users\Public\System_Profile_Migration\StagedFiles" -Directory -ErrorAction SilentlyContinue
+if (-not `$Remaining) {
+    Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ProfileOOBE.lnk" -Force -ErrorAction SilentlyContinue
+    Start-Process cmd.exe -ArgumentList "/c rmdir /s /q `"C:\Users\Public\System_Profile_Migration`"" -WindowStyle Hidden
+}
+"@
+$GhostCode | Out-File $GhostScriptPath -Encoding ascii
+
+# Create the All-Users Startup Shortcut via COM Object
+$WshShell = New-Object -ComObject WScript.Shell
+$ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ProfileOOBE.lnk"
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = "powershell.exe"
+$Shortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$GhostScriptPath`""
+$Shortcut.Save()
+
+$StatusLabel.Text = "Status: Restore Staging Complete!"
+$FillPanel.Width = $MaxWidth
+
+[System.Windows.Forms.MessageBox]::Show("Staging complete! The OOBE Agent is armed.`n`nHave the user(s) log into this PC. The screen will lock momentarily to finalize their profile, and they will be automatically signed out once complete.", "Restore Armed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+}
+
+$StartButton.Enabled = $true
+$CancelButton.Enabled = $false
+})
+
+# Kill the loader and show the real GUI
+$MicroLoader.Close()
+$MicroLoader.Dispose()
+
+$MoveGUI.Add_FormClosed({
+        if ($global:UserMoveHasErrors) {
+            Copy-Item -Path $global:TempUserMoveLog -Destination $logPath -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item -Path $global:TempUserMoveLog -Force -ErrorAction SilentlyContinue
+    })
+$BackupRoot = Split-Path $ConfigFile -Parent
+$DataRoot = Join-Path $BackupRoot "C_Drive"
+
+if (-not (Test-Path $DataRoot)) {
+    [System.Windows.Forms.MessageBox]::Show("Could not find the C_Drive data folder.", "Error", 0, 16)
+    $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+    return
+}
+
+$JsonConfig = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+$ActiveRestoreUsers = @()
+foreach ($item in $RestoreUserListBox.CheckedItems) { $ActiveRestoreUsers += ($item -replace " \(Current User.*", "").Trim() }
+
+if ($ActiveRestoreUsers.Count -eq 0) {
+    if ($JsonConfig.UsersBackedUp) { $ActiveRestoreUsers = $JsonConfig.UsersBackedUp }
+    else {
+        [System.Windows.Forms.MessageBox]::Show("Could not identify users to restore.", "Error", 0, 16)
+        $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+        return
+    }
+}
+
+# 1. Prepare Staging Environment (Generic Naming)
+$PublicStaging = "C:\Users\Public\System_Profile_Migration"
+$FilesStaging = Join-Path $PublicStaging "StagedFiles"
+if (-not (Test-Path $FilesStaging)) { New-Item -ItemType Directory -Path $FilesStaging -Force | Out-Null }
+
+Start-Process cmd.exe -ArgumentList "/c icacls `"$PublicStaging`" /grant `"Everyone:(OI)(CI)M`" /T /C /Q" -WindowStyle Hidden -Wait
+
+$StatusLabel.Text = "Status: Scanning backup files..."
+[System.Windows.Forms.Application]::DoEvents()
+
+$FileList = Get-ChildItem -Path $DataRoot -Recurse -File -Force -ErrorAction SilentlyContinue
+$FilteredFileList = @()
+foreach ($file in $FileList) {
+    $Relative = $file.FullName.Substring($DataRoot.Length + 1)
+    if ($Relative -match "^Users\\") {
+        $uName = ($Relative -split "\\")[1]
+        if ($ActiveRestoreUsers -contains $uName) { $FilteredFileList += $file }
+    } else {
+        if ($chkRoot.Checked) { $FilteredFileList += $file }
+    }
+}
+
+$TotalFiles = $FilteredFileList.Count
+$Copied = 0
+$MaxWidth = $TrackPanel.ClientSize.Width - 2
+
+if ($TotalFiles -gt 0) {
+    foreach ($file in $FilteredFileList) {
+        if ($script:CancelOperation) { break }
+
+        $Relative = $file.FullName.Substring($DataRoot.Length + 1)
+
+        if ($Relative -match "^Users\\") {
+            $uName = ($Relative -split "\\")[1]
+            $UserSubPath = $Relative.Substring("Users\$uName\".Length)
+            $TargetFile = Join-Path "$FilesStaging\$uName" $UserSubPath
+        } else {
+            $TargetFile = Join-Path "C:\" $Relative
+        }
+
+        $TargetDir = Split-Path $TargetFile -Parent
+        if (-not (Test-Path $TargetDir)) { New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null }
+        try { if (-not (Test-Path $TargetFile)) { [System.IO.File]::Copy($file.FullName, $TargetFile, $false) } } catch {}
+
+        $Copied++
+        if ($Copied % 20 -eq 0 -or $Copied -eq $TotalFiles) {
+            $Percent = [math]::Round(($Copied / $TotalFiles) * 100)
+            $StatusLabel.Text = "Status: Staging... $Percent% ($Copied / $TotalFiles files)"
+            $FillPanel.Width = [int]($MaxWidth * ($Copied / $TotalFiles))
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+    }
+}
+
+if ($script:CancelOperation) {
+    $StatusLabel.Text = "Status: Rolling back staging data..."
+    Remove-Item $PublicStaging -Recurse -Force -ErrorAction SilentlyContinue
+    $StartButton.Enabled = $true; $CancelButton.Enabled = $false
+    return
+}
+
+# 2. Build the Mandatory OOBE Ghost Agent
+$StatusLabel.Text = "Status: Arming OOBE Agent for first login..."
+[System.Windows.Forms.Application]::DoEvents()
+
+$PendingSettings = @{}
+foreach ($u in $ActiveRestoreUsers) { $PendingSettings[$u] = $JsonConfig.Settings.$u }
+$PendingSettings | ConvertTo-Json -Depth 5 | Out-File (Join-Path $PublicStaging "PendingSettings.json") -Encoding ascii
+
+$GhostScriptPath = Join-Path $PublicStaging "ProfileOOBE.ps1"
+$GhostCode = @"
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+`$SettingsFile = "C:\Users\Public\System_Profile_Migration\PendingSettings.json"
+if (-not (Test-Path `$SettingsFile)) { exit }
+
+`$Pending = Get-Content `$SettingsFile -Raw | ConvertFrom-Json
+`$StagedUsers = Get-ChildItem "C:\Users\Public\System_Profile_Migration\StagedFiles" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+
+`$MatchFound = `$false
+`$MatchedOldUser = ""
+
+foreach (`$oldUser in `$StagedUsers) {
+    # Loose Auto-Matching (e.g. jsmith matches john.smith, or jsmith.DOMAIN)
+    if (`$env:USERNAME -match `$oldUser -or `$oldUser -match `$env:USERNAME) {
+        `$MatchFound = `$true
+        `$MatchedOldUser = `$oldUser
+        break
+    }
+}
+
+if (`$MatchFound) {
+    # 1. Spawn Mandatory Blocking Screen
+    `$Blocker = New-Object System.Windows.Forms.Form
+    `$Blocker.FormBorderStyle = 'None'
+    `$Blocker.WindowState = 'Maximized'
+    `$Blocker.TopMost = `$true
+    `$Blocker.BackColor = [System.Drawing.Color]::Black
+    `$Blocker.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+
+    `$Label = New-Object System.Windows.Forms.Label
+    `$Label.Text = "Finalizing User Profile Integration... Please wait."
+    `$Label.ForeColor = [System.Drawing.Color]::White
+    `$Label.Font = New-Object System.Drawing.Font("Segoe UI", 16)
+    `$Label.AutoSize = `$false
+    `$Label.Dock = 'Fill'
+    `$Label.TextAlign = 'MiddleCenter'
+    `$Blocker.Controls.Add(`$Label)
+
+    `$Blocker.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+
+    # 2. Run Robocopy to instantly move files into active profile
+    `$Src = "C:\Users\Public\System_Profile_Migration\StagedFiles\`$MatchedOldUser"
+    Start-Process cmd.exe -ArgumentList "/c robocopy `"`$Src`" `"`$env:USERPROFILE`" /E /MOVE /IS /IT" -WindowStyle Hidden -Wait
+
+    # 3. Apply Registry Themes
+    `$uSettings = `$Pending.`$MatchedOldUser
+    if (`$uSettings.AppsUseLightTheme -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -Value `$uSettings.AppsUseLightTheme -ErrorAction SilentlyContinue }
+    if (`$uSettings.SystemUsesLightTheme -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name SystemUsesLightTheme -Value `$uSettings.SystemUsesLightTheme -ErrorAction SilentlyContinue }
+    if (`$uSettings.TaskbarAl -ne `$null) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarAl -Value `$uSettings.TaskbarAl -ErrorAction SilentlyContinue }
+
+    # 4. Map Network Drives
+    if (`$uSettings.MappedDrives) {
+        foreach (`$drive in `$uSettings.MappedDrives) {
+            Start-Process cmd.exe -ArgumentList "/c net use `$(`$drive.Drive): `"`$(`$drive.Path)`" /persistent:yes" -WindowStyle Hidden
+        }
+    }
+
+    # Remove user from pending list and cleanup staging folder
+    Remove-Item "C:\Users\Public\System_Profile_Migration\StagedFiles\`$MatchedOldUser" -Recurse -Force -ErrorAction SilentlyContinue
+
+    # Update UI to notify forced sign out
+    `$Label.Text = "Integration Complete.`nSigning out to apply deep system themes..."
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Seconds 10
+
+    # Force Logoff to cleanly reload cached HKCU settings
+    Start-Process cmd.exe -ArgumentList "/c logoff" -WindowStyle Hidden
+}
+
+# Cleanup Agent if Empty
+`$Remaining = Get-ChildItem "C:\Users\Public\System_Profile_Migration\StagedFiles" -Directory -ErrorAction SilentlyContinue
+if (-not `$Remaining) {
+    Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ProfileOOBE.lnk" -Force -ErrorAction SilentlyContinue
+    Start-Process cmd.exe -ArgumentList "/c rmdir /s /q `"C:\Users\Public\System_Profile_Migration`"" -WindowStyle Hidden
+}
+"@
+$GhostCode | Out-File $GhostScriptPath -Encoding ascii
+
+# Create the All-Users Startup Shortcut via COM Object
+$WshShell = New-Object -ComObject WScript.Shell
+$ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\ProfileOOBE.lnk"
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = "powershell.exe"
+$Shortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$GhostScriptPath`""
+$Shortcut.Save()
+
+$StatusLabel.Text = "Status: Restore Staging Complete!"
+$FillPanel.Width = $MaxWidth
+
+[System.Windows.Forms.MessageBox]::Show("Staging complete! The OOBE Agent is armed.`n`nHave the user(s) log into this PC. The screen will lock momentarily to finalize their profile, and they will be automatically signed out once complete.", "Restore Armed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+}
+
+$StartButton.Enabled = $true
+$CancelButton.Enabled = $false
+})
+
+# Kill the loader and show the real GUI
+$MicroLoader.Close()
+$MicroLoader.Dispose()
+
+$MoveGUI.Add_FormClosed({
+        if ($global:UserMoveHasErrors) {
+            Copy-Item -Path $global:TempUserMoveLog -Destination $logPath -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item -Path $global:TempUserMoveLog -Force -ErrorAction SilentlyContinue
+    })
 $MoveGUI.ShowDialog() | Out-Null
