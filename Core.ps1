@@ -35,7 +35,17 @@ function Show-ImageSplash {
     if (-not (Test-Path $ImagePath)) { throw "Splash image not found: $ImagePath" }
     
     # Initialize bitmap resource
-    $script:_splashImage = [System.Drawing.Bitmap]::new($ImagePath)
+    $rawImage = [System.Drawing.Bitmap]::new($ImagePath)
+    $maxW = 600
+    if ($rawImage.Width -gt $maxW) {
+        $scale = $maxW / $rawImage.Width
+        $newW = $maxW
+        $newH = [int]($rawImage.Height * $scale)
+        $script:_splashImage = New-Object System.Drawing.Bitmap($rawImage, $newW, $newH)
+        $rawImage.Dispose()
+    } else {
+        $script:_splashImage = $rawImage
+    }
     
     $form = [HMT.PerPixelAlphaForm]::new()
     $form.ShowInTaskbar = $false

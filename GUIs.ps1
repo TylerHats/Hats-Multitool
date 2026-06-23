@@ -320,6 +320,7 @@ $ModGUIlabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ModGUIlabel.Location = New-Object System.Drawing.Point(20, $y)
 $ModGUIlabel.AutoSize = $true
 $ModGUI.Controls.Add($ModGUIlabel)
+$y += 30
 $ModCLB = New-Object System.Windows.Forms.CheckedListBox
 $ModCLB.Location = New-Object System.Drawing.Point(20, $y)
 $ModCLB.Size = New-Object System.Drawing.Size(240, 180)
@@ -477,6 +478,9 @@ $ToolsListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $ToolsListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $ToolsListView.Columns.Add("Tool", 180) | Out-Null
 $ToolsListView.Columns.Add("Description", 600) | Out-Null
+$val = 1
+[HMT.NativeMethods]::DwmSetWindowAttribute($ToolsListView.Handle, 20, [ref]$val, 4) | Out-Null
+[HMT.NativeMethods]::DwmSetWindowAttribute($ToolsListView.Handle, 19, [ref]$val, 4) | Out-Null
 [HMT.NativeMethods]::SetWindowTheme($ToolsListView.Handle, "DarkMode_Explorer", $null) | Out-Null
 $ToolsGUI.Controls.Add($ToolsListView)
 
@@ -751,6 +755,9 @@ $TrListView.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $TrListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $TrListView.Columns.Add("Tool", 180) | Out-Null
 $TrListView.Columns.Add("Description", 600) | Out-Null
+$val = 1
+[HMT.NativeMethods]::DwmSetWindowAttribute($TrListView.Handle, 20, [ref]$val, 4) | Out-Null
+[HMT.NativeMethods]::DwmSetWindowAttribute($TrListView.Handle, 19, [ref]$val, 4) | Out-Null
 [HMT.NativeMethods]::SetWindowTheme($TrListView.Handle, "DarkMode_Explorer", $null) | Out-Null
 $TroubleGUI.Controls.Add($TrListView)
 

@@ -3,24 +3,17 @@
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Configure PSGallery silently
-Log-Message "Preparing Package Providers..."
-if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
-}
-Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-
-# Load / Install WinGet PS Module
-if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Client)) {
-    Log-Message "Installing Microsoft.WinGet.Client module..."
-    Install-Module -Name Microsoft.WinGet.Client -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
-}
-Import-Module Microsoft.WinGet.Client
-
-# Force initialize WinGet source
+# # Force initialize WinGet source
+$global:BGRBaseText = "Updating WinGet Sources"
+if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) { $global:BGRlabel.Text = $global:BGRBaseText }
+[System.Windows.Forms.Application]::DoEvents()
 Log-Message "Initializing WinGet and updating sources..."
-winget source reset --force | Out-Null
-winget source update | Out-Null
+
+$procReset = Start-Process winget.exe -ArgumentList "source reset --force" -WindowStyle Hidden -PassThru
+while (-not $procReset.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
+
+$procUpdate = Start-Process winget.exe -ArgumentList "source update" -WindowStyle Hidden -PassThru
+while (-not $procUpdate.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
 
 # Initialize GUI form
 Log-Message "Preparing Software List..."
@@ -379,11 +372,20 @@ $okButton.Add_Click({
                     }
 
                     # 3. Execute
+                    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
+                        throw "Downloaded installer is missing or 0 bytes. Check network connection."
+                    }
+
                     Log-Message "Running Installer..." "Info"
                 
                     $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    $installProcInfo.FileName = $tempPath
-                    $installProcInfo.Arguments = $silentArgs
+                    if ($tempPath -match '\.msi$') {
+                        $installProcInfo.FileName = "msiexec.exe"
+                        $installProcInfo.Arguments = "/i `"$tempPath`" $silentArgs"
+                    } else {
+                        $installProcInfo.FileName = $tempPath
+                        $installProcInfo.Arguments = $silentArgs
+                    }
                     $installProcInfo.UseShellExecute = $false
                     $installProcInfo.CreateNoWindow = $true
 
@@ -511,10 +513,19 @@ $okButton.Add_Click({
                             Continue
                         }
 
+                        if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
+                            throw "Downloaded installer is missing or 0 bytes. Check network connection."
+                        }
+
                         Log-Message "Running Installer..." "Info"
                         $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
-                        $installProcInfo.FileName = $tempPath
-                        $installProcInfo.Arguments = $silentArgs
+                        if ($tempPath -match '\.msi$') {
+                            $installProcInfo.FileName = "msiexec.exe"
+                            $installProcInfo.Arguments = "/i `"$tempPath`" $silentArgs"
+                        } else {
+                            $installProcInfo.FileName = $tempPath
+                            $installProcInfo.Arguments = $silentArgs
+                        }
                         $installProcInfo.UseShellExecute = $false
                         $installProcInfo.CreateNoWindow = $true
 
