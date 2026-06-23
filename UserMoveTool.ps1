@@ -52,7 +52,7 @@ $BackupTabBtn.Location = New-Object System.Drawing.Point(10, 10)
 $BackupTabBtn.Size = New-Object System.Drawing.Size(240, 40)
 $BackupTabBtn.FlatStyle = 'Flat'
 $BackupTabBtn.FlatAppearance.BorderSize = 0
-$BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
 $BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $MoveGUI.Controls.Add($BackupTabBtn)
 
@@ -62,38 +62,38 @@ $RestoreTabBtn.Location = New-Object System.Drawing.Point(250, 10)
 $RestoreTabBtn.Size = New-Object System.Drawing.Size(240, 40)
 $RestoreTabBtn.FlatStyle = 'Flat'
 $RestoreTabBtn.FlatAppearance.BorderSize = 0
-$RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+$RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
 $MoveGUI.Controls.Add($RestoreTabBtn)
 
 $BackupPanel = New-Object System.Windows.Forms.Panel
 $BackupPanel.Location = New-Object System.Drawing.Point(10, 50)
 $BackupPanel.Size = New-Object System.Drawing.Size(480, 540)
-$BackupPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$BackupPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
 $MoveGUI.Controls.Add($BackupPanel)
 
 $RestorePanel = New-Object System.Windows.Forms.Panel
 $RestorePanel.Location = New-Object System.Drawing.Point(10, 50)
 $RestorePanel.Size = New-Object System.Drawing.Size(480, 540)
-$RestorePanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$RestorePanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
 $RestorePanel.Visible = $false
 $MoveGUI.Controls.Add($RestorePanel)
 
 $BackupTabBtn.Add_Click({
     $BackupPanel.Visible = $true
     $RestorePanel.Visible = $false
-    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
     $BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
     $RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
 })
 
 $RestoreTabBtn.Add_Click({
     $RestorePanel.Visible = $true
     $BackupPanel.Visible = $false
-    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $RestoreTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#36393f")
     $RestoreTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $BackupTabBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
     $BackupTabBtn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#808080")
 })
 
@@ -166,14 +166,14 @@ $StartBackupBtn = New-Object System.Windows.Forms.Button
 $StartBackupBtn.Text = "Start Backup"
 $StartBackupBtn.Location = New-Object System.Drawing.Point(10, 480)
 $StartBackupBtn.Size = New-Object System.Drawing.Size(350, 40)
-$StartBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da")
+$StartBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $StartBackupBtn.ForeColor = [System.Drawing.Color]::White; $StartBackupBtn.FlatStyle = 'Flat'
 $BackupPanel.Controls.Add($StartBackupBtn)
 
 $CancelBackupBtn = New-Object System.Windows.Forms.Button
 $CancelBackupBtn.Text = "Cancel"
 $CancelBackupBtn.Location = New-Object System.Drawing.Point(370, 480); $CancelBackupBtn.Size = New-Object System.Drawing.Size(90, 40)
-$CancelBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#f04747"); $CancelBackupBtn.ForeColor = [System.Drawing.Color]::White; $CancelBackupBtn.FlatStyle = 'Flat'
+$CancelBackupBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#b33232"); $CancelBackupBtn.ForeColor = [System.Drawing.Color]::White; $CancelBackupBtn.FlatStyle = 'Flat'
 $CancelBackupBtn.Enabled = $false
 $BackupPanel.Controls.Add($CancelBackupBtn)
 
@@ -201,7 +201,7 @@ $RestorePanel.Controls.Add($RUserListBox)
 $StartRestoreBtn = New-Object System.Windows.Forms.Button
 $StartRestoreBtn.Text = "Stage Migration Data"
 $StartRestoreBtn.Location = New-Object System.Drawing.Point(10, 250); $StartRestoreBtn.Size = New-Object System.Drawing.Size(450, 40)
-$StartRestoreBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7289da"); $StartRestoreBtn.ForeColor = [System.Drawing.Color]::White; $StartRestoreBtn.FlatStyle = 'Flat'
+$StartRestoreBtn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136"); $StartRestoreBtn.ForeColor = [System.Drawing.Color]::White; $StartRestoreBtn.FlatStyle = 'Flat'
 $RestorePanel.Controls.Add($StartRestoreBtn)
 
 # -- COMMON ELEMENTS --
@@ -212,15 +212,15 @@ $ProgressLabel.Location = New-Object System.Drawing.Point(10, 600); $ProgressLab
 $MoveGUI.Controls.Add($ProgressLabel)
 
 $TrackPanel = New-Object System.Windows.Forms.Panel
-$TrackPanel.Location = New-Object System.Drawing.Point(10, 620); $TrackPanel.Size = New-Object System.Drawing.Size(480, 10); $TrackPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#40444b")
+$TrackPanel.Location = New-Object System.Drawing.Point(10, 625); $TrackPanel.Size = New-Object System.Drawing.Size(480, 20); $TrackPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#40444b")
 $MoveGUI.Controls.Add($TrackPanel)
 
 $FillPanel = New-Object System.Windows.Forms.Panel
-$FillPanel.Location = New-Object System.Drawing.Point(0, 0); $FillPanel.Size = New-Object System.Drawing.Size(0, 10); $FillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#43b581")
+$FillPanel.Location = New-Object System.Drawing.Point(0, 0); $FillPanel.Size = New-Object System.Drawing.Size(0, 20); $FillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#43b581")
 $TrackPanel.Controls.Add($FillPanel)
 
 $Script:LogBox = New-Object System.Windows.Forms.RichTextBox
-$Script:LogBox.Location = New-Object System.Drawing.Point(10, 640); $Script:LogBox.Size = New-Object System.Drawing.Size(480, 110)
+$Script:LogBox.Location = New-Object System.Drawing.Point(10, 655); $Script:LogBox.Size = New-Object System.Drawing.Size(480, 130)
 $Script:LogBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225"); $Script:LogBox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9"); $Script:LogBox.ReadOnly = $true
 $MoveGUI.Controls.Add($Script:LogBox)
 

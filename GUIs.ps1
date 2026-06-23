@@ -534,7 +534,8 @@ $reqListHeight = ($ToolsListView.Items.Count * $itemHeight) + 30
 $ToolsListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
 
 $reqFormWidth = $reqListWidth + 60
-$ToolsGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, ($reqListHeight + 110))
+$ToolsGUI.Width = $reqFormWidth + 20
+$ToolsGUI.Height = $reqListHeight + 150
 
 $y = $reqListHeight + 65
 $TLaunchButton = New-Object System.Windows.Forms.Button
@@ -827,7 +828,8 @@ $reqListHeight = ($TrListView.Items.Count * $itemHeight) + 30
 $TrListView.Size = New-Object System.Drawing.Size($reqListWidth, $reqListHeight)
 
 $reqFormWidth = $reqListWidth + 60
-$TroubleGUI.ClientSize = New-Object System.Drawing.Size($reqFormWidth, ($reqListHeight + 140))
+$TroubleGUI.Width = $reqFormWidth + 20
+$TroubleGUI.Height = $reqListHeight + 180
 
 $y = $reqListHeight + 95
 $TrLaunchButton = New-Object System.Windows.Forms.Button
