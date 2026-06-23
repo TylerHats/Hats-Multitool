@@ -65,7 +65,7 @@ namespace HMT {
         public static extern bool DeleteObject(IntPtr hObject);
 
         public struct Point { public int x, y; public Point(int x, int y) { this.x = x; this.y = y; } }
-        public struct Size { public int cx, cy; public Size(int cx, int cy) { this.cx = cx; this.cy = cy; } }
+        public new struct Size { public int cx, cy; public Size(int cx, int cy) { this.cx = cx; this.cy = cy; } }
         public struct BLENDFUNCTION {
             public byte BlendOp;
             public byte BlendFlags;
