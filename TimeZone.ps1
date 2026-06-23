@@ -51,14 +51,17 @@ $TZGUI.AcceptButton = $TZOkayButton
 
 # Fix Scaling and Layout Dynamically
 $TZGUI.Add_Load({
+    Invoke-HMTScale $TZGUI
+    $p = [int]($padding * $global:HMTScaleFactor)
+    
     # Stretch the ComboBox to fill the scaled window width (minus padding on both sides)
-    $comboBox.Width = $TZGUI.ClientSize.Width - ($padding * 2)
+    $comboBox.Width = $TZGUI.ClientSize.Width - ($p * 2)
     
     # Center the OK button
     $TZOkayButton.Left = ($TZGUI.ClientSize.Width - $TZOkayButton.Width) / 2
 
     # Wrap the window height to the bottom of the OK button with padding
-    $TZGUI.ClientSize = [System.Drawing.Size]::new($TZGUI.ClientSize.Width, ($TZOkayButton.Bottom + $padding))
+    $TZGUI.ClientSize = [System.Drawing.Size]::new($TZGUI.ClientSize.Width, ($TZOkayButton.Bottom + $p))
 })
 
 # Define a function to handle the Okay button click

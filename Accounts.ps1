@@ -270,12 +270,15 @@ $A1GUI.ActiveControl = $A1Skip
 
 # Calculate dynamic layout post-DPI scaling
 $A1GUI.Add_Load({
+    Invoke-HMTScale $A1GUI
     # Align visibility toggle to password input boundaries
     $ShowPWButton.Height = $PasswordInput.Height
     $ShowPWButton.Top = $PasswordInput.Top
     
     # Calculate dynamic window height
-    $A1GUI.ClientSize = [System.Drawing.Size]::new(315, ($A1Skip.Bottom + 20))
+    $w = [int](315 * $global:HMTScaleFactor)
+    $p = [int](20 * $global:HMTScaleFactor)
+    $A1GUI.ClientSize = [System.Drawing.Size]::new($w, ($A1Skip.Bottom + $p))
 })
 
 # Display First GUI

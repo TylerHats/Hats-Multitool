@@ -135,7 +135,10 @@ $MainMenuAboutButton.Add_Click({
 })
 
 $MainMenu.Add_Load({
-    $MainMenu.ClientSize = [System.Drawing.Size]::new(300, ($MainMenuExitButton.Bottom + 30))
+    Invoke-HMTScale $MainMenu
+    $w = [int](300 * $global:HMTScaleFactor)
+    $p = [int](30 * $global:HMTScaleFactor)
+    $MainMenu.ClientSize = [System.Drawing.Size]::new($w, ($MainMenuExitButton.Bottom + $p))
 })
 
 # Catch window close event
@@ -252,6 +255,7 @@ $AboutGUI.Controls.Add($AboutCloseBtn)
 
 # Calculate dynamic layout post-DPI scaling
 $AboutGUI.Add_Load({
+    Invoke-HMTScale $AboutGUI
     $w = $AboutGUI.ClientSize.Width
     $IconBox.Left = ($w - $IconBox.Width) / 2
     $AboutTitle.Width = $w
@@ -259,7 +263,8 @@ $AboutGUI.Add_Load({
     $AboutAuthor.Width = $w
     $GithubLink.Width = $w
     $AboutCloseBtn.Left = ($w - $AboutCloseBtn.Width) / 2
-    $AboutGUI.ClientSize = [System.Drawing.Size]::new($w, ($AboutCloseBtn.Bottom + 20))
+    $p = [int](20 * $global:HMTScaleFactor)
+    $AboutGUI.ClientSize = [System.Drawing.Size]::new($w, ($AboutCloseBtn.Bottom + $p))
 })
 
 # Catch Close to just hide instead of exit completely
@@ -410,7 +415,10 @@ $ModGUIBackButton.Add_Click({
 })
 
 $ModGUI.Add_Load({
-    $ModGUI.ClientSize = [System.Drawing.Size]::new(300, ($ModGUIBackButton.Bottom + 20))
+    Invoke-HMTScale $ModGUI
+    $w = [int](300 * $global:HMTScaleFactor)
+    $p = [int](20 * $global:HMTScaleFactor)
+    $ModGUI.ClientSize = [System.Drawing.Size]::new($w, ($ModGUIBackButton.Bottom + $p))
 })
 
 # Catch closes to close program properly
@@ -718,7 +726,10 @@ $TBackButton.Add_Click({
 })
 
 $ToolsGUI.Add_Load({
-    $ToolsGUI.ClientSize = [System.Drawing.Size]::new(650, ($TBackButton.Bottom + 20))
+    Invoke-HMTScale $ToolsGUI
+    $w = [int](650 * $global:HMTScaleFactor)
+    $p = [int](20 * $global:HMTScaleFactor)
+    $ToolsGUI.ClientSize = [System.Drawing.Size]::new($w, ($TBackButton.Bottom + $p))
 })
 
 # Catch closes to close program properly
@@ -925,7 +936,10 @@ $BackButton.Add_Click({
 })
 
 $TroubleGUI.Add_Load({
-    $TroubleGUI.ClientSize = [System.Drawing.Size]::new(650, ($BackButton.Bottom + 20))
+    Invoke-HMTScale $TroubleGUI
+    $w = [int](650 * $global:HMTScaleFactor)
+    $p = [int](20 * $global:HMTScaleFactor)
+    $TroubleGUI.ClientSize = [System.Drawing.Size]::new($w, ($BackButton.Bottom + $p))
 })
 
 # Catch closes to close program properly

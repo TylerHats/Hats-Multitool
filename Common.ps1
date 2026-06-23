@@ -40,7 +40,12 @@ $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
 # $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
-$font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+$g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
+$global:HMTScaleFactor = $g.DpiX / 96.0
+$g.Dispose()
+
+$scaledFontSize = [int](12 * $global:HMTScaleFactor)
+$font = New-Object System.Drawing.Font("Segoe UI", $scaledFontSize, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -55,6 +60,17 @@ try {
 }
 
 # Common Functions:
+
+function Invoke-HMTScale {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    if ($global:HMTScaleFactor -ne 1.0) {
+        $TargetForm.Scale((New-Object System.Drawing.SizeF($global:HMTScaleFactor, $global:HMTScaleFactor)))
+    }
+}
+
 # Log-Message writes to log path and console
 function Log-Message {
     param(

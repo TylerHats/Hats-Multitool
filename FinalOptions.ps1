@@ -73,11 +73,13 @@ $FOGUI.AcceptButton = $FOOkayButton
 
 # Fix Scaling and Layout Dynamically
 $FOGUI.Add_Load({
-        $lvScaledWidth = $FOGUI.ClientSize.Width - ($padding * 2)
+        Invoke-HMTScale $FOGUI
+        $p = [int]($padding * $global:HMTScaleFactor)
+        $lvScaledWidth = $FOGUI.ClientSize.Width - ($p * 2)
         $FOLV.Width = $lvScaledWidth
         $FOLV.Columns[0].Width = $lvScaledWidth - 5
         $FOOkayButton.Left = ($FOGUI.ClientSize.Width - $FOOkayButton.Width) / 2
-        $FOGUI.ClientSize = [System.Drawing.Size]::new($FOGUI.ClientSize.Width, ($FOOkayButton.Bottom + $padding))
+        $FOGUI.ClientSize = [System.Drawing.Size]::new($FOGUI.ClientSize.Width, ($FOOkayButton.Bottom + $p))
     })
 
 

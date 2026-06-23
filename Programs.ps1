@@ -171,7 +171,9 @@ $skipButton.Add_Click({
 
 # Dynamic Sizing Trigger
 $form.Add_Load({
-        $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $padding))
+        Invoke-HMTScale $form
+        $p = [int]($padding * $global:HMTScaleFactor)
+        $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
     })
 
 # Progress & UI Logic Helper

@@ -297,7 +297,10 @@ $SMSkip.Add_Click({
 
 # Calculate dynamic layout post-DPI scaling
 $SMGUI.Add_Load({
-    $SMGUI.ClientSize = [System.Drawing.Size]::new(315, ($SMSkip.Bottom + 20))
+    Invoke-HMTScale $SMGUI
+    $w = [int](315 * $global:HMTScaleFactor)
+    $p = [int](20 * $global:HMTScaleFactor)
+    $SMGUI.ClientSize = [System.Drawing.Size]::new($w, ($SMSkip.Bottom + $p))
 })
 
 # Display First GUI

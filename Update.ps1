@@ -70,12 +70,14 @@ $UpdateGUI.CancelButton = $UNOkayButton
 
 # Calculate dynamic layout post-DPI scaling
 $UpdateGUI.Add_Load({
+        Invoke-HMTScale $UpdateGUI
+        $p = [int](20 * $global:HMTScaleFactor)
         $ULabel.Width = $UpdateGUI.ClientSize.Width
-        $totalButtonWidth = $UYOkayButton.Width + 20 + $UNOkayButton.Width
+        $totalButtonWidth = $UYOkayButton.Width + $p + $UNOkayButton.Width
         $startX = ($UpdateGUI.ClientSize.Width - $totalButtonWidth) / 2
         $UYOkayButton.Left = $startX
-        $UNOkayButton.Left = $startX + $UYOkayButton.Width + 20
-        $UpdateGUI.ClientSize = [System.Drawing.Size]::new($UpdateGUI.ClientSize.Width, ($UYOkayButton.Bottom + 20))
+        $UNOkayButton.Left = $startX + $UYOkayButton.Width + $p
+        $UpdateGUI.ClientSize = [System.Drawing.Size]::new($UpdateGUI.ClientSize.Width, ($UYOkayButton.Bottom + $p))
     })
 
 # Define a function to handle the yes button click

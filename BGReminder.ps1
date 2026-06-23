@@ -60,4 +60,5 @@ $BGRTimer.Add_Tick({
 
 # Start the timer and Display GUI
 $BGRTimer.Start()
+Invoke-HMTScale $BGR
 $BGR.Show() | Out-Null
