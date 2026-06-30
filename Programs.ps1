@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.18
+# Programs Module - Tyler Hatfield - v1.19
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -19,6 +19,7 @@ while (-not $procUpdate.HasExited) { [System.Windows.Forms.Application]::DoEvent
 Log-Message "Preparing Software List..."
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Net.Http
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Program Selection List'
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
