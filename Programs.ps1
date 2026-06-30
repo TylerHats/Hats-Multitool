@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.19
+# Programs Module - Tyler Hatfield - v1.20
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -215,17 +215,23 @@ $updateLocalProgress = {
     }
 }
 
-# Async-Safe Streamed Download Helper 
+# Async-Safe Streamed Download Helper
 $downloadWithProgress = {
     param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms, [string]$AppName)
     
     $global:DlDone = $false
     $script:SkipCurrent = $false
 
+    # Enable TLS 1.2 and TLS 1.3 (12288) to unlock faster CDN routing paths
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+
     # Initialize modern HttpClient
     $handler = New-Object System.Net.Http.HttpClientHandler
     $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
     
+    # CRITICAL: Masquerade as a standard web browser to bypass CDN script throttling
+    $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
     $downloadStream = $null
     $fileStream = $null
 
@@ -253,7 +259,6 @@ $downloadWithProgress = {
 
         # Stream reading loop
         while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            # Handle UI Cancel/Skip event immediately
             if ($script:SkipCurrent) {
                 break
             }
@@ -264,14 +269,13 @@ $downloadWithProgress = {
             if ($totalBytes) {
                 $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
                 
-                # UI Throttle: Only update the progress layout when the percentage integer actually increments
+                # Only update UI when the whole percentage changes
                 if ($pct -ne $lastPct) {
                     $lastPct = $pct
                     &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
                     [System.Windows.Forms.Application]::DoEvents()
                 }
             } else {
-                # Fallback UI update for servers that hide Content-Length
                 &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... (Size Unknown)"
                 [System.Windows.Forms.Application]::DoEvents()
             }
@@ -283,7 +287,6 @@ $downloadWithProgress = {
         throw $_
     }
     finally {
-        # Ensure cleanup of stream locks under all exit conditions
         if ($null -ne $fileStream) { $fileStream.Close(); $fileStream.Dispose() }
         if ($null -ne $downloadStream) { $downloadStream.Close(); $downloadStream.Dispose() }
         if ($null -ne $client) { $client.Dispose() }
