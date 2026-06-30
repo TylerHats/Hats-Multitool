@@ -549,7 +549,7 @@ $okButton.Add_Click({
                     try {
                         $script:SkipCurrent = $false
                         $skipButton.Enabled = $true
-                    
+
                         $procInfo = New-Object System.Diagnostics.ProcessStartInfo
                         $procInfo.FileName = "winget.exe"
                         $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --architecture x64 --disable-interactivity"
@@ -560,7 +560,7 @@ $okButton.Add_Click({
                         $proc = New-Object System.Diagnostics.Process
                         $proc.StartInfo = $procInfo
                         $proc.Start() | Out-Null
-                    
+
                         $wingetOutput = $proc.StandardOutput.ReadToEnd()
                         $proc.WaitForExit()
 
@@ -568,13 +568,26 @@ $okButton.Add_Click({
                         $silentArgs = $null
                         $installerType = $null
 
-                        foreach ($line in ($wingetOutput -split "`n")) {
+                        # Modern newline split to protect parameters
+                        foreach ($line in ($wingetOutput -split '\r?\n')) {
                             if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
                             if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
-                            if ($line -match 'Silent( with Progress)?:\s+(.+)') { $silentArgs = $matches[2].Trim() }
+
+                            if ($line -match '^\s*Silent:\s+(.+)') { 
+                                $silentArgs = $matches[1].Trim() 
+                            }
+                            elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { 
+                                $silentArgs = $matches[1].Trim() 
+                            }
+                        }
+
+                        # Adobe Override (Keeps the retry attempt silent too)
+                        if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
+                            $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
                         }
 
                         if ([string]::IsNullOrWhiteSpace($installerUrl)) { throw "Failed to locate direct download URL from WinGet." }
+
                         if ([string]::IsNullOrWhiteSpace($silentArgs)) {
                             if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
                             elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
