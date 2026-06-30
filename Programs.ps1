@@ -214,32 +214,79 @@ $updateLocalProgress = {
     }
 }
 
-# Async Download Helper 
+# Async-Safe Streamed Download Helper 
 $downloadWithProgress = {
     param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms, [string]$AppName)
-    $global:DlProgress = 0
+    
     $global:DlDone = $false
-    $webClient = New-Object System.Net.WebClient
+    $script:SkipCurrent = $false
+
+    # Initialize modern HttpClient
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
     
-    $onProg = Register-ObjectEvent -InputObject $webClient -EventName DownloadProgressChanged -Action { $global:DlProgress = $EventArgs.ProgressPercentage }
-    $onComp = Register-ObjectEvent -InputObject $webClient -EventName DownloadFileCompleted -Action { $global:DlDone = $true }
-    
-    $webClient.DownloadFileAsync([System.Uri]$Url, $OutFile)
-    while (-not $global:DlDone) {
-        if ($script:SkipCurrent) {
-            $webClient.CancelAsync()
-            break
+    $downloadStream = $null
+    $fileStream = $null
+
+    try {
+        # Request headers first to get file size safely
+        $responseTask = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+        $response = $responseTask.GetAwaiter().GetResult()
+        
+        if (-not $response.IsSuccessStatusCode) {
+            throw "HTTP Error: $($response.StatusCode)"
         }
-        $pct = $global:DlProgress
-        # Pass both the main status and the secondary detail text
-        &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
-        [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 50
+
+        # Extract total content length if provided by server
+        $totalBytes = $response.Content.Headers.ContentLength
+        
+        # Open streams
+        $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $fileStream = [System.IO.File]::Create($OutFile)
+
+        # 256 KB buffer chunk sizing
+        $buffer = New-Object byte[] 262144
+        $bytesRead = 0
+        $totalBytesRead = 0
+        $lastPct = -1
+
+        # Stream reading loop
+        while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            # Handle UI Cancel/Skip event immediately
+            if ($script:SkipCurrent) {
+                break
+            }
+
+            $fileStream.Write($buffer, 0, $bytesRead)
+            $totalBytesRead += $bytesRead
+
+            if ($totalBytes) {
+                $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
+                
+                # UI Throttle: Only update the progress layout when the percentage integer actually increments
+                if ($pct -ne $lastPct) {
+                    $lastPct = $pct
+                    &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
+                    [System.Windows.Forms.Application]::DoEvents()
+                }
+            } else {
+                # Fallback UI update for servers that hide Content-Length
+                &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... (Size Unknown)"
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+        }
+        $global:DlDone = $true
     }
-    
-    Unregister-Event -SourceIdentifier $onProg.Name
-    Unregister-Event -SourceIdentifier $onComp.Name
-    $webClient.Dispose()
+    catch {
+        Log-Message "Download error on $AppName : $_" "Error"
+        throw $_
+    }
+    finally {
+        # Ensure cleanup of stream locks under all exit conditions
+        if ($null -ne $fileStream) { $fileStream.Close(); $fileStream.Dispose() }
+        if ($null -ne $downloadStream) { $downloadStream.Close(); $downloadStream.Dispose() }
+        if ($null -ne $client) { $client.Dispose() }
+    }
 }
 
 $okButton.Add_Click({
