@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.20
+# Programs Module - Tyler Hatfield - v1.21
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -396,7 +396,7 @@ $okButton.Add_Click({
                     $proc = New-Object System.Diagnostics.Process
                     $proc.StartInfo = $procInfo
                     $proc.Start() | Out-Null
-                
+
                     $wingetOutput = $proc.StandardOutput.ReadToEnd()
                     $proc.WaitForExit()
 
@@ -404,16 +404,32 @@ $okButton.Add_Click({
                     $silentArgs = $null
                     $installerType = $null
 
-                    foreach ($line in ($wingetOutput -split "`n")) {
+                    # Split cleanly on Windows or Linux newline variants to avoid hidden carriage returns (`\r`)
+                    foreach ($line in ($wingetOutput -split '\r?\n')) {
                         if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
                         if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
-                        if ($line -match 'Silent( with Progress)?:\s+(.+)') { $silentArgs = $matches[2].Trim() }
+    
+                        # Strictly isolate the pure hidden silent parameter block
+                        if ($line -match '^\s*Silent:\s+(.+)') { 
+                            $silentArgs = $matches[1].Trim() 
+                        }
+                        # Only fall back to 'Silent with Progress' if a completely silent switch hasn't been set
+                        elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { 
+                            $silentArgs = $matches[1].Trim() 
+                        }
+                    }
+
+                    # HARDCODED APP OVERRIDES
+                    # Intercept notoriously broken enterprise manifests before they drop into execution
+                    if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
+                        # Force absolute silence, auto-accept vendor EULAs, and suppress all reboots/prompts entirely
+                        $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
                     }
 
                     if ([string]::IsNullOrWhiteSpace($installerUrl)) {
                         throw "Failed to locate direct download URL from WinGet."
                     }
-                
+
                     if ([string]::IsNullOrWhiteSpace($silentArgs)) {
                         # Fallbacks
                         if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
