@@ -597,7 +597,7 @@ $TLaunchButton.Add_Click({
         "Patch Cleaner" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://phoenixnap.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
+            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip' -OutputPath "$PatchCleanerPath"
             Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
             $PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
             Start-Process $PatchCleanerExePath
@@ -619,14 +619,24 @@ $TLaunchButton.Add_Click({
         }
         "BleachBit" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
-            $bbUrl = 'https://download.bleachbit.org/BleachBit-5.0.0-portable.zip'
-            try {
-                $bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
-                if ($bbPage.Content -match 'href="(https://download\.bleachbit\.org/[^"]+portable\.zip)"') {
-                    $bbUrl = $matches[1]
+         $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
+    
+          $bbUrl = 'https://download.bleachbit.org/bleachbit-6.0.0-portable.zip'
+          try {
+            $bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
+        
+            if ($bbPage.Content -match 'href="([^"]+?portable\.zip)"') {
+                $matchedUrl = $matches[1]
+                if ($matchedUrl -notlike "http*") {
+                    $bbUrl = "https://www.bleachbit.org" + $matchedUrl
+                } else {
+                    $bbUrl = $matchedUrl
                 }
-            } catch { Write-Warning "Failed to fetch BleachBit download URL." }
+            }
+        } catch { 
+            Write-Warning "Failed to parse current BleachBit download link. Using fallback." 
+        }
+    
             Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
             Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
             $BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
@@ -649,10 +659,17 @@ $TLaunchButton.Add_Click({
         "Little Registry Cleaner" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
+    
             Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
             Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
-            $LRCEPath = Join-Path -Path $ExtProgramDir -ChildPath "Little Registry Cleaner.exe"
-            Start-Process $LRCEPath
+    
+            $LRCEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Little Registry Cleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+    
+            if ($LRCEPath) {
+                Start-Process $LRCEPath
+            } else {
+                Log-Message "Could not find extracted Little Registry Cleaner executable." "Error"
+            }
         }
         "DISM++" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
@@ -674,10 +691,19 @@ $TLaunchButton.Add_Click({
         "Display Driver Uninstaller" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.zip"
-            Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url 'https://download-eu2.guru3d.com/ddu/%5BGuru3D%5D-DDU.zip' -OutputPath "$DDUPath"
+    
+            # Using a clean distribution mirror path to bypass Guru3D's anti-bot blocks
+            $dduUrl = "https://www.wagnardsoft.com/installs/DDU%20v18.1.5.5.exe" 
+    
+            Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url $dduUrl -OutputPath "$DDUPath"
             Expand-Archive -LiteralPath $DDUPath -DestinationPath $ExtProgramDir -Force
-            $DDUEPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU v18.1.1.5.exe"
-            Start-Process $DDUEPath
+    
+            $DDUEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DDU*.exe" | Select-Object -ExpandProperty FullName -First 1
+            if ($DDUEPath) {
+                Start-Process $DDUEPath
+            } else {
+                Log-Message "Could not find extracted DDU executable." "Error"
+            }
         }
         "HDDScan" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
@@ -690,13 +716,16 @@ $TLaunchButton.Add_Click({
         "Win11 Upgrade Assistant" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
-            Show-DownloadDialog -DisplayName 'Win11 Upgrade Asisstant' -Url 'https://download.microsoft.com/download/6/8/3/683178b7-baac-4b0d-95be-065a945aadee/Windows11InstallationAssistant.exe' -OutputPath "$W11APath"
+    
+            $w11Url = "https://go.microsoft.com/fwlink/?linkid=2171764"
+    
+            Show-DownloadDialog -DisplayName 'Win11 Upgrade Assistant' -Url $w11Url -OutputPath "$W11APath"
             Start-Process $W11APath
         }
         "Crystal Disk Mark" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-            $cdmUrl = 'https://gigenet.dl.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip?viasf=1'
+            $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip'
             try {
                 $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
                 if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
@@ -709,7 +738,7 @@ $TLaunchButton.Add_Click({
         "Crystal Disk Info" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-            $cdiUrl = 'https://cytranet-dal.dl.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip?viasf=1'
+            $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip'
             try {
                 $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
                 if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
