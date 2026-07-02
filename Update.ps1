@@ -28,6 +28,7 @@ $UpdateGUI.StartPosition = 'CenterScreen'
 $UpdateGUI.Icon = $HMTIcon
 $UpdateGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $UpdateGUI.MaximizeBox = $false
+$UpdateGUI.MinimizeBox = $true
 $UpdateGUI.Font = $font
 $UpdateGUI.TopMost = $true
 $UpdateGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)

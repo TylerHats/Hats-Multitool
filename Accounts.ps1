@@ -13,6 +13,7 @@ $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $A1GUI.MaximizeBox = $false
+$A1GUI.MinimizeBox = $true
 $A1GUI.Font = $font
 $A1GUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

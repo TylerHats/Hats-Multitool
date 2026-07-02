@@ -236,7 +236,7 @@ function Show-DownloadDialog {
     $dform.ClientSize = [System.Drawing.Size]::new(500,120)
     $dform.FormBorderStyle = 'FixedDialog'
     $dform.MaximizeBox = $false
-    $dform.MinimizeBox = $false
+    $dform.MinimizeBox = $true
     $dform.StartPosition = 'CenterScreen'
 	$dform.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 	$dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog

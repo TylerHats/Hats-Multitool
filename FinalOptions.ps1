@@ -10,6 +10,7 @@ $FOGUI.StartPosition = 'CenterScreen'
 $FOGUI.Icon = $HMTIcon
 $FOGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $FOGUI.MaximizeBox = $false
+$FOGUI.MinimizeBox = $true
 $FOGUI.Font = $font
 $FOGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $FOGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

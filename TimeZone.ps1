@@ -10,6 +10,7 @@ $TZGUI.StartPosition = 'CenterScreen'
 $TZGUI.Icon = $HMTIcon
 $TZGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TZGUI.MaximizeBox = $false
+$TZGUI.MinimizeBox = $true
 $TZGUI.Font = $font
 $TZGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $TZGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

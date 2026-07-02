@@ -9,6 +9,7 @@ $BGR.StartPosition = 'CenterScreen'
 $BGR.Icon = $HMTIcon
 $BGR.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $BGR.MaximizeBox = $false
+$BGR.MinimizeBox = $true
 $BGR.Font = $font
 $BGR.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $BGR.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

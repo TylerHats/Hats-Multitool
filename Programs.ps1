@@ -29,6 +29,7 @@ $HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $form.Icon = $HMTIcon
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
+$form.MinimizeBox = $true
 $scaledProgFont = [int](13 * $global:HMTScaleFactor)
 $progFont = New-Object System.Drawing.Font("Segoe UI", $scaledProgFont, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $form.Font = $progFont
