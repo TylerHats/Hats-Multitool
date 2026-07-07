@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.25
+# Common File - Tyler Hatfield - v1.26
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -14,6 +14,7 @@ Add-Type -AssemblyName System.Drawing
 # $DesktopPath = [Environment]::GetFolderPath('Desktop')
 # $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
 # Locate active user Downloads directory
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls13
 $InteractiveUser = (Get-CimInstance Win32_ComputerSystem).UserName
 if ($InteractiveUser) {
     $UserAccount = New-Object System.Security.Principal.NTAccount($InteractiveUser)
@@ -202,8 +203,7 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 #GUI Functions
 function Show-MainMenu {
 	Hide-ConsoleWindow | Out-Null
-	$MainMenu.Show() | Out-null
-	while ($MainMenu.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50} 
+	[void]$MainMenu.ShowDialog() 
 }
 
 function Show-RemindersPopup {
@@ -311,8 +311,18 @@ function Show-DownloadDialog {
     # Completion event stops timer and closes form
     $webClient.add_DownloadFileCompleted({ param($s,$e)
         $uiTimer.Stop()
+        
+        if ($e.Error) {
+            # Safely alert user and clean up the corrupted trace file
+            PopupError "Download failed: $($e.Error.Message)" "Error"
+            if (Test-Path -LiteralPath $OutputPath) { 
+                Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue 
+            }
+        } else {
+            $script:dlCompleteClose = $true
+        }
+
         $webClient.Dispose()
-		$script:dlCompleteClose = $true
         $dform.Close()
     })
 	
@@ -339,6 +349,7 @@ function Show-DownloadDialog {
     catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; return }
 
     # Show dialog until done
+    Invoke-HMTScale $dform
     $dform.ShowDialog() | Out-Null
 
     # Remove Mark of the Web to bypass execution delays

@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.13
+# GUI Setup File - Tyler Hatfield - v2.14
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -103,23 +103,17 @@ $MainMenuSetupButton.Add_Click({
     foreach ($cb in $ModGUIcheckboxes.Values) {
         $cb.Checked = $false
     }
-    $MainMenu.Hide()
-	$ModGUI.ShowDialog() | Out-Null
-    $MainMenu.Show()
+    $ModGUI.ShowDialog($MainMenu) | Out-Null
 })
 
 # Define Tools button click
 $MainMenuToolsButton.Add_Click({
-    $MainMenu.Hide()
-	$ToolsGUI.ShowDialog() | Out-Null
-    $MainMenu.Show()
+    $ToolsGUI.ShowDialog($MainMenu) | Out-Null
 })
 
 # Define Troubleshooting button click
 $MainMenuTroubleshootingButton.Add_Click({
-    $MainMenu.Hide()
-	$TroubleGUI.ShowDialog() | Out-Null
-    $MainMenu.Show()
+    $TroubleGUI.ShowDialog($MainMenu) | Out-Null
 })
 
 
@@ -130,9 +124,7 @@ $MainMenuExitButton.Add_Click({
 
 # Define About button click
 $MainMenuAboutButton.Add_Click({
-    $MainMenu.Hide()
-    $AboutGUI.ShowDialog() | Out-Null
-    $MainMenu.Show()
+    $AboutGUI.ShowDialog($MainMenu) | Out-Null
 })
 
 $MainMenu.Add_Load({
@@ -597,7 +589,7 @@ $TLaunchButton.Add_Click({
         "Patch Cleaner" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
             $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip' -OutputPath "$PatchCleanerPath"
+            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://master.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
             Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
             $PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
             Start-Process $PatchCleanerExePath
@@ -619,28 +611,34 @@ $TLaunchButton.Add_Click({
         }
         "BleachBit" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-         $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
+            $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
     
-          $bbUrl = 'https://download.bleachbit.org/bleachbit-6.0.0-portable.zip'
-          try {
-            $bbPage = Invoke-WebRequest -Uri "https://www.bleachbit.org/download/windows" -UseBasicParsing -ErrorAction Stop
-        
-            if ($bbPage.Content -match 'href="([^"]+?portable\.zip)"') {
-                $matchedUrl = $matches[1]
-                if ($matchedUrl -notlike "http*") {
-                    $bbUrl = "https://www.bleachbit.org" + $matchedUrl
-                } else {
-                    $bbUrl = $matchedUrl
+            # Stable fallback URL if the GitHub API is throttled or offline
+            $version = "6.0.2"
+            try {
+                # Fetch just the release metadata to grab the latest version tag string
+                $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/bleachbit/bleachbit/releases/latest" -ErrorAction Stop
+                if ($ghJson.tag_name) {
+                    # Strip the leading 'v' from the tag (e.g., 'v6.0.2' -> '6.0.2')
+                    $version = $ghJson.tag_name -replace '^v', ''
                 }
+            } catch { 
+                Write-Warning "Failed to fetch current BleachBit version from GitHub API. Defaulting to v$version." 
             }
-        } catch { 
-            Write-Warning "Failed to parse current BleachBit download link. Using fallback." 
-        }
+            
+            # Construct the precise, case-sensitive URL for their hosting engine
+            $bbUrl = "https://download.bleachbit.org/BleachBit-$version-portable.zip"
     
             Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
             Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
-            $BleachExePath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit-Portable\bleachbit.exe"
-            Start-Process $BleachExePath
+            
+            # Dynamically locate the executable regardless of folder naming schemes
+            $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+            if ($BleachExePath) {
+                Start-Process $BleachExePath
+            } else {
+                Log-Message "Could not locate extracted BleachBit executable." "Error"
+            }
         }
         "BlueScreenView" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
@@ -690,20 +688,21 @@ $TLaunchButton.Add_Click({
         }
         "Display Driver Uninstaller" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.zip"
+            $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.exe" # Note: DDU is distributed as a self-extracting EXE, not a native ZIP!
+
+            $dduUrl = "https://www.wagnardsoft.com/DDU/download/DDU%20v18.1.5.5.exe" 
     
-            # Using a clean distribution mirror path to bypass Guru3D's anti-bot blocks
-            $dduUrl = "https://www.wagnardsoft.com/installs/DDU%20v18.1.5.5.exe" 
+            # We build a temporary WebClient instance right here just to load the Anti-Hotlink headers
+            $webClient = New-Object System.Net.WebClient
+            $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            $webClient.Headers.Add("Referer", "https://www.wagnardsoft.com/")
     
             Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url $dduUrl -OutputPath "$DDUPath"
-            Expand-Archive -LiteralPath $DDUPath -DestinationPath $ExtProgramDir -Force
     
-            $DDUEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DDU*.exe" | Select-Object -ExpandProperty FullName -First 1
-            if ($DDUEPath) {
-                Start-Process $DDUEPath
-            } else {
-                Log-Message "Could not find extracted DDU executable." "Error"
-            }
+            # Because it is a self-extracting executable, you execute it directly instead of running Expand-Archive
+            Start-Process $DDUPath -ArgumentList "-y -o`"$ExtProgramDir`"" -Wait
+            $DDUEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Display Driver Uninstaller.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+            Start-Process $DDUEPath
         }
         "HDDScan" {
             if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
