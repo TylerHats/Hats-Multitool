@@ -51,6 +51,7 @@ $programs = @(
     @{ Name = 'Google Chrome'; WingetID = 'Google.Chrome'; Type = 'Winget' },
     @{ Name = 'Google Drive'; WingetID = 'Google.Drive'; Type = 'Winget' },
     @{ Name = 'Notepad++'; WingetID = 'Notepad++.Notepad++'; Type = 'Winget' },
+    @{ Name = 'Twingate Client'; WingetID = 'Twingate.Client'; Type = 'Winget' },
     @{ Name = 'VLC Media Player'; WingetID = 'VideoLAN.VLC'; Type = 'Winget' },
     @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
     @{ Name = 'Microsoft Office (64-Bit)'; WingetID = ''; Type = 'MSOffice' },
