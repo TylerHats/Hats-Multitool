@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.26
+# Common File - Tyler Hatfield - v1.27
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
