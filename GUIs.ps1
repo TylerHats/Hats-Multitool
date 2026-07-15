@@ -103,17 +103,23 @@ $MainMenuSetupButton.Add_Click({
     foreach ($cb in $ModGUIcheckboxes.Values) {
         $cb.Checked = $false
     }
+    $MainMenu.Hide()
     $ModGUI.ShowDialog($MainMenu) | Out-Null
+    $MainMenu.Show()
 })
 
 # Define Tools button click
 $MainMenuToolsButton.Add_Click({
+    $MainMenu.Hide()
     $ToolsGUI.ShowDialog($MainMenu) | Out-Null
+    $MainMenu.Show()
 })
 
 # Define Troubleshooting button click
 $MainMenuTroubleshootingButton.Add_Click({
+    $MainMenu.Hide()
     $TroubleGUI.ShowDialog($MainMenu) | Out-Null
+    $MainMenu.Show()
 })
 
 
@@ -156,6 +162,7 @@ $AboutGUI.Icon = $HMTIcon
 $AboutGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $AboutGUI.MaximizeBox = $false
 $AboutGUI.MinimizeBox = $true
+$AboutGUI.ShowInTaskbar = $true
 $AboutGUI.Font = $font
 $AboutGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $AboutGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
@@ -282,6 +289,7 @@ $ModGUI.Icon = $HMTIcon
 $ModGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ModGUI.MaximizeBox = $false
 $ModGUI.MinimizeBox = $true
+$ModGUI.ShowInTaskbar = $true
 $ModGUI.Font = $font
 $ModGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $ModGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
@@ -437,6 +445,7 @@ $ToolsGUI.Icon = $HMTIcon
 $ToolsGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $ToolsGUI.MaximizeBox = $false
 $ToolsGUI.MinimizeBox = $true
+$ToolsGUI.ShowInTaskbar = $true
 $ToolsGUI.Font = $font
 $ToolsGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
@@ -806,6 +815,7 @@ $TroubleGUI.Icon = $HMTIcon
 $TroubleGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $TroubleGUI.MaximizeBox = $false
 $TroubleGUI.MinimizeBox = $true
+$TroubleGUI.ShowInTaskbar = $true
 $TroubleGUI.Font = $font
 $TroubleGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $TroubleGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
