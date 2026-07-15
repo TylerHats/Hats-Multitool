@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.10
+# System Management Module - Tyler Hatfield - v2.11
 
 $EM_SETCUEBANNER = 0x1501
 
@@ -15,6 +15,7 @@ $SMGUI.Icon = $HMTIcon
 $SMGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $SMGUI.MaximizeBox = $false
 $SMGUI.MinimizeBox = $true
+$SMGUI.ShowInTaskbar = $true
 $SMGUI.Font = $font
 $SMGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $SMGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

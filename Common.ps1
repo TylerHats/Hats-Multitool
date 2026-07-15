@@ -11,9 +11,6 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-# $DesktopPath = [Environment]::GetFolderPath('Desktop')
-# $DocumentsPath = [Environment]::GetFolderPath('MyDocuments')
-# Locate active user Downloads directory
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls13
 $InteractiveUser = (Get-CimInstance Win32_ComputerSystem).UserName
 if ($InteractiveUser) {
@@ -40,7 +37,6 @@ $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
 $HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
-# $SetupScriptRuns = 0 # Used to prevent multiple runs of the setup script if the GUIs are nested by user
 $g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
 $global:HMTScaleFactor = $g.DpiX / 96.0
 $g.Dispose()
@@ -199,25 +195,45 @@ function User-Exit {
 # Load GUI Configs
 $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 . "$GUIPath"
+# Planning to break GUI file into multiple as it has become massive and hard to deal with
+#. "$MMGUIPath"
+#. "$SGUIPath"
+#. "$ToolGUIPath"
+#. "$TroubleGUIPath"
+#. "AboutGUIPath"
 
 #GUI Functions
 function Show-MainMenu {
-	Hide-ConsoleWindow | Out-Null
-    # Run the controller loop as long as the user hasn't explicitly exited
+    Hide-ConsoleWindow | Out-Null
+    
     while ($Global:NextAction -ne 'Exit') {
         
         switch ($Global:NextAction) {
             'Main' {
                 [void]$MainMenu.ShowDialog() 
-                
                 if ($MainMenu.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Main') {
                     $Global:NextAction = 'Exit'
                 }
             }
             
             'Setup' {
+                $ModGUI.ShowInTaskbar = $true
+                $ModGUI.MinimizeBox = $true
                 [void]$ModGUI.ShowDialog()
-                $Global:NextAction = 'Main' 
+                
+                # If they exit the setup GUI without hitting OK, drop back to Main Menu
+                if ($ModGUI.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Setup') {
+                    $Global:NextAction = 'Main'
+                }
+            }
+
+            'RunSetup' {
+                # This runs on a completely fresh stack frame out here!
+                $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
+                . "$SetupScriptModPath"
+                
+                # Once the script ripples through all checked modules, return to the Main Menu
+                $Global:NextAction = 'Main'
             }
             
             'Tools' {

@@ -113,10 +113,10 @@ try {
 }
 $Host.UI.RawUI.WindowTitle = "Hat's Multitool"
 $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
+Hide-ConsoleWindow
 . "$commonPath"
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
-Hide-ConsoleWindow
 
 # Execute Self Update module
 $hwnd = [HMT.NativeMethods]::GetConsoleWindow()

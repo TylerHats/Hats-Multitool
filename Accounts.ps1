@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.10
+# Accounts Module - Tyler Hatfield - v2.11
 
 # Initialize LocalAccounts module
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
@@ -14,6 +14,7 @@ $A1GUI.Icon = $HMTIcon
 $A1GUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $A1GUI.MaximizeBox = $false
 $A1GUI.MinimizeBox = $true
+$A1GUI.ShowInTaskbar = $true
 $A1GUI.Font = $font
 $A1GUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $A1GUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None

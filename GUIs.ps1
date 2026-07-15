@@ -385,7 +385,8 @@ $ModGUIokButton.Add_Click({
     
     if ($totalModules -eq 0) {
         Log-Message "No modules selected to run." "Skip"
-        $ModGUI.Hide()
+        $Global:NextAction = 'Main' # Route back to Main Menu
+        $ModGUI.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
         return
     }
 
@@ -400,10 +401,9 @@ $ModGUIokButton.Add_Click({
         Set-Variable -Name ("Run_" + ($moduleName -replace '\s','')) -Value $true -Scope Global
     }
     
-    # Hide the form and execute the setup script
-    $ModGUI.Hide()
-    $SetupScriptModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SetupScript.ps1'
-    . "$SetupScriptModPath"
+    # Hand off execution to the controller loop and exit this window
+    $Global:NextAction = 'RunSetup'
+    $ModGUI.DialogResult = [System.Windows.Forms.DialogResult]::OK
 })
 
 # Define back button function

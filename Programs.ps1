@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.21
+# Programs Module - Tyler Hatfield - v1.22
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -30,6 +30,7 @@ $form.Icon = $HMTIcon
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.MinimizeBox = $true
+$form.ShowInTaskbar = $true
 $scaledProgFont = [int](13 * $global:HMTScaleFactor)
 $progFont = New-Object System.Drawing.Font("Segoe UI", $scaledProgFont, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $form.Font = $progFont

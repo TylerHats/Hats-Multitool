@@ -1,4 +1,4 @@
-# Final Setup Options Module - Tyler Hatfield - v1.7
+# Final Setup Options Module - Tyler Hatfield - v1.8
 
 # Create Options GUI
 # Prepare form
@@ -11,6 +11,7 @@ $FOGUI.Icon = $HMTIcon
 $FOGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $FOGUI.MaximizeBox = $false
 $FOGUI.MinimizeBox = $true
+$FOGUI.ShowInTaskbar = $true
 $FOGUI.Font = $font
 $FOGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
 $FOGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
