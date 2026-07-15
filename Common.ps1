@@ -203,14 +203,47 @@ $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 #GUI Functions
 function Show-MainMenu {
 	Hide-ConsoleWindow | Out-Null
-	[void]$MainMenu.ShowDialog() 
+    # Run the controller loop as long as the user hasn't explicitly exited
+    while ($Global:NextAction -ne 'Exit') {
+        
+        switch ($Global:NextAction) {
+            'Main' {
+                [void]$MainMenu.ShowDialog() 
+                
+                if ($MainMenu.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Main') {
+                    $Global:NextAction = 'Exit'
+                }
+            }
+            
+            'Setup' {
+                [void]$ModGUI.ShowDialog()
+                $Global:NextAction = 'Main' 
+            }
+            
+            'Tools' {
+                [void]$ToolsGUI.ShowDialog()
+                $Global:NextAction = 'Main'
+            }
+            
+            'Troubleshooting' {
+                [void]$TroubleGUI.ShowDialog()
+                $Global:NextAction = 'Main'
+            }
+            
+            'About' {
+                [void]$AboutGUI.ShowDialog()
+                $Global:NextAction = 'Main'
+            }
+        }
+    }
 }
 
-function Show-RemindersPopup {
-	Hide-ConsoleWindow | Out-Null
-	$ReminderPopup.Show() | Out-Null
-	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
-}
+# Not used? Pending confirmation.
+#function Show-RemindersPopup {
+#	Hide-ConsoleWindow | Out-Null
+#	$ReminderPopup.Show() | Out-Null
+#	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
+#}
 
 function Show-DownloadDialog {
     [CmdletBinding()]

@@ -97,40 +97,34 @@ $MainMenu.Add_Shown({
     $this.TopMost = $false 
 })
 
-# Define a function to handle the Setup button click
+$Global:NextAction = 'Main'
+
 $MainMenuSetupButton.Add_Click({
-	# Reset form inputs
     foreach ($cb in $ModGUIcheckboxes.Values) {
         $cb.Checked = $false
     }
-    $MainMenu.Hide()
-    $ModGUI.ShowDialog($MainMenu) | Out-Null
-    $MainMenu.Show()
+    $Global:NextAction = 'Setup'
+    $MainMenu.DialogResult = [System.Windows.Forms.DialogResult]::OK
 })
 
-# Define Tools button click
 $MainMenuToolsButton.Add_Click({
-    $MainMenu.Hide()
-    $ToolsGUI.ShowDialog($MainMenu) | Out-Null
-    $MainMenu.Show()
+    $Global:NextAction = 'Tools'
+    $MainMenu.DialogResult = [System.Windows.Forms.DialogResult]::OK
 })
 
-# Define Troubleshooting button click
 $MainMenuTroubleshootingButton.Add_Click({
-    $MainMenu.Hide()
-    $TroubleGUI.ShowDialog($MainMenu) | Out-Null
-    $MainMenu.Show()
+    $Global:NextAction = 'Troubleshooting'
+    $MainMenu.DialogResult = [System.Windows.Forms.DialogResult]::OK
 })
 
-
-# Define Exit button click
-$MainMenuExitButton.Add_Click({
-    $MainMenu.Close()
-})
-
-# Define About button click
 $MainMenuAboutButton.Add_Click({
-    $AboutGUI.ShowDialog($MainMenu) | Out-Null
+    $Global:NextAction = 'About'
+    $MainMenu.DialogResult = [System.Windows.Forms.DialogResult]::OK
+})
+
+$MainMenuExitButton.Add_Click({
+    $Global:NextAction = 'Exit'
+    $MainMenu.Close()
 })
 
 $MainMenu.Add_Load({
