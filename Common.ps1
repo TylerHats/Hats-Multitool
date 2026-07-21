@@ -167,34 +167,49 @@ function Set-RoundedControl {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Control]$Control,
-        [int]$Radius = 6
+        [int]$Radius = 5
     )
     if ($null -eq $Control) { return }
 
     if ($Control -is [System.Windows.Forms.Button]) {
         $Control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
         $Control.FlatAppearance.BorderSize = 0
-        $Control.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
-        $Control.FlatAppearance.MouseOverBackColor = [System.Drawing.ColorTranslator]::FromHtml("#474b53")
-        $Control.FlatAppearance.MouseDownBackColor = [System.Drawing.ColorTranslator]::FromHtml("#2b2d31")
+        $Control.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#484c54")
+        $Control.FlatAppearance.MouseOverBackColor = [System.Drawing.ColorTranslator]::FromHtml("#565b64")
+        $Control.FlatAppearance.MouseDownBackColor = [System.Drawing.ColorTranslator]::FromHtml("#34373d")
+        $Control.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
     }
 
     $applyControlRegion = {
         param($sender, $e)
         if ($sender.Width -gt 0 -and $sender.Height -gt 0) {
-            $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
-            if ($scaledRadius -lt 1) { $scaledRadius = 1 }
-            $d = $scaledRadius * 2
-            if ($d -gt $sender.Width) { $d = $sender.Width }
-            if ($d -gt $sender.Height) { $d = $sender.Height }
+            $r = [float]($Radius * $global:HMTScaleFactor)
+            if ($r -lt 1.0) { $r = 1.0 }
+            $d = $r * 2.0
+            $w = [float]$sender.Width
+            $h = [float]$sender.Height
+            if ($d -gt $w) { $d = $w }
+            if ($d -gt $h) { $d = $h }
             if ($d -le 0) { return }
 
             $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-            $rect = New-Object System.Drawing.Rectangle(0, 0, $sender.Width, $sender.Height)
-            $path.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
-            $path.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
-            $path.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
-            $path.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
+            $arcRect = [System.Drawing.RectangleF]::new(0.0, 0.0, $d, $d)
+            
+            # Top-Left Arc
+            $path.AddArc($arcRect, 180, 90)
+
+            # Top-Right Arc
+            $arcRect.X = $w - $d
+            $path.AddArc($arcRect, 270, 90)
+
+            # Bottom-Right Arc
+            $arcRect.Y = $h - $d
+            $path.AddArc($arcRect, 0, 90)
+
+            # Bottom-Left Arc
+            $arcRect.X = 0.0
+            $path.AddArc($arcRect, 90, 90)
+
             $path.CloseFigure()
             $sender.Region = New-Object System.Drawing.Region($path)
         }

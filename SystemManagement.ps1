@@ -5,6 +5,11 @@ $EM_SETCUEBANNER = 0x1501
 # Validate OS domain join compatibility
 $IsPro = if ($WindowsEdition -match 'Pro|Enterprise') { 1 } else { 0 }
 
+# Detect existing domain membership
+$sysInfo = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+$IsAlreadyJoined = if ($sysInfo -and $sysInfo.PartOfDomain) { $true } else { $false }
+$CurrentDomain = if ($sysInfo -and $sysInfo.PartOfDomain) { $sysInfo.Domain } else { "" }
+
 # Initialize GUI form
 $SMGUI = New-Object System.Windows.Forms.Form
 $SMGUI.Text = "Hat's Multitool"
@@ -71,10 +76,13 @@ $DomainCheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $DomainCheckbox.Text = 'Join to Domain'
 $DomainCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $DomainCheckbox.AutoSize = $true
-if ($IsPro -eq 1) {
-	$DomainCheckbox.Enabled = $true
+if ($IsAlreadyJoined) {
+    $DomainCheckbox.Checked = $true
+    $DomainCheckbox.Enabled = $false
+} elseif ($IsPro -eq 1) {
+    $DomainCheckbox.Enabled = $true
 } else {
-	$DomainCheckbox.Enabled = $false
+    $DomainCheckbox.Enabled = $false
 }
 $SMGUI.Controls.Add($DomainCheckbox)
 
@@ -85,10 +93,12 @@ $EntraCheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $EntraCheckbox.Text = 'Join to EntraID'
 $EntraCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $EntraCheckbox.AutoSize = $true
-if ($IsPro -eq 1) {
-	$EntraCheckbox.Enabled = $true
+if ($IsAlreadyJoined) {
+    $EntraCheckbox.Enabled = $false
+} elseif ($IsPro -eq 1) {
+    $EntraCheckbox.Enabled = $true
 } else {
-	$EntraCheckbox.Enabled = $false
+    $EntraCheckbox.Enabled = $false
 }
 $SMGUI.Controls.Add($EntraCheckbox)
 
@@ -97,7 +107,12 @@ $y += 30
 $DomainNameInput = New-Object System.Windows.Forms.TextBox
 $DomainNameInput.location = New-Object System.Drawing.Point(17, $y)
 $DomainNameInput.Width = 280
-$DomainNameInput.Enabled = $false
+if ($IsAlreadyJoined) {
+    $DomainNameInput.Text = $CurrentDomain
+    $DomainNameInput.Enabled = $false
+} else {
+    $DomainNameInput.Enabled = $false
+}
 $SMGUI.Controls.Add($DomainNameInput)
 [HMT.NativeMethods]::SendMessage($DomainNameInput.Handle, $EM_SETCUEBANNER, 1, "Domain Name")
 
@@ -158,58 +173,65 @@ function Test-ComputerName([string]$name) {
 
 # Configure domain CheckBox event
 $DomainCheckbox.Add_CheckedChanged({
-    if ($DomainCheckbox.Checked) {
-		$DomainNameInput.Enabled = $true
-        $EntraCheckbox.Enabled = $false
-        $EntraCheckbox.Checked = $false
-    }
-    else {
-		$DomainNameInput.Enabled = $false
-        if ($IsPro -eq 1) {
-			$EntraCheckbox.Enabled = $true
-		} else {
-			$EntraCheckbox.Enabled = $false
-		}
+    if (-not $IsAlreadyJoined) {
+        if ($DomainCheckbox.Checked) {
+            $DomainNameInput.Enabled = $true
+            $EntraCheckbox.Enabled = $false
+            $EntraCheckbox.Checked = $false
+        }
+        else {
+            $DomainNameInput.Enabled = $false
+            if ($IsPro -eq 1) {
+                $EntraCheckbox.Enabled = $true
+            } else {
+                $EntraCheckbox.Enabled = $false
+            }
+        }
     }
 })
 
 # Add an event handler for the entra checkbox:
 $EntraCheckbox.Add_CheckedChanged({
-    if ($EntraCheckbox.Checked) {
-		$DomainNameInput.Clear()
-		$DomainNameInput.Enabled = $false
-        $DomainCheckbox.Enabled = $false
-        $DomainCheckbox.Checked = $false
-    }
-    else {
-        if ($IsPro -eq 1) {
-			$DomainCheckbox.Enabled = $true
-		} else {
-			$DomainCheckbox.Enabled = $false
-		}
+    if (-not $IsAlreadyJoined) {
+        if ($EntraCheckbox.Checked) {
+            $DomainNameInput.Clear()
+            $DomainNameInput.Enabled = $false
+            $DomainCheckbox.Enabled = $false
+            $DomainCheckbox.Checked = $false
+        }
+        else {
+            if ($IsPro -eq 1) {
+                $DomainCheckbox.Enabled = $true
+            } else {
+                $DomainCheckbox.Enabled = $false
+            }
+        }
     }
 })
 
 # Validate form state for Okay button
-$PCNameInput.Add_TextChanged({
+$script:UpdateSMOKButtonState = {
     if ($PCNameInput.Text -match '[^A-Za-z0-9-]') {
         $pos   = $PCNameInput.SelectionStart
         $clean = [regex]::Replace($PCNameInput.Text, '[^A-Za-z0-9-]', '')
         $PCNameInput.Text = $clean
-        # restore caret position safely
         $PCNameInput.SelectionStart = [Math]::Min($pos, $PCNameInput.Text.Length)
     }
-	$SMOkayButton.Enabled = ((-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text)) -or (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text))) -or ($EntraCheckbox.Checked))
-})
-$DomainNameInput.Add_TextChanged({
-    $SMOkayButton.Enabled = ((-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text)) -or (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text))) -or ($EntraCheckbox.Checked))
-})
-$EntraCheckbox.Add_CheckedChanged({
-	$SMOkayButton.Enabled = ((-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text)) -or (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text))) -or ($EntraCheckbox.Checked))
-})
-$DomainCheckbox.Add_CheckedChanged({
-	$SMOkayButton.Enabled = ((-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text)) -or (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text))) -or ($EntraCheckbox.Checked))
-})
+    $hasValidName = (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text))
+    $hasValidDomain = (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text)))
+    $isEntra = $EntraCheckbox.Checked
+
+    if ($IsAlreadyJoined) {
+        $SMOkayButton.Enabled = $hasValidName
+    } else {
+        $SMOkayButton.Enabled = ($hasValidName -or $hasValidDomain -or $isEntra)
+    }
+}
+
+$PCNameInput.Add_TextChanged($script:UpdateSMOKButtonState)
+$DomainNameInput.Add_TextChanged($script:UpdateSMOKButtonState)
+$EntraCheckbox.Add_CheckedChanged($script:UpdateSMOKButtonState)
+$DomainCheckbox.Add_CheckedChanged($script:UpdateSMOKButtonState)
 
 # Define a function to handle the Okay button click
 $SMOkayButton.Add_Click({
@@ -230,14 +252,23 @@ $SMOkayButton.Add_Click({
 	}
 
 	try {
-		if ($isDomain) {
+		if ($IsAlreadyJoined) {
+			$cred = Get-Credential -Message "Enter domain credentials to approve renaming device to ${pcName} in ${domainName}:"
+		} elseif ($isDomain) {
 			$cred = Get-Credential -Message "Enter credentials with permission to add this device to ${domainName}:"
 		}
 		
 		$scriptBlock = {
-			param([bool]$isDomain, [bool]$isEntra, [string]$pcName, [string]$domainName, [pscredential]$cred)
+			param([bool]$IsAlreadyJoined, [bool]$isDomain, [bool]$isEntra, [string]$pcName, [string]$domainName, [pscredential]$cred)
 			
-			if ($isDomain -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
+			if ($IsAlreadyJoined) {
+				if (-not [string]::IsNullOrWhiteSpace($pcName)) {
+					Rename-Computer -NewName $pcName -DomainCredential $cred -Force -ErrorAction Stop
+					return "Successfully renamed domain-joined computer to $pcName."
+				} else {
+					return "No computer name specified."
+				}
+			} elseif ($isDomain -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
 				Add-Computer -DomainName $domainName -NewName $pcName -Credential $cred -ErrorAction Stop
 				return "Successfully added computer to domain $domainName and renamed to $pcName."
 			} elseif ($isDomain -and ([string]::IsNullOrWhiteSpace($pcName))) {
@@ -261,6 +292,7 @@ $SMOkayButton.Add_Click({
 		$ps = [powershell]::Create()
 		$ps.Runspace = $runspace
 		$ps.AddScript($scriptBlock) | Out-Null
+		$ps.AddParameter("IsAlreadyJoined", $IsAlreadyJoined) | Out-Null
 		$ps.AddParameter("isDomain", $isDomain) | Out-Null
 		$ps.AddParameter("isEntra", $isEntra) | Out-Null
 		$ps.AddParameter("pcName", $pcName) | Out-Null
@@ -285,12 +317,15 @@ $SMOkayButton.Add_Click({
 		}
 		$SMGUI.Close()
 	} catch {
-		$PCNameInput.Clear()
-		$DomainNameInput.Clear()
-		$DomainCheckbox.Checked = $false
-		$EntraCheckbox.Checked = $false
+		if (-not $IsAlreadyJoined) {
+			$PCNameInput.Clear()
+			$DomainNameInput.Clear()
+			$DomainCheckbox.Checked = $false
+			$EntraCheckbox.Checked = $false
+		}
 		$SMOkayButton.Text = "OK"
-		PopupError "PC Naming and/or Domain Joining failed.`nError: $_" "Error"
+		$SMOkayButton.Enabled = $true
+		PopupError "PC Naming and/or Domain operation failed.`nError: $_" "Error"
 	}
 })
 
