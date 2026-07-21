@@ -161,31 +161,6 @@ function Set-DarkTitleBar {
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
     $cornerPref = 2
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 33, [ref]$cornerPref, 4) | Out-Null
-
-    $applyFormRegion = {
-        param($s, $e)
-        if ($s.Width -gt 0 -and $s.Height -gt 0) {
-            $radius = [int](8 * $global:HMTScaleFactor)
-            $d = $radius * 2
-            $w = $s.Width
-            $h = $s.Height
-            if ($d -lt $w -and $d -lt $h) {
-                $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-                $path.AddArc(0, 0, $d, $d, 180, 90)
-                $path.AddArc(($w - $d), 0, $d, $d, 270, 90)
-                $path.AddArc(($w - $d), ($h - $d), $d, $d, 0, 90)
-                $path.AddArc(0, ($h - $d), $d, $d, 90, 90)
-                $path.CloseFigure()
-                $s.Region = New-Object System.Drawing.Region($path)
-            }
-        }
-    }
-
-    if ($TargetForm.Tag -ne "FormRegionBound") {
-        $TargetForm.Tag = "FormRegionBound"
-        $TargetForm.Add_SizeChanged($applyFormRegion)
-    }
-    &$applyFormRegion $TargetForm $null
 }
 
 function Set-RoundedControl {
@@ -234,16 +209,16 @@ function Set-RoundedControl {
                 $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
                 if ($scaledRadius -lt 1) { $scaledRadius = 1 }
                 $d = $scaledRadius * 2
-                $w = $s.Width - 1
-                $h = $s.Height - 1
+                
+                $rect = [System.Drawing.RectangleF]::new(0.5, 0.5, ($s.Width - 1.0), ($s.Height - 1.0))
 
-                if ($w -gt 0 -and $h -gt 0 -and $d -gt 0) {
-                    $borderPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#555555"), 1)
+                if ($rect.Width -gt 0 -and $rect.Height -gt 0 -and $d -gt 0) {
+                    $borderPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#777777"), 1.2)
                     $bPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-                    $bPath.AddArc(0, 0, $d, $d, 180, 90)
-                    $bPath.AddArc(($w - $d), 0, $d, $d, 270, 90)
-                    $bPath.AddArc(($w - $d), ($h - $d), $d, $d, 0, 90)
-                    $bPath.AddArc(0, ($h - $d), $d, $d, 90, 90)
+                    $bPath.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
+                    $bPath.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
+                    $bPath.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
+                    $bPath.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
                     $bPath.CloseFigure()
 
                     $g.DrawPath($borderPen, $bPath)
@@ -262,7 +237,11 @@ function Show-HMTDialog {
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm
     )
-    $TargetForm.DoubleBuffered = $true
+    try {
+        $prop = $TargetForm.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance, NonPublic")
+        if ($null -ne $prop) { $prop.SetValue($TargetForm, $true, $null) }
+    } catch {}
+
     Invoke-HMTScale $TargetForm
     $TargetForm.Opacity = 0
     $shownScript = {
