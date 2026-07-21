@@ -172,7 +172,11 @@ function Set-RoundedControl {
     if ($null -eq $Control) { return }
 
     if ($Control -is [System.Windows.Forms.Button]) {
+        $Control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
         $Control.FlatAppearance.BorderSize = 0
+        $Control.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#3a3c43")
+        $Control.FlatAppearance.MouseOverBackColor = [System.Drawing.ColorTranslator]::FromHtml("#474b53")
+        $Control.FlatAppearance.MouseDownBackColor = [System.Drawing.ColorTranslator]::FromHtml("#2b2d31")
     }
 
     $applyControlRegion = {
@@ -199,34 +203,6 @@ function Set-RoundedControl {
     if ($Control.Tag -ne "RoundedControlBound") {
         $Control.Tag = "RoundedControlBound"
         $Control.Add_SizeChanged($applyControlRegion)
-
-        $Control.Add_Paint({
-            param($s, $pevent)
-            if ($s.Width -gt 0 -and $s.Height -gt 0) {
-                $g = $pevent.Graphics
-                $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-                
-                $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
-                if ($scaledRadius -lt 1) { $scaledRadius = 1 }
-                $d = $scaledRadius * 2
-                
-                $rect = [System.Drawing.RectangleF]::new(0.5, 0.5, ($s.Width - 1.0), ($s.Height - 1.0))
-
-                if ($rect.Width -gt 0 -and $rect.Height -gt 0 -and $d -gt 0) {
-                    $borderPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#777777"), 1.2)
-                    $bPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-                    $bPath.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
-                    $bPath.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
-                    $bPath.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
-                    $bPath.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
-                    $bPath.CloseFigure()
-
-                    $g.DrawPath($borderPen, $bPath)
-                    $bPath.Dispose()
-                    $borderPen.Dispose()
-                }
-            }
-        })
     }
 
     &$applyControlRegion $Control $null
