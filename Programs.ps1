@@ -15,6 +15,9 @@ while (-not $procReset.HasExited) { [System.Windows.Forms.Application]::DoEvents
 $procUpdate = Start-Process winget.exe -ArgumentList "source update" -WindowStyle Hidden -PassThru
 while (-not $procUpdate.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
 
+$global:BGRBaseText = "Hat's Multitool is running"
+if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) { $global:BGRlabel.Text = $global:BGRBaseText }
+
 # Initialize GUI form
 Log-Message "Preparing Software List..."
 Add-Type -AssemblyName System.Windows.Forms
@@ -89,6 +92,14 @@ foreach ($program in $programs) {
     $programFlow.Controls.Add($checkbox)
     $checkboxes[$program.Name] = $checkbox
 }
+
+# Add User-Exit Checkbox
+$userExitCheckbox = New-Object System.Windows.Forms.CheckBox
+$userExitCheckbox.Text = "Automatically exit multitool when complete"
+$userExitCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$userExitCheckbox.AutoSize = $true
+$userExitCheckbox.Margin = New-Object System.Windows.Forms.Padding(0, 10, 0, 5)
+$programFlow.Controls.Add($userExitCheckbox)
 
 $y = $programFlow.Bottom + 15
 
@@ -177,6 +188,8 @@ $skipButton.Add_Click({
 # Dynamic Sizing Trigger
 $form.Add_Load({
         Invoke-HMTScale $form
+        Set-RoundedControl $okButton
+        Set-RoundedControl $skipButton
         $p = [int]($padding * $global:HMTScaleFactor)
         
         $y = $programFlow.Bottom + [int](30 * $global:HMTScaleFactor)
@@ -298,6 +311,7 @@ $downloadWithProgress = {
 
 $okButton.Add_Click({
         $okButton.Enabled = $false
+        $global:RunUserExitOnComplete = $userExitCheckbox.Checked
 
         $selectedPrograms = @($checkboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key })
         $totalPrograms = $selectedPrograms.Count
@@ -673,4 +687,4 @@ $okButton.Add_Click({
         $global:BGRBaseText = "Hat's Multitool is running"
     })
 
-$form.ShowDialog() | Out-Null
+Show-HMTDialog $form | Out-Null

@@ -1,6 +1,8 @@
 // C# Methods Pre-Comp File - Tyler Hatfield - v1.1
 
 using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
 // Global namespace class to match existing [DpiHelper] calls
@@ -12,6 +14,35 @@ public class DpiHelper {
 namespace HMT {
     // HMT namespace class to match existing [HMT.NativeMethods] calls
     public static class NativeMethods {
+        public static GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int cornerRadius) {
+            GraphicsPath path = new GraphicsPath();
+            int diameter = cornerRadius * 2;
+            if (diameter > rect.Width) diameter = rect.Width;
+            if (diameter > rect.Height) diameter = rect.Height;
+            if (diameter <= 0) {
+                path.AddRectangle(rect);
+                return path;
+            }
+            Size size = new Size(diameter, diameter);
+            Rectangle arc = new Rectangle(rect.Location, size);
+
+            path.AddArc(arc, 180, 90);
+            arc.X = rect.Right - diameter;
+            path.AddArc(arc, 270, 90);
+            arc.Y = rect.Bottom - diameter;
+            path.AddArc(arc, 0, 90);
+            arc.X = rect.Left;
+            path.AddArc(arc, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        public static void SetRoundedCorners(System.Windows.Forms.Control control, int radius) {
+            if (control == null || control.Width <= 0 || control.Height <= 0) return;
+            using (var path = CreateRoundedRectanglePath(new Rectangle(0, 0, control.Width, control.Height), radius)) {
+                control.Region = new Region(path);
+            }
+        }
 
         // --- Console & Window Visibility ---
         [DllImport("kernel32.dll")]

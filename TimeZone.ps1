@@ -54,6 +54,7 @@ $TZGUI.AcceptButton = $TZOkayButton
 # Fix Scaling and Layout Dynamically
 $TZGUI.Add_Load({
     Invoke-HMTScale $TZGUI
+    Set-RoundedControl $TZOkayButton
     $p = [int]($padding * $global:HMTScaleFactor)
     
     # Stretch the ComboBox to fill the scaled window width (minus padding on both sides)
@@ -107,4 +108,4 @@ $TZOkayButton.Add_Click({
 })
 
 # Display GUI
-$TZGUI.ShowDialog() | Out-Null
+Show-HMTDialog $TZGUI | Out-Null

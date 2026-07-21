@@ -159,6 +159,53 @@ function Set-DarkTitleBar {
     $TargetForm.Handle | Out-Null
     $darkMode = 1
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
+    $cornerPref = 2
+    [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 33, [ref]$cornerPref, 4) | Out-Null
+}
+
+function Set-RoundedControl {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Control]$Control,
+        [int]$Radius = 6
+    )
+    if ($null -eq $Control -or $Control.Width -le 0 -or $Control.Height -le 0) { return }
+    $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
+    if ($scaledRadius -lt 1) { $scaledRadius = 1 }
+    $d = $scaledRadius * 2
+    if ($d -gt $Control.Width) { $d = $Control.Width }
+    if ($d -gt $Control.Height) { $d = $Control.Height }
+    if ($d -le 0) { return }
+
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $rect = New-Object System.Drawing.Rectangle(0, 0, $Control.Width, $Control.Height)
+    $path.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
+    $path.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
+    $path.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
+    $path.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
+    $path.CloseFigure()
+    $Control.Region = New-Object System.Drawing.Region($path)
+}
+
+function Show-HMTDialog {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    $TargetForm.DoubleBuffered = $true
+    Invoke-HMTScale $TargetForm
+    $TargetForm.Opacity = 0
+    $shownScript = {
+        param($s, $e)
+        $s.Opacity = 1
+        $s.Refresh()
+    }
+    $TargetForm.Add_Shown($shownScript)
+    try {
+        return $TargetForm.ShowDialog()
+    } finally {
+        $TargetForm.Opacity = 1
+    }
 }
 
 # Common function for user requested exits
@@ -210,7 +257,7 @@ function Show-MainMenu {
         
         switch ($Global:NextAction) {
             'Main' {
-                [void]$MainMenu.ShowDialog() 
+                [void](Show-HMTDialog $MainMenu)
                 if ($MainMenu.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Main') {
                     $Global:NextAction = 'Exit'
                 }
@@ -219,7 +266,7 @@ function Show-MainMenu {
             'Setup' {
                 $ModGUI.ShowInTaskbar = $true
                 $ModGUI.MinimizeBox = $true
-                [void]$ModGUI.ShowDialog()
+                [void](Show-HMTDialog $ModGUI)
                 
                 # If they exit the setup GUI without hitting OK, drop back to Main Menu
                 if ($ModGUI.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Setup') {
@@ -237,17 +284,17 @@ function Show-MainMenu {
             }
             
             'Tools' {
-                [void]$ToolsGUI.ShowDialog()
+                [void](Show-HMTDialog $ToolsGUI)
                 $Global:NextAction = 'Main'
             }
             
             'Troubleshooting' {
-                [void]$TroubleGUI.ShowDialog()
+                [void](Show-HMTDialog $TroubleGUI)
                 $Global:NextAction = 'Main'
             }
             
             'About' {
-                [void]$AboutGUI.ShowDialog()
+                [void](Show-HMTDialog $AboutGUI)
                 $Global:NextAction = 'Main'
             }
         }
@@ -398,8 +445,7 @@ function Show-DownloadDialog {
     catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; return }
 
     # Show dialog until done
-    Invoke-HMTScale $dform
-    $dform.ShowDialog() | Out-Null
+    Show-HMTDialog $dform | Out-Null
 
     # Remove Mark of the Web to bypass execution delays
     if (Test-Path -LiteralPath $OutputPath) {

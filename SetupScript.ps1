@@ -17,6 +17,18 @@ if ($Run_LocalAccounts) {
 	. "$AccountsModPath"
 }
 
+# Execute System Management module
+if ($Run_SystemProperties) {
+	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
+	. "$SystemManagementModPath"
+}
+
+# Execute Final Options module
+if ($Run_SetupOptions) {
+	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
+	. "$FOPath"
+}
+
 # Execute Bloat Cleanup module
 if ($Run_BloatCleanup) {
 	$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
@@ -29,17 +41,11 @@ if ($Run_Programs) {
 	. "$ProgramsModPath"
 }
 
-# Execute System Management module
-if ($Run_SystemProperties) {
-	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
-	. "$SystemManagementModPath"
-}
-
-# Execute Final Options module
-if ($Run_SetupOptions) {
-	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
-	. "$FOPath"
-}
 # Terminate background reminder UI
 $BGRCodeExit = $true
 $BGR.Close()
+
+if ($global:RunUserExitOnComplete -eq $true) {
+	Log-Message "Auto-exit enabled by Programs module. Closing and cleaning up..." "Info"
+	User-Exit
+}

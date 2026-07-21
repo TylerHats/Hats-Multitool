@@ -72,6 +72,8 @@ $UpdateGUI.CancelButton = $UNOkayButton
 # Calculate dynamic layout post-DPI scaling
 $UpdateGUI.Add_Load({
         Invoke-HMTScale $UpdateGUI
+        Set-RoundedControl $UYOkayButton
+        Set-RoundedControl $UNOkayButton
         $p = [int](20 * $global:HMTScaleFactor)
         $ULabel.Width = $UpdateGUI.ClientSize.Width
         $totalButtonWidth = $UYOkayButton.Width + $p + $UNOkayButton.Width
@@ -155,7 +157,7 @@ if ($skipUpdate -ne 1) {
     elseif ($currentVersion -gt $remoteVersion) {
         $ULabel.Text = "You're running a beta version, downgrade`nto the latest? (v$Global:currentVersionString > v$remoteVersionString)"
         Close-ImageSplash
-        $UpdateGUI.ShowDialog() | Out-Null
+        Show-HMTDialog $UpdateGUI | Out-Null
         
         if ($script:GUIResponse -match 'y|yes') {
             Log-Message "Downloading and relaunching the script... (Current Version: $currentVersion - Remote Version: $remoteVersion)" "Info"

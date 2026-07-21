@@ -184,82 +184,87 @@ $PasswordConfirmInput.Add_TextChanged($script:ValidateInputs)
 # Define a function to handle the Okay button click
 $A1OkayButton.Add_Click({
     $A1OkayButton.Enabled = $false
+    $A1Skip.Enabled = $false
 
-    $UExists = Get-LocalUser -Name $UsernameInput.Text -ErrorAction SilentlyContinue
+    try {
+        $UExists = Get-LocalUser -Name $UsernameInput.Text -ErrorAction SilentlyContinue
 
-    $SecurePassword = if (-not [string]::IsNullOrEmpty($PasswordInput.Text)) {
-        ConvertTo-SecureString $PasswordInput.Text -AsPlainText -Force
-    } else {
-        $null
-    }
-
-    if (-not $UExists) {
-        # NEW USER SCENARIO
-        try {
-            if ($SecurePassword) {
-                New-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop | Out-Null
-            } else {
-                New-LocalUser -Name $UsernameInput.Text -ErrorAction Stop | Out-Null
-            }
-            Log-Message "Created local user $($UsernameInput.Text)." "Success"
-        } catch {
-            Log-Message "Exception: $($_.Exception.Message)" "Error"
-            PopupError "Failed to create user. Please check log." "Error"
+        $SecurePassword = if (-not [string]::IsNullOrEmpty($PasswordInput.Text)) {
+            ConvertTo-SecureString $PasswordInput.Text -AsPlainText -Force
+        } else {
+            $null
         }
-    } else {
-        # EXISTING USER SCENARIO
-        Log-Message "User $($UsernameInput.Text) already exists." "Skip"
 
-        if ($PWCheckbox.Checked -and $SecurePassword) {
+        if (-not $UExists) {
+            # NEW USER SCENARIO
             try {
-                Set-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop
-                Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
+                if ($SecurePassword) {
+                    New-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop | Out-Null
+                } else {
+                    New-LocalUser -Name $UsernameInput.Text -ErrorAction Stop | Out-Null
+                }
+                Log-Message "Created local user $($UsernameInput.Text)." "Success"
             } catch {
                 Log-Message "Exception: $($_.Exception.Message)" "Error"
-                PopupError "Failed to update user password. Please check log." "Error"
-            }
-        } elseif ($PWCheckbox.Checked -and -not $SecurePassword) {
-            PopupError "Cannot update password to blank using this method." "Error"
-        }
-    }
-
-    # Make local admin check
-    if ($LACheckbox.Checked) {
-        $LocalUserCheck = "$env:COMPUTERNAME\$($UsernameInput.Text)"
-        $IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
-
-        if (-not $IsAdmin) {
-            Log-Message "Setting local user $($UsernameInput.Text) as local admin." "Info"
-            try {
-                Add-LocalGroupMember -Group "Administrators" -Member $UsernameInput.Text -ErrorAction Stop
-                Log-Message "Successfully elevated $($UsernameInput.Text) to Administrator." "Success"
-            } catch {
-                Log-Message "Exception: $($_.Exception.Message)" "Error"
-                PopupError "Failed to elevate user. Please check log." "Error"
+                PopupError "Failed to create user. Please check log." "Error"
             }
         } else {
-            Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"
+            # EXISTING USER SCENARIO
+            Log-Message "User $($UsernameInput.Text) already exists." "Skip"
+
+            if ($PWCheckbox.Checked -and $SecurePassword) {
+                try {
+                    Set-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop
+                    Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
+                } catch {
+                    Log-Message "Exception: $($_.Exception.Message)" "Error"
+                    PopupError "Failed to update user password. Please check log." "Error"
+                }
+            } elseif ($PWCheckbox.Checked -and -not $SecurePassword) {
+                PopupError "Cannot update password to blank using this method." "Error"
+            }
         }
+
+        # Make local admin check
+        if ($LACheckbox.Checked) {
+            $LocalUserCheck = "$env:COMPUTERNAME\$($UsernameInput.Text)"
+            $IsAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LocalUserCheck }
+
+            if (-not $IsAdmin) {
+                Log-Message "Setting local user $($UsernameInput.Text) as local admin." "Info"
+                try {
+                    Add-LocalGroupMember -Group "Administrators" -Member $UsernameInput.Text -ErrorAction Stop
+                    Log-Message "Successfully elevated $($UsernameInput.Text) to Administrator." "Success"
+                } catch {
+                    Log-Message "Exception: $($_.Exception.Message)" "Error"
+                    PopupError "Failed to elevate user. Please check log." "Error"
+                }
+            } else {
+                Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"
+            }
+        }
+
+        # Clean the GUI inputs for the next run
+        $UsernameInput.Clear()
+        $PasswordInput.Clear()
+        $PasswordConfirmInput.Clear()
+
+        $PasswordInput.UseSystemPasswordChar = $false
+        $PasswordConfirmInput.UseSystemPasswordChar = $false
+
+        $script:PasswordMaskApplied = $false
+        $script:ConfirmMaskApplied = $false
+
+        [HMT.NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
+        [HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
+        [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
+
+        $PWCheckbox.Checked = $false
+        $LACheckbox.Checked = $false
+        $A1Skip.Text = 'Close'
+    } finally {
+        $A1Skip.Enabled = $true
     }
-
-    # Clean the GUI inputs for the next run
-    $UsernameInput.Clear()
-    $PasswordInput.Clear()
-    $PasswordConfirmInput.Clear()
-
-    $PasswordInput.UseSystemPasswordChar = $false
-    $PasswordConfirmInput.UseSystemPasswordChar = $false
-
-    $script:PasswordMaskApplied = $false
-    $script:ConfirmMaskApplied = $false
-
-    [HMT.NativeMethods]::SendMessage($UsernameInput.Handle, $EM_SETCUEBANNER, 0, "Username")
-    [HMT.NativeMethods]::SendMessage($PasswordInput.Handle, $EM_SETCUEBANNER, 0, "Password")
-    [HMT.NativeMethods]::SendMessage($PasswordConfirmInput.Handle, $EM_SETCUEBANNER, 0, "Confirm Password")
-
-    $PWCheckbox.Checked = $false
-    $LACheckbox.Checked = $false
-    $A1Skip.Text = 'Close'
 })
 
 # Define Skip closing function
@@ -277,6 +282,10 @@ $A1GUI.Add_Load({
     # Align visibility toggle to password input boundaries
     $ShowPWButton.Height = $PasswordInput.Height
     $ShowPWButton.Top = $PasswordInput.Top
+
+    Set-RoundedControl $ShowPWButton
+    Set-RoundedControl $A1OkayButton
+    Set-RoundedControl $A1Skip
     
     # Calculate dynamic window height
     $w = [int](315 * $global:HMTScaleFactor)
@@ -285,4 +294,4 @@ $A1GUI.Add_Load({
 })
 
 # Display First GUI
-$A1GUI.ShowDialog() | Out-Null
+Show-HMTDialog $A1GUI | Out-Null

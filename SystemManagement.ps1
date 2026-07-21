@@ -135,12 +135,15 @@ $SerialLabel.Add_Click({
         }
         $tip = New-Object Windows.Forms.ToolTip
         $tip.Show('Copied!', $SerialLabel, 0, -20, 1200)
-    } catch { }
+    } catch {
+        Log-Message "Clipboard copy failed: $_" "logonly"
+    }
 })
 
 # Enforce NetBIOS naming constraints
 $PCNameInput.Add_KeyPress({
-    param($s,$e)
+    param($_sender, $e)
+    [void]$_sender
     $ch = $e.KeyChar
     # Allow all control keys (Enter, Backspace, Ctrl+C/V/X/A, etc.)
     if ([char]::IsControl($ch)) { return }
@@ -300,10 +303,12 @@ $SMSkip.Add_Click({
 # Calculate dynamic layout post-DPI scaling
 $SMGUI.Add_Load({
     Invoke-HMTScale $SMGUI
+    Set-RoundedControl $SMOkayButton
+    Set-RoundedControl $SMSkip
     $w = [int](315 * $global:HMTScaleFactor)
     $p = [int](20 * $global:HMTScaleFactor)
     $SMGUI.ClientSize = [System.Drawing.Size]::new($w, ($SMSkip.Bottom + $p))
 })
 
 # Display First GUI
-$SMGUI.ShowDialog() | Out-Null
+Show-HMTDialog $SMGUI | Out-Null

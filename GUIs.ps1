@@ -129,6 +129,11 @@ $MainMenuExitButton.Add_Click({
 
 $MainMenu.Add_Load({
     Invoke-HMTScale $MainMenu
+    Set-RoundedControl $MainMenuSetupButton
+    Set-RoundedControl $MainMenuToolsButton
+    Set-RoundedControl $MainMenuTroubleshootingButton
+    Set-RoundedControl $MainMenuAboutButton
+    Set-RoundedControl $MainMenuExitButton
     $w = [int](300 * $global:HMTScaleFactor)
     $p = [int](30 * $global:HMTScaleFactor)
     $MainMenu.ClientSize = [System.Drawing.Size]::new($w, ($MainMenuExitButton.Bottom + $p))
@@ -251,6 +256,7 @@ $AboutGUI.Controls.Add($AboutCloseBtn)
 # Calculate dynamic layout post-DPI scaling
 $AboutGUI.Add_Load({
     Invoke-HMTScale $AboutGUI
+    Set-RoundedControl $AboutCloseBtn
     $w = $AboutGUI.ClientSize.Width
     $IconBox.Left = ($w - $IconBox.Width) / 2
     $AboutTitle.Width = $w
@@ -299,10 +305,10 @@ $padding = 20
 $modules = @(
     @{ Name = 'Time Zone' },
     @{ Name = 'Local Accounts' },
-    @{ Name = 'Bloat Cleanup' },
-    @{ Name = 'Programs' },
     @{ Name = 'System Properties' },
-	@{ Name = 'Setup Options' }
+    @{ Name = 'Setup Options' },
+    @{ Name = 'Bloat Cleanup' },
+    @{ Name = 'Programs' }
 )
 
 # Adjust GUI Height
@@ -413,6 +419,9 @@ $ModGUIBackButton.Add_Click({
 
 $ModGUI.Add_Load({
     Invoke-HMTScale $ModGUI
+    Set-RoundedControl $SelectAllButton
+    Set-RoundedControl $ModGUIokButton
+    Set-RoundedControl $ModGUIBackButton
     $p = [int](20 * $global:HMTScaleFactor)
     $ModGUI.ClientSize = [System.Drawing.Size]::new($ModGUI.ClientSize.Width, ($ModGUIBackButton.Bottom + $p))
 })
@@ -761,6 +770,8 @@ $TBackButton.Add_Click({
 
 $ToolsGUI.Add_Load({
     Invoke-HMTScale $ToolsGUI
+    Set-RoundedControl $TLaunchButton
+    Set-RoundedControl $TBackButton
     $p = [int](20 * $global:HMTScaleFactor)
     
     $ToolsGUI.MinimumSize = [System.Drawing.Size]::Empty
@@ -996,6 +1007,9 @@ $BackButton.Add_Click({
 
 $TroubleGUI.Add_Load({
     Invoke-HMTScale $TroubleGUI
+    Set-RoundedControl $TrLaunchButton
+    Set-RoundedControl $ConsoleButton
+    Set-RoundedControl $BackButton
     $p = [int](20 * $global:HMTScaleFactor)
     
     $TroubleGUI.MinimumSize = [System.Drawing.Size]::Empty

@@ -76,6 +76,7 @@ $FOGUI.AcceptButton = $FOOkayButton
 # Fix Scaling and Layout Dynamically
 $FOGUI.Add_Load({
         Invoke-HMTScale $FOGUI
+        Set-RoundedControl $FOOkayButton
         $p = [int]($padding * $global:HMTScaleFactor)
         $lvScaledWidth = $FOGUI.ClientSize.Width - ($p * 2)
         $FOLV.Width = $lvScaledWidth
@@ -161,4 +162,4 @@ $FOOkayButton.Add_Click({
     })
 
 # Display GUI
-$FOGUI.ShowDialog() | Out-Null
+Show-HMTDialog $FOGUI | Out-Null
