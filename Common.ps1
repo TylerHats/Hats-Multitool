@@ -150,7 +150,7 @@ function Show-ConsoleWindow {
     [HMT.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
 }
 
-# Function to force a WinForms title bar into Dark Mode
+# Function to force a WinForms title bar into Dark Mode and rounded corners
 function Set-DarkTitleBar {
     param(
         [Parameter(Mandatory=$true)]
@@ -161,6 +161,31 @@ function Set-DarkTitleBar {
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
     $cornerPref = 2
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 33, [ref]$cornerPref, 4) | Out-Null
+
+    $applyFormRegion = {
+        param($s, $e)
+        if ($s.Width -gt 0 -and $s.Height -gt 0) {
+            $radius = [int](8 * $global:HMTScaleFactor)
+            $d = $radius * 2
+            $w = $s.Width
+            $h = $s.Height
+            if ($d -lt $w -and $d -lt $h) {
+                $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+                $path.AddArc(0, 0, $d, $d, 180, 90)
+                $path.AddArc(($w - $d), 0, $d, $d, 270, 90)
+                $path.AddArc(($w - $d), ($h - $d), $d, $d, 0, 90)
+                $path.AddArc(0, ($h - $d), $d, $d, 90, 90)
+                $path.CloseFigure()
+                $s.Region = New-Object System.Drawing.Region($path)
+            }
+        }
+    }
+
+    if ($TargetForm.Tag -ne "FormRegionBound") {
+        $TargetForm.Tag = "FormRegionBound"
+        $TargetForm.Add_SizeChanged($applyFormRegion)
+    }
+    &$applyFormRegion $TargetForm $null
 }
 
 function Set-RoundedControl {
@@ -169,22 +194,67 @@ function Set-RoundedControl {
         [System.Windows.Forms.Control]$Control,
         [int]$Radius = 6
     )
-    if ($null -eq $Control -or $Control.Width -le 0 -or $Control.Height -le 0) { return }
-    $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
-    if ($scaledRadius -lt 1) { $scaledRadius = 1 }
-    $d = $scaledRadius * 2
-    if ($d -gt $Control.Width) { $d = $Control.Width }
-    if ($d -gt $Control.Height) { $d = $Control.Height }
-    if ($d -le 0) { return }
+    if ($null -eq $Control) { return }
 
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $rect = New-Object System.Drawing.Rectangle(0, 0, $Control.Width, $Control.Height)
-    $path.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
-    $path.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
-    $path.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
-    $path.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
-    $path.CloseFigure()
-    $Control.Region = New-Object System.Drawing.Region($path)
+    if ($Control -is [System.Windows.Forms.Button]) {
+        $Control.FlatAppearance.BorderSize = 0
+    }
+
+    $applyControlRegion = {
+        param($sender, $e)
+        if ($sender.Width -gt 0 -and $sender.Height -gt 0) {
+            $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
+            if ($scaledRadius -lt 1) { $scaledRadius = 1 }
+            $d = $scaledRadius * 2
+            if ($d -gt $sender.Width) { $d = $sender.Width }
+            if ($d -gt $sender.Height) { $d = $sender.Height }
+            if ($d -le 0) { return }
+
+            $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $sender.Width, $sender.Height)
+            $path.AddArc($rect.X, $rect.Y, $d, $d, 180, 90)
+            $path.AddArc(($rect.Right - $d), $rect.Y, $d, $d, 270, 90)
+            $path.AddArc(($rect.Right - $d), ($rect.Bottom - $d), $d, $d, 0, 90)
+            $path.AddArc($rect.X, ($rect.Bottom - $d), $d, $d, 90, 90)
+            $path.CloseFigure()
+            $sender.Region = New-Object System.Drawing.Region($path)
+        }
+    }
+
+    if ($Control.Tag -ne "RoundedControlBound") {
+        $Control.Tag = "RoundedControlBound"
+        $Control.Add_SizeChanged($applyControlRegion)
+
+        $Control.Add_Paint({
+            param($s, $pevent)
+            if ($s.Width -gt 0 -and $s.Height -gt 0) {
+                $g = $pevent.Graphics
+                $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                
+                $scaledRadius = [int]($Radius * $global:HMTScaleFactor)
+                if ($scaledRadius -lt 1) { $scaledRadius = 1 }
+                $d = $scaledRadius * 2
+                $w = $s.Width - 1
+                $h = $s.Height - 1
+
+                if ($w -gt 0 -and $h -gt 0 -and $d -gt 0) {
+                    $borderPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#555555"), 1)
+                    $bPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+                    $bPath.AddArc(0, 0, $d, $d, 180, 90)
+                    $bPath.AddArc(($w - $d), 0, $d, $d, 270, 90)
+                    $bPath.AddArc(($w - $d), ($h - $d), $d, $d, 0, 90)
+                    $bPath.AddArc(0, ($h - $d), $d, $d, 90, 90)
+                    $bPath.CloseFigure()
+
+                    $g.DrawPath($borderPen, $bPath)
+                    $bPath.Dispose()
+                    $borderPen.Dispose()
+                }
+            }
+        })
+    }
+
+    &$applyControlRegion $Control $null
 }
 
 function Show-HMTDialog {
