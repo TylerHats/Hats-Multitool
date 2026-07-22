@@ -1365,8 +1365,8 @@ function Show-PacketLossTestDialog {
                         # Draw gradient vertical bar for normal successful packet
                         $g.DrawLine($gradPen, $xPos, [float]$h, $xPos, [float]$yLine)
                     }
-                } else {
-                    # Draw full solid red vertical bar for lost packet
+                } elseif ($pt.WasCountedAsLost -or -not $pt.IsPending) {
+                    # Draw full solid red vertical bar for lost packet (skip actively in-flight pending packets at leading edge)
                     $g.DrawLine($redPen, $xPos, 0.0, $xPos, [float]$h)
                 }
             }
