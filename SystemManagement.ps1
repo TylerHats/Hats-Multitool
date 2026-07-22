@@ -127,7 +127,6 @@ $SMOkayButton.FlatStyle = 'Flat'
 $SMOkayButton.FlatAppearance.BorderSize = 1
 $SMOkayButton.Enabled = $false
 $SMGUI.Controls.Add($SMOkayButton)
-$SMGUI.AcceptButton = $SMOkayButton
 
 # Add Skip button
 $SMSkip = New-Object System.Windows.Forms.Button

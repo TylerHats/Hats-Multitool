@@ -174,53 +174,114 @@ function Set-RoundedControl {
     if ($Control -is [System.Windows.Forms.Button]) {
         $Control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
         $Control.FlatAppearance.BorderSize = 0
-        $Control.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#484c54")
-        $Control.FlatAppearance.MouseOverBackColor = [System.Drawing.ColorTranslator]::FromHtml("#565b64")
-        $Control.FlatAppearance.MouseDownBackColor = [System.Drawing.ColorTranslator]::FromHtml("#34373d")
-        $Control.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
-    }
+        $Control.TabStop = $false
 
-    $applyControlRegion = {
-        param($sender, $e)
-        if ($sender.Width -gt 0 -and $sender.Height -gt 0) {
-            $r = [float]($Radius * $global:HMTScaleFactor)
-            if ($r -lt 1.0) { $r = 1.0 }
-            $d = $r * 2.0
-            $w = [float]$sender.Width
-            $h = [float]$sender.Height
-            if ($d -gt $w) { $d = $w }
-            if ($d -gt $h) { $d = $h }
-            if ($d -le 0) { return }
+        if ($Control.Tag -ne "RoundedButtonBound") {
+            $Control.Tag = "RoundedButtonBound"
 
-            $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-            $arcRect = [System.Drawing.RectangleF]::new(0.0, 0.0, $d, $d)
-            
-            # Top-Left Arc
-            $path.AddArc($arcRect, 180, 90)
+            $redrawScript = { if ($this.Width -gt 0 -and $this.Height -gt 0) { $this.Invalidate() } }
+            $Control.Add_MouseEnter($redrawScript)
+            $Control.Add_MouseLeave($redrawScript)
+            $Control.Add_MouseDown($redrawScript)
+            $Control.Add_MouseUp($redrawScript)
+            $Control.Add_EnabledChanged($redrawScript)
 
-            # Top-Right Arc
-            $arcRect.X = $w - $d
-            $path.AddArc($arcRect, 270, 90)
+            $Control.Add_Paint({
+                param($s, $pevent)
+                if ($s.Width -le 0 -or $s.Height -le 0) { return }
 
-            # Bottom-Right Arc
-            $arcRect.Y = $h - $d
-            $path.AddArc($arcRect, 0, 90)
+                $g = $pevent.Graphics
+                $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
 
-            # Bottom-Left Arc
-            $arcRect.X = 0.0
-            $path.AddArc($arcRect, 90, 90)
+                $isHovered = $s.ClientRectangle.Contains($s.PointToClient([System.Windows.Forms.Cursor]::Position))
+                $isPressed = ($isHovered -and ([System.Windows.Forms.Control]::MouseButtons -band [System.Windows.Forms.MouseButtons]::Left))
 
-            $path.CloseFigure()
-            $sender.Region = New-Object System.Drawing.Region($path)
+                if (-not $s.Enabled) {
+                    $bgHex = "#35383f"
+                    $fgHex = "#6c7078"
+                } elseif ($isPressed) {
+                    $bgHex = "#34373d"
+                    $fgHex = "#ffffff"
+                } elseif ($isHovered) {
+                    $bgHex = "#565b64"
+                    $fgHex = "#ffffff"
+                } else {
+                    $bgHex = "#484c54"
+                    $fgHex = "#ffffff"
+                }
+
+                $parentColor = if ($null -ne $s.Parent) { $s.Parent.BackColor } else { [System.Drawing.ColorTranslator]::FromHtml("#2f3136") }
+                $g.Clear($parentColor)
+
+                $r = [float]($Radius * $global:HMTScaleFactor)
+                if ($r -lt 1.0) { $r = 1.0 }
+                $d = $r * 2.0
+                $w = [float]($s.Width - 1.0)
+                $h = [float]($s.Height - 1.0)
+                if ($d -gt $w) { $d = $w }
+                if ($d -gt $h) { $d = $h }
+
+                $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+                $arcRect = [System.Drawing.RectangleF]::new(0.0, 0.0, $d, $d)
+                $path.AddArc($arcRect, 180, 90)
+                $arcRect.X = $w - $d
+                $path.AddArc($arcRect, 270, 90)
+                $arcRect.Y = $h - $d
+                $path.AddArc($arcRect, 0, 90)
+                $arcRect.X = 0.0
+                $path.AddArc($arcRect, 90, 90)
+                $path.CloseFigure()
+
+                $bgBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($bgHex))
+                $g.FillPath($bgBrush, $path)
+                $bgBrush.Dispose()
+                $path.Dispose()
+
+                if (-not [string]::IsNullOrEmpty($s.Text)) {
+                    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($fgHex))
+                    $sf = New-Object System.Drawing.StringFormat
+                    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+                    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+                    $g.DrawString($s.Text, $s.Font, $textBrush, [System.Drawing.RectangleF]::new(0, 0, $s.Width, $s.Height), $sf)
+                    $textBrush.Dispose()
+                    $sf.Dispose()
+                }
+            })
         }
-    }
+    } else {
+        $applyControlRegion = {
+            param($sender, $e)
+            if ($sender.Width -gt 0 -and $sender.Height -gt 0) {
+                $r = [float]($Radius * $global:HMTScaleFactor)
+                if ($r -lt 1.0) { $r = 1.0 }
+                $d = $r * 2.0
+                $w = [float]$sender.Width
+                $h = [float]$sender.Height
+                if ($d -gt $w) { $d = $w }
+                if ($d -gt $h) { $d = $h }
+                if ($d -le 0) { return }
 
-    if ($Control.Tag -ne "RoundedControlBound") {
-        $Control.Tag = "RoundedControlBound"
-        $Control.Add_SizeChanged($applyControlRegion)
-    }
+                $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+                $arcRect = [System.Drawing.RectangleF]::new(0.0, 0.0, $d, $d)
+                $path.AddArc($arcRect, 180, 90)
+                $arcRect.X = $w - $d
+                $path.AddArc($arcRect, 270, 90)
+                $arcRect.Y = $h - $d
+                $path.AddArc($arcRect, 0, 90)
+                $arcRect.X = 0.0
+                $path.AddArc($arcRect, 90, 90)
+                $path.CloseFigure()
+                $sender.Region = New-Object System.Drawing.Region($path)
+            }
+        }
 
-    &$applyControlRegion $Control $null
+        if ($Control.Tag -ne "RoundedControlBound") {
+            $Control.Tag = "RoundedControlBound"
+            $Control.Add_SizeChanged($applyControlRegion)
+        }
+        &$applyControlRegion $Control $null
+    }
 }
 
 function Show-HMTDialog {
