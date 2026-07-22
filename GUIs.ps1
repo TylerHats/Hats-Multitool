@@ -1266,6 +1266,7 @@ function Show-PacketLossTestDialog {
     $pnlGraph.Size = New-Object System.Drawing.Size(640, 240)
     $pnlGraph.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1e24")
     $pnlGraph.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Instance).SetValue($pnlGraph, $true, $null)
     $pltForm.Controls.Add($pnlGraph)
 
     # State variables
@@ -1279,6 +1280,46 @@ function Show-PacketLossTestDialog {
     $script:pingHistory = [System.Collections.ArrayList]::new()
     $script:maxTargetPackets = 120
     $script:lastReasonText = "None"
+
+    # Latency Color Gradient Helper (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
+    $getLatencyColor = {
+        param([int]$ms)
+        if ($ms -le 0) { return [System.Drawing.Color]::FromArgb(67, 181, 129) }
+        if ($ms -ge 100) { return [System.Drawing.Color]::FromArgb(240, 71, 71) }
+
+        if ($ms -le 25) {
+            $f = $ms / 25.0
+            return [System.Drawing.Color]::FromArgb(
+                [int](67 + (136 - 67) * $f),
+                [int](181 + (212 - 181) * $f),
+                [int](129 + (64 - 129) * $f)
+            )
+        }
+        elseif ($ms -le 50) {
+            $f = ($ms - 25) / 25.0
+            return [System.Drawing.Color]::FromArgb(
+                [int](136 + (241 - 136) * $f),
+                [int](212 + (196 - 212) * $f),
+                [int](64 + (15 - 64) * $f)
+            )
+        }
+        elseif ($ms -le 75) {
+            $f = ($ms - 50) / 25.0
+            return [System.Drawing.Color]::FromArgb(
+                [int](241 + (230 - 241) * $f),
+                [int](196 + (126 - 196) * $f),
+                [int](15 + (34 - 15) * $f)
+            )
+        }
+        else {
+            $f = ($ms - 75) / 25.0
+            return [System.Drawing.Color]::FromArgb(
+                [int](230 + (240 - 230) * $f),
+                [int](126 + (71 - 126) * $f),
+                [int](34 + (71 - 34) * $f)
+            )
+        }
+    }
 
     # Graph Paint Event Handler
     $pnlGraph.Add_Paint({
@@ -1314,9 +1355,8 @@ function Show-PacketLossTestDialog {
         # Draw History Packets
         if ($script:pingHistory.Count -gt 0) {
             $totSlots = [math]::Max($script:maxTargetPackets, $script:pingHistory.Count)
-            $colWidth = [math]::Max(2.0, ($w / $totSlots))
-            $greenPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#43b581"), [math]::Max(1.5, ($colWidth * 0.7)))
-            $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(2.0, ($colWidth * 0.8)))
+            $colWidth = [float]($w / $totSlots)
+            $barWidth = [math]::Max(1.0, [float]($colWidth * 0.85))
 
             for ($idx = 0; $idx -lt $script:pingHistory.Count; $idx++) {
                 $pt = $script:pingHistory[$idx]
@@ -1327,14 +1367,18 @@ function Show-PacketLossTestDialog {
                     if ($rttRatio -gt 1.0) { $rttRatio = 1.0 }
                     $yLine = $h - ($h * $rttRatio)
                     if ($yLine -ge $h) { $yLine = $h - 2 }
-                    $g.DrawLine($greenPen, $xPos, [float]$h, $xPos, [float]$yLine)
+
+                    $barColor = &$getLatencyColor $pt.RTT
+                    $barPen = New-Object System.Drawing.Pen($barColor, $barWidth)
+                    $g.DrawLine($barPen, $xPos, [float]$h, $xPos, [float]$yLine)
+                    $barPen.Dispose()
                 } else {
                     # Draw full red vertical bar for lost packet
+                    $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(1.0, $barWidth))
                     $g.DrawLine($redPen, $xPos, 0.0, $xPos, [float]$h)
+                    $redPen.Dispose()
                 }
             }
-            $greenPen.Dispose()
-            $redPen.Dispose()
         }
     })
 
