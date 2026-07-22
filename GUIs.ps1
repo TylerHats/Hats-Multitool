@@ -1319,17 +1319,18 @@ function Show-PacketLossTestDialog {
             $colWidth = [float]($w / $totSlots)
             $barWidth = [math]::Max(1.0, [float]($colWidth * 0.85))
 
-            # Vertical LinearGradientBrush for latency height spectrum (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
-            $y100 = $h - ($h * (100.0 / $maxY))
-            if ($y100 -ge $h) { $y100 = $h - 1.0 }
+            # Vertical LinearGradientBrush spanning full canvas height (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
+            $p25  = [math]::Min(0.96, [float](25.0 / $maxY))
+            $p50  = [math]::Max($p25 + 0.001, [math]::Min(0.97, [float](50.0 / $maxY)))
+            $p75  = [math]::Max($p50 + 0.001, [math]::Min(0.98, [float](75.0 / $maxY)))
+            $p100 = [math]::Max($p75 + 0.001, [math]::Min(0.99, [float](100.0 / $maxY)))
 
             $gradBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
                 (New-Object System.Drawing.PointF(0, $h)),
-                (New-Object System.Drawing.PointF(0, $y100)),
+                (New-Object System.Drawing.PointF(0, 0)),
                 [System.Drawing.Color]::Black,
                 [System.Drawing.Color]::Black
             )
-            $gradBrush.WrapMode = [System.Drawing.Drawing2D.WrapMode]::Clamp
 
             $cb = New-Object System.Drawing.Drawing2D.ColorBlend
             $cb.Colors = [System.Drawing.Color[]]@(
@@ -1337,9 +1338,10 @@ function Show-PacketLossTestDialog {
                 [System.Drawing.Color]::FromArgb(136, 212, 64),   # 25ms: Yellow-Green
                 [System.Drawing.Color]::FromArgb(241, 196, 15),   # 50ms: Yellow
                 [System.Drawing.Color]::FromArgb(230, 126, 34),   # 75ms: Orange
-                [System.Drawing.Color]::FromArgb(240, 71, 71)     # 100ms+: Red
+                [System.Drawing.Color]::FromArgb(240, 71, 71),     # 100ms: Red
+                [System.Drawing.Color]::FromArgb(240, 71, 71)      # $maxY: Red
             )
-            $cb.Positions = [float[]]@(0.0, 0.25, 0.5, 0.75, 1.0)
+            $cb.Positions = [float[]]@(0.0, $p25, $p50, $p75, $p100, 1.0)
             $gradBrush.InterpolationColors = $cb
 
             $gradPen = New-Object System.Drawing.Pen($gradBrush, $barWidth)
