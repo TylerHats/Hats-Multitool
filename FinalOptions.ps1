@@ -5,7 +5,7 @@
 $FOGUI = New-Object System.Windows.Forms.Form
 $FOGUI.Text = "Hat's Multitool"
 $FOGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-$FOGUI.ClientSize = New-Object System.Drawing.Size(600, 300)
+$FOGUI.ClientSize = New-Object System.Drawing.Size(640, 380)
 $FOGUI.StartPosition = 'CenterScreen'
 $FOGUI.Icon = $HMTIcon
 $FOGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -44,7 +44,7 @@ $FOLV.Location = [System.Drawing.Point]::new($padding, $y)
 $FOLV.HeaderStyle = 'None'
 # Calculate ListView width dynamically: Form Width minus padding on left and right
 $lvWidth = $FOGUI.ClientSize.Width - ($padding * 2)
-$FOLV.Size = [System.Drawing.Size]::new($lvWidth, 120)
+$FOLV.Size = [System.Drawing.Size]::new($lvWidth, 200)
 $FOLV.Columns.Add("Option", ($lvWidth - 5)) | Out-Null
 $FOGUI.Controls.Add($FOLV)
 
@@ -54,7 +54,11 @@ $list = @(
     @{ Option = 'NumLock - Default On for Login and New User Sessions'; ID = 'numlock' },
     @{ Option = 'Disable Windows Default Printer Management'; ID = 'defprint' },
     @{ Option = 'Restore Classic Windows 11 Right-Click Context Menu'; ID = 'classicmenu' },
-    @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Azure Login'; ID = 'hellopin' }
+    @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Azure Login'; ID = 'hellopin' },
+    @{ Option = 'Disable Device Power Saving (USB Suspend, PCIe ASPM, & NIC Power Save)'; ID = 'devicepower' },
+    @{ Option = 'Disable Windows Fast Startup (Forces True Kernel Shutdown)'; ID = 'disablefaststartup' },
+    @{ Option = 'Enable Hibernation & Add Hibernation to Start Power Menu'; ID = 'enablehibernation' },
+    @{ Option = 'Disable Sticky Keys & Toggle Keys Shortcut Prompts'; ID = 'disablestickykeys' }
 )
 foreach ($u in $list) {
     $item = [System.Windows.Forms.ListViewItem]::new($u.Option)
@@ -63,7 +67,7 @@ foreach ($u in $list) {
 }
 
 # Add Okay button
-$y += 140
+$y += 215
 $FOOkayButton = New-Object System.Windows.Forms.Button
 $FOOkayButton.Size = New-Object System.Drawing.Size(95, 40)
 $FOOkayButton.Top = $y
@@ -178,6 +182,76 @@ $FOOkayButton.Add_Click({
                         Set-ItemProperty -Path $PassportPath -Name "DisablePostLogonProvisioning" -Value 1 -Type DWord -Force
                     
                         Log-Message "Disabled automatic Windows Hello PIN setup prompt." "Success"
+                    }
+
+                    'devicepower' {
+                        # Disable USB Selective Suspend & PCIe ASPM in Active Power Scheme
+                        & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 | Out-Null
+                        & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 | Out-Null
+                        & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 | Out-Null
+                        & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 | Out-Null
+                        & powercfg.exe /SETACTIVE SCHEME_CURRENT | Out-Null
+
+                        # Disable Power Management on Network Adapters
+                        Get-NetAdapter -ErrorAction SilentlyContinue | ForEach-Object {
+                            Set-NetAdapterPowerManagement -Name $_.Name -AllowSleepFromLowerPowerStates Disabled -ErrorAction SilentlyContinue
+                        }
+                        
+                        # USB Policy
+                        $usbPath = "Registry::HKLM\SYSTEM\CurrentControlSet\Services\USB"
+                        if (-not (Test-Path $usbPath)) { New-Item -Path $usbPath -Force | Out-Null }
+                        Set-ItemProperty -Path $usbPath -Name "DisableSelectiveSuspend" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+
+                        Log-Message "Disabled USB selective suspend, PCIe ASPM, and NIC power saving." "Success"
+                    }
+
+                    'disablefaststartup' {
+                        $powerPath = "Registry::HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
+                        if (-not (Test-Path $powerPath)) { New-Item -Path $powerPath -Force | Out-Null }
+                        Set-ItemProperty -Path $powerPath -Name "HiberbootEnabled" -Value 0 -Type DWord -Force
+                        Log-Message "Disabled Windows Fast Startup (forced full kernel shutdown)." "Success"
+                    }
+
+                    'enablehibernation' {
+                        & powercfg.exe /hibernate on | Out-Null
+
+                        $flyoutPath = "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
+                        if (-not (Test-Path $flyoutPath)) { New-Item -Path $flyoutPath -Force | Out-Null }
+                        Set-ItemProperty -Path $flyoutPath -Name "ShowHibernateOption" -Value 1 -Type DWord -Force
+
+                        $cpPath = "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel"
+                        if (-not (Test-Path $cpPath)) { New-Item -Path $cpPath -Force | Out-Null }
+                        Set-ItemProperty -Path $cpPath -Name "ShowHibernateOption" -Value 1 -Type DWord -Force
+
+                        Log-Message "Enabled Hibernation and added Hibernate option to Start Power menu." "Success"
+                    }
+
+                    'disablestickykeys' {
+                        $hkcuSticky = "Registry::HKCU\Control Panel\Accessibility\StickyKeys"
+                        if (-not (Test-Path $hkcuSticky)) { New-Item -Path $hkcuSticky -Force | Out-Null }
+                        Set-ItemProperty -Path $hkcuSticky -Name "Flags" -Value "506" -Type String -Force
+
+                        $hkcuToggle = "Registry::HKCU\Control Panel\Accessibility\ToggleKeys"
+                        if (-not (Test-Path $hkcuToggle)) { New-Item -Path $hkcuToggle -Force | Out-Null }
+                        Set-ItemProperty -Path $hkcuToggle -Name "Flags" -Value "58" -Type String -Force
+
+                        $hkcuFilter = "Registry::HKCU\Control Panel\Accessibility\Keyboard Response"
+                        if (-not (Test-Path $hkcuFilter)) { New-Item -Path $hkcuFilter -Force | Out-Null }
+                        Set-ItemProperty -Path $hkcuFilter -Name "Flags" -Value "122" -Type String -Force
+
+                        $defNtUser = 'C:\Users\Default\NTUSER.DAT'
+                        if (Test-Path $defNtUser) {
+                            & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
+                            try {
+                                & reg.exe add "HKU\DefUser\Control Panel\Accessibility\StickyKeys" /v "Flags" /t REG_SZ /d "506" /f | Out-Null
+                                & reg.exe add "HKU\DefUser\Control Panel\Accessibility\ToggleKeys" /v "Flags" /t REG_SZ /d "58" /f | Out-Null
+                                & reg.exe add "HKU\DefUser\Control Panel\Accessibility\Keyboard Response" /v "Flags" /t REG_SZ /d "122" /f | Out-Null
+                                Log-Message "Disabled Sticky Keys and Toggle Keys prompts for new user profiles." "Success"
+                            } finally {
+                                & reg.exe unload "HKU\DefUser" | Out-Null
+                            }
+                        }
+                        Log-Message "Disabled Sticky Keys and Toggle Keys shortcut prompts." "Success"
                     }
                 }
             }

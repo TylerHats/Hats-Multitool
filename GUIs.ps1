@@ -1182,7 +1182,7 @@ function Show-PacketLossTestDialog {
     $lblPps.AutoSize = $true
     $pltForm.Controls.Add($lblPps)
 
-    $lblSize = New-Object System.Drawing.Label
+    $lblSize = New-Object System.Windows.Forms.Label
     $lblSize.Text = "Size (Bytes):"
     $lblSize.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $lblSize.Location = New-Object System.Drawing.Point(340, $y)
@@ -1497,6 +1497,8 @@ $troubleList = @(
     [pscustomobject]@{ Name = "TCP Port & Connection Checker"; Desc = "Launches a GUI tool to test IP/hostname reachability and open TCP ports." }
     [pscustomobject]@{ Name = "Storage SMART & Health Summary"; Desc = "Displays physical disk drive model, media type, operational status, and SMART health." }
     [pscustomobject]@{ Name = "Packet Loss Test"; Desc = "Runs a real-time continuous ping test measuring latency graph, packet loss rate, and drop reasons." }
+    [pscustomobject]@{ Name = "Windows Update Reset"; Desc = "Stops update services, clears SoftwareDistribution & catroot2 caches, and resets Windows Update components." }
+    [pscustomobject]@{ Name = "Reset HOSTS File to Default"; Desc = "Resets the Windows HOSTS file (C:\Windows\System32\drivers\etc\hosts) back to clean Microsoft default." }
 )
 
 foreach ($t in $troubleList) {
@@ -1548,7 +1550,11 @@ $BackButton.FlatStyle = 'Flat'
 $BackButton.FlatAppearance.BorderSize = 1
 $TroubleGUI.Controls.Add($BackButton)
 
-$TrListView.Add_DoubleClick({ $TrLaunchButton.PerformClick() })
+$TrListView.Add_DoubleClick({
+    if ($TrLaunchButton.Enabled -and $TrListView.SelectedItems.Count -gt 0) {
+        $TrLaunchButton.PerformClick()
+    }
+})
 
 $TrLaunchButton.Add_Click({
     if ($TrListView.SelectedItems.Count -eq 0) { return }
@@ -1608,6 +1614,36 @@ $TrLaunchButton.Add_Click({
             }
             "Packet Loss Test" {
                 Show-PacketLossTestDialog
+            }
+            "Windows Update Reset" {
+                Log-Message "Resetting Windows Update components..." "Info"
+                Stop-Service -Name wuauserv, bits, cryptsvc, msiserver -ErrorAction SilentlyContinue
+                
+                $sdPath = "$env:WINDIR\SoftwareDistribution"
+                $crPath = "$env:WINDIR\System32\catroot2"
+                if (Test-Path $sdPath) { Rename-Item -Path $sdPath -NewName "SoftwareDistribution.old.$((Get-Date).ToString('yyyyMMddHHmmss'))" -ErrorAction SilentlyContinue }
+                if (Test-Path $crPath) { Rename-Item -Path $crPath -NewName "catroot2.old.$((Get-Date).ToString('yyyyMMddHHmmss'))" -ErrorAction SilentlyContinue }
+
+                Start-Service -Name wuauserv, bits, cryptsvc, msiserver -ErrorAction SilentlyContinue
+                Log-Message "Successfully reset Windows Update services and cleared caches." "Success"
+                PopupError "Windows Update components have been reset and services restarted." "Information"
+            }
+            "Reset HOSTS File to Default" {
+                $hostsPath = "$env:WINDIR\System32\drivers\etc\hosts"
+                if (Test-Path $hostsPath) {
+                    Copy-Item -Path $hostsPath -Destination "$hostsPath.bak.$((Get-Date).ToString('yyyyMMddHHmmss'))" -Force -ErrorAction SilentlyContinue
+                }
+                $defaultHosts = @"
+# Copyright (c) 1993-2009 Microsoft Corp.
+#
+# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.
+#
+# 127.0.0.1       localhost
+# ::1             localhost
+"@
+                Set-Content -Path $hostsPath -Value $defaultHosts -Encoding UTF8 -Force
+                Log-Message "Reset HOSTS file to default (backup saved to hosts.bak)." "Success"
+                PopupError "HOSTS file has been reset to default.`nA backup of the previous file was created." "Information"
             }
         }
     } finally {
