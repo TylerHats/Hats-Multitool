@@ -1329,6 +1329,8 @@ function Show-PacketLossTestDialog {
                 [System.Drawing.Color]::Black,
                 [System.Drawing.Color]::Black
             )
+            $gradBrush.WrapMode = [System.Drawing.Drawing2D.WrapMode]::Clamp
+
             $cb = New-Object System.Drawing.Drawing2D.ColorBlend
             $cb.Colors = [System.Drawing.Color[]]@(
                 [System.Drawing.Color]::FromArgb(67, 181, 129),   # 0ms: Green
@@ -1397,36 +1399,96 @@ function Show-PacketLossTestDialog {
         [int]::TryParse($txtPps.Text.Trim(), [ref]$ppsVal) | Out-Null
         if ($ppsVal -lt 1) { $ppsVal = 1 }
 
-        $pinger = New-Object System.Net.NetworkInformation.Ping
-        $buffer = [byte[]]::new($size)
-        $timeout = [math]::Max(100, [int](800 / $ppsVal))
+        # Soft timeout threshold (ms) after which pending packet is temporarily counted as lost
+        $softTimeoutMs = [math]::Max(400, [int](1000 / $ppsVal))
 
+        # Check existing pending items for soft timeouts
+        foreach ($item in $script:pingHistory) {
+            if ($item.IsPending -and -not $item.WasCountedAsLost -and $item.StartTime.ElapsedMilliseconds -gt $softTimeoutMs) {
+                $item.WasCountedAsLost = $true
+                $script:lostCount++
+                $item.Status = "TimedOut"
+                $script:lastReasonText = "TimedOut"
+            }
+        }
+
+        # Issue new Async Ping
         $script:sentCount++
+        $buffer = [byte[]]::new($size)
+        $pinger = New-Object System.Net.NetworkInformation.Ping
 
-        try {
-            $reply = $pinger.Send($target, $timeout, $buffer)
-            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
-                $script:recvCount++
-                $rtt = [int]$reply.RoundtripTime
+        $record = [pscustomobject]@{
+            SeqId = $script:sentCount
+            Success = $false
+            IsLate = $false
+            IsPending = $true
+            WasCountedAsLost = $false
+            RTT = 0
+            Status = "Waiting"
+            StartTime = [System.Diagnostics.Stopwatch]::StartNew()
+        }
+        [void]$script:pingHistory.Add($record)
+
+        $pinger.add_PingCompleted({
+            param($sender, $e)
+            $rec = $e.UserState
+            if ($null -eq $rec -or -not $script:pltRunning) { return }
+
+            $rec.IsPending = $false
+            $rtt = 0
+            if ($e.Reply -and $e.Reply.RoundtripTime -gt 0) {
+                $rtt = [int]$e.Reply.RoundtripTime
+            } else {
+                $rtt = [int]$rec.StartTime.ElapsedMilliseconds
+            }
+
+            if ($e.Reply -and $e.Reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                $rec.RTT = $rtt
                 $script:sumRtt += $rtt
                 if ($rtt -lt $script:minRtt) { $script:minRtt = $rtt }
                 if ($rtt -gt $script:maxRtt) { $script:maxRtt = $rtt }
 
-                $isLate = ($rtt -ge 1000)
-                if ($isLate) { $script:lateCount++ }
-
-                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $true; IsLate = $isLate; RTT = $rtt; Status = "Success" })
+                if ($rec.WasCountedAsLost) {
+                    # Retroactive Conversion from Lost -> Late!
+                    if ($script:lostCount -gt 0) { $script:lostCount-- }
+                    $script:lateCount++
+                    $script:recvCount++
+                    $rec.Success = $true
+                    $rec.IsLate = $true
+                    $rec.Status = "Late (${rtt}ms)"
+                } else {
+                    $rec.Success = $true
+                    $isLate = ($rtt -ge 1000)
+                    $rec.IsLate = $isLate
+                    if ($isLate) { $script:lateCount++ }
+                    $script:recvCount++
+                    $rec.Status = "Success"
+                }
             } else {
-                $script:lostCount++
-                $reason = $reply.Status.ToString()
+                if (-not $rec.WasCountedAsLost) {
+                    $rec.WasCountedAsLost = $true
+                    $script:lostCount++
+                }
+                $rec.Success = $false
+                $rec.IsLate = $false
+                $reason = if ($e.Reply) { $e.Reply.Status.ToString() } else { "TimedOut" }
+                $rec.Status = $reason
                 $script:lastReasonText = $reason
-                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; IsLate = $false; RTT = 0; Status = $reason })
             }
+
+            $sender.Dispose()
+            $pnlGraph.Invalidate()
+        })
+
+        try {
+            $pinger.SendAsync($target, 5000, $buffer, $record)
         } catch {
-            $script:lostCount++
-            $reason = $_.Exception.Message
-            $script:lastReasonText = $reason
-            [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; IsLate = $false; RTT = 0; Status = $reason })
+            $record.IsPending = $false
+            if (-not $record.WasCountedAsLost) {
+                $record.WasCountedAsLost = $true
+                $script:lostCount++
+            }
+            $script:lastReasonText = $_.Exception.Message
         }
 
         # Update stats text
