@@ -522,7 +522,7 @@ function Show-DownloadDialog {
         
         if ($e.Error) {
             $script:dlError = $e.Error
-            Log-Message "Download failed for $DisplayName: $($e.Error.Message)" "Warning"
+            Log-Message "Download failed for ${DisplayName}: $($e.Error.Message)" "Warning"
             if (Test-Path -LiteralPath $OutputPath) { 
                 Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue 
             }
