@@ -1,4 +1,4 @@
-# Final Setup Options Module - Tyler Hatfield - v1.8
+# Final Setup Options Module - Tyler Hatfield - v2.0
 
 # Create Options GUI
 # Prepare form

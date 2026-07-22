@@ -1,4 +1,4 @@
-# Bloat Cleanup Module - Tyler Hatfield - v2.1
+# Bloat Cleanup Module - Tyler Hatfield - v3.0
 
 # $RemoveBloat = "y"
 

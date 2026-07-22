@@ -1,4 +1,4 @@
-// C# Methods Pre-Comp File - Tyler Hatfield - v1.1
+// C# Methods Pre-Comp File - Tyler Hatfield - v1.2
 
 using System;
 using System.Drawing;

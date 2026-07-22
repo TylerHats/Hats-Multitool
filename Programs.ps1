@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v1.22
+# Programs Module - Tyler Hatfield - v2.0
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -291,7 +291,8 @@ $downloadWithProgress = {
                     &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
                     [System.Windows.Forms.Application]::DoEvents()
                 }
-            } else {
+            }
+            else {
                 &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... (Size Unknown)"
                 [System.Windows.Forms.Application]::DoEvents()
             }
@@ -481,7 +482,8 @@ $okButton.Add_Click({
                     if ($tempPath -match '\.msi$') {
                         $installProcInfo.FileName = "msiexec.exe"
                         $installProcInfo.Arguments = "/i `"$tempPath`" $silentArgs"
-                    } else {
+                    }
+                    else {
                         $installProcInfo.FileName = $tempPath
                         $installProcInfo.Arguments = $silentArgs
                     }
@@ -496,7 +498,7 @@ $okButton.Add_Click({
                     while (-not $installProc.HasExited) {
                         if ($script:SkipCurrent) {
                             Log-Message "$($program.Name): Installation aborted by user." "Warning"
-                            try { $installProc.Kill() } catch {}
+                            try { $installProc.Kill() } catch { Log-Message "Process kill ignored: $_" "logonly" }
                             break
                         }
                         $dotCount++
@@ -634,7 +636,8 @@ $okButton.Add_Click({
                         if ($tempPath -match '\.msi$') {
                             $installProcInfo.FileName = "msiexec.exe"
                             $installProcInfo.Arguments = "/i `"$tempPath`" $silentArgs"
-                        } else {
+                        }
+                        else {
                             $installProcInfo.FileName = $tempPath
                             $installProcInfo.Arguments = $silentArgs
                         }
@@ -648,7 +651,7 @@ $okButton.Add_Click({
                         $dotCount = 0
                         while (-not $installProc.HasExited) {
                             if ($script:SkipCurrent) {
-                                try { $installProc.Kill() } catch {}
+                                try { $installProc.Kill() } catch { Log-Message "Process kill ignored: $_" "logonly" }
                                 break
                             }
                             $dotCount++

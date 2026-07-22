@@ -1,4 +1,4 @@
-# Accounts Module - Tyler Hatfield - v2.11
+# Accounts Module - Tyler Hatfield - v2.12
 
 # Initialize LocalAccounts module
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue

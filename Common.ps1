@@ -1,4 +1,4 @@
-# Common File - Tyler Hatfield - v1.27
+# Common File - Tyler Hatfield - v2.0
 
 # Common Variables & packages:
 if ($PSVersionTable.PSEdition -eq 'Core') {
@@ -486,7 +486,11 @@ function Show-DownloadDialog {
     $webClient.Headers.Add("Accept-Language", "en-US,en;q=0.5")
     try {
         $uri = [Uri]$Url
-        $webClient.Headers.Add("Referer", "$($uri.Scheme)://$($uri.Host)/")
+        if ($uri.Host -like "*forensit.com*") {
+            $webClient.Headers.Add("Referer", "https://www.forensit.com/downloads.html")
+        } else {
+            $webClient.Headers.Add("Referer", "$($uri.Scheme)://$($uri.Host)/")
+        }
     } catch {}
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 

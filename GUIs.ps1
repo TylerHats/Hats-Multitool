@@ -1,4 +1,4 @@
-# GUI Setup File - Tyler Hatfield - v2.15
+# GUI Setup File - Tyler Hatfield - v2.16
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -674,7 +674,13 @@ $TLaunchButton.Add_Click({
             "User Profile Wizard" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
-                Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
+                $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
+                try {
+                    Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
+                } catch {
+                    Log-Message "Primary ForensIT download failed, attempting mirror..." "Warning"
+                    Show-DownloadDialog -DisplayName 'User Profile Wizard (Mirror)' -Url "https://hatsthings.com/MultitoolFiles/Profwiz.msi" -OutputPath "$UPWPath"
+                }
                 if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
             }
             "Little Registry Cleaner" {
@@ -1145,6 +1151,338 @@ function Show-StorageHealthDialog {
     Show-HMTDialog $shForm | Out-Null
 }
 
+function Show-PacketLossTestDialog {
+    $pltForm = New-Object System.Windows.Forms.Form
+    $pltForm.Text = "Packet Loss & Ping Test"
+    $pltForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $pltForm.ClientSize = New-Object System.Drawing.Size(680, 520)
+    $pltForm.StartPosition = 'CenterScreen'
+    $pltForm.Icon = $HMTIcon
+    $pltForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $pltForm.MaximizeBox = $false
+    $pltForm.MinimizeBox = $true
+    $pltForm.Font = $font
+    $pltForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $pltForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $pltForm
+
+    # Inputs Layout
+    $y = 15
+    $lblHost = New-Object System.Windows.Forms.Label
+    $lblHost.Text = "Target Host / IP:"
+    $lblHost.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblHost.Location = New-Object System.Drawing.Point(20, $y)
+    $lblHost.AutoSize = $true
+    $pltForm.Controls.Add($lblHost)
+
+    $lblPps = New-Object System.Windows.Forms.Label
+    $lblPps.Text = "Pings / Sec:"
+    $lblPps.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblPps.Location = New-Object System.Drawing.Point(215, $y)
+    $lblPps.AutoSize = $true
+    $pltForm.Controls.Add($lblPps)
+
+    $lblSize = New-Object System.Drawing.Label
+    $lblSize.Text = "Size (Bytes):"
+    $lblSize.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblSize.Location = New-Object System.Drawing.Point(340, $y)
+    $lblSize.AutoSize = $true
+    $pltForm.Controls.Add($lblSize)
+
+    $lblDuration = New-Object System.Windows.Forms.Label
+    $lblDuration.Text = "Duration (s):"
+    $lblDuration.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblDuration.Location = New-Object System.Drawing.Point(475, $y)
+    $lblDuration.AutoSize = $true
+    $pltForm.Controls.Add($lblDuration)
+
+    $y += 25
+    $txtHost = New-Object System.Windows.Forms.TextBox
+    $txtHost.Location = New-Object System.Drawing.Point(20, $y)
+    $txtHost.Width = 180
+    $txtHost.Text = "8.8.8.8"
+    $pltForm.Controls.Add($txtHost)
+
+    $txtPps = New-Object System.Windows.Forms.TextBox
+    $txtPps.Location = New-Object System.Drawing.Point(215, $y)
+    $txtPps.Width = 100
+    $txtPps.Text = "2"
+    $pltForm.Controls.Add($txtPps)
+
+    $txtSize = New-Object System.Windows.Forms.TextBox
+    $txtSize.Location = New-Object System.Drawing.Point(340, $y)
+    $txtSize.Width = 115
+    $txtSize.Text = "32"
+    $pltForm.Controls.Add($txtSize)
+
+    $txtDuration = New-Object System.Windows.Forms.TextBox
+    $txtDuration.Location = New-Object System.Drawing.Point(475, $y)
+    $txtDuration.Width = 115
+    $txtDuration.Text = "60"
+    $pltForm.Controls.Add($txtDuration)
+
+    # Start / Close Buttons
+    $y += 35
+    $btnStart = New-Object System.Windows.Forms.Button
+    $btnStart.Location = New-Object System.Drawing.Point(20, $y)
+    $btnStart.Size = New-Object System.Drawing.Size(140, 35)
+    $btnStart.Text = "Start Test"
+    $btnStart.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnStart.FlatStyle = 'Flat'
+    $btnStart.FlatAppearance.BorderSize = 1
+    $pltForm.Controls.Add($btnStart)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Location = New-Object System.Drawing.Point(545, $y)
+    $btnClose.Size = New-Object System.Drawing.Size(115, 35)
+    $btnClose.Text = "Close"
+    $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnClose.FlatStyle = 'Flat'
+    $btnClose.FlatAppearance.BorderSize = 1
+    $pltForm.Controls.Add($btnClose)
+
+    # Stats Banner Labels
+    $y += 45
+    $lblStats = New-Object System.Windows.Forms.Label
+    $lblStats.Location = New-Object System.Drawing.Point(20, $y)
+    $lblStats.Size = New-Object System.Drawing.Size(640, 22)
+    $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
+    $lblStats.Text = "Sent: 0  |  Recv: 0  |  Lost: 0 (0.0%)  |  Min: -- ms  |  Avg: -- ms  |  Max: -- ms"
+    $pltForm.Controls.Add($lblStats)
+
+    $y += 24
+    $lblReason = New-Object System.Windows.Forms.Label
+    $lblReason.Location = New-Object System.Drawing.Point(20, $y)
+    $lblReason.Size = New-Object System.Drawing.Size(640, 20)
+    $lblReason.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+    $lblReason.Text = "Last Drop Reason: None"
+    $pltForm.Controls.Add($lblReason)
+
+    # Real-Time Graph Canvas Panel
+    $y += 25
+    $pnlGraph = New-Object System.Windows.Forms.Panel
+    $pnlGraph.Location = New-Object System.Drawing.Point(20, $y)
+    $pnlGraph.Size = New-Object System.Drawing.Size(640, 240)
+    $pnlGraph.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1e24")
+    $pnlGraph.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $pltForm.Controls.Add($pnlGraph)
+
+    # State variables
+    $script:pltRunning = $false
+    $script:sentCount = 0
+    $script:recvCount = 0
+    $script:lostCount = 0
+    $script:minRtt = 999999
+    $script:maxRtt = 0
+    $script:sumRtt = 0
+    $script:pingHistory = [System.Collections.ArrayList]::new()
+    $script:maxTargetPackets = 120
+    $script:lastReasonText = "None"
+
+    # Graph Paint Event Handler
+    $pnlGraph.Add_Paint({
+        param($sender, $e)
+        $g = $e.Graphics
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+
+        $w = $pnlGraph.ClientSize.Width
+        $h = $pnlGraph.ClientSize.Height
+
+        # Draw Gridlines & Latency Labels
+        $gridPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#33363d"), 1)
+        $gridPen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
+        $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#72767d"))
+
+        # Max Y scale dynamically based on ping history (minimum 100ms)
+        $maxY = 100
+        foreach ($p in $script:pingHistory) {
+            if ($p.Success -and $p.RTT -gt $maxY) { $maxY = $p.RTT }
+        }
+        $maxY = [math]::Ceiling($maxY / 50) * 50  # round to multiple of 50ms
+
+        # 3 horizontal gridlines
+        for ($i = 1; $i -le 3; $i++) {
+            $yPos = $h - ($h * ($i / 4.0))
+            $g.DrawLine($gridPen, 0, $yPos, $w, $yPos)
+            $msVal = [int]($maxY * ($i / 4.0))
+            $g.DrawString("${msVal}ms", $pnlGraph.Font, $textBrush, 5, ($yPos - 14))
+        }
+        $gridPen.Dispose()
+        $textBrush.Dispose()
+
+        # Draw History Packets
+        if ($script:pingHistory.Count -gt 0) {
+            $totSlots = [math]::Max($script:maxTargetPackets, $script:pingHistory.Count)
+            $colWidth = [math]::Max(2.0, ($w / $totSlots))
+            $greenPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#43b581"), [math]::Max(1.5, ($colWidth * 0.7)))
+            $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(2.0, ($colWidth * 0.8)))
+
+            for ($idx = 0; $idx -lt $script:pingHistory.Count; $idx++) {
+                $pt = $script:pingHistory[$idx]
+                $xPos = [float]($idx * $colWidth)
+
+                if ($pt.Success) {
+                    $rttRatio = [float]($pt.RTT / $maxY)
+                    if ($rttRatio -gt 1.0) { $rttRatio = 1.0 }
+                    $yLine = $h - ($h * $rttRatio)
+                    if ($yLine -ge $h) { $yLine = $h - 2 }
+                    $g.DrawLine($greenPen, $xPos, [float]$h, $xPos, [float]$yLine)
+                } else {
+                    # Draw full red vertical bar for lost packet
+                    $g.DrawLine($redPen, $xPos, 0.0, $xPos, [float]$h)
+                }
+            }
+            $greenPen.Dispose()
+            $redPen.Dispose()
+        }
+    })
+
+    # Async / Timer logic
+    $timer = New-Object System.Windows.Forms.Timer
+    
+    $stopTest = {
+        $script:pltRunning = $false
+        $timer.Stop()
+        $btnStart.Text = "Start Test"
+        $txtHost.Enabled = $true
+        $txtPps.Enabled = $true
+        $txtSize.Enabled = $true
+        $txtDuration.Enabled = $true
+    }
+
+    $timer.Add_Tick({
+        if (-not $script:pltRunning) { return }
+
+        $target = $txtHost.Text.Trim()
+        $size = 32
+        [int]::TryParse($txtSize.Text.Trim(), [ref]$size) | Out-Null
+        if ($size -lt 1) { $size = 32 }
+        if ($size -gt 65500) { $size = 65500 }
+
+        $pinger = New-Object System.Net.NetworkInformation.Ping
+        $buffer = [byte[]]::new($size)
+        $timeout = 1500
+
+        $script:sentCount++
+
+        try {
+            $reply = $pinger.Send($target, $timeout, $buffer)
+            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                $script:recvCount++
+                $rtt = [int]$reply.RoundtripTime
+                $script:sumRtt += $rtt
+                if ($rtt -lt $script:minRtt) { $script:minRtt = $rtt }
+                if ($rtt -gt $script:maxRtt) { $script:maxRtt = $rtt }
+
+                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $true; RTT = $rtt; Status = "Success" })
+            } else {
+                $script:lostCount++
+                $reason = $reply.Status.ToString()
+                $script:lastReasonText = $reason
+                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; RTT = 0; Status = $reason })
+            }
+        } catch {
+            $script:lostCount++
+            $reason = $_.Exception.Message
+            $script:lastReasonText = $reason
+            [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; RTT = 0; Status = $reason })
+        }
+
+        # Update stats text
+        $lossPct = 0.0
+        if ($script:sentCount -gt 0) {
+            $lossPct = [math]::Round(($script:lostCount / $script:sentCount) * 100, 1)
+        }
+        $avgRtt = 0
+        if ($script:recvCount -gt 0) {
+            $avgRtt = [int]($script:sumRtt / $script:recvCount)
+        }
+        $minStr = if ($script:minRtt -eq 999999) { "--" } else { "$($script:minRtt)" }
+
+        $lblStats.Text = "Sent: $($script:sentCount)  |  Recv: $($script:recvCount)  |  Lost: $($script:lostCount) ($lossPct%)  |  Min: ${minStr}ms  |  Avg: ${avgRtt}ms  |  Max: $($script:maxRtt)ms"
+        if ($lossPct -gt 0) {
+            $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ff6b6b")
+        } else {
+            $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#51cf66")
+        }
+
+        if ($script:lostCount -gt 0) {
+            $lblReason.Text = "Last Drop Reason: $($script:lastReasonText)"
+            $lblReason.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ff6b6b")
+        } else {
+            $lblReason.Text = "Last Drop Reason: None"
+            $lblReason.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+        }
+
+        $pnlGraph.Invalidate()
+
+        # Check total duration limit
+        $durationSec = 60
+        [int]::TryParse($txtDuration.Text.Trim(), [ref]$durationSec) | Out-Null
+        $ppsVal = 2
+        [int]::TryParse($txtPps.Text.Trim(), [ref]$ppsVal) | Out-Null
+
+        if ($durationSec -gt 0 -and $script:sentCount -ge ($durationSec * $ppsVal)) {
+            &$stopTest
+        }
+    })
+
+    $btnStart.Add_Click({
+        if ($script:pltRunning) {
+            &$stopTest
+        } else {
+            $target = $txtHost.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($target)) { return }
+
+            $pps = 2
+            [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) | Out-Null
+            if ($pps -lt 1) { $pps = 1 }
+            if ($pps -gt 10) { $pps = 10 }
+
+            $dur = 60
+            [int]::TryParse($txtDuration.Text.Trim(), [ref]$dur) | Out-Null
+
+            $script:sentCount = 0
+            $script:recvCount = 0
+            $script:lostCount = 0
+            $script:minRtt = 999999
+            $script:maxRtt = 0
+            $script:sumRtt = 0
+            $script:pingHistory.Clear()
+            $script:maxTargetPackets = if ($dur -gt 0) { $dur * $pps } else { 120 }
+            $script:lastReasonText = "None"
+
+            $script:pltRunning = $true
+            $btnStart.Text = "Cancel Test"
+            $txtHost.Enabled = $false
+            $txtPps.Enabled = $false
+            $txtSize.Enabled = $false
+            $txtDuration.Enabled = $false
+
+            $intervalMs = [math]::Max(100, [int](1000 / $pps))
+            $timer.Interval = $intervalMs
+            $timer.Start()
+        }
+    })
+
+    $btnClose.Add_Click({
+        &$stopTest
+        $pltForm.Close()
+    })
+
+    $pltForm.Add_FormClosing({
+        &$stopTest
+    })
+
+    $pltForm.Add_Load({
+        Invoke-HMTScale $pltForm
+        Set-RoundedControl $btnStart
+        Set-RoundedControl $btnClose
+    })
+
+    Show-HMTDialog $pltForm | Out-Null
+}
+
 # Define Tools
 $troubleList = @(
     [pscustomobject]@{ Name = "Check Disk (Read Only)"; Desc = "Runs Check Disk in read only mode on C: to check for errors in the file system." }
@@ -1158,6 +1496,7 @@ $troubleList = @(
     [pscustomobject]@{ Name = "Read Motherboard OEM Product Key"; Desc = "Reads the OEM Windows product key embedded in the BIOS/ACPI MSDM table." }
     [pscustomobject]@{ Name = "TCP Port & Connection Checker"; Desc = "Launches a GUI tool to test IP/hostname reachability and open TCP ports." }
     [pscustomobject]@{ Name = "Storage SMART & Health Summary"; Desc = "Displays physical disk drive model, media type, operational status, and SMART health." }
+    [pscustomobject]@{ Name = "Packet Loss Test"; Desc = "Runs a real-time continuous ping test measuring latency graph, packet loss rate, and drop reasons." }
 )
 
 foreach ($t in $troubleList) {
@@ -1266,6 +1605,9 @@ $TrLaunchButton.Add_Click({
             }
             "Storage SMART & Health Summary" {
                 Show-StorageHealthDialog
+            }
+            "Packet Loss Test" {
+                Show-PacketLossTestDialog
             }
         }
     } finally {
