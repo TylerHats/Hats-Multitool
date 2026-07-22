@@ -126,11 +126,6 @@ $EditionCheckbox.Location = New-Object System.Drawing.Point(20, $y)
 $EditionCheckbox.Text = 'Set Edition to Pro'
 $EditionCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $EditionCheckbox.AutoSize = $true
-if ($WindowsEdition -match '^Pro') {
-    $EditionCheckbox.Enabled = $false
-} else {
-    $EditionCheckbox.Enabled = $true
-}
 $SMGUI.Controls.Add($EditionCheckbox)
 
 # Add product key input
@@ -138,9 +133,17 @@ $y += 25
 $ProductKeyInput = New-Object System.Windows.Forms.TextBox
 $ProductKeyInput.location = New-Object System.Drawing.Point(17, $y)
 $ProductKeyInput.Width = 280
-$ProductKeyInput.Enabled = $false
+
+if ($WindowsEdition -match 'Pro') {
+    $EditionCheckbox.Enabled = $false
+    $ProductKeyInput.Enabled = $false
+    $ProductKeyInput.Text = "Edition is already Pro"
+} else {
+    $EditionCheckbox.Enabled = $true
+    $ProductKeyInput.Enabled = $false
+    [HMT.NativeMethods]::SendMessage($ProductKeyInput.Handle, $EM_SETCUEBANNER, 1, "VK7JG-NPHTM-C97JM-9MPGT-3V66T")
+}
 $SMGUI.Controls.Add($ProductKeyInput)
-[HMT.NativeMethods]::SendMessage($ProductKeyInput.Handle, $EM_SETCUEBANNER, 1, "VK7JG-NPHTM-C97JM-9MPGT-3V66T")
 
 # Add Okay button
 $y += 40
@@ -199,9 +202,14 @@ function Test-ComputerName([string]$name) {
 # Configure edition CheckBox event
 $EditionCheckbox.Add_CheckedChanged({
     if ($EditionCheckbox.Checked) {
+        if ($ProductKeyInput.Text -eq "Edition is already Pro") { $ProductKeyInput.Clear() }
         $ProductKeyInput.Enabled = $true
     } else {
-        $ProductKeyInput.Clear()
+        if ($WindowsEdition -match 'Pro') {
+            $ProductKeyInput.Text = "Edition is already Pro"
+        } else {
+            $ProductKeyInput.Clear()
+        }
         $ProductKeyInput.Enabled = $false
     }
 })

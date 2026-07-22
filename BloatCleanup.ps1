@@ -17,9 +17,12 @@ $bloatApps = @(
     "*Disney*",
     "*Netflix*",
     "*PrimeVideo*",
+    "*WhatsApp*",
+    "*LinkedIn*",
+    "*LinkedInForWindows*",
+    "*Clipchamp*",
     "*McAfee*",
     "*Norton*",
-    "*LinkedInForWindows*",
     "*BingNews*",
     "*BingWeather*",
     "*WindowsMaps*",
@@ -78,9 +81,15 @@ $telemetryPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
 if (-not (Test-Path $telemetryPath)) { New-Item -Path $telemetryPath -Force | Out-Null }
 Set-ItemProperty -Path $telemetryPath -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
 
+# Disable Windows Consumer Features & Suggested Apps System-wide
+$cloudPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+if (-not (Test-Path $cloudPath)) { New-Item -Path $cloudPath -Force | Out-Null }
+Set-ItemProperty -Path $cloudPath -Name "DisableWindowsConsumerFeatures" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cloudPath -Name "DisableCloudOptimizedContent" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+
 $global:BGRBaseText = "Disabling Bing Search & Ads"
 [System.Windows.Forms.Application]::DoEvents()
-Log-Message "Applying registry tweaks for Bing Search and Advertising (System-wide & New User Default)..." "Info"
+Log-Message "Applying registry tweaks for Bing Search, Consumer Pins, and Advertising (System-wide & New User Default)..." "Info"
 
 # 1. HKLM System-wide Policies
 $hklmExplorerPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
@@ -100,6 +109,15 @@ Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" 
 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0 -Force -ErrorAction SilentlyContinue
 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy" -Name "TailoredExperiencesWithDiagnosticDataEnabled" -Value 0 -Force -ErrorAction SilentlyContinue
 
+$cdmPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+if (-not (Test-Path $cdmPath)) { New-Item -Path $cdmPath -Force | Out-Null }
+Set-ItemProperty -Path $cdmPath -Name "ContentDeliveryAllowed" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPath -Name "OemPreInstalledAppsEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPath -Name "PreInstalledAppsEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPath -Name "SilentInstalledAppsEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPath -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPath -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
 # 3. Default User Profile Hive (New Users)
 $defNtUser = 'C:\Users\Default\NTUSER.DAT'
 if (Test-Path $defNtUser) {
@@ -109,7 +127,14 @@ if (Test-Path $defNtUser) {
         & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\Search" /v "BingSearchEnabled" /t REG_DWORD /d 0 /f | Out-Null
         & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" /v "Enabled" /t REG_DWORD /d 0 /f | Out-Null
         & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\Privacy" /v "TailoredExperiencesWithDiagnosticDataEnabled" /t REG_DWORD /d 0 /f | Out-Null
-        Log-Message "Applied Search & Telemetry policies to Default User profile template." "Success"
+        
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "ContentDeliveryAllowed" /t REG_DWORD /d 0 /f | Out-Null
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "OemPreInstalledAppsEnabled" /t REG_DWORD /d 0 /f | Out-Null
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "PreInstalledAppsEnabled" /t REG_DWORD /d 0 /f | Out-Null
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "SilentInstalledAppsEnabled" /t REG_DWORD /d 0 /f | Out-Null
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "SubscribedContent-338388Enabled" /t REG_DWORD /d 0 /f | Out-Null
+        & reg.exe add "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v "SubscribedContent-338389Enabled" /t REG_DWORD /d 0 /f | Out-Null
+        Log-Message "Applied Search, Telemetry, and Consumer Feature policies to Default User profile template." "Success"
     } finally {
         & reg.exe unload "HKU\DefUser" | Out-Null
     }

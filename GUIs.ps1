@@ -718,7 +718,7 @@ $TLaunchButton.Add_Click({
                 $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.exe"
                 $dduUrl = "https://download.wagnardsoft.com/DDU/DDU%20v18.1.5.6.exe"
                 try {
-                    $dduPage = Invoke-WebRequest -Uri "https://www.wagnardsoft.com/display-driver-uninstaller-ddu" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -ErrorAction Stop
+                    $dduPage = Invoke-WebRequest -Uri "https://www.wagnardsoft.com/display-driver-uninstaller-ddu" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -ErrorAction Stop
                     if ($dduPage.Content -match 'alt="Download Display Driver Uninstaller \(DDU\) ([0-9\.]+)"') {
                         $dduVer = $matches[1]
                         $dduUrl = "https://download.wagnardsoft.com/DDU/DDU%20v$dduVer.exe"
@@ -754,11 +754,11 @@ $TLaunchButton.Add_Click({
             "Crystal Disk Mark" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-                $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip'
+                $cdmUrl = 'https://master.dl.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip?viasf=1'
                 try {
-                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
+                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -ErrorAction Stop
                     if ($sfJson.release.filename) { 
-                        $cdmUrl = "https://downloads.sourceforge.net/project/crystaldiskmark" + $sfJson.release.filename 
+                        $cdmUrl = "https://master.dl.sourceforge.net/project/crystaldiskmark" + $sfJson.release.filename + "?viasf=1"
                     }
                 } catch { Write-Warning "Failed to fetch Crystal Disk Mark download URL." }
                 Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
@@ -771,11 +771,11 @@ $TLaunchButton.Add_Click({
             "Crystal Disk Info" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-                $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.9.1/CrystalDiskInfo9_9_1.zip'
+                $cdiUrl = 'https://master.dl.sourceforge.net/project/crystaldiskinfo/9.9.1/CrystalDiskInfo9_9_1.zip?viasf=1'
                 try {
-                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
+                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -ErrorAction Stop
                     if ($sfJson.release.filename) { 
-                        $cdiUrl = "https://downloads.sourceforge.net/project/crystaldiskinfo" + $sfJson.release.filename 
+                        $cdiUrl = "https://master.dl.sourceforge.net/project/crystaldiskinfo" + $sfJson.release.filename + "?viasf=1"
                     }
                 } catch { Write-Warning "Failed to fetch Crystal Disk Info download URL." }
                 Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
@@ -995,20 +995,31 @@ function Show-TcpCheckerDialog {
 
         $btnTest.Enabled = $false
         $btnTest.Text = "Testing..."
-        $txtResult.Text = "Testing TCP connection to ${targetHost}:${port}..."
+        $txtResult.Text = "Testing connection to ${targetHost}:${port}..."
         [System.Windows.Forms.Application]::DoEvents()
 
         try {
-            $res = Test-NetConnection -ComputerName $targetHost -Port $port -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $tcpRes = Test-NetConnection -ComputerName $targetHost -Port $port -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            
+            $pingStr = "FAILED"
+            try {
+                $pinger = [System.Net.NetworkInformation.Ping]::new()
+                $reply = $pinger.Send($targetHost, 2000)
+                if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                    $pingStr = "SUCCESS ($($reply.RoundtripTime) ms, TTL=$($reply.Options.Ttl))"
+                } else {
+                    $pingStr = "FAILED ($($reply.Status))"
+                }
+            } catch {
+                $pingStr = "FAILED ($($_))"
+            }
+
             $sb = New-Object System.Text.StringBuilder
             [void]$sb.AppendLine("Target Host:      $targetHost")
-            [void]$sb.AppendLine("Resolved IP:      $($res.RemoteAddress)")
-            [void]$sb.AppendLine("Port:             $port")
-            [void]$sb.AppendLine("Ping Succeeded:   $($res.PingSucceeded)")
-            if ($null -ne $res.PingReplyDetails -and $res.PingReplyDetails.RTT -gt 0) {
-                [void]$sb.AppendLine("Ping Latency:     $($res.PingReplyDetails.RTT) ms")
-            }
-            [void]$sb.AppendLine("TCP Connection:   $(if ($res.TcpTestSucceeded) { 'SUCCESS' } else { 'FAILED' })")
+            [void]$sb.AppendLine("Resolved IP:      $(if ($tcpRes.RemoteAddress) { $tcpRes.RemoteAddress } else { 'N/A' })")
+            [void]$sb.AppendLine("Target Port:      $port")
+            [void]$sb.AppendLine("ICMP Ping:        $pingStr")
+            [void]$sb.AppendLine("TCP Connection:   $(if ($tcpRes.TcpTestSucceeded) { 'SUCCESS' } else { 'FAILED' })")
             $txtResult.Text = $sb.ToString()
         } catch {
             $txtResult.Text = "Error testing connection: $_"
@@ -1031,7 +1042,7 @@ function Show-StorageHealthDialog {
     $shForm = New-Object System.Windows.Forms.Form
     $shForm.Text = "Storage SMART & Health Summary"
     $shForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $shForm.ClientSize = New-Object System.Drawing.Size(640, 360)
+    $shForm.ClientSize = New-Object System.Drawing.Size(825, 360)
     $shForm.StartPosition = 'CenterScreen'
     $shForm.Icon = $HMTIcon
     $shForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1045,18 +1056,20 @@ function Show-StorageHealthDialog {
     $y = 15
     $shLV = New-Object System.Windows.Forms.ListView
     $shLV.Location = New-Object System.Drawing.Point(20, $y)
-    $shLV.Size = New-Object System.Drawing.Size(600, 250)
+    $shLV.Size = New-Object System.Drawing.Size(785, 250)
     $shLV.View = [System.Windows.Forms.View]::Details
     $shLV.FullRowSelect = $true
     $shLV.GridLines = $true
     $shLV.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
     $shLV.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $shLV.Columns.Add("Disk #", 55) | Out-Null
-    $shLV.Columns.Add("Model", 195) | Out-Null
+    $shLV.Columns.Add("Disk #", 50) | Out-Null
+    $shLV.Columns.Add("Model", 220) | Out-Null
     $shLV.Columns.Add("Media Type", 85) | Out-Null
-    $shLV.Columns.Add("Size (GB)", 80) | Out-Null
-    $shLV.Columns.Add("Health Status", 90) | Out-Null
-    $shLV.Columns.Add("Operational Status", 95) | Out-Null
+    $shLV.Columns.Add("Size", 80) | Out-Null
+    $shLV.Columns.Add("Wearout", 75) | Out-Null
+    $shLV.Columns.Add("Total Writes", 95) | Out-Null
+    $shLV.Columns.Add("Health Status", 95) | Out-Null
+    $shLV.Columns.Add("Status", 80) | Out-Null
     [HMT.NativeMethods]::SetWindowTheme($shLV.Handle, "DarkMode_Explorer", $null) | Out-Null
     $shForm.Controls.Add($shLV)
 
@@ -1066,11 +1079,24 @@ function Show-StorageHealthDialog {
             $disks = Get-PhysicalDisk -ErrorAction SilentlyContinue
             if ($disks) {
                 foreach ($d in $disks) {
+                    $counter = $d | Get-StorageReliabilityCounter -ErrorAction SilentlyContinue
+                    $wearStr = if ($counter -and $null -ne $counter.Wear) { "$($counter.Wear)%" } else { "N/A" }
+                    $writesStr = "N/A"
+                    if ($counter -and $null -ne $counter.BytesWritten -and $counter.BytesWritten -gt 0) {
+                        if ($counter.BytesWritten -ge 1TB) {
+                            $writesStr = "$([math]::Round($counter.BytesWritten / 1TB, 2)) TB"
+                        } else {
+                            $writesStr = "$([math]::Round($counter.BytesWritten / 1GB, 1)) GB"
+                        }
+                    }
+
                     $item = New-Object System.Windows.Forms.ListViewItem([string]$d.DeviceId)
                     $item.SubItems.Add([string]$d.FriendlyName) | Out-Null
                     $item.SubItems.Add([string]$d.MediaType) | Out-Null
                     $sizeGb = [math]::Round($d.Size / 1GB, 1)
                     $item.SubItems.Add("$sizeGb GB") | Out-Null
+                    $item.SubItems.Add($wearStr) | Out-Null
+                    $item.SubItems.Add($writesStr) | Out-Null
                     $item.SubItems.Add([string]$d.HealthStatus) | Out-Null
                     $item.SubItems.Add(([string]($d.OperationalStatus -join ', '))) | Out-Null
                     $shLV.Items.Add($item) | Out-Null
@@ -1098,7 +1124,7 @@ function Show-StorageHealthDialog {
     $shForm.Controls.Add($btnRefresh)
 
     $btnClose = New-Object System.Windows.Forms.Button
-    $btnClose.Location = New-Object System.Drawing.Point(505, $y)
+    $btnClose.Location = New-Object System.Drawing.Point(690, $y)
     $btnClose.Size = New-Object System.Drawing.Size(115, 35)
     $btnClose.Text = "Close"
     $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
