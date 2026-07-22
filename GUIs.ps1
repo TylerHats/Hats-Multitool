@@ -678,8 +678,14 @@ $TLaunchButton.Add_Click({
                 try {
                     Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
                 } catch {
-                    Log-Message "Primary ForensIT download failed, attempting mirror..." "Warning"
-                    Show-DownloadDialog -DisplayName 'User Profile Wizard (Mirror)' -Url "https://hatsthings.com/MultitoolFiles/Profwiz.msi" -OutputPath "$UPWPath"
+                    Log-Message "Primary ForensIT download blocked by Cloudflare (403), attempting mirror..." "Warning"
+                    try {
+                        Show-DownloadDialog -DisplayName 'User Profile Wizard (Mirror)' -Url "https://hatsthings.com/MultitoolFiles/Profwiz.msi" -OutputPath "$UPWPath"
+                    } catch {
+                        Log-Message "Mirror download failed. Opening ForensIT downloads page in browser..." "Warning"
+                        PopupError "ForensIT direct download is blocked by Cloudflare bot protection.`nOpening the ForensIT downloads page in your browser..." "Warning"
+                        Start-Process "https://www.forensit.com/downloads.html"
+                    }
                 }
                 if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
             }

@@ -515,13 +515,14 @@ function Show-DownloadDialog {
 		}
     })
 
+    $script:dlError = $null
     # Completion event stops timer and closes form
     $webClient.add_DownloadFileCompleted({ param($s,$e)
         $uiTimer.Stop()
         
         if ($e.Error) {
-            # Safely alert user and clean up the corrupted trace file
-            PopupError "Download failed: $($e.Error.Message)" "Error"
+            $script:dlError = $e.Error
+            Log-Message "Download failed for $DisplayName: $($e.Error.Message)" "Warning"
             if (Test-Path -LiteralPath $OutputPath) { 
                 Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue 
             }
@@ -553,7 +554,7 @@ function Show-DownloadDialog {
 
     # Start async download
     try { $webClient.DownloadFileAsync([Uri]$Url, $OutputPath) }
-    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; return }
+    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; throw $_ }
 
     # Show dialog until done
     Show-HMTDialog $dform | Out-Null
@@ -561,6 +562,12 @@ function Show-DownloadDialog {
     # Remove Mark of the Web to bypass execution delays
     if (Test-Path -LiteralPath $OutputPath) {
         Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+    }
+
+    if ($script:dlError) {
+        $errObj = $script:dlError
+        $script:dlError = $null
+        throw $errObj
     }
 }
 
