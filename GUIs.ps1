@@ -678,14 +678,9 @@ $TLaunchButton.Add_Click({
                 try {
                     Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
                 } catch {
-                    Log-Message "Primary ForensIT download blocked by Cloudflare (403), attempting mirror..." "Warning"
-                    try {
-                        Show-DownloadDialog -DisplayName 'User Profile Wizard (Mirror)' -Url "https://hatsthings.com/MultitoolFiles/Profwiz.msi" -OutputPath "$UPWPath"
-                    } catch {
-                        Log-Message "Mirror download failed. Opening ForensIT downloads page in browser..." "Warning"
-                        PopupError "ForensIT direct download is blocked by Cloudflare bot protection.`nOpening the ForensIT downloads page in your browser..." "Warning"
-                        Start-Process "https://www.forensit.com/downloads.html"
-                    }
+                    Log-Message "ForensIT direct download blocked by Cloudflare (403). Opening downloads page in browser..." "Warning"
+                    PopupError "ForensIT direct download is blocked by Cloudflare bot protection.`nOpening the ForensIT downloads page in your browser..." "Warning"
+                    Start-Process "https://www.forensit.com/downloads.html"
                 }
                 if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
             }
@@ -1362,12 +1357,13 @@ function Show-PacketLossTestDialog {
         $target = $txtHost.Text.Trim()
         $size = 32
         [int]::TryParse($txtSize.Text.Trim(), [ref]$size) | Out-Null
-        if ($size -lt 1) { $size = 32 }
-        if ($size -gt 65500) { $size = 65500 }
+        $ppsVal = 2
+        [int]::TryParse($txtPps.Text.Trim(), [ref]$ppsVal) | Out-Null
+        if ($ppsVal -lt 1) { $ppsVal = 1 }
 
         $pinger = New-Object System.Net.NetworkInformation.Ping
         $buffer = [byte[]]::new($size)
-        $timeout = 1500
+        $timeout = [math]::Max(100, [int](800 / $ppsVal))
 
         $script:sentCount++
 
@@ -1425,8 +1421,6 @@ function Show-PacketLossTestDialog {
         # Check total duration limit
         $durationSec = 60
         [int]::TryParse($txtDuration.Text.Trim(), [ref]$durationSec) | Out-Null
-        $ppsVal = 2
-        [int]::TryParse($txtPps.Text.Trim(), [ref]$ppsVal) | Out-Null
 
         if ($durationSec -gt 0 -and $script:sentCount -ge ($durationSec * $ppsVal)) {
             &$stopTest
@@ -1441,9 +1435,10 @@ function Show-PacketLossTestDialog {
             if ([string]::IsNullOrWhiteSpace($target)) { return }
 
             $pps = 2
-            [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) | Out-Null
-            if ($pps -lt 1) { $pps = 1 }
-            if ($pps -gt 10) { $pps = 10 }
+            if (-not [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) -or $pps -lt 1 -or $pps -gt 50) {
+                PopupError "Pings / Sec must be an integer between 1 and 50." "Warning"
+                return
+            }
 
             $dur = 60
             [int]::TryParse($txtDuration.Text.Trim(), [ref]$dur) | Out-Null
@@ -1465,7 +1460,7 @@ function Show-PacketLossTestDialog {
             $txtSize.Enabled = $false
             $txtDuration.Enabled = $false
 
-            $intervalMs = [math]::Max(100, [int](1000 / $pps))
+            $intervalMs = [math]::Max(20, [int](1000 / $pps))
             $timer.Interval = $intervalMs
             $timer.Start()
         }

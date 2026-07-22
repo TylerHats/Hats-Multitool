@@ -185,17 +185,21 @@ $FOOkayButton.Add_Click({
                     }
 
                     'devicepower' {
-                        # Disable USB Selective Suspend & PCIe ASPM in Active Power Scheme
-                        & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 | Out-Null
-                        & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 | Out-Null
-                        & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 | Out-Null
-                        & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 | Out-Null
-                        & powercfg.exe /SETACTIVE SCHEME_CURRENT | Out-Null
+                        # Disable USB Selective Suspend & PCIe ASPM in Active Power Scheme (suppress missing GUID errors on VMs/laptops)
+                        try { & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 2>$null } catch {}
+                        try { & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48672f3c-7a97-4e7d-b77e-4600e11c3a61 0 2>$null } catch {}
+                        try { & powercfg.exe /SETACVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 2>$null } catch {}
+                        try { & powercfg.exe /SETDCVALUEINDEX SCHEME_CURRENT 503e4fe8-3593-4916-84e3-524f0c436b72 ee12f904-d8a3-4309-947e-72b44c6d3d57 0 2>$null } catch {}
+                        try { & powercfg.exe /SETACTIVE SCHEME_CURRENT 2>$null } catch {}
 
-                        # Disable Power Management on Network Adapters
-                        Get-NetAdapter -ErrorAction SilentlyContinue | ForEach-Object {
-                            Set-NetAdapterPowerManagement -Name $_.Name -AllowSleepFromLowerPowerStates Disabled -ErrorAction SilentlyContinue
-                        }
+                        # Disable Power Management on Network Adapters (gracefully handles adapters without power management features)
+                        try {
+                            Get-NetAdapter -ErrorAction SilentlyContinue | ForEach-Object {
+                                try {
+                                    Set-NetAdapterPowerManagement -Name $_.Name -AllowSleepFromLowerPowerStates Disabled -ErrorAction SilentlyContinue 2>$null
+                                } catch {}
+                            }
+                        } catch {}
                         
                         # USB Policy
                         $usbPath = "Registry::HKLM\SYSTEM\CurrentControlSet\Services\USB"
