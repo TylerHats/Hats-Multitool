@@ -1156,7 +1156,7 @@ function Show-PacketLossTestDialog {
     $pltForm = New-Object System.Windows.Forms.Form
     $pltForm.Text = "Packet Loss & Ping Test"
     $pltForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $pltForm.ClientSize = New-Object System.Drawing.Size(680, 520)
+    $pltForm.ClientSize = New-Object System.Drawing.Size(680, 430)
     $pltForm.StartPosition = 'CenterScreen'
     $pltForm.Icon = $HMTIcon
     $pltForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1273,6 +1273,7 @@ function Show-PacketLossTestDialog {
     $script:pltRunning = $false
     $script:sentCount = 0
     $script:recvCount = 0
+    $script:lateCount = 0
     $script:lostCount = 0
     $script:minRtt = 999999
     $script:maxRtt = 0
@@ -1280,46 +1281,6 @@ function Show-PacketLossTestDialog {
     $script:pingHistory = [System.Collections.ArrayList]::new()
     $script:maxTargetPackets = 120
     $script:lastReasonText = "None"
-
-    # Latency Color Gradient Helper (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
-    $getLatencyColor = {
-        param([int]$ms)
-        if ($ms -le 0) { return [System.Drawing.Color]::FromArgb(67, 181, 129) }
-        if ($ms -ge 100) { return [System.Drawing.Color]::FromArgb(240, 71, 71) }
-
-        if ($ms -le 25) {
-            $f = $ms / 25.0
-            return [System.Drawing.Color]::FromArgb(
-                [int](67 + (136 - 67) * $f),
-                [int](181 + (212 - 181) * $f),
-                [int](129 + (64 - 129) * $f)
-            )
-        }
-        elseif ($ms -le 50) {
-            $f = ($ms - 25) / 25.0
-            return [System.Drawing.Color]::FromArgb(
-                [int](136 + (241 - 136) * $f),
-                [int](212 + (196 - 212) * $f),
-                [int](64 + (15 - 64) * $f)
-            )
-        }
-        elseif ($ms -le 75) {
-            $f = ($ms - 50) / 25.0
-            return [System.Drawing.Color]::FromArgb(
-                [int](241 + (230 - 241) * $f),
-                [int](196 + (126 - 196) * $f),
-                [int](15 + (34 - 15) * $f)
-            )
-        }
-        else {
-            $f = ($ms - 75) / 25.0
-            return [System.Drawing.Color]::FromArgb(
-                [int](230 + (240 - 230) * $f),
-                [int](126 + (71 - 126) * $f),
-                [int](34 + (71 - 34) * $f)
-            )
-        }
-    }
 
     # Graph Paint Event Handler
     $pnlGraph.Add_Paint({
@@ -1358,6 +1319,31 @@ function Show-PacketLossTestDialog {
             $colWidth = [float]($w / $totSlots)
             $barWidth = [math]::Max(1.0, [float]($colWidth * 0.85))
 
+            # Vertical LinearGradientBrush for latency height spectrum (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
+            $y100 = $h - ($h * (100.0 / $maxY))
+            if ($y100 -ge $h) { $y100 = $h - 1.0 }
+
+            $gradBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                (New-Object System.Drawing.PointF(0, $h)),
+                (New-Object System.Drawing.PointF(0, $y100)),
+                [System.Drawing.Color]::Black,
+                [System.Drawing.Color]::Black
+            )
+            $cb = New-Object System.Drawing.Drawing2D.ColorBlend
+            $cb.Colors = [System.Drawing.Color[]]@(
+                [System.Drawing.Color]::FromArgb(67, 181, 129),   # 0ms: Green
+                [System.Drawing.Color]::FromArgb(136, 212, 64),   # 25ms: Yellow-Green
+                [System.Drawing.Color]::FromArgb(241, 196, 15),   # 50ms: Yellow
+                [System.Drawing.Color]::FromArgb(230, 126, 34),   # 75ms: Orange
+                [System.Drawing.Color]::FromArgb(240, 71, 71)     # 100ms+: Red
+            )
+            $cb.Positions = [float[]]@(0.0, 0.25, 0.5, 0.75, 1.0)
+            $gradBrush.InterpolationColors = $cb
+
+            $gradPen = New-Object System.Drawing.Pen($gradBrush, $barWidth)
+            $orangePen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#e67e22"), [math]::Max(1.0, $barWidth))
+            $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(1.0, $barWidth))
+
             for ($idx = 0; $idx -lt $script:pingHistory.Count; $idx++) {
                 $pt = $script:pingHistory[$idx]
                 $xPos = [float]($idx * $colWidth)
@@ -1368,17 +1354,23 @@ function Show-PacketLossTestDialog {
                     $yLine = $h - ($h * $rttRatio)
                     if ($yLine -ge $h) { $yLine = $h - 2 }
 
-                    $barColor = &$getLatencyColor $pt.RTT
-                    $barPen = New-Object System.Drawing.Pen($barColor, $barWidth)
-                    $g.DrawLine($barPen, $xPos, [float]$h, $xPos, [float]$yLine)
-                    $barPen.Dispose()
+                    if ($pt.IsLate) {
+                        # Draw solid orange vertical bar for late packet
+                        $g.DrawLine($orangePen, $xPos, [float]$h, $xPos, [float]$yLine)
+                    } else {
+                        # Draw gradient vertical bar for normal successful packet
+                        $g.DrawLine($gradPen, $xPos, [float]$h, $xPos, [float]$yLine)
+                    }
                 } else {
-                    # Draw full red vertical bar for lost packet
-                    $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(1.0, $barWidth))
+                    # Draw full solid red vertical bar for lost packet
                     $g.DrawLine($redPen, $xPos, 0.0, $xPos, [float]$h)
-                    $redPen.Dispose()
                 }
             }
+
+            $gradPen.Dispose()
+            $gradBrush.Dispose()
+            $orangePen.Dispose()
+            $redPen.Dispose()
         }
     })
 
@@ -1420,18 +1412,21 @@ function Show-PacketLossTestDialog {
                 if ($rtt -lt $script:minRtt) { $script:minRtt = $rtt }
                 if ($rtt -gt $script:maxRtt) { $script:maxRtt = $rtt }
 
-                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $true; RTT = $rtt; Status = "Success" })
+                $isLate = ($rtt -ge 1000)
+                if ($isLate) { $script:lateCount++ }
+
+                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $true; IsLate = $isLate; RTT = $rtt; Status = "Success" })
             } else {
                 $script:lostCount++
                 $reason = $reply.Status.ToString()
                 $script:lastReasonText = $reason
-                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; RTT = 0; Status = $reason })
+                [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; IsLate = $false; RTT = 0; Status = $reason })
             }
         } catch {
             $script:lostCount++
             $reason = $_.Exception.Message
             $script:lastReasonText = $reason
-            [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; RTT = 0; Status = $reason })
+            [void]$script:pingHistory.Add([pscustomobject]@{ Success = $false; IsLate = $false; RTT = 0; Status = $reason })
         }
 
         # Update stats text
@@ -1439,15 +1434,21 @@ function Show-PacketLossTestDialog {
         if ($script:sentCount -gt 0) {
             $lossPct = [math]::Round(($script:lostCount / $script:sentCount) * 100, 1)
         }
+        $latePct = 0.0
+        if ($script:sentCount -gt 0) {
+            $latePct = [math]::Round(($script:lateCount / $script:sentCount) * 100, 1)
+        }
         $avgRtt = 0
         if ($script:recvCount -gt 0) {
             $avgRtt = [int]($script:sumRtt / $script:recvCount)
         }
         $minStr = if ($script:minRtt -eq 999999) { "--" } else { "$($script:minRtt)" }
 
-        $lblStats.Text = "Sent: $($script:sentCount)  |  Recv: $($script:recvCount)  |  Lost: $($script:lostCount) ($lossPct%)  |  Min: ${minStr}ms  |  Avg: ${avgRtt}ms  |  Max: $($script:maxRtt)ms"
+        $lblStats.Text = "Sent: $($script:sentCount)  |  Recv: $($script:recvCount)  |  Late: $($script:lateCount) ($latePct%)  |  Lost: $($script:lostCount) ($lossPct%)  |  Min: ${minStr}ms  |  Avg: ${avgRtt}ms  |  Max: $($script:maxRtt)ms"
         if ($lossPct -gt 0) {
             $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ff6b6b")
+        } elseif ($latePct -gt 0) {
+            $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#e67e22")
         } else {
             $lblStats.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#51cf66")
         }
