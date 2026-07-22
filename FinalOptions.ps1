@@ -53,6 +53,7 @@ $FOLV.Items.Clear()
 $list = @(
     @{ Option = 'NumLock - Default On for Login and New User Sessions'; ID = 'numlock' },
     @{ Option = 'Disable Windows Default Printer Management'; ID = 'defprint' },
+    @{ Option = 'Restore Classic Windows 11 Right-Click Context Menu'; ID = 'classicmenu' },
     @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Azure Login'; ID = 'hellopin' }
 )
 foreach ($u in $list) {
@@ -87,7 +88,6 @@ $FOGUI.Add_Load({
 
 
 # Define a function to handle the Okay button click
-# Define a function to handle the Okay button click
 $FOOkayButton.Add_Click({
         $FOOkayButton.Enabled = $false
         try {
@@ -121,19 +121,23 @@ $FOOkayButton.Add_Click({
                     }
                 
                     'defprint' {
-                        # 1. Fix for CURRENT User
+                        # 1. Fix System Policy (HKLM - System-wide)
+                        $hklmPrintPath = 'Registry::HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers'
+                        if (-not (Test-Path $hklmPrintPath)) { New-Item -Path $hklmPrintPath -Force | Out-Null }
+                        Set-ItemProperty -Path $hklmPrintPath -Name 'LegacyDefaultPrinterMode' -Value 1 -Type DWord -Force
+
+                        # 2. Fix CURRENT User (HKCU)
                         $hkcuPrintPath = 'Registry::HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows'
                         if (-not (Test-Path $hkcuPrintPath)) { New-Item -Path $hkcuPrintPath -Force | Out-Null }
                         Set-ItemProperty -Path $hkcuPrintPath -Name 'LegacyDefaultPrinterMode' -Value 1 -Type DWord -Force
 
-                        # 2. Fix for NEW Users
+                        # 3. Fix NEW Users (Default Profile Hive)
                         $defNtUser = 'C:\Users\Default\NTUSER.DAT'
-
                         if (Test-Path $defNtUser) {
                             & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
                             try {
                                 & reg.exe add "HKU\DefUser\Software\Microsoft\Windows NT\CurrentVersion\Windows" /v "LegacyDefaultPrinterMode" /t REG_DWORD /d 1 /f | Out-Null
-                                Log-Message "Enabled legacy default print management." "Success"
+                                Log-Message "Disabled automatic printer management for new user profiles." "Success"
                             } finally {
                                 & reg.exe unload "HKU\DefUser" | Out-Null
                             }
@@ -141,6 +145,27 @@ $FOOkayButton.Add_Click({
                         else {
                             Log-Message "Default profile hive not found at $defNtUser" "Error"
                         }
+                        Log-Message "Disabled automatic Windows default printer management." "Success"
+                    }
+
+                    'classicmenu' {
+                        # 1. Apply to HKCU
+                        $clsidPath = "Registry::HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+                        if (-not (Test-Path $clsidPath)) { New-Item -Path $clsidPath -Force | Out-Null }
+                        Set-ItemProperty -Path $clsidPath -Name "(Default)" -Value "" -Type String -Force
+
+                        # 2. Apply to Default Profile Hive (New Users)
+                        $defNtUser = 'C:\Users\Default\NTUSER.DAT'
+                        if (Test-Path $defNtUser) {
+                            & reg.exe load "HKU\DefUser" "$defNtUser" | Out-Null
+                            try {
+                                & reg.exe add "HKU\DefUser\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" /ve /t REG_SZ /d "" /f | Out-Null
+                                Log-Message "Restored classic context menu for new user profiles." "Success"
+                            } finally {
+                                & reg.exe unload "HKU\DefUser" | Out-Null
+                            }
+                        }
+                        Log-Message "Restored classic Windows 11 right-click context menu." "Success"
                     }
                 
                     'hellopin' {

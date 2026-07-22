@@ -908,6 +908,217 @@ $val = 1
 [HMT.NativeMethods]::SetWindowTheme($TrListView.Handle, "DarkMode_Explorer", $null) | Out-Null
 $TroubleGUI.Controls.Add($TrListView)
 
+function Show-TcpCheckerDialog {
+    $tcpForm = New-Object System.Windows.Forms.Form
+    $tcpForm.Text = "TCP Port & Connection Checker"
+    $tcpForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $tcpForm.ClientSize = New-Object System.Drawing.Size(420, 310)
+    $tcpForm.StartPosition = 'CenterScreen'
+    $tcpForm.Icon = $HMTIcon
+    $tcpForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $tcpForm.MaximizeBox = $false
+    $tcpForm.MinimizeBox = $true
+    $tcpForm.Font = $font
+    $tcpForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $tcpForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $tcpForm
+
+    $y = 15
+    $lblHost = New-Object System.Windows.Forms.Label
+    $lblHost.Text = "Target Host (IP or Domain):"
+    $lblHost.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblHost.Location = New-Object System.Drawing.Point(20, $y)
+    $lblHost.AutoSize = $true
+    $tcpForm.Controls.Add($lblHost)
+
+    $y += 25
+    $txtHost = New-Object System.Windows.Forms.TextBox
+    $txtHost.Location = New-Object System.Drawing.Point(20, $y)
+    $txtHost.Width = 260
+    $tcpForm.Controls.Add($txtHost)
+    [HMT.NativeMethods]::SendMessage($txtHost.Handle, 0x1501, 1, "e.g. 8.8.8.8 or google.com")
+
+    $lblPort = New-Object System.Windows.Forms.Label
+    $lblPort.Text = "Port:"
+    $lblPort.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblPort.Location = New-Object System.Drawing.Point(295, ($y - 25))
+    $lblPort.AutoSize = $true
+    $tcpForm.Controls.Add($lblPort)
+
+    $txtPort = New-Object System.Windows.Forms.TextBox
+    $txtPort.Location = New-Object System.Drawing.Point(295, $y)
+    $txtPort.Width = 100
+    $txtPort.Text = "443"
+    $tcpForm.Controls.Add($txtPort)
+
+    $y += 35
+    $btnTest = New-Object System.Windows.Forms.Button
+    $btnTest.Location = New-Object System.Drawing.Point(20, $y)
+    $btnTest.Size = New-Object System.Drawing.Size(140, 35)
+    $btnTest.Text = "Test Connection"
+    $btnTest.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnTest.FlatStyle = 'Flat'
+    $btnTest.FlatAppearance.BorderSize = 1
+    $tcpForm.Controls.Add($btnTest)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Location = New-Object System.Drawing.Point(280, $y)
+    $btnClose.Size = New-Object System.Drawing.Size(115, 35)
+    $btnClose.Text = "Close"
+    $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnClose.FlatStyle = 'Flat'
+    $btnClose.FlatAppearance.BorderSize = 1
+    $tcpForm.Controls.Add($btnClose)
+
+    $y += 45
+    $txtResult = New-Object System.Windows.Forms.TextBox
+    $txtResult.Location = New-Object System.Drawing.Point(20, $y)
+    $txtResult.Size = New-Object System.Drawing.Size(375, 170)
+    $txtResult.Multiline = $true
+    $txtResult.ReadOnly = $true
+    $txtResult.ScrollBars = 'Vertical'
+    $txtResult.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $txtResult.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $tcpForm.Controls.Add($txtResult)
+
+    $btnClose.Add_Click({ $tcpForm.Close() })
+
+    $btnTest.Add_Click({
+        $targetHost = $txtHost.Text.Trim()
+        $targetPortStr = $txtPort.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($targetHost)) {
+            $txtResult.Text = "Please enter a valid IP address or domain name."
+            return
+        }
+        $port = 443
+        [int]::TryParse($targetPortStr, [ref]$port) | Out-Null
+
+        $btnTest.Enabled = $false
+        $btnTest.Text = "Testing..."
+        $txtResult.Text = "Testing TCP connection to ${targetHost}:${port}..."
+        [System.Windows.Forms.Application]::DoEvents()
+
+        try {
+            $res = Test-NetConnection -ComputerName $targetHost -Port $port -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $sb = New-Object System.Text.StringBuilder
+            [void]$sb.AppendLine("Target Host:      $targetHost")
+            [void]$sb.AppendLine("Resolved IP:      $($res.RemoteAddress)")
+            [void]$sb.AppendLine("Port:             $port")
+            [void]$sb.AppendLine("Ping Succeeded:   $($res.PingSucceeded)")
+            if ($null -ne $res.PingReplyDetails -and $res.PingReplyDetails.RTT -gt 0) {
+                [void]$sb.AppendLine("Ping Latency:     $($res.PingReplyDetails.RTT) ms")
+            }
+            [void]$sb.AppendLine("TCP Connection:   $(if ($res.TcpTestSucceeded) { 'SUCCESS' } else { 'FAILED' })")
+            $txtResult.Text = $sb.ToString()
+        } catch {
+            $txtResult.Text = "Error testing connection: $_"
+        } finally {
+            $btnTest.Text = "Test Connection"
+            $btnTest.Enabled = $true
+        }
+    })
+
+    $tcpForm.Add_Load({
+        Invoke-HMTScale $tcpForm
+        Set-RoundedControl $btnTest
+        Set-RoundedControl $btnClose
+    })
+
+    Show-HMTDialog $tcpForm | Out-Null
+}
+
+function Show-StorageHealthDialog {
+    $shForm = New-Object System.Windows.Forms.Form
+    $shForm.Text = "Storage SMART & Health Summary"
+    $shForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $shForm.ClientSize = New-Object System.Drawing.Size(640, 360)
+    $shForm.StartPosition = 'CenterScreen'
+    $shForm.Icon = $HMTIcon
+    $shForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $shForm.MaximizeBox = $false
+    $shForm.MinimizeBox = $true
+    $shForm.Font = $font
+    $shForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $shForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $shForm
+
+    $y = 15
+    $shLV = New-Object System.Windows.Forms.ListView
+    $shLV.Location = New-Object System.Drawing.Point(20, $y)
+    $shLV.Size = New-Object System.Drawing.Size(600, 250)
+    $shLV.View = [System.Windows.Forms.View]::Details
+    $shLV.FullRowSelect = $true
+    $shLV.GridLines = $true
+    $shLV.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $shLV.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $shLV.Columns.Add("Disk #", 55) | Out-Null
+    $shLV.Columns.Add("Model", 195) | Out-Null
+    $shLV.Columns.Add("Media Type", 85) | Out-Null
+    $shLV.Columns.Add("Size (GB)", 80) | Out-Null
+    $shLV.Columns.Add("Health Status", 90) | Out-Null
+    $shLV.Columns.Add("Operational Status", 95) | Out-Null
+    [HMT.NativeMethods]::SetWindowTheme($shLV.Handle, "DarkMode_Explorer", $null) | Out-Null
+    $shForm.Controls.Add($shLV)
+
+    $populateDisks = {
+        $shLV.Items.Clear()
+        try {
+            $disks = Get-PhysicalDisk -ErrorAction SilentlyContinue
+            if ($disks) {
+                foreach ($d in $disks) {
+                    $item = New-Object System.Windows.Forms.ListViewItem([string]$d.DeviceId)
+                    $item.SubItems.Add([string]$d.FriendlyName) | Out-Null
+                    $item.SubItems.Add([string]$d.MediaType) | Out-Null
+                    $sizeGb = [math]::Round($d.Size / 1GB, 1)
+                    $item.SubItems.Add("$sizeGb GB") | Out-Null
+                    $item.SubItems.Add([string]$d.HealthStatus) | Out-Null
+                    $item.SubItems.Add(([string]($d.OperationalStatus -join ', '))) | Out-Null
+                    $shLV.Items.Add($item) | Out-Null
+                }
+            } else {
+                $item = New-Object System.Windows.Forms.ListViewItem("N/A")
+                $item.SubItems.Add("No PhysicalDisks detected via WMI/CIM.") | Out-Null
+                $shLV.Items.Add($item) | Out-Null
+            }
+        } catch {
+            $item = New-Object System.Windows.Forms.ListViewItem("Err")
+            $item.SubItems.Add("Error querying disk health: $_") | Out-Null
+            $shLV.Items.Add($item) | Out-Null
+        }
+    }
+
+    $y += 265
+    $btnRefresh = New-Object System.Windows.Forms.Button
+    $btnRefresh.Location = New-Object System.Drawing.Point(20, $y)
+    $btnRefresh.Size = New-Object System.Drawing.Size(115, 35)
+    $btnRefresh.Text = "Refresh"
+    $btnRefresh.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnRefresh.FlatStyle = 'Flat'
+    $btnRefresh.FlatAppearance.BorderSize = 1
+    $shForm.Controls.Add($btnRefresh)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Location = New-Object System.Drawing.Point(505, $y)
+    $btnClose.Size = New-Object System.Drawing.Size(115, 35)
+    $btnClose.Text = "Close"
+    $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnClose.FlatStyle = 'Flat'
+    $btnClose.FlatAppearance.BorderSize = 1
+    $shForm.Controls.Add($btnClose)
+
+    $btnRefresh.Add_Click({ &$populateDisks })
+    $btnClose.Add_Click({ $shForm.Close() })
+
+    $shForm.Add_Load({
+        Invoke-HMTScale $shForm
+        Set-RoundedControl $btnRefresh
+        Set-RoundedControl $btnClose
+        &$populateDisks
+    })
+
+    Show-HMTDialog $shForm | Out-Null
+}
+
 # Define Tools
 $troubleList = @(
     [pscustomobject]@{ Name = "Check Disk (Read Only)"; Desc = "Runs Check Disk in read only mode on C: to check for errors in the file system." }
@@ -918,6 +1129,9 @@ $troubleList = @(
     [pscustomobject]@{ Name = "Reliability Monitor"; Desc = "Opens the Windows Reliability Monitor timeline to view crash and software installation history." }
     [pscustomobject]@{ Name = "Flush DNS & Reset IP"; Desc = "Releases IP, Renews IP, Flushes DNS, and clears the ARP cache." }
     [pscustomobject]@{ Name = "Restart Windows Explorer"; Desc = "Forcefully kills and restarts the explorer.exe process to resolve frozen taskbars or stuck folders." }
+    [pscustomobject]@{ Name = "Read Motherboard OEM Product Key"; Desc = "Reads the OEM Windows product key embedded in the BIOS/ACPI MSDM table." }
+    [pscustomobject]@{ Name = "TCP Port & Connection Checker"; Desc = "Launches a GUI tool to test IP/hostname reachability and open TCP ports." }
+    [pscustomobject]@{ Name = "Storage SMART & Health Summary"; Desc = "Displays physical disk drive model, media type, operational status, and SMART health." }
 )
 
 foreach ($t in $troubleList) {
@@ -1009,6 +1223,23 @@ $TrLaunchButton.Add_Click({
             "Restart Windows Explorer" {
                 Stop-Process -Name explorer -Force
                 Start-Process "$env:WINDIR\explorer.exe"
+            }
+            "Read Motherboard OEM Product Key" {
+                $oemKey = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction SilentlyContinue).OA3xOriginalProductKey
+                if (-not [string]::IsNullOrWhiteSpace($oemKey)) {
+                    [Windows.Forms.Clipboard]::SetText($oemKey)
+                    PopupError "OEM Product Key found:`n`n$oemKey`n`n(Key copied to clipboard!)" "Information"
+                    Log-Message "Retrieved OEM Product Key: $oemKey" "Success"
+                } else {
+                    PopupError "No OEM Product Key found embedded in the motherboard/BIOS MSDM table." "Warning"
+                    Log-Message "No OEM Product Key found in BIOS MSDM table." "Skip"
+                }
+            }
+            "TCP Port & Connection Checker" {
+                Show-TcpCheckerDialog
+            }
+            "Storage SMART & Health Summary" {
+                Show-StorageHealthDialog
             }
         }
     } finally {
