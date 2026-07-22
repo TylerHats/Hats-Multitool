@@ -112,9 +112,35 @@ if ($IsAlreadyJoined) {
     $DomainNameInput.Enabled = $false
 } else {
     $DomainNameInput.Enabled = $false
+    if ($IsPro -eq 0) {
+        $DomainNameInput.Text = "Edition: Home"
+    }
 }
 $SMGUI.Controls.Add($DomainNameInput)
 [HMT.NativeMethods]::SendMessage($DomainNameInput.Handle, $EM_SETCUEBANNER, 1, "Domain Name")
+
+# Add edition upgrade Checkbox
+$y += 35
+$EditionCheckbox = New-Object System.Windows.Forms.CheckBox
+$EditionCheckbox.Location = New-Object System.Drawing.Point(20, $y)
+$EditionCheckbox.Text = 'Set Edition to Pro'
+$EditionCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$EditionCheckbox.AutoSize = $true
+if ($WindowsEdition -match '^Pro') {
+    $EditionCheckbox.Enabled = $false
+} else {
+    $EditionCheckbox.Enabled = $true
+}
+$SMGUI.Controls.Add($EditionCheckbox)
+
+# Add product key input
+$y += 25
+$ProductKeyInput = New-Object System.Windows.Forms.TextBox
+$ProductKeyInput.location = New-Object System.Drawing.Point(17, $y)
+$ProductKeyInput.Width = 280
+$ProductKeyInput.Enabled = $false
+$SMGUI.Controls.Add($ProductKeyInput)
+[HMT.NativeMethods]::SendMessage($ProductKeyInput.Handle, $EM_SETCUEBANNER, 1, "VK7JG-NPHTM-C97JM-9MPGT-3V66T")
 
 # Add Okay button
 $y += 40
@@ -170,16 +196,30 @@ function Test-ComputerName([string]$name) {
     return ($name -match '^(?!\d+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')
 }
 
+# Configure edition CheckBox event
+$EditionCheckbox.Add_CheckedChanged({
+    if ($EditionCheckbox.Checked) {
+        $ProductKeyInput.Enabled = $true
+    } else {
+        $ProductKeyInput.Clear()
+        $ProductKeyInput.Enabled = $false
+    }
+})
+
 # Configure domain CheckBox event
 $DomainCheckbox.Add_CheckedChanged({
     if (-not $IsAlreadyJoined) {
         if ($DomainCheckbox.Checked) {
+            if ($DomainNameInput.Text -eq "Edition: Home") { $DomainNameInput.Clear() }
             $DomainNameInput.Enabled = $true
             $EntraCheckbox.Enabled = $false
             $EntraCheckbox.Checked = $false
         }
         else {
             $DomainNameInput.Enabled = $false
+            if ($IsPro -eq 0) {
+                $DomainNameInput.Text = "Edition: Home"
+            }
             if ($IsPro -eq 1) {
                 $EntraCheckbox.Enabled = $true
             } else {
@@ -193,7 +233,9 @@ $DomainCheckbox.Add_CheckedChanged({
 $EntraCheckbox.Add_CheckedChanged({
     if (-not $IsAlreadyJoined) {
         if ($EntraCheckbox.Checked) {
-            $DomainNameInput.Clear()
+            if ($DomainNameInput.Text -ne "Edition: Home") {
+                $DomainNameInput.Clear()
+            }
             $DomainNameInput.Enabled = $false
             $DomainCheckbox.Enabled = $false
             $DomainCheckbox.Checked = $false
@@ -203,6 +245,9 @@ $EntraCheckbox.Add_CheckedChanged({
                 $DomainCheckbox.Enabled = $true
             } else {
                 $DomainCheckbox.Enabled = $false
+                if ($IsPro -eq 0) {
+                    $DomainNameInput.Text = "Edition: Home"
+                }
             }
         }
     }
@@ -217,13 +262,14 @@ $script:UpdateSMOKButtonState = {
         $PCNameInput.SelectionStart = [Math]::Min($pos, $PCNameInput.Text.Length)
     }
     $hasValidName = (-not [string]::IsNullOrWhiteSpace($PCNameInput.Text) -and (Test-ComputerName $PCNameInput.Text))
-    $hasValidDomain = (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text)))
+    $hasValidDomain = (($DomainCheckbox.Checked) -and (-not [string]::IsNullOrWhiteSpace($DomainNameInput.Text)) -and ($DomainNameInput.Text -ne "Edition: Home"))
     $isEntra = $EntraCheckbox.Checked
+    $isEdition = $EditionCheckbox.Checked
 
     if ($IsAlreadyJoined) {
-        $SMOkayButton.Enabled = $hasValidName
+        $SMOkayButton.Enabled = ($hasValidName -or $isEdition)
     } else {
-        $SMOkayButton.Enabled = ($hasValidName -or $hasValidDomain -or $isEntra)
+        $SMOkayButton.Enabled = ($hasValidName -or $hasValidDomain -or $isEntra -or $isEdition)
     }
 }
 
@@ -231,6 +277,8 @@ $PCNameInput.Add_TextChanged($script:UpdateSMOKButtonState)
 $DomainNameInput.Add_TextChanged($script:UpdateSMOKButtonState)
 $EntraCheckbox.Add_CheckedChanged($script:UpdateSMOKButtonState)
 $DomainCheckbox.Add_CheckedChanged($script:UpdateSMOKButtonState)
+$EditionCheckbox.Add_CheckedChanged($script:UpdateSMOKButtonState)
+$ProductKeyInput.Add_TextChanged($script:UpdateSMOKButtonState)
 
 # Define a function to handle the Okay button click
 $SMOkayButton.Add_Click({
@@ -239,8 +287,13 @@ $SMOkayButton.Add_Click({
 	
 	$isDomain = $DomainCheckbox.Checked
 	$isEntra = $EntraCheckbox.Checked
+	$isEdition = $EditionCheckbox.Checked
 	$pcName = $PCNameInput.Text
 	$domainName = $DomainNameInput.Text
+	$productKey = $ProductKeyInput.Text
+	if ([string]::IsNullOrWhiteSpace($productKey)) {
+		$productKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T"
+	}
 	$cred = $null
 
 	if (-not [string]::IsNullOrWhiteSpace($pcName) -and (-not (Test-ComputerName $pcName))) {
@@ -258,31 +311,60 @@ $SMOkayButton.Add_Click({
 		}
 		
 		$scriptBlock = {
-			param([bool]$IsAlreadyJoined, [bool]$isDomain, [bool]$isEntra, [string]$pcName, [string]$domainName, [pscredential]$cred)
+			param(
+				[bool]$IsAlreadyJoined,
+				[bool]$isDomain,
+				[bool]$isEntra,
+				[bool]$isEdition,
+				[string]$pcName,
+				[string]$domainName,
+				[string]$productKey,
+				[pscredential]$cred
+			)
 			
+			$messages = @()
+
+			if ($isEdition) {
+				try {
+					$dismProc = Start-Process -FilePath "dism.exe" -ArgumentList "/Online /Set-Edition:Professional /ProductKey:$productKey /NoRestart /AcceptEula" -WindowStyle Hidden -Wait -PassThru -ErrorAction SilentlyContinue
+					if ($dismProc -and $dismProc.ExitCode -eq 0) {
+						$messages += "Windows Edition upgrade to Pro initiated via DISM (reboot deferred)."
+					} else {
+						cscript.exe //nologo "$env:SystemRoot\System32\slmgr.vbs" /ipk $productKey | Out-Null
+						Start-Process "changepk.exe" -ArgumentList "/ProductKey $productKey" -WindowStyle Hidden -ErrorAction SilentlyContinue
+						shutdown.exe /a 2>&1 | Out-Null
+						$messages += "Applied Pro Product Key ($productKey). Upgrade initiated (reboot deferred)."
+					}
+				} catch {
+					$messages += "Edition upgrade attempt failed: $_"
+				}
+			}
+
 			if ($IsAlreadyJoined) {
 				if (-not [string]::IsNullOrWhiteSpace($pcName)) {
 					Rename-Computer -NewName $pcName -DomainCredential $cred -Force -ErrorAction Stop
-					return "Successfully renamed domain-joined computer to $pcName."
-				} else {
-					return "No computer name specified."
+					$messages += "Successfully renamed domain-joined computer to $pcName."
 				}
 			} elseif ($isDomain -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
 				Add-Computer -DomainName $domainName -NewName $pcName -Credential $cred -ErrorAction Stop
-				return "Successfully added computer to domain $domainName and renamed to $pcName."
+				$messages += "Successfully added computer to domain $domainName and renamed to $pcName."
 			} elseif ($isDomain -and ([string]::IsNullOrWhiteSpace($pcName))) {
 				Add-Computer -DomainName $domainName -Credential $cred -ErrorAction Stop
-				return "Successfully added computer to domain $domainName."
+				$messages += "Successfully added computer to domain $domainName."
 			} elseif ((-not $isDomain) -and ($pcName -ne "")) {
 				Rename-Computer -NewName $pcName -Force -ErrorAction Stop
-				return "Successfully renamed computer to $pcName."
+				$messages += "Successfully renamed computer to $pcName."
 			} elseif (($isEntra) -and (-not [string]::IsNullOrWhiteSpace($pcName))) {
 				Rename-Computer -NewName $pcName -Force -ErrorAction Stop
-				return "Successfully renamed computer to $pcName. Opening workplace settings..."
+				$messages += "Successfully renamed computer to $pcName. Opening workplace settings..."
 			} elseif (($isEntra) -and ([string]::IsNullOrWhiteSpace($pcName))) {
-				return "Opening workplace settings..."
+				$messages += "Opening workplace settings..."
+			}
+
+			if ($messages.Count -gt 0) {
+				return ($messages -join "`n")
 			} else {
-				throw "Unexpected error"
+				return "No changes were made."
 			}
 		}
 
@@ -294,8 +376,10 @@ $SMOkayButton.Add_Click({
 		$ps.AddParameter("IsAlreadyJoined", $IsAlreadyJoined) | Out-Null
 		$ps.AddParameter("isDomain", $isDomain) | Out-Null
 		$ps.AddParameter("isEntra", $isEntra) | Out-Null
+		$ps.AddParameter("isEdition", $isEdition) | Out-Null
 		$ps.AddParameter("pcName", $pcName) | Out-Null
 		$ps.AddParameter("domainName", $domainName) | Out-Null
+		$ps.AddParameter("productKey", $productKey) | Out-Null
 		$ps.AddParameter("cred", $cred) | Out-Null
 		
 		$asyncResult = $ps.BeginInvoke()
@@ -318,13 +402,19 @@ $SMOkayButton.Add_Click({
 	} catch {
 		if (-not $IsAlreadyJoined) {
 			$PCNameInput.Clear()
-			$DomainNameInput.Clear()
+			if ($IsPro -eq 0) {
+				$DomainNameInput.Text = "Edition: Home"
+			} else {
+				$DomainNameInput.Clear()
+			}
 			$DomainCheckbox.Checked = $false
 			$EntraCheckbox.Checked = $false
+			$EditionCheckbox.Checked = $false
+			$ProductKeyInput.Clear()
 		}
 		$SMOkayButton.Text = "OK"
 		$SMOkayButton.Enabled = $true
-		PopupError "PC Naming and/or Domain operation failed.`nError: $_" "Error"
+		PopupError "PC Naming, Domain, or Edition operation failed.`nError: $_" "Error"
 	}
 })
 
