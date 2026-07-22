@@ -577,191 +577,218 @@ $TLaunchButton.Add_Click({
     $selected = $ToolsListView.SelectedItems[0].Text
     $TLaunchButton.Enabled = $false
     
-    switch ($selected) {
-        "Hat's User Move Tool" {
-            $MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
-            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$MoveToolPath`""
-        }
-        "McAfee MCPR Tool" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $MCPRPath = Join-Path -Path $ExtProgramDir -ChildPath "MCPR.exe"
-            Show-DownloadDialog -DisplayName 'McAfee MCPR Tool' -Url 'https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe' -OutputPath "$MCPRPath"
-            Start-Process $MCPRPath
-        }
-        "Ninja Removal Script" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $NRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
-            Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$NRScriptPath"
-            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$NRScriptPath`""
-        }
-        "Windows Disk Cleanup" {
-            Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
-            Start-Process -FilePath cleanmgr.exe -Verb RunAs
-        }
-        "Patch Cleaner" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-            Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://master.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
-            Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
-            $PatchCleanerExePath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable_1_4_2_0\PatchCleaner\PatchCleaner.exe"
-            Start-Process $PatchCleanerExePath
-        }
-        "WizTree" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
-            $wizTreeUrl = 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip'
-            try {
-                $wtPage = Invoke-WebRequest -Uri "https://diskanalyzer.com/download" -UseBasicParsing -ErrorAction Stop
-                if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
-                    $wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
+    try {
+        switch ($selected) {
+            "Hat's User Move Tool" {
+                $MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
+                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$MoveToolPath`""
+            }
+            "McAfee MCPR Tool" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $MCPRPath = Join-Path -Path $ExtProgramDir -ChildPath "MCPR.exe"
+                Show-DownloadDialog -DisplayName 'McAfee MCPR Tool' -Url 'https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe' -OutputPath "$MCPRPath"
+                if (Test-Path -LiteralPath $MCPRPath) { Start-Process $MCPRPath }
+            }
+            "Ninja Removal Script" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $NRScriptPath = Join-Path -Path $ExtProgramDir -ChildPath "NinjaOneAgentRemoval.ps1"
+                Show-DownloadDialog -DisplayName 'Ninja Removal Script' -Url 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1' -OutputPath "$NRScriptPath"
+                if (Test-Path -LiteralPath $NRScriptPath) {
+                    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -File `"$NRScriptPath`""
                 }
-            } catch { Write-Warning "Failed to fetch WizTree download URL." }
-            Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
-            Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
-            $WizTreeExePath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree64.exe"
-            Start-Process $WizTreeExePath
-        }
-        "BleachBit" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
-    
-            # Stable fallback URL if the GitHub API is throttled or offline
-            $version = "6.0.2"
-            try {
-                # Fetch just the release metadata to grab the latest version tag string
-                $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/bleachbit/bleachbit/releases/latest" -ErrorAction Stop
-                if ($ghJson.tag_name) {
-                    # Strip the leading 'v' from the tag (e.g., 'v6.0.2' -> '6.0.2')
-                    $version = $ghJson.tag_name -replace '^v', ''
+            }
+            "Windows Disk Cleanup" {
+                Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
+                Start-Process -FilePath cleanmgr.exe -Verb RunAs
+            }
+            "Patch Cleaner" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
+                Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://master.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
+                if (Test-Path -LiteralPath $PatchCleanerPath) {
+                    Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
+                    $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
                 }
-            } catch { 
-                Write-Warning "Failed to fetch current BleachBit version from GitHub API. Defaulting to v$version." 
             }
+            "WizTree" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $WizTreeZipPath = Join-Path -Path $ExtProgramDir -ChildPath "WizTree.zip"
+                $wizTreeUrl = 'https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip'
+                try {
+                    $wtPage = Invoke-WebRequest -Uri "https://diskanalyzer.com/download" -UseBasicParsing -ErrorAction Stop
+                    if ($wtPage.Content -match 'href="(files/wiztree_[^"]+_portable\.zip)"') {
+                        $wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
+                    }
+                } catch { Write-Warning "Failed to fetch WizTree download URL." }
+                Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
+                if (Test-Path -LiteralPath $WizTreeZipPath) {
+                    Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
+                    $WizTreeExePath = Get-ChildItem -Path $ExtProgramDir -Filter "WizTree64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($WizTreeExePath) { Start-Process $WizTreeExePath }
+                }
+            }
+            "BleachBit" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
+        
+                # Stable fallback URL if the GitHub API is throttled or offline
+                $version = "6.0.2"
+                try {
+                    # Fetch just the release metadata to grab the latest version tag string
+                    $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/bleachbit/bleachbit/releases/latest" -ErrorAction Stop
+                    if ($ghJson.tag_name) {
+                        # Strip the leading 'v' from the tag (e.g., 'v6.0.2' -> '6.0.2')
+                        $version = $ghJson.tag_name -replace '^v', ''
+                    }
+                } catch { 
+                    Write-Warning "Failed to fetch current BleachBit version from GitHub API. Defaulting to v$version." 
+                }
+                
+                # Construct the precise, case-sensitive URL for their hosting engine
+                $bbUrl = "https://download.bleachbit.org/BleachBit-$version-portable.zip"
+        
+                Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
+                if (Test-Path -LiteralPath $BleachZipPath) {
+                    Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
+                    
+                    # Dynamically locate the executable regardless of folder naming schemes
+                    $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($BleachExePath) {
+                        Start-Process $BleachExePath
+                    } else {
+                        Log-Message "Could not locate extracted BleachBit executable." "Error"
+                    }
+                }
+            }
+            "BlueScreenView" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
+                Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
+                if (Test-Path -LiteralPath $BSVZipPath) {
+                    Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
+                    $BSVExePath = Get-ChildItem -Path $ExtProgramDir -Filter "BlueScreenView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($BSVExePath) { Start-Process $BSVExePath }
+                }
+            }
+            "User Profile Wizard" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
+                Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
+                if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
+            }
+            "Little Registry Cleaner" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
+        
+                Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
+                if (Test-Path -LiteralPath $LRCPath) {
+                    Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
             
-            # Construct the precise, case-sensitive URL for their hosting engine
-            $bbUrl = "https://download.bleachbit.org/BleachBit-$version-portable.zip"
-    
-            Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
-            Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
+                    $LRCEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Little Registry Cleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
             
-            # Dynamically locate the executable regardless of folder naming schemes
-            $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-            if ($BleachExePath) {
-                Start-Process $BleachExePath
-            } else {
-                Log-Message "Could not locate extracted BleachBit executable." "Error"
+                    if ($LRCEPath) {
+                        Start-Process $LRCEPath
+                    } else {
+                        Log-Message "Could not find extracted Little Registry Cleaner executable." "Error"
+                    }
+                }
+            }
+            "DISM++" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
+                $dismUrl = 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip'
+                try {
+                    $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
+                    $ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
+                    if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
+                } catch { Write-Warning "Failed to fetch DISM++ download URL." }
+                Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
+                if (Test-Path -LiteralPath $DISMPPPath) {
+                    Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
+                    $DISMPPEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Dism++x64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($DISMPPEPath) { Start-Process $DISMPPEPath }
+                }
+            }
+            ".NET 3.5 (Includes v2 and v3)" {
+                Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy RemoteSigned", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
+            }
+            "Display Driver Uninstaller" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.exe"
+                $dduUrl = "https://download.wagnardsoft.com/DDU/DDU%20v18.1.5.6.exe"
+                try {
+                    $dduPage = Invoke-WebRequest -Uri "https://www.wagnardsoft.com/display-driver-uninstaller-ddu" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -ErrorAction Stop
+                    if ($dduPage.Content -match 'alt="Download Display Driver Uninstaller \(DDU\) ([0-9\.]+)"') {
+                        $dduVer = $matches[1]
+                        $dduUrl = "https://download.wagnardsoft.com/DDU/DDU%20v$dduVer.exe"
+                    }
+                } catch { Write-Warning "Failed to fetch current DDU version." }
+        
+                Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url $dduUrl -OutputPath "$DDUPath"
+                if (Test-Path -LiteralPath $DDUPath) {
+                    Start-Process $DDUPath -ArgumentList "-y -o`"$ExtProgramDir`"" -Wait
+                    $DDUEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Display Driver Uninstaller.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($DDUEPath) { Start-Process $DDUEPath }
+                }
+            }
+            "HDDScan" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
+                Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
+                if (Test-Path -LiteralPath $HDDSPath) {
+                    Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
+                    $HDDSEPath = Get-ChildItem -Path $ExtProgramDir -Filter "HDDScan.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($HDDSEPath) { Start-Process $HDDSEPath }
+                }
+            }
+            "Win11 Upgrade Assistant" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
+        
+                $w11Url = "https://go.microsoft.com/fwlink/?linkid=2171764"
+        
+                Show-DownloadDialog -DisplayName 'Win11 Upgrade Assistant' -Url $w11Url -OutputPath "$W11APath"
+                if (Test-Path -LiteralPath $W11APath) { Start-Process $W11APath }
+            }
+            "Crystal Disk Mark" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
+                $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip'
+                try {
+                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
+                    if ($sfJson.release.filename) { 
+                        $cdmUrl = "https://downloads.sourceforge.net/project/crystaldiskmark" + $sfJson.release.filename 
+                    }
+                } catch { Write-Warning "Failed to fetch Crystal Disk Mark download URL." }
+                Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
+                if (Test-Path -LiteralPath $CDMPath) {
+                    Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
+                    $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($CDMEPath) { Start-Process $CDMEPath }
+                }
+            }
+            "Crystal Disk Info" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
+                $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.9.1/CrystalDiskInfo9_9_1.zip'
+                try {
+                    $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
+                    if ($sfJson.release.filename) { 
+                        $cdiUrl = "https://downloads.sourceforge.net/project/crystaldiskinfo" + $sfJson.release.filename 
+                    }
+                } catch { Write-Warning "Failed to fetch Crystal Disk Info download URL." }
+                Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
+                if (Test-Path -LiteralPath $CDIPath) {
+                    Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
+                    $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                    if ($CDIEPath) { Start-Process $CDIEPath }
+                }
             }
         }
-        "BlueScreenView" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
-            Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
-            Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
-            $BSVExePath = Join-Path -Path $ExtProgramDir -ChildPath "BlueScreenView.exe"
-            Start-Process $BSVExePath
-        }
-        "User Profile Wizard" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
-            Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url 'https://www.forensit.com/Downloads/Profwiz.msi' -OutputPath "$UPWPath"
-            Start-Process $UPWPath
-        }
-        "Little Registry Cleaner" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $LRCPath = Join-Path -Path $ExtProgramDir -ChildPath "LRC.zip"
-    
-            Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
-            Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
-    
-            $LRCEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Little Registry Cleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-    
-            if ($LRCEPath) {
-                Start-Process $LRCEPath
-            } else {
-                Log-Message "Could not find extracted Little Registry Cleaner executable." "Error"
-            }
-        }
-        "DISM++" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $DISMPPPath = Join-Path -Path $ExtProgramDir -ChildPath "DISMPP.zip"
-            $dismUrl = 'https://github.com/Chuyu-Team/Dism-Multi-language/releases/download/v10.1.1002.2/Dism++10.1.1002.1B.zip'
-            try {
-                $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/Chuyu-Team/Dism-Multi-language/releases/latest" -ErrorAction Stop
-                $ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
-                if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
-            } catch { Write-Warning "Failed to fetch DISM++ download URL." }
-            Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
-            Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
-            $DISMPPEPath = Join-Path -Path $ExtProgramDir -ChildPath "Dism++x64.exe"
-            Start-Process $DISMPPEPath
-        }
-        ".NET 3.5 (Includes v2 and v3)" {
-            Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy RemoteSigned", "-Command Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Verb RunAs
-        }
-        "Display Driver Uninstaller" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $DDUPath = Join-Path -Path $ExtProgramDir -ChildPath "DDU.exe" # Note: DDU is distributed as a self-extracting EXE, not a native ZIP!
-
-            $dduUrl = "https://www.wagnardsoft.com/DDU/download/DDU%20v18.1.5.5.exe" 
-    
-            # We build a temporary WebClient instance right here just to load the Anti-Hotlink headers
-            $webClient = New-Object System.Net.WebClient
-            $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-            $webClient.Headers.Add("Referer", "https://www.wagnardsoft.com/")
-    
-            Show-DownloadDialog -DisplayName 'Display Driver Uninstaller' -Url $dduUrl -OutputPath "$DDUPath"
-    
-            # Because it is a self-extracting executable, you execute it directly instead of running Expand-Archive
-            Start-Process $DDUPath -ArgumentList "-y -o`"$ExtProgramDir`"" -Wait
-            $DDUEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Display Driver Uninstaller.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-            Start-Process $DDUEPath
-        }
-        "HDDScan" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
-            Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
-            Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
-            $HDDSEPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDScan.exe"
-            Start-Process $HDDSEPath
-        }
-        "Win11 Upgrade Assistant" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $W11APath = Join-Path -Path $ExtProgramDir -ChildPath "W11UA.exe"
-    
-            $w11Url = "https://go.microsoft.com/fwlink/?linkid=2171764"
-    
-            Show-DownloadDialog -DisplayName 'Win11 Upgrade Assistant' -Url $w11Url -OutputPath "$W11APath"
-            Start-Process $W11APath
-        }
-        "Crystal Disk Mark" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-            $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.1/CrystalDiskMark9_0_1.zip'
-            try {
-                $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskmark/best_release.json" -ErrorAction Stop
-                if ($sfJson.release.url) { $cdmUrl = $sfJson.release.url }
-            } catch { Write-Warning "Failed to fetch Crystal Disk Mark download URL." }
-            Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
-            Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
-            $CDMEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskMark64.exe"
-            Start-Process $CDMEPath
-        }
-        "Crystal Disk Info" {
-            if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-            $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-            $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.7.0/CrystalDiskInfo9_7_0.zip'
-            try {
-                $sfJson = Invoke-RestMethod -Uri "https://sourceforge.net/projects/crystaldiskinfo/best_release.json" -ErrorAction Stop
-                if ($sfJson.release.url) { $cdiUrl = $sfJson.release.url }
-            } catch { Write-Warning "Failed to fetch Crystal Disk Info download URL." }
-            Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
-            Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
-            $CDIEPath = Join-Path -Path $ExtProgramDir -ChildPath "DiskInfo64.exe"
-            Start-Process $CDIEPath
-        }
+    } finally {
+        $TLaunchButton.Enabled = $true
     }
-    
-    $TLaunchButton.Enabled = $true
 })
 
 $TBackButton.Add_Click({
@@ -949,42 +976,44 @@ $TrLaunchButton.Add_Click({
     $selected = $TrListView.SelectedItems[0].Text
     $TrLaunchButton.Enabled = $false
     
-    switch ($selected) {
-        "Check Disk (Read Only)" {
-            Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
-        }
-        "DISM Repair" {
-            Start-Process cmd.exe -ArgumentList '/c dism /online /cleanup-image /restorehealth & pause' -Verb RunAs
-        }
-        "SFC Repair" {
-            Start-Process cmd.exe -ArgumentList '/c sfc /scannow & pause' -Verb RunAs
-        }
-        "Enable Safe Boot (w/Network)" {
-            Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
-        }
-        "Generate Battery Report" {
-            $ReportPath = Join-Path $env:TEMP "battery-report.html"
-            Start-Process powercfg.exe -ArgumentList "/batteryreport /output `"$ReportPath`"" -Wait -WindowStyle Hidden
-            if (Test-Path $ReportPath) {
-                Start-Process $ReportPath
-            } else {
-                Log-Message "Battery report failed to generate." "Error"
+    try {
+        switch ($selected) {
+            "Check Disk (Read Only)" {
+                Start-Process cmd.exe -ArgumentList '/c chkdsk C: & pause' -Verb RunAs
+            }
+            "DISM Repair" {
+                Start-Process cmd.exe -ArgumentList '/c dism /online /cleanup-image /restorehealth & pause' -Verb RunAs
+            }
+            "SFC Repair" {
+                Start-Process cmd.exe -ArgumentList '/c sfc /scannow & pause' -Verb RunAs
+            }
+            "Enable Safe Boot (w/Network)" {
+                Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
+            }
+            "Generate Battery Report" {
+                $ReportPath = Join-Path $env:TEMP "battery-report.html"
+                Start-Process powercfg.exe -ArgumentList "/batteryreport /output `"$ReportPath`"" -Wait -WindowStyle Hidden
+                if (Test-Path $ReportPath) {
+                    Start-Process $ReportPath
+                } else {
+                    Log-Message "Battery report failed to generate." "Error"
+                }
+            }
+            "Reliability Monitor" {
+                Start-Process perfmon.exe -ArgumentList "/rel"
+            }
+            "Flush DNS & Reset IP" {
+                Clear-DnsClientCache
+                Restart-NetAdapter -Name "*"
+            }
+            "Restart Windows Explorer" {
+                Stop-Process -Name explorer -Force
+                Start-Process "$env:WINDIR\explorer.exe"
             }
         }
-        "Reliability Monitor" {
-            Start-Process perfmon.exe -ArgumentList "/rel"
-        }
-        "Flush DNS & Reset IP" {
-            Clear-DnsClientCache
-            Restart-NetAdapter -Name "*"
-        }
-        "Restart Windows Explorer" {
-            Stop-Process -Name explorer -Force
-            Start-Process "$env:WINDIR\explorer.exe"
-        }
+    } finally {
+        $TrLaunchButton.Enabled = $true
     }
-    
-    $TrLaunchButton.Enabled = $true
 })
 
 # Define console button
