@@ -1544,8 +1544,8 @@ function Show-PacketLossTestDialog {
             if ([string]::IsNullOrWhiteSpace($target)) { return }
 
             $pps = 2
-            if (-not [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) -or $pps -lt 1 -or $pps -gt 50) {
-                PopupError "Pings / Sec must be an integer between 1 and 50." "Warning"
+            if (-not [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) -or $pps -lt 1 -or $pps -gt 300) {
+                PopupError "Pings / Sec must be an integer between 1 and 300." "Warning"
                 return
             }
 
