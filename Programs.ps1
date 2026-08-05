@@ -362,8 +362,8 @@ $okButton.Add_Click({
                 $zipName = if ($isAll) { "o365_all.zip" } else { "outlook_classic.zip" }
                 
                 # Point to your Nginx CDN IP / Reverse Proxy domain
-                $cdnUrl = "http://YOUR_PROXY_OR_IP/O365/$zipName"
-                $tokenHeaders = @{ "X-HMT-Token" = "YourSecretToken123" }
+                $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
+                $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
 
                 $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
                 if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
