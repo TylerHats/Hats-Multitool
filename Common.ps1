@@ -23,9 +23,7 @@ if ($InteractiveUser) {
     $DownloadsPath = Join-Path -Path $env:USERPROFILE -ChildPath "Downloads"
 }
 $logPathName = "Hats-Multitool-Log.txt"
-$logPath = Join-Path $DownloadsPath $logPathName
-$global:TempLogPath = Join-Path $env:TEMP $logPathName
-$global:HasErrors = $false
+
 # Check for an IRM launch breadcrumb
 $breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
 $Global:IRMExeTarget = $null
@@ -33,6 +31,18 @@ if (Test-Path -LiteralPath $breadcrumbPath) {
     $Global:IRMExeTarget = Get-Content -LiteralPath $breadcrumbPath
     Remove-Item -LiteralPath $breadcrumbPath -Force -ErrorAction SilentlyContinue
 }
+
+$global:ExeDir = if ($Global:IRMExeTarget -and (Test-Path -LiteralPath (Split-Path -Parent $Global:IRMExeTarget))) {
+    Split-Path -Parent $Global:IRMExeTarget
+} elseif ($PSScriptRoot) {
+    $PSScriptRoot
+} else {
+    [System.AppDomain]::CurrentDomain.BaseDirectory
+}
+$global:logPath = Join-Path $global:ExeDir $logPathName
+$global:TempLogPath = Join-Path $env:TEMP $logPathName
+$global:HasErrors = $false
+
 $ProgramExiting = $false
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
 #$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
@@ -74,29 +84,43 @@ function Invoke-HMTScale {
 function Log-Message {
     param(
         [string]$message,
-        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip
+        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip, LogOnly
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "$timestamp [$level] - $message"
     $consoleMessage = "[$level] - $message"
+    
+    $isError = ($level.ToLower() -eq "error" -or $level.ToLower() -eq "logonly")
+    if ($isError) {
+        $global:HasErrors = $true
+        try {
+            $logMessage | Out-File -FilePath $global:logPath -Append -ErrorAction SilentlyContinue
+        } catch {}
+    }
+
     if ($level.ToLower() -eq "info") {
         Write-Host $consoleMessage
     } elseif ($level.ToLower() -eq "prompt") {
         Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
     } elseif ($level.ToLower() -eq "error") {
         Write-Host $consoleMessage -ForegroundColor "Red"
-        $global:HasErrors = $true
-        $logMessage | Out-File -FilePath $global:TempLogPath -Append
     } elseif ($level.ToLower() -eq "success") {
         Write-Host $consoleMessage -ForegroundColor "Green"
-	} elseif ($level.ToLower() -eq "skip") {
-		Write-Host $consoleMessage -ForegroundColor "Cyan"
+    } elseif ($level.ToLower() -eq "skip") {
+        Write-Host $consoleMessage -ForegroundColor "Cyan"
     } elseif ($level.ToLower() -eq "logonly") {
-		$logMessage | Out-File -FilePath $global:TempLogPath -Append
-	} else {
+        # Logged directly to log file above
+    } else {
         Write-Host $consoleMessage
-        $logMessage | Out-File -FilePath $global:TempLogPath -Append
     }
+}
+
+# Trap uncaught script errors globally and record them
+trap {
+    $errObj = $_
+    $errMsg = if ($errObj.Exception -and $errObj.Exception.GetBaseException()) { $errObj.Exception.GetBaseException().Message } else { $errObj.ToString() }
+    Log-Message "Unhandled Exception: $errMsg" "Error"
+    continue
 }
 
 function PopupError {
@@ -318,10 +342,7 @@ function User-Exit {
         [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
         [System.Windows.Forms.Application]::DoEvents()
         
-        # Process final log output
-        if ($global:HasErrors -eq $true) {
-            Copy-Item -Path $global:TempLogPath -Destination $logPath -Force -ErrorAction SilentlyContinue
-        }
+        # Errors are appended directly to $global:logPath as they occur during execution
 
         # Prepare cleanup command
         $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue"
