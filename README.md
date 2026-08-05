@@ -27,6 +27,7 @@ Automate the tedious parts of Windows setup with built-in modules:
 ### 🧰 Built-in Tools
 Access a curated library of essential sysadmin and maintenance utilities directly from the GUI:
 - **System & Drive Utilities:** WizTree, Windows Disk Cleanup, Patch Cleaner, DISM++, BleachBit, HDDScan, Crystal Disk Mark, Crystal Disk Info.
+- **Network & Remote Tools:** Advanced IP Scanner, PuTTY.
 - **Driver & Profile Management:** Display Driver Uninstaller (DDU), User Profile Wizard.
 - **Uninstaller & Removal Tools:** McAfee MCPR Tool, Ninja Removal Script.
 - **Misc Tools:** BlueScreenView, Little Registry Cleaner, .NET 3.5 Installer, Windows 11 Upgrade Assistant.

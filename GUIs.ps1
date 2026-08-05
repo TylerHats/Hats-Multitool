@@ -529,6 +529,8 @@ $toolsList = @(
     [pscustomobject]@{ Name = "Win11 Upgrade Assistant"; Desc = "Runs the Windows 11 Upgrade Assistant program." }
     [pscustomobject]@{ Name = "Crystal Disk Mark"; Desc = "Runs Crystal Disk Mark SSD/HDD testing utility." }
     [pscustomobject]@{ Name = "Crystal Disk Info"; Desc = "Runs Crystal Disk Info utility." }
+    [pscustomobject]@{ Name = "Advanced IP Scanner"; Desc = "A fast and free network scanner allowing remote device discovery." }
+    [pscustomobject]@{ Name = "PuTTY"; Desc = "A free SSH and Telnet client for Windows." }
 )
 
 foreach ($t in $toolsList) {
@@ -791,6 +793,39 @@ $TLaunchButton.Add_Click({
                     $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($CDIEPath) { Start-Process $CDIEPath }
                 }
+            }
+            "Advanced IP Scanner" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $AIPExePath = Join-Path -Path $ExtProgramDir -ChildPath "Advanced_IP_Scanner.exe"
+                $aipUrl = "https://download.advanced-ip-scanner.com/download/files/Advanced_IP_Scanner_2.5.4594.1.exe"
+                try {
+                    $aipPage = Invoke-WebRequest -Uri "https://www.advanced-ip-scanner.com/download/" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -ErrorAction Stop
+                    if ($aipPage.Content -match '(https://download\.advanced-ip-scanner\.com/download/files/Advanced_IP_Scanner_[0-9\.]+\.exe)') {
+                        $aipUrl = $matches[1]
+                    }
+                } catch { Write-Warning "Failed to fetch current Advanced IP Scanner version. Defaulting to fallback URL." }
+
+                Show-DownloadDialog -DisplayName 'Advanced IP Scanner' -Url $aipUrl -OutputPath "$AIPExePath"
+                if (Test-Path -LiteralPath $AIPExePath) { Start-Process $AIPExePath }
+            }
+            "PuTTY" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $PuttyExePath = Join-Path -Path $ExtProgramDir -ChildPath "putty.exe"
+                $puttyUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe"
+                try {
+                    $puPage = Invoke-WebRequest -Uri "https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -UseBasicParsing -ErrorAction Stop
+                    if ($puPage.Content -match 'href="([^"]*w64/putty\.exe)"') {
+                        $foundPath = $matches[1]
+                        if ($foundPath -like "http*") {
+                            $puttyUrl = $foundPath
+                        } else {
+                            $puttyUrl = "https://www.chiark.greenend.org.uk/~sgtatham/putty/$foundPath"
+                        }
+                    }
+                } catch { Write-Warning "Failed to fetch current PuTTY version. Defaulting to fallback URL." }
+
+                Show-DownloadDialog -DisplayName 'PuTTY' -Url $puttyUrl -OutputPath "$PuttyExePath"
+                if (Test-Path -LiteralPath $PuttyExePath) { Start-Process $PuttyExePath }
             }
         }
     } finally {
@@ -1296,9 +1331,15 @@ function Show-PacketLossTestDialog {
         $gridPen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
         $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#72767d"))
 
-        # Max Y scale dynamically based on ping history (minimum 100ms)
+        # Max Y scale dynamically based on visible ping history (minimum 100ms)
         $maxY = 100
-        foreach ($p in $script:pingHistory) {
+        $maxBars = [math]::Max($script:maxTargetPackets, 120)
+        if ($maxBars -gt 640) { $maxBars = 640 }
+        $startIndex = [math]::Max(0, $script:pingHistory.Count - $maxBars)
+        $visibleCount = $script:pingHistory.Count - $startIndex
+
+        for ($vIdx = $startIndex; $vIdx -lt $script:pingHistory.Count; $vIdx++) {
+            $p = $script:pingHistory[$vIdx]
             if ($p.Success -and $p.RTT -gt $maxY) { $maxY = $p.RTT }
         }
         $maxY = [math]::Ceiling($maxY / 50) * 50  # round to multiple of 50ms
@@ -1314,9 +1355,8 @@ function Show-PacketLossTestDialog {
         $textBrush.Dispose()
 
         # Draw History Packets
-        if ($script:pingHistory.Count -gt 0) {
-            $totSlots = [math]::Max($script:maxTargetPackets, $script:pingHistory.Count)
-            $colWidth = [float]($w / $totSlots)
+        if ($visibleCount -gt 0) {
+            $colWidth = [float]($w / $maxBars)
             $barWidth = [math]::Max(1.0, [float]($colWidth * 0.85))
 
             # Vertical LinearGradientBrush spanning full canvas height (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
@@ -1348,8 +1388,8 @@ function Show-PacketLossTestDialog {
             $orangePen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#e67e22"), [math]::Max(1.0, $barWidth))
             $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(1.0, $barWidth))
 
-            for ($idx = 0; $idx -lt $script:pingHistory.Count; $idx++) {
-                $pt = $script:pingHistory[$idx]
+            for ($idx = 0; $idx -lt $visibleCount; $idx++) {
+                $pt = $script:pingHistory[$startIndex + $idx]
                 $xPos = [float]($idx * $colWidth)
 
                 if ($pt.Success) {
@@ -1400,6 +1440,7 @@ function Show-PacketLossTestDialog {
         $ppsVal = 2
         [int]::TryParse($txtPps.Text.Trim(), [ref]$ppsVal) | Out-Null
         if ($ppsVal -lt 1) { $ppsVal = 1 }
+        if ($ppsVal -gt 999) { $ppsVal = 999 }
 
         # Soft timeout threshold (ms) after which pending packet is temporarily counted as lost
         $softTimeoutMs = [math]::Max(400, [int](1000 / $ppsVal))
@@ -1414,83 +1455,92 @@ function Show-PacketLossTestDialog {
             }
         }
 
-        # Issue new Async Ping
-        $script:sentCount++
-        $buffer = [byte[]]::new($size)
-        $pinger = New-Object System.Net.NetworkInformation.Ping
+        # Calculate how many pings should be dispatched in this tick based on high-precision stopwatch elapsed time
+        $elapsedSec = $script:pltStopwatch.Elapsed.TotalSeconds
+        $targetSent = [int]($elapsedSec * $ppsVal)
+        $pingsToSend = $targetSent - $script:sentCount
+        if ($pingsToSend -lt 1) { $pingsToSend = 1 }
+        if ($pingsToSend -gt 50) { $pingsToSend = 50 }
 
-        $record = [pscustomobject]@{
-            SeqId = $script:sentCount
-            Success = $false
-            IsLate = $false
-            IsPending = $true
-            WasCountedAsLost = $false
-            RTT = 0
-            Status = "Waiting"
-            StartTime = [System.Diagnostics.Stopwatch]::StartNew()
-        }
-        [void]$script:pingHistory.Add($record)
+        for ($pIdx = 0; $pIdx -lt $pingsToSend; $pIdx++) {
+            # Issue new Async Ping
+            $script:sentCount++
+            $buffer = [byte[]]::new($size)
+            $pinger = New-Object System.Net.NetworkInformation.Ping
 
-        $pinger.add_PingCompleted({
-            param($sender, $e)
-            $rec = $e.UserState
-            if ($null -eq $rec -or -not $script:pltRunning) { return }
-
-            $rec.IsPending = $false
-            $rtt = 0
-            if ($e.Reply -and $e.Reply.RoundtripTime -gt 0) {
-                $rtt = [int]$e.Reply.RoundtripTime
-            } else {
-                $rtt = [int]$rec.StartTime.ElapsedMilliseconds
+            $record = [pscustomobject]@{
+                SeqId = $script:sentCount
+                Success = $false
+                IsLate = $false
+                IsPending = $true
+                WasCountedAsLost = $false
+                RTT = 0
+                Status = "Waiting"
+                StartTime = [System.Diagnostics.Stopwatch]::StartNew()
             }
+            [void]$script:pingHistory.Add($record)
 
-            if ($e.Reply -and $e.Reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
-                $rec.RTT = $rtt
-                $script:sumRtt += $rtt
-                if ($rtt -lt $script:minRtt) { $script:minRtt = $rtt }
-                if ($rtt -gt $script:maxRtt) { $script:maxRtt = $rtt }
+            $pinger.add_PingCompleted({
+                param($sender, $e)
+                $rec = $e.UserState
+                if ($null -eq $rec -or -not $script:pltRunning) { return }
 
-                if ($rec.WasCountedAsLost) {
-                    # Retroactive Conversion from Lost -> Late!
-                    if ($script:lostCount -gt 0) { $script:lostCount-- }
-                    $script:lateCount++
-                    $script:recvCount++
-                    $rec.Success = $true
-                    $rec.IsLate = $true
-                    $rec.Status = "Late (${rtt}ms)"
+                $rec.IsPending = $false
+                $rtt = 0
+                if ($e.Reply -and $e.Reply.RoundtripTime -gt 0) {
+                    $rtt = [int]$e.Reply.RoundtripTime
                 } else {
-                    $rec.Success = $true
-                    $isLate = ($rtt -ge 1000)
-                    $rec.IsLate = $isLate
-                    if ($isLate) { $script:lateCount++ }
-                    $script:recvCount++
-                    $rec.Status = "Success"
+                    $rtt = [int]$rec.StartTime.ElapsedMilliseconds
                 }
-            } else {
-                if (-not $rec.WasCountedAsLost) {
-                    $rec.WasCountedAsLost = $true
+
+                if ($e.Reply -and $e.Reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                    $rec.RTT = $rtt
+                    $script:sumRtt += $rtt
+                    if ($rtt -lt $script:minRtt) { $script:minRtt = $rtt }
+                    if ($rtt -gt $script:maxRtt) { $script:maxRtt = $rtt }
+
+                    if ($rec.WasCountedAsLost) {
+                        # Retroactive Conversion from Lost -> Late!
+                        if ($script:lostCount -gt 0) { $script:lostCount-- }
+                        $script:lateCount++
+                        $script:recvCount++
+                        $rec.Success = $true
+                        $rec.IsLate = $true
+                        $rec.Status = "Late (${rtt}ms)"
+                    } else {
+                        $rec.Success = $true
+                        $isLate = ($rtt -ge 1000)
+                        $rec.IsLate = $isLate
+                        if ($isLate) { $script:lateCount++ }
+                        $script:recvCount++
+                        $rec.Status = "Success"
+                    }
+                } else {
+                    if (-not $rec.WasCountedAsLost) {
+                        $rec.WasCountedAsLost = $true
+                        $script:lostCount++
+                    }
+                    $rec.Success = $false
+                    $rec.IsLate = $false
+                    $reason = if ($e.Reply) { $e.Reply.Status.ToString() } else { "TimedOut" }
+                    $rec.Status = $reason
+                    $script:lastReasonText = $reason
+                }
+
+                $sender.Dispose()
+                $pnlGraph.Invalidate()
+            })
+
+            try {
+                $pinger.SendAsync($target, 5000, $buffer, $record)
+            } catch {
+                $record.IsPending = $false
+                if (-not $record.WasCountedAsLost) {
+                    $record.WasCountedAsLost = $true
                     $script:lostCount++
                 }
-                $rec.Success = $false
-                $rec.IsLate = $false
-                $reason = if ($e.Reply) { $e.Reply.Status.ToString() } else { "TimedOut" }
-                $rec.Status = $reason
-                $script:lastReasonText = $reason
+                $script:lastReasonText = $_.Exception.Message
             }
-
-            $sender.Dispose()
-            $pnlGraph.Invalidate()
-        })
-
-        try {
-            $pinger.SendAsync($target, 5000, $buffer, $record)
-        } catch {
-            $record.IsPending = $false
-            if (-not $record.WasCountedAsLost) {
-                $record.WasCountedAsLost = $true
-                $script:lostCount++
-            }
-            $script:lastReasonText = $_.Exception.Message
         }
 
         # Update stats text
@@ -1544,8 +1594,8 @@ function Show-PacketLossTestDialog {
             if ([string]::IsNullOrWhiteSpace($target)) { return }
 
             $pps = 2
-            if (-not [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) -or $pps -lt 1 -or $pps -gt 300) {
-                PopupError "Pings / Sec must be an integer between 1 and 300." "Warning"
+            if (-not [int]::TryParse($txtPps.Text.Trim(), [ref]$pps) -or $pps -lt 1 -or $pps -gt 999) {
+                PopupError "Pings / Sec must be an integer between 1 and 999." "Warning"
                 return
             }
 
@@ -1569,8 +1619,9 @@ function Show-PacketLossTestDialog {
             $txtSize.Enabled = $false
             $txtDuration.Enabled = $false
 
-            $intervalMs = [math]::Max(20, [int](1000 / $pps))
+            $intervalMs = if ($pps -gt 50) { 15 } else { [math]::Max(15, [int](1000 / $pps)) }
             $timer.Interval = $intervalMs
+            $script:pltStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $timer.Start()
         }
     })
