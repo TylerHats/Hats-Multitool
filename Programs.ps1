@@ -233,20 +233,34 @@ $updateLocalProgress = {
 
 # Async-Safe Streamed Download Helper
 $downloadWithProgress = {
-    param([string]$Url, [string]$OutFile, [int]$ProgIndex, [int]$TotPrograms, [string]$AppName)
+    param(
+        [string]$Url, 
+        [string]$OutFile, 
+        [int]$ProgIndex, 
+        [int]$TotPrograms, 
+        [string]$AppName,
+        [hashtable]$Headers = $null  # <-- NEW: Optional headers parameter
+    )
     
     $global:DlDone = $false
     $script:SkipCurrent = $false
 
-    # Enable TLS 1.2 and TLS 1.3 (12288) to unlock faster CDN routing paths
+    # Enable TLS 1.2 and TLS 1.3
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
 
     # Initialize modern HttpClient
     $handler = New-Object System.Net.Http.HttpClientHandler
     $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
     
-    # CRITICAL: Masquerade as a standard web browser to bypass CDN script throttling
+    # Masquerade as a standard web browser
     $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+    # ONLY apply headers if explicitly passed into this function call
+    if ($null -ne $Headers) {
+        foreach ($key in $Headers.Keys) {
+            $client.DefaultRequestHeaders.Add($key, $Headers[$key])
+        }
+    }
 
     $downloadStream = $null
     $fileStream = $null
@@ -337,41 +351,88 @@ $okButton.Add_Click({
             &$updateLocalProgress $currentIndex $totalPrograms 0 "Starting: $($program.Name)..."
 
             if ($program.Type -eq "MSOffice" -or $program.Type -eq "MSOutlook") {
-                try {
-                    $displayName = if ($program.Type -eq "MSOffice") { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
-                    $productID = if ($program.Type -eq "MSOffice") { "O365BusinessRetail" } else { "OutlookRetail" }
+                $isAll = $program.Type -eq "MSOffice"
+                $displayName = if ($isAll) { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
+                $productID = if ($isAll) { "O365BusinessRetail" } else { "OutlookRetail" }
+                $zipName = if ($isAll) { "o365_all.zip" } else { "outlook_classic.zip" }
                 
-                    Log-Message "Starting Install of $displayName..." "Info"
+                # Point to your Nginx CDN IP / Reverse Proxy domain
+                $cdnUrl = "http://YOUR_PROXY_OR_IP/O365/$zipName"
+                $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
 
-                    $workingDir = Join-Path -Path "$PSScriptRoot" -ChildPath "OfficeODT"
-                    if (-Not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
-                    $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-                    $odtExe = "$workingDir\OfficeDeploymentTool.exe"
-                
-                    if (-Not (Test-Path $odtExe)) {
-                        Log-Message "Downloading Office Deployment Tool..." "Info"
-                        try {
-                            &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms $displayName
-                            try {
-                                Unblock-File -Path $odtExe -ErrorAction Stop
-                            }
-                            catch {
-                                Log-Message "Failed to unblock $odtExe : $_" "Error"
-                            }
-                        }
-                        catch {
-                            Log-Message "ODT download failed, check internet connection." "Error"
+                $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
+                if (Test-Path $workingDir) { Remove-Item $workingDir -Recurse -Force -ErrorAction SilentlyContinue }
+                New-Item -ItemType Directory -Path $workingDir | Out-Null
+
+                $cdnSuccess = $false
+
+                # Pull O365/Outlook Classic files from CDN for improved speed
+                try {
+                    Log-Message "Attempting fast install from local CDN for $displayName..." "Info"
+                    $zipPath = "$workingDir\$zipName"
+
+                    # Download zip passing token headers specifically to internal CDN
+                    &$downloadWithProgress $cdnUrl $zipPath $currentIndex $totalPrograms $displayName $tokenHeaders
+
+                    if ($script:SkipCurrent) {
+                        Remove-Item $workingDir -Recurse -Force -ErrorAction SilentlyContinue
+                        $currentIndex++
+                        Continue
+                    }
+
+                    # Extract local archive
+                    Log-Message "Extracting local installer payload..." "Info"
+                    &$updateLocalProgress $currentIndex $totalPrograms 85 "Extracting $displayName..." "Unpacking zip archive..."
+                    Expand-Archive -Path $zipPath -DestinationPath $workingDir -Force
+                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+                    # Synchronous local ODT Execution
+                    Log-Message "Running local ODT installation..." "Info"
+                    &$updateLocalProgress $currentIndex $totalPrograms 95 "Installing $displayName..." "Executing setup.exe /configure..."
+                    
+                    $setupProc = Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$workingDir\configuration.xml`"" -PassThru -WindowStyle Hidden
+                    while (-not $setupProc.HasExited) { 
+                        [System.Windows.Forms.Application]::DoEvents()
+                        Start-Sleep -Milliseconds 200 
+                    }
+
+                    $cdnSuccess = $true
+                    Log-Message "$($displayName): Installed successfully from local CDN." "Success"
+                }
+                catch {
+                    Log-Message "Local CDN unavailable or download failed: $_. Falling back to Microsoft CDN..." "Warning"
+                }
+
+                # Fallback if CDN file download fails
+                if (-not $cdnSuccess -and -not $script:SkipCurrent) {
+                    try {
+                        # Purge failed/partial CDN files from working directory
+                        Get-ChildItem -Path $workingDir -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+                        $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
+                        $odtExe = "$workingDir\OfficeDeploymentTool.exe"
+
+                        Log-Message "Downloading official ODT from Microsoft..." "Info"
+                        &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms $displayName
+
+                        if ($script:SkipCurrent) {
+                            Remove-Item $workingDir -Recurse -Force -ErrorAction SilentlyContinue
                             $currentIndex++
                             Continue
                         }
-                    }
-                
-                    Log-Message "Extracting Office Deployment Tool..." "Info"
-                    &$updateLocalProgress $currentIndex $totalPrograms 80 "Extracting: $displayName (80%)"
-                    $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
-                    while (-not $extractProc.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
 
-                    $configXml = @"
+                        try { Unblock-File -Path $odtExe -ErrorAction Stop } catch {}
+
+                        Log-Message "Extracting setup.exe..." "Info"
+                        &$updateLocalProgress $currentIndex $totalPrograms 80 "Extracting setup.exe..." "Unpacking ODT executable..."
+                        $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
+                        while (-not $extractProc.HasExited) { 
+                            [System.Windows.Forms.Application]::DoEvents()
+                            Start-Sleep -Milliseconds 50 
+                        }
+
+                        # Dynamically generate configuration.xml for streaming directly from MS CDN
+                        $configXml = @"
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Current">
     <Product ID="$productID">
@@ -382,18 +443,27 @@ $okButton.Add_Click({
   <Property Name="AUTOACTIVATE" Value="1"/>
 </Configuration>
 "@
-                    $configFile = "$workingDir\configuration.xml"
-                    $configXml | Out-File -FilePath $configFile -Encoding ascii
+                        $configFile = "$workingDir\configuration.xml"
+                        $configXml | Out-File -FilePath $configFile -Encoding ascii
 
-                    Log-Message "Launching Office Setup asynchronously..." "Info"
-                    &$updateLocalProgress $currentIndex $totalPrograms 90 "Launching Setup: $displayName (90%)"
-                
-                    Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -WindowStyle Hidden
-                    Log-Message "$($displayName): Installer launched in background." "Success"
+                        Log-Message "Launching online Office Setup from Microsoft CDN..." "Info"
+                        &$updateLocalProgress $currentIndex $totalPrograms 90 "Installing $displayName..." "Streaming binaries from Microsoft..."
+                        
+                        $setupProc = Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -PassThru -WindowStyle Hidden
+                        while (-not $setupProc.HasExited) { 
+                            [System.Windows.Forms.Application]::DoEvents()
+                            Start-Sleep -Milliseconds 200 
+                        }
+
+                        Log-Message "$($displayName): Installed successfully via Microsoft online fallback." "Success"
+                    }
+                    catch {
+                        Log-Message "$($displayName): Online installation fallback failed. Error: $_" "Error"
+                    }
                 }
-                catch {
-                    Log-Message "$($displayName): Installation failed, please review log." "Error"
-                }
+
+                # Final Cleanup
+                Remove-Item $workingDir -Recurse -Force -ErrorAction SilentlyContinue
             }
             elseif ($program -ne $null) {
                 Log-Message "Installing $($program.Name)..." "Info"
