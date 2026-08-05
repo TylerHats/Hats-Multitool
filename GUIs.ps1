@@ -1609,6 +1609,7 @@ $troubleList = @(
     [pscustomobject]@{ Name = "Packet Loss Test"; Desc = "Runs a real-time continuous ping test measuring latency graph, packet loss rate, and drop reasons." }
     [pscustomobject]@{ Name = "Windows Update Reset"; Desc = "Stops update services, clears SoftwareDistribution & catroot2 caches, and resets Windows Update components." }
     [pscustomobject]@{ Name = "Reset HOSTS File to Default"; Desc = "Resets the Windows HOSTS file (C:\Windows\System32\drivers\etc\hosts) back to clean Microsoft default." }
+    [pscustomobject]@{ Name = "Reset Settings Page Visibility"; Desc = "Clears the SettingsPageVisibility registry policy to unhide blocked Windows Settings pages." }
 )
 
 foreach ($t in $troubleList) {
@@ -1754,6 +1755,15 @@ $TrLaunchButton.Add_Click({
                 Set-Content -Path $hostsPath -Value $defaultHosts -Encoding UTF8 -Force
                 Log-Message "Reset HOSTS file to default (backup saved to hosts.bak)." "Success"
                 PopupError "HOSTS file has been reset to default.`nA backup of the previous file was created." "Information"
+            }
+            "Reset Settings Page Visibility" {
+                $regKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+                if (-not (Test-Path $regKeyPath)) {
+                    New-Item -Path $regKeyPath -Force | Out-Null
+                }
+                Set-ItemProperty -Path $regKeyPath -Name "SettingsPageVisibility" -Value "" -Type String -Force
+                Log-Message "Cleared SettingsPageVisibility policy registry key." "Success"
+                PopupError "Settings Page Visibility policy key has been set to a blank string." "Information"
             }
         }
     } finally {
