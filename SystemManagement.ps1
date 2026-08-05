@@ -1,4 +1,4 @@
-# System Management Module - Tyler Hatfield - v2.13
+# System Management Module - Tyler Hatfield - v2.14
 
 $EM_SETCUEBANNER = 0x1501
 
@@ -280,7 +280,7 @@ $script:UpdateSMOKButtonState = {
 	if ($IsAlreadyJoined) {
 		$SMOkayButton.Enabled = ($hasValidName -or $isEdition)
 	}
- else {
+	else {
 		$SMOkayButton.Enabled = ($hasValidName -or $hasValidDomain -or $isEntra -or $isEdition)
 	}
 }
@@ -456,14 +456,6 @@ $SMGUI.Add_Load({
 		$p = [int](20 * $global:HMTScaleFactor)
 		$SMGUI.ClientSize = [System.Drawing.Size]::new($w, ($SMSkip.Bottom + $p))
 	})
-
-# Display First GUI
-Show-HMTDialog $SMGUI | Out-Nulltton
-    Set-RoundedControl $SMSkip
-    $w = [int](315 * $global:HMTScaleFactor)
-    $p = [int](20 * $global:HMTScaleFactor)
-    $SMGUI.ClientSize = [System.Drawing.Size]::new($w, ($SMSkip.Bottom + $p))
-})
 
 # Display First GUI
 Show-HMTDialog $SMGUI | Out-Null
