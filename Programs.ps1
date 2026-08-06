@@ -159,6 +159,36 @@ $fillPanel.Location = [System.Drawing.Point]::new(1, 1)
 $fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
 $trackPanel.Controls.Add($fillPanel)
 
+# Secondary Progress UI Controls for Microsoft Office Payload
+$msStatusLabel = New-Object System.Windows.Forms.Label
+$msStatusLabel.Text = "Microsoft Office: Starting..."
+$msStatusLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$msStatusLabel.Size = New-Object System.Drawing.Size(340, 20)
+$msStatusLabel.AutoSize = $true
+$msStatusLabel.Visible = $false
+$form.Controls.Add($msStatusLabel)
+
+$msDetailLabel = New-Object System.Windows.Forms.Label
+$msDetailLabel.Text = ""
+$msDetailLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+$msDetailLabel.Size = New-Object System.Drawing.Size(340, 20)
+$msDetailLabel.AutoSize = $true
+$msDetailLabel.Visible = $false
+$form.Controls.Add($msDetailLabel)
+
+$msTrackPanel = New-Object System.Windows.Forms.Panel
+$msTrackPanel.Size = [System.Drawing.Size]::new(340, 22)
+$msTrackPanel.BorderStyle = 'FixedSingle'
+$msTrackPanel.BackColor = [System.Drawing.Color]::DarkGray
+$msTrackPanel.Visible = $false
+$form.Controls.Add($msTrackPanel)
+
+$msFillPanel = New-Object System.Windows.Forms.Panel
+$msFillPanel.Size = [System.Drawing.Size]::new(0, 19)
+$msFillPanel.Location = [System.Drawing.Point]::new(1, 1)
+$msFillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+$msTrackPanel.Controls.Add($msFillPanel)
+
 $okButton = New-Object System.Windows.Forms.Button
 $y += 40
 $okButton.Location = New-Object System.Drawing.Point(95, $y)
@@ -206,6 +236,16 @@ $form.Add_Load({
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
     })
 
+$updateMSProgress = {
+    if ($msTrackPanel.Visible -and $null -ne $script:msState) {
+        $msMaxW = $msTrackPanel.ClientSize.Width - 2
+        $pct = [math]::Max(0, [math]::Min([double]$script:msState.ProgressPct, 100))
+        $msFillPanel.Width = [int]($msMaxW * ($pct / 100.0))
+        if ($script:msState.StatusText) { $msStatusLabel.Text = $script:msState.StatusText }
+        if ($null -ne $script:msState.DetailText) { $msDetailLabel.Text = $script:msState.DetailText }
+    }
+}
+
 # Progress & UI Logic Helper
 $updateLocalProgress = {
     param([int]$Index, [int]$Total, [double]$LocalPct, [string]$StatusText, [string]$DetailText)
@@ -229,6 +269,8 @@ $updateLocalProgress = {
     if ($null -ne $DetailText) {
         $detailLabel.Text = $DetailText
     }
+
+    &$updateMSProgress
 }
 
 # Async-Safe Streamed Download Helper
@@ -239,7 +281,7 @@ $downloadWithProgress = {
         [int]$ProgIndex, 
         [int]$TotPrograms, 
         [string]$AppName,
-        [hashtable]$Headers = $null  # <-- NEW: Optional headers parameter
+        [hashtable]$Headers = $null
     )
     
     $global:DlDone = $false
@@ -329,6 +371,8 @@ $okButton.Add_Click({
         $global:RunUserExitOnComplete = $userExitCheckbox.Checked
 
         $checkedNames = @($checkboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key })
+        $msProgName = $checkedNames | Where-Object { $_ -eq "Microsoft Office (64-Bit)" -or $_ -eq "Outlook Classic" } | Select-Object -First 1
+
         $selectedPrograms = $checkedNames | Sort-Object { 
             $name = $_
             $prog = $programs | Where-Object { $_.Name -eq $name }
@@ -341,6 +385,172 @@ $okButton.Add_Click({
             return
         }
 
+        # Start parallel O365 download/extract background runspace if selected
+        $msRunspace = $null
+        $msPowerShell = $null
+
+        if ($msProgName) {
+            $isAll = $msProgName -eq "Microsoft Office (64-Bit)"
+            $displayName = if ($isAll) { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
+            $productID = if ($isAll) { "O365BusinessRetail" } else { "OutlookRetail" }
+
+            # Dynamically expand form for O365 secondary progress bar
+            $msStatusLabel.Visible = $true
+            $msDetailLabel.Visible = $true
+            $msTrackPanel.Visible = $true
+
+            $yMS = $trackPanel.Bottom + [int](15 * $global:HMTScaleFactor)
+            $msStatusLabel.Location = New-Object System.Drawing.Point(20, $yMS)
+            $msDetailLabel.Location = New-Object System.Drawing.Point(20, ($yMS + 18))
+            $msTrackPanel.Location = New-Object System.Drawing.Point(20, ($yMS + 38))
+
+            $yBtn = $msTrackPanel.Bottom + [int](20 * $global:HMTScaleFactor)
+            $okButton.Top = $yBtn
+            $skipButton.Top = $yBtn
+
+            $p = [int]($padding * $global:HMTScaleFactor)
+            $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
+
+            $script:msState = [hashtable]::Synchronized(@{
+                ProgressPct = 0
+                StatusText  = "Starting $displayName download..."
+                DetailText  = "Connecting to CDN..."
+                Finished    = $false
+                Error       = $null
+            })
+
+            $msRunspace = [runspacefactory]::CreateRunspace()
+            $msRunspace.Open()
+            $msPowerShell = [powershell]::Create()
+            $msPowerShell.Runspace = $msRunspace
+
+            $msScriptBlock = {
+                param($state, $productID, $displayName)
+
+                try {
+                    $zipName = "o365_payload.zip"
+                    $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
+                    $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
+
+                    $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
+                    if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
+                    $zipPath = "$workingDir\$zipName"
+
+                    $cdnSuccess = $false
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+                        $handler = New-Object System.Net.Http.HttpClientHandler
+                        $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
+                        $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+                        foreach ($k in $tokenHeaders.Keys) { $client.DefaultRequestHeaders.Add($k, $tokenHeaders[$k]) }
+
+                        $response = $client.GetAsync($cdnUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+                        if (-not $response.IsSuccessStatusCode) { throw "HTTP Error: $($response.StatusCode)" }
+
+                        $totalBytes = $response.Content.Headers.ContentLength
+                        $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                        $fileStream = [System.IO.File]::Create($zipPath)
+
+                        $buffer = New-Object byte[] 262144
+                        $bytesRead = 0
+                        $totalBytesRead = 0
+                        while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                            $fileStream.Write($buffer, 0, $bytesRead)
+                            $totalBytesRead += $bytesRead
+                            if ($totalBytes) {
+                                $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
+                                $state.ProgressPct = [int]($pct * 0.8)
+                                $state.StatusText = "Downloading $displayName..."
+                                $state.DetailText = "Downloading payload ($pct%)..."
+                            } else {
+                                $state.ProgressPct = 40
+                                $state.StatusText = "Downloading $displayName..."
+                                $state.DetailText = "Downloading payload..."
+                            }
+                        }
+                        $fileStream.Close(); $fileStream.Dispose()
+                        $downloadStream.Close(); $downloadStream.Dispose()
+                        $client.Dispose()
+
+                        # Non-blocking async extraction in background worker
+                        $state.ProgressPct = 85
+                        $state.StatusText = "Extracting $displayName..."
+                        $state.DetailText = "Unpacking payload archive..."
+                        if ($zipPath -match '\.7z$' -and (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
+                            $pExt = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$zipPath`" -C `"$workingDir`"" -PassThru -WindowStyle Hidden
+                            while (-not $pExt.HasExited) { Start-Sleep -Milliseconds 100 }
+                        } else {
+                            $pExt = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"Expand-Archive -Path '$zipPath' -DestinationPath '$workingDir' -Force`"" -PassThru -WindowStyle Hidden
+                            while (-not $pExt.HasExited) { Start-Sleep -Milliseconds 100 }
+                        }
+                        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+                        # Generate XML with Full display level
+                        $state.ProgressPct = 95
+                        $state.StatusText = "Launching $displayName..."
+                        $state.DetailText = "Starting setup.exe..."
+                        $configXml = @"
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="Current">
+    <Product ID="$productID">
+      <Language ID="en-us" />
+    </Product>
+  </Add>
+  <Display Level="Full" AcceptEULA="TRUE" />
+  <Property Name="AUTOACTIVATE" Value="1"/>
+</Configuration>
+"@
+                        $configXmlPath = "$workingDir\configuration.xml"
+                        $configXml | Out-File -FilePath $configXmlPath -Encoding ascii
+
+                        Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configXmlPath`""
+                        $cdnSuccess = $true
+                    } catch {
+                        # Fallback to official Microsoft online streaming installer
+                        $state.StatusText = "Falling back to Microsoft CDN..."
+                        $state.DetailText = "Downloading official ODT..."
+                        $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
+                        $odtExe = "$workingDir\OfficeDeploymentTool.exe"
+
+                        (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
+                        try { Unblock-File -Path $odtExe -ErrorAction Stop } catch {}
+
+                        $state.ProgressPct = 85
+                        $state.StatusText = "Extracting ODT..."
+                        $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
+                        while (-not $extractProc.HasExited) { Start-Sleep -Milliseconds 100 }
+
+                        $configXml = @"
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="Current">
+    <Product ID="$productID">
+      <Language ID="en-us" />
+    </Product>
+  </Add>
+  <Display Level="Full" AcceptEULA="TRUE" />
+  <Property Name="AUTOACTIVATE" Value="1"/>
+</Configuration>
+"@
+                        $configXmlPath = "$workingDir\configuration.xml"
+                        $configXml | Out-File -FilePath $configXmlPath -Encoding ascii
+
+                        Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configXmlPath`""
+                    }
+
+                    $state.ProgressPct = 100
+                    $state.StatusText = "Finished $displayName setup launch"
+                    $state.DetailText = "Installer running"
+                } catch {
+                    $state.Error = $_.ToString()
+                } finally {
+                    $state.Finished = $true
+                }
+            }
+
+            [void]$msPowerShell.AddScript($msScriptBlock).AddArgument($script:msState).AddArgument($productID).AddArgument($displayName)
+            [void]$msPowerShell.BeginInvoke()
+        }
+
         try {
             Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
         }
@@ -351,113 +561,15 @@ $okButton.Add_Click({
         $failedWinget = @()
         $currentIndex = 0
 
-        foreach ($programName in $selectedPrograms) {
+        # Filter out O365 from the WinGet loop as it's running in background
+        $wingetPrograms = $selectedPrograms | Where-Object { $_ -ne "Microsoft Office (64-Bit)" -and $_ -ne "Outlook Classic" }
+        $totalWinget = $wingetPrograms.Count
+
+        foreach ($programName in $wingetPrograms) {
             $program = $programs | Where-Object { $_.Name -eq $programName }
-            &$updateLocalProgress $currentIndex $totalPrograms 0 "Starting: $($program.Name)..."
-
-            if ($program.Type -eq "MSOffice" -or $program.Type -eq "MSOutlook") {
-                $isAll = $program.Type -eq "MSOffice"
-                $displayName = if ($isAll) { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
-                $productID = if ($isAll) { "O365BusinessRetail" } else { "OutlookRetail" }
-                $zipName = if ($isAll) { "o365_all.zip" } else { "outlook_classic.zip" }
-                
-                # Point to your Nginx CDN IP / Reverse Proxy domain
-                $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
-                $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
-
-                $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
-                if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
-
-                $cdnSuccess = $false
-
-                # CDN cached files install
-                try {
-                    Log-Message "Attempting fast install from local CDN for $displayName..." "Info"
-                    $zipPath = "$workingDir\$zipName"
-
-                    # Download zip passing token headers specifically to internal CDN
-                    &$downloadWithProgress $cdnUrl $zipPath $currentIndex $totalPrograms $displayName $tokenHeaders
-
-                    if ($script:SkipCurrent) {
-                        $currentIndex++
-                        Continue
-                    }
-
-                    # Extract local archive
-                    Log-Message "Extracting local installer payload..." "Info"
-                    &$updateLocalProgress $currentIndex $totalPrograms 85 "Extracting $displayName..." "Unpacking zip archive..."
-                    Expand-Archive -Path $zipPath -DestinationPath $workingDir -Force
-                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-
-                    # Async ODT Launch (Fires in background, multitool proceeds immediately)
-                    Log-Message "Launching $displayName Setup in background..." "Info"
-                    &$updateLocalProgress $currentIndex $totalPrograms 95 "Launching $displayName..." "Starting background setup.exe..."
-                    
-                    Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$workingDir\configuration.xml`"" -WindowStyle Hidden
-
-                    $cdnSuccess = $true
-                    Log-Message "$($displayName): Installer launched successfully in background from local CDN." "Success"
-                }
-                catch {
-                    Log-Message "Local CDN unavailable or download failed: $_. Falling back to Microsoft CDN..." "Warning"
-                }
-
-                # Fallback streamed install
-                if (-not $cdnSuccess -and -not $script:SkipCurrent) {
-                    try {
-                        $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-                        $odtExe = "$workingDir\OfficeDeploymentTool.exe"
-
-                        Log-Message "Downloading official ODT from Microsoft..." "Info"
-                        &$downloadWithProgress $odtUrl $odtExe $currentIndex $totalPrograms $displayName
-
-                        if ($script:SkipCurrent) {
-                            $currentIndex++
-                            Continue
-                        }
-
-                        try { Unblock-File -Path $odtExe -ErrorAction Stop } catch {}
-
-                        # Synchronous ODT extraction is required so setup.exe exists on disk before launching
-                        Log-Message "Extracting setup.exe..." "Info"
-                        &$updateLocalProgress $currentIndex $totalPrograms 80 "Extracting setup.exe..." "Unpacking ODT executable..."
-                        $extractProc = Start-Process -FilePath "$odtExe" -ArgumentList "/extract:`"$workingDir`" /quiet" -PassThru -WindowStyle Hidden
-                        while (-not $extractProc.HasExited) { 
-                            [System.Windows.Forms.Application]::DoEvents()
-                            Start-Sleep -Milliseconds 50 
-                        }
-
-                        # Dynamically generate configuration.xml
-                        $configXml = @"
-<Configuration>
-  <Add OfficeClientEdition="64" Channel="Current">
-    <Product ID="$productID">
-      <Language ID="en-us" />
-    </Product>
-  </Add>
-  <Display Level="Basic" AcceptEULA="TRUE" />
-  <Property Name="AUTOACTIVATE" Value="1"/>
-</Configuration>
-"@
-                        $configFile = "$workingDir\configuration.xml"
-                        $configXml | Out-File -FilePath $configFile -Encoding ascii
-
-                        # Async Launch from Microsoft CDN
-                        Log-Message "Launching online Office Setup from Microsoft CDN in background..." "Info"
-                        &$updateLocalProgress $currentIndex $totalPrograms 90 "Launching $displayName..." "Starting background streaming setup.exe..."
-                        
-                        Start-Process -FilePath "$workingDir\setup.exe" -ArgumentList "/configure `"$configFile`"" -WindowStyle Hidden
-
-                        Log-Message "$($displayName): Installer launched in background via Microsoft online fallback." "Success"
-                    }
-                    catch {
-                        Log-Message "$($displayName): Online installation fallback failed. Error: $_" "Error"
-                    }
-                }
-            }
-            elseif ($program -ne $null) {
+            if ($null -ne $program) {
                 Log-Message "Installing $($program.Name)..." "Info"
-                &$updateLocalProgress $currentIndex $totalPrograms 0 "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" "Initializing WinGet..."
+                &$updateLocalProgress $currentIndex $totalWinget 0 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Initializing WinGet..."
             
                 try {
                     $script:SkipCurrent = $false
@@ -482,25 +594,20 @@ $okButton.Add_Click({
                     $silentArgs = $null
                     $installerType = $null
 
-                    # Split cleanly on Windows or Linux newline variants to avoid hidden carriage returns (`\r`)
                     foreach ($line in ($wingetOutput -split '\r?\n')) {
                         if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
                         if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
     
-                        # Strictly isolate the pure hidden silent parameter block
                         if ($line -match '^\s*Silent:\s+(.+)') { 
                             $silentArgs = $matches[1].Trim() 
                         }
-                        # Only fall back to 'Silent with Progress' if a completely silent switch hasn't been set
                         elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { 
                             $silentArgs = $matches[1].Trim() 
                         }
                     }
 
                     # HARDCODED APP OVERRIDES
-                    # Intercept notoriously broken enterprise manifests before they drop into execution
                     if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
-                        # Force absolute silence, auto-accept vendor EULAs, and suppress all reboots/prompts entirely
                         $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
                     }
 
@@ -509,7 +616,6 @@ $okButton.Add_Click({
                     }
 
                     if ([string]::IsNullOrWhiteSpace($silentArgs)) {
-                        # Fallbacks
                         if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
                         elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
                         elseif ($installerType -match "nullsoft") { $silentArgs = "/S" }
@@ -522,7 +628,7 @@ $okButton.Add_Click({
                         $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
                     }
                     $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
-                    &$downloadWithProgress $installerUrl $tempPath $currentIndex $totalPrograms $program.Name
+                    &$downloadWithProgress $installerUrl $tempPath $currentIndex $totalWinget $program.Name
                 
                     if ($script:SkipCurrent) {
                         Log-Message "$($program.Name): Installation skipped by user." "Warning"
@@ -531,13 +637,12 @@ $okButton.Add_Click({
                         Continue
                     }
 
-                    # 3. Execute
                     if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
                         throw "Downloaded installer is missing or 0 bytes. Check network connection."
                     }
 
+                    # 3. Execute
                     Log-Message "Running Installer..." "Info"
-                
                     $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
                     if ($tempPath -match '\.msi$') {
                         $installProcInfo.FileName = "msiexec.exe"
@@ -553,50 +658,71 @@ $okButton.Add_Click({
                     $installProc = New-Object System.Diagnostics.Process
                     $installProc.StartInfo = $installProcInfo
                     $installProc.Start() | Out-Null
-                
+
                     $dotCount = 0
                     while (-not $installProc.HasExited) {
                         if ($script:SkipCurrent) {
-                            Log-Message "$($program.Name): Installation aborted by user." "Warning"
                             try { $installProc.Kill() } catch { Log-Message "Process kill ignored: $_" "logonly" }
                             break
                         }
                         $dotCount++
                         if ($dotCount -gt 3) { $dotCount = 0 }
                         $dots = "." * $dotCount
-                    
-                        &$updateLocalProgress $currentIndex $totalPrograms 99 "Installing $($currentIndex + 1) of $($totalPrograms): $($program.Name)" "Running Installer$dots"
-                    
+                        &$updateLocalProgress $currentIndex $totalWinget 99 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Running Installer$dots"
                         [System.Windows.Forms.Application]::DoEvents()
                         Start-Sleep -Milliseconds 500
                     }
-                
+
                     if (-not $script:SkipCurrent) {
                         if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
                             Log-Message "$($program.Name): Installed successfully." "Success"
                         }
                         else {
-                            Log-Message "$($program.Name): Installation exited with code $($installProc.ExitCode)." "Warning"
-                            $failedWinget += $program.Name
+                            Log-Message "$($program.Name): Installation failed with code $($installProc.ExitCode). Adding to retry queue..." "Warning"
+                            $failedWinget += $program
                         }
                     }
-                
-                    # Cleanup
+
                     Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
-                
                     Start-Sleep -Seconds 1
                     $skipButton.Enabled = $false
                 }
                 catch {
-                    Log-Message "$($program.Name): Installation failed. Error: $_" "Error"
-                    $failedWinget += $program.Name
+                    Log-Message "$($program.Name): Installation failed. Error: $_. Adding to retry queue..." "Warning"
+                    $failedWinget += $program
                     $skipButton.Enabled = $false
                 }
+
+                &$updateLocalProgress $currentIndex $totalWinget 100 "Finished: $($program.Name)" ""
+                $currentIndex++
             }
-        
-            # Finalize segment progress
-            &$updateLocalProgress $currentIndex $totalPrograms 100 "Finished: $($program.Name)"
-            $currentIndex++
+        }
+
+        # Synchronize and wait for background O365 task if still running
+        if ($msProgName -and $null -ne $script:msState -and -not $script:msState.Finished) {
+            $statuslabel.Text = "Waiting for Microsoft Office setup to complete..."
+            $detailLabel.Text = "Background payload download/extract in progress..."
+            while (-not $script:msState.Finished) {
+                &$updateMSProgress
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Milliseconds 100
+            }
+        }
+
+        # Clean up background runspace
+        if ($null -ne $msPowerShell) { $msPowerShell.Dispose() }
+        if ($null -ne $msRunspace) { $msRunspace.Close(); $msRunspace.Dispose() }
+
+        # Collapse O365 secondary UI controls and shrink form height
+        if ($msTrackPanel.Visible) {
+            $msStatusLabel.Visible = $false
+            $msDetailLabel.Visible = $false
+            $msTrackPanel.Visible = $false
+
+            $okButton.Top = $trackPanel.Bottom + [int](40 * $global:HMTScaleFactor)
+            $skipButton.Top = $okButton.Top
+            $p = [int]($padding * $global:HMTScaleFactor)
+            $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
         }
 
         if ($failedWinget.Count -gt 0) {

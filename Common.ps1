@@ -90,7 +90,7 @@ function Log-Message {
     $logMessage = "$timestamp [$level] - $message"
     $consoleMessage = "[$level] - $message"
     
-    $isError = ($level.ToLower() -eq "error" -or $level.ToLower() -eq "logonly")
+    $isError = ($level.ToLower() -eq "error")
     if ($isError) {
         $global:HasErrors = $true
         try {
@@ -109,7 +109,7 @@ function Log-Message {
     } elseif ($level.ToLower() -eq "skip") {
         Write-Host $consoleMessage -ForegroundColor "Cyan"
     } elseif ($level.ToLower() -eq "logonly") {
-        # Logged directly to log file above
+        # Silent console output; non-error
     } else {
         Write-Host $consoleMessage
     }
@@ -361,6 +361,25 @@ function User-Exit {
     }
 }
 
+# Non-blocking async extraction helper to keep WinForms UI responsive
+function Invoke-HMTExtract {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [Parameter(Mandatory=$true)]
+        [string]$DestinationPath
+    )
+    if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
+        $proc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$Path`" -C `"$DestinationPath`"" -PassThru -WindowStyle Hidden
+    } else {
+        $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"Expand-Archive -LiteralPath '$Path' -DestinationPath '$DestinationPath' -Force`"" -PassThru -WindowStyle Hidden
+    }
+    while (-not $proc.HasExited) {
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 50
+    }
+}
+
 # Load GUI Configs
 $GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
 . "$GUIPath"
@@ -444,7 +463,6 @@ function Show-DownloadDialog {
         [string]$Url
     )
 
-	Log-Message "Starting download of file: $DisplayName" "logonly"
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 	$script:dlCompleteClose = $false
 
@@ -575,7 +593,7 @@ function Show-DownloadDialog {
 
     # Start async download
     try { $webClient.DownloadFileAsync([Uri]$Url, $OutputPath) }
-    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "logonly"; throw $_ }
+    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "Error"; throw $_ }
 
     # Show dialog until done
     Show-HMTDialog $dform | Out-Null

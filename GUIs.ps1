@@ -600,7 +600,7 @@ $TLaunchButton.Add_Click({
                 }
             }
             "Windows Disk Cleanup" {
-                Log-Message "Starting Windows Disk Cleanup diaglog." "logonly"
+                Log-Message "Starting Windows Disk Cleanup dialog." "Info"
                 Start-Process -FilePath cleanmgr.exe -Verb RunAs
             }
             "Patch Cleaner" {
@@ -608,7 +608,7 @@ $TLaunchButton.Add_Click({
                 $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
                 Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://master.dl.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip?viasf=1' -OutputPath "$PatchCleanerPath"
                 if (Test-Path -LiteralPath $PatchCleanerPath) {
-                    Expand-Archive -LiteralPath $PatchCleanerPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $PatchCleanerPath -DestinationPath $ExtProgramDir
                     $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
                 }
@@ -625,7 +625,7 @@ $TLaunchButton.Add_Click({
                 } catch { Write-Warning "Failed to fetch WizTree download URL." }
                 Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
                 if (Test-Path -LiteralPath $WizTreeZipPath) {
-                    Expand-Archive -LiteralPath $WizTreeZipPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $WizTreeZipPath -DestinationPath $ExtProgramDir
                     $WizTreeExePath = Get-ChildItem -Path $ExtProgramDir -Filter "WizTree64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($WizTreeExePath) { Start-Process $WizTreeExePath }
                 }
@@ -652,7 +652,7 @@ $TLaunchButton.Add_Click({
         
                 Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
                 if (Test-Path -LiteralPath $BleachZipPath) {
-                    Expand-Archive -LiteralPath $BleachZipPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $BleachZipPath -DestinationPath $ExtProgramDir
                     
                     # Dynamically locate the executable regardless of folder naming schemes
                     $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
@@ -668,7 +668,7 @@ $TLaunchButton.Add_Click({
                 $BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
                 Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
                 if (Test-Path -LiteralPath $BSVZipPath) {
-                    Expand-Archive -LiteralPath $BSVZipPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $BSVZipPath -DestinationPath $ExtProgramDir
                     $BSVExePath = Get-ChildItem -Path $ExtProgramDir -Filter "BlueScreenView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($BSVExePath) { Start-Process $BSVExePath }
                 }
@@ -692,7 +692,7 @@ $TLaunchButton.Add_Click({
         
                 Show-DownloadDialog -DisplayName 'Little Registry Cleaner' -Url 'https://github.com/little-apps/LittleRegistryCleaner/releases/download/1.6/Little_Registry_Cleaner_Portable_Edition_06_28_2013.zip' -OutputPath "$LRCPath"
                 if (Test-Path -LiteralPath $LRCPath) {
-                    Expand-Archive -LiteralPath $LRCPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $LRCPath -DestinationPath $ExtProgramDir
             
                     $LRCEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Little Registry Cleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
             
@@ -714,7 +714,7 @@ $TLaunchButton.Add_Click({
                 } catch { Write-Warning "Failed to fetch DISM++ download URL." }
                 Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
                 if (Test-Path -LiteralPath $DISMPPPath) {
-                    Expand-Archive -LiteralPath $DISMPPPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $DISMPPPath -DestinationPath $ExtProgramDir
                     $DISMPPEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Dism++x64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($DISMPPEPath) { Start-Process $DISMPPEPath }
                 }
@@ -746,7 +746,7 @@ $TLaunchButton.Add_Click({
                 $HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
                 Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
                 if (Test-Path -LiteralPath $HDDSPath) {
-                    Expand-Archive -LiteralPath $HDDSPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $HDDSPath -DestinationPath $ExtProgramDir
                     $HDDSEPath = Get-ChildItem -Path $ExtProgramDir -Filter "HDDScan.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($HDDSEPath) { Start-Process $HDDSEPath }
                 }
@@ -772,7 +772,7 @@ $TLaunchButton.Add_Click({
                 } catch { Write-Warning "Failed to fetch Crystal Disk Mark download URL." }
                 Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
                 if (Test-Path -LiteralPath $CDMPath) {
-                    Expand-Archive -LiteralPath $CDMPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $CDMPath -DestinationPath $ExtProgramDir
                     $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($CDMEPath) { Start-Process $CDMEPath }
                 }
@@ -789,7 +789,7 @@ $TLaunchButton.Add_Click({
                 } catch { Write-Warning "Failed to fetch Crystal Disk Info download URL." }
                 Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
                 if (Test-Path -LiteralPath $CDIPath) {
-                    Expand-Archive -LiteralPath $CDIPath -DestinationPath $ExtProgramDir -Force
+                    Invoke-HMTExtract -Path $CDIPath -DestinationPath $ExtProgramDir
                     $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($CDIEPath) { Start-Process $CDIEPath }
                 }
@@ -1359,34 +1359,12 @@ function Show-PacketLossTestDialog {
             $colWidth = [float]($w / $maxBars)
             $barWidth = [math]::Max(1.0, [float]($colWidth * 0.85))
 
-            # Vertical LinearGradientBrush spanning full canvas height (0ms Green -> 25ms Yellow-Green -> 50ms Yellow -> 75ms Orange -> 100ms+ Red)
-            $p25  = [math]::Min(0.96, [float](25.0 / $maxY))
-            $p50  = [math]::Max($p25 + 0.001, [math]::Min(0.97, [float](50.0 / $maxY)))
-            $p75  = [math]::Max($p50 + 0.001, [math]::Min(0.98, [float](75.0 / $maxY)))
-            $p100 = [math]::Max($p75 + 0.001, [math]::Min(0.99, [float](100.0 / $maxY)))
-
-            $gradBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-                (New-Object System.Drawing.PointF(0, $h)),
-                (New-Object System.Drawing.PointF(0, 0)),
-                [System.Drawing.Color]::Black,
-                [System.Drawing.Color]::Black
-            )
-
-            $cb = New-Object System.Drawing.Drawing2D.ColorBlend
-            $cb.Colors = [System.Drawing.Color[]]@(
-                [System.Drawing.Color]::FromArgb(67, 181, 129),   # 0ms: Green
-                [System.Drawing.Color]::FromArgb(136, 212, 64),   # 25ms: Yellow-Green
-                [System.Drawing.Color]::FromArgb(241, 196, 15),   # 50ms: Yellow
-                [System.Drawing.Color]::FromArgb(230, 126, 34),   # 75ms: Orange
-                [System.Drawing.Color]::FromArgb(240, 71, 71),     # 100ms: Red
-                [System.Drawing.Color]::FromArgb(240, 71, 71)      # $maxY: Red
-            )
-            $cb.Positions = [float[]]@(0.0, $p25, $p50, $p75, $p100, 1.0)
-            $gradBrush.InterpolationColors = $cb
-
-            $gradPen = New-Object System.Drawing.Pen($gradBrush, $barWidth)
-            $orangePen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#e67e22"), [math]::Max(1.0, $barWidth))
-            $redPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), [math]::Max(1.0, $barWidth))
+            # Solid color pens per RTT category for uniform single-brightness bars
+            $penGreen  = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#43b581"), $barWidth)
+            $penYelGrn = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#88d440"), $barWidth)
+            $penYellow = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f1c40f"), $barWidth)
+            $penOrange = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#e67e22"), $barWidth)
+            $penRed    = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#f04747"), $barWidth)
 
             for ($idx = 0; $idx -lt $visibleCount; $idx++) {
                 $pt = $script:pingHistory[$startIndex + $idx]
@@ -1398,23 +1376,30 @@ function Show-PacketLossTestDialog {
                     $yLine = $h - ($h * $rttRatio)
                     if ($yLine -ge $h) { $yLine = $h - 2 }
 
-                    if ($pt.IsLate) {
-                        # Draw solid orange vertical bar for late packet
-                        $g.DrawLine($orangePen, $xPos, [float]$h, $xPos, [float]$yLine)
+                    $barPen = if ($pt.IsLate -or $pt.RTT -ge 100) {
+                        $penRed
+                    } elseif ($pt.RTT -ge 75) {
+                        $penOrange
+                    } elseif ($pt.RTT -ge 50) {
+                        $penYellow
+                    } elseif ($pt.RTT -ge 25) {
+                        $penYelGrn
                     } else {
-                        # Draw gradient vertical bar for normal successful packet
-                        $g.DrawLine($gradPen, $xPos, [float]$h, $xPos, [float]$yLine)
+                        $penGreen
                     }
+
+                    $g.DrawLine($barPen, $xPos, [float]$h, $xPos, [float]$yLine)
                 } elseif ($pt.WasCountedAsLost -or -not $pt.IsPending) {
                     # Draw full solid red vertical bar for lost packet (skip actively in-flight pending packets at leading edge)
-                    $g.DrawLine($redPen, $xPos, 0.0, $xPos, [float]$h)
+                    $g.DrawLine($penRed, $xPos, 0.0, $xPos, [float]$h)
                 }
             }
 
-            $gradPen.Dispose()
-            $gradBrush.Dispose()
-            $orangePen.Dispose()
-            $redPen.Dispose()
+            $penGreen.Dispose()
+            $penYelGrn.Dispose()
+            $penYellow.Dispose()
+            $penOrange.Dispose()
+            $penRed.Dispose()
         }
     })
 
@@ -1442,8 +1427,8 @@ function Show-PacketLossTestDialog {
         if ($ppsVal -lt 1) { $ppsVal = 1 }
         if ($ppsVal -gt 999) { $ppsVal = 999 }
 
-        # Soft timeout threshold (ms) after which pending packet is temporarily counted as lost
-        $softTimeoutMs = [math]::Max(400, [int](1000 / $ppsVal))
+        # Timeout threshold (ms) matching full 5-second ICMP ping timeout
+        $softTimeoutMs = 5000
 
         # Check existing pending items for soft timeouts
         foreach ($item in $script:pingHistory) {
