@@ -1,4 +1,4 @@
-﻿# GUI Diagnostics & Standalone Tools - Tyler Hatfield - v2.30
+# GUI Diagnostics & Standalone Tools - Tyler Hatfield - v2.30
 
 # ==============================================================================
 # 1. Command Runner Dialog (DISM, SFC, ChkDsk, NetFx3)
@@ -54,11 +54,13 @@ function Show-CommandRunnerDialog {
     $lblDetail.AutoEllipsis = $true
     $runnerForm.Controls.Add($lblDetail)
 
-    $pBar = New-Object System.Windows.Forms.ProgressBar
+    $pBar = New-Object HMT.Tools.SmoothProgressBar
     $pBar.Location = New-Object System.Drawing.Point(20, 80)
     $pBar.Size = New-Object System.Drawing.Size(660, 10)
+    $pBar.BorderRadius = 4
+    $pBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+    $pBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
     $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
-    $pBar.MarqueeAnimationSpeed = 30
     $pBar.Minimum = 0
     $pBar.Maximum = 100
     $runnerForm.Controls.Add($pBar)
@@ -1008,12 +1010,15 @@ function Show-StorageHealthDialog {
     $lblBenchStatus.Size = New-Object System.Drawing.Size(765, 18)
     $tabBench.Controls.Add($lblBenchStatus)
 
-    $benchProgressBar = New-Object System.Windows.Forms.ProgressBar
+    $benchProgressBar = New-Object HMT.Tools.SmoothProgressBar
     $benchProgressBar.Location = New-Object System.Drawing.Point(15, 146)
     $benchProgressBar.Size = New-Object System.Drawing.Size(765, 8)
+    $benchProgressBar.BorderRadius = 4
+    $benchProgressBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+    $benchProgressBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+    $benchProgressBar.ShowShimmer = $true
     $benchProgressBar.Minimum = 0
     $benchProgressBar.Maximum = 100
-    $benchProgressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
     $tabBench.Controls.Add($benchProgressBar)
 
     $benchGraph = New-Object HMT.Tools.SmoothGraphControl
@@ -1785,9 +1790,13 @@ function Show-BitLockerManagerDialog {
     $lblProgStatus.Size = New-Object System.Drawing.Size(480, 20)
     $progPanel.Controls.Add($lblProgStatus)
 
-    $pBar = New-Object System.Windows.Forms.ProgressBar
+    $pBar = New-Object HMT.Tools.SmoothProgressBar
     $pBar.Location = New-Object System.Drawing.Point(15, 30)
     $pBar.Size = New-Object System.Drawing.Size(685, 18)
+    $pBar.BorderRadius = 5
+    $pBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+    $pBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+    $pBar.ShowShimmer = $true
     $pBar.Minimum = 0
     $pBar.Maximum = 100
     $progPanel.Controls.Add($pBar)

@@ -1,4 +1,4 @@
-﻿// HMTTools.cs - High-Performance Diagnostic & Visualization Engine - Tyler Hatfield - v1.0
+// HMTTools.cs - High-Performance Diagnostic & Visualization Engine - Tyler Hatfield - v1.0
 
 using System;
 using System.Collections.Generic;
@@ -233,6 +233,430 @@ namespace HMT.Tools {
                     SizeF size = g.MeasureString(statsText, boldFont);
                     g.DrawString(statsText, boldFont, textBrush, w - size.Width - 15, 4);
                 }
+            }
+        }
+    }
+
+    // ==============================================================================
+    // Smooth Rounded & Animated Modern Progress Bar Control
+    // ==============================================================================
+    public class SmoothProgressBar : Control {
+        private int _value = 0;
+        private int _maximum = 100;
+        private int _minimum = 0;
+        private int _borderRadius = 5;
+        private Color _progressColor = Color.FromArgb(111, 31, 222);       // #6f1fde
+        private Color _progressColorEnd = Color.FromArgb(88, 101, 242);    // #5865F2
+        private Color _trackColor = Color.FromArgb(32, 34, 37);           // #202225
+        private Color _borderColor = Color.FromArgb(63, 65, 71);          // #3f4147
+        private bool _isMarquee = false;
+        private bool _showShimmer = true;
+        private float _shimmerPos = -0.5f;
+        private System.Windows.Forms.Timer _animTimer;
+        private float _visualPercent = 0f;
+
+        public SmoothProgressBar() {
+            SetStyle(
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
+            Size = new Size(300, 20);
+            BackColor = Color.Transparent;
+
+            _animTimer = new System.Windows.Forms.Timer();
+            _animTimer.Interval = 25; // ~40 FPS smooth animation
+            _animTimer.Tick += (s, e) => {
+                bool needsRedraw = false;
+
+                if (_isMarquee) {
+                    _shimmerPos += 0.03f;
+                    if (_shimmerPos > 1.4f) {
+                        _shimmerPos = -0.4f;
+                    }
+                    needsRedraw = true;
+                } else {
+                    float targetPercent = (float)(_value - _minimum) / Math.Max(1, (_maximum - _minimum));
+                    targetPercent = Math.Max(0f, Math.Min(1f, targetPercent));
+
+                    if (Math.Abs(_visualPercent - targetPercent) > 0.005f) {
+                        _visualPercent += (targetPercent - _visualPercent) * 0.25f;
+                        needsRedraw = true;
+                    } else {
+                        _visualPercent = targetPercent;
+                    }
+
+                    if (_showShimmer && _visualPercent > 0.01f) {
+                        _shimmerPos += 0.025f;
+                        if (_shimmerPos > 1.4f) {
+                            _shimmerPos = -0.4f;
+                        }
+                        needsRedraw = true;
+                    }
+                }
+
+                if (needsRedraw) {
+                    Invalidate();
+                }
+            };
+            _animTimer.Start();
+        }
+
+        protected override void Dispose(bool disposing) {
+            if (disposing && _animTimer != null) {
+                _animTimer.Stop();
+                _animTimer.Dispose();
+                _animTimer = null;
+            }
+            base.Dispose(disposing);
+        }
+
+        public int Value {
+            get { return _value; }
+            set {
+                _value = Math.Max(_minimum, Math.Min(_maximum, value));
+                if (!IsHandleCreated) {
+                    _visualPercent = (float)(_value - _minimum) / Math.Max(1, (_maximum - _minimum));
+                }
+                Invalidate();
+            }
+        }
+
+        public int Minimum {
+            get { return _minimum; }
+            set { _minimum = value; Invalidate(); }
+        }
+
+        public int Maximum {
+            get { return _maximum; }
+            set { _maximum = Math.Max(_minimum + 1, value); Invalidate(); }
+        }
+
+        public int BorderRadius {
+            get { return _borderRadius; }
+            set { _borderRadius = Math.Max(0, value); Invalidate(); }
+        }
+
+        public Color ProgressColor {
+            get { return _progressColor; }
+            set { _progressColor = value; Invalidate(); }
+        }
+
+        public Color ProgressColorEnd {
+            get { return _progressColorEnd; }
+            set { _progressColorEnd = value; Invalidate(); }
+        }
+
+        public Color TrackColor {
+            get { return _trackColor; }
+            set { _trackColor = value; Invalidate(); }
+        }
+
+        public Color BorderColor {
+            get { return _borderColor; }
+            set { _borderColor = value; Invalidate(); }
+        }
+
+        public bool IsMarquee {
+            get { return _isMarquee; }
+            set { _isMarquee = value; Invalidate(); }
+        }
+
+        public bool ShowShimmer {
+            get { return _showShimmer; }
+            set { _showShimmer = value; Invalidate(); }
+        }
+
+        public ProgressBarStyle Style {
+            get { return _isMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Blocks; }
+            set { _isMarquee = (value == ProgressBarStyle.Marquee); Invalidate(); }
+        }
+
+        public int MarqueeAnimationSpeed {
+            get { return _animTimer != null ? _animTimer.Interval : 0; }
+            set {
+                if (_animTimer != null && value > 0) {
+                    _animTimer.Interval = Math.Max(10, Math.Min(100, value));
+                }
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e) {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+            int w = ClientSize.Width;
+            int h = ClientSize.Height;
+            if (w < 4 || h < 4) return;
+
+            Rectangle rect = new Rectangle(0, 0, w - 1, h - 1);
+            int r = Math.Min(_borderRadius, h / 2);
+
+            using (GraphicsPath trackPath = CreateRoundedRectanglePath(rect, r)) {
+                using (SolidBrush trackBrush = new SolidBrush(_trackColor)) {
+                    g.FillPath(trackBrush, trackPath);
+                }
+
+                if (_isMarquee) {
+                    g.SetClip(trackPath);
+                    int pulseWidth = Math.Max(60, (int)(w * 0.45f));
+                    int pulseX = (int)((w + pulseWidth) * _shimmerPos) - pulseWidth;
+                    Rectangle pulseRect = new Rectangle(pulseX, rect.Y, pulseWidth, rect.Height);
+
+                    using (LinearGradientBrush pulseBrush = new LinearGradientBrush(
+                        pulseRect,
+                        _progressColor,
+                        _progressColorEnd,
+                        LinearGradientMode.Horizontal)) {
+                        
+                        ColorBlend cb = new ColorBlend(3);
+                        cb.Colors = new Color[] {
+                            Color.FromArgb(0, _progressColor.R, _progressColor.G, _progressColor.B),
+                            _progressColorEnd,
+                            Color.FromArgb(0, _progressColor.R, _progressColor.G, _progressColor.B)
+                        };
+                        cb.Positions = new float[] { 0f, 0.5f, 1f };
+                        pulseBrush.InterpolationColors = cb;
+
+                        g.FillRectangle(pulseBrush, pulseRect);
+                    }
+                    g.ResetClip();
+                } else {
+                    int fillWidth = (int)((rect.Width) * _visualPercent);
+                    if (fillWidth > 2) {
+                        Rectangle fillRect = new Rectangle(rect.X, rect.Y, fillWidth, rect.Height);
+                        g.SetClip(trackPath);
+
+                        using (LinearGradientBrush fillBrush = new LinearGradientBrush(
+                            rect, _progressColor, _progressColorEnd, LinearGradientMode.Horizontal)) {
+                            g.FillRectangle(fillBrush, fillRect);
+                        }
+
+                        if (_showShimmer) {
+                            int shimmerWidth = Math.Max(30, fillWidth / 3);
+                            int shimmerX = (int)(fillWidth * _shimmerPos);
+                            Rectangle shimmerRect = new Rectangle(shimmerX, rect.Y, shimmerWidth, rect.Height);
+
+                            using (LinearGradientBrush shimmerBrush = new LinearGradientBrush(
+                                shimmerRect,
+                                Color.FromArgb(0, 255, 255, 255),
+                                Color.FromArgb(100, 255, 255, 255),
+                                LinearGradientMode.Horizontal)) {
+                                
+                                ColorBlend cb = new ColorBlend(3);
+                                cb.Colors = new Color[] {
+                                    Color.FromArgb(0, 255, 255, 255),
+                                    Color.FromArgb(100, 255, 255, 255),
+                                    Color.FromArgb(0, 255, 255, 255)
+                                };
+                                cb.Positions = new float[] { 0f, 0.5f, 1f };
+                                shimmerBrush.InterpolationColors = cb;
+
+                                g.FillRectangle(shimmerBrush, shimmerRect);
+                            }
+                        }
+
+                        g.ResetClip();
+                    }
+                }
+
+                using (Pen borderPen = new Pen(_borderColor, 1f)) {
+                    g.DrawPath(borderPen, trackPath);
+                }
+            }
+        }
+
+        private static GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int radius) {
+            GraphicsPath path = new GraphicsPath();
+            if (radius <= 0) {
+                path.AddRectangle(rect);
+                return path;
+            }
+
+            int diameter = radius * 2;
+            Rectangle arc = new Rectangle(rect.Location, new Size(diameter, diameter));
+
+            path.AddArc(arc, 180, 90);
+            arc.X = rect.Right - diameter;
+            path.AddArc(arc, 270, 90);
+            arc.Y = rect.Bottom - diameter;
+            path.AddArc(arc, 0, 90);
+            arc.X = rect.Left;
+            path.AddArc(arc, 90, 90);
+
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    // ==============================================================================
+    // Modern Dark Tab Control (Eliminates Win9x borders and classic styling)
+    // ==============================================================================
+    public class DarkTabControl : TabControl {
+        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225
+        private Color _tabSelectedBg = Color.FromArgb(54, 57, 63);    // #36393f
+        private Color _tabTextColor = Color.FromArgb(160, 160, 160);  // #a0a0a0
+        private Color _tabSelectedTextColor = Color.White;
+        private Color _accentColor = Color.FromArgb(88, 101, 242);     // #5865F2
+        private Color _borderColor = Color.FromArgb(47, 49, 54);      // #2f3136
+
+        public DarkTabControl() {
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.UserPaint,
+                true
+            );
+            DrawMode = TabDrawMode.OwnerDrawFixed;
+            SizeMode = TabSizeMode.Fixed;
+            ItemSize = new Size(135, 32);
+            Padding = new Point(12, 6);
+            Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+        }
+
+        protected override void OnPaint(PaintEventArgs e) {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            // Fill background behind tabs
+            using (SolidBrush bgBrush = new SolidBrush(_borderColor)) {
+                g.FillRectangle(bgBrush, ClientRectangle);
+            }
+
+            // Draw each tab header
+            for (int i = 0; i < TabCount; i++) {
+                TabPage tab = TabPages[i];
+                Rectangle tabRect = GetTabRect(i);
+                bool isSelected = (SelectedIndex == i);
+
+                Color bg = isSelected ? _tabSelectedBg : _tabHeaderBg;
+                Color fg = isSelected ? _tabSelectedTextColor : _tabTextColor;
+
+                using (SolidBrush tabBrush = new SolidBrush(bg)) {
+                    g.FillRectangle(tabBrush, tabRect);
+                }
+
+                if (isSelected) {
+                    using (SolidBrush accentBrush = new SolidBrush(_accentColor)) {
+                        g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, 3);
+                    }
+                }
+
+                using (StringFormat sf = new StringFormat()) {
+                    sf.Alignment = StringAlignment.Center;
+                    sf.LineAlignment = StringAlignment.Center;
+                    sf.Trimming = StringTrimming.EllipsisCharacter;
+                    using (Font tabFont = isSelected ? new Font(Font, FontStyle.Bold) : new Font(Font, FontStyle.Regular))
+                    using (SolidBrush textBrush = new SolidBrush(fg)) {
+                        g.DrawString(tab.Text, tabFont, textBrush, tabRect, sf);
+                    }
+                }
+            }
+
+            // Bottom boundary line separating tabs from content
+            if (TabCount > 0) {
+                Rectangle firstTabRect = GetTabRect(0);
+                int bottomY = firstTabRect.Bottom;
+                using (Pen borderPen = new Pen(_borderColor, 1f)) {
+                    g.DrawLine(borderPen, 0, bottomY, ClientSize.Width, bottomY);
+                }
+            }
+        }
+    }
+
+    // ==============================================================================
+    // Modern Dark ListView (Custom OwnerDraw Header & Rows, Zero Win9x Gray Borders)
+    // ==============================================================================
+    public class DarkListView : ListView {
+        private Color _headerBg = Color.FromArgb(32, 34, 37);         // #202225
+        private Color _headerFg = Color.FromArgb(217, 217, 217);      // #d9d9d9
+        private Color _headerBorder = Color.FromArgb(47, 49, 54);     // #2f3136
+        private Color _itemBg = Color.FromArgb(32, 34, 37);           // #202225
+        private Color _itemSelectedBg = Color.FromArgb(54, 57, 63);   // #36393f
+        private Color _itemSelectedFg = Color.White;
+        private Color _itemFg = Color.FromArgb(217, 217, 217);        // #d9d9d9
+        private Color _itemSubFg = Color.FromArgb(160, 160, 160);     // #a0a0a0
+
+        public DarkListView() {
+            SetStyle(
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.ResizeRedraw,
+                true
+            );
+            View = View.Details;
+            FullRowSelect = true;
+            GridLines = false;
+            BorderStyle = BorderStyle.None;
+            BackColor = _itemBg;
+            ForeColor = _itemFg;
+            Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            OwnerDraw = true;
+
+            DrawColumnHeader += OnDrawColumnHeader;
+            DrawItem += OnDrawItem;
+            DrawSubItem += OnDrawSubItem;
+        }
+
+        private void OnDrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e) {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            using (SolidBrush bgBrush = new SolidBrush(_headerBg)) {
+                g.FillRectangle(bgBrush, e.Bounds);
+            }
+
+            using (Pen borderPen = new Pen(_headerBorder, 1f)) {
+                g.DrawLine(borderPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+                g.DrawLine(borderPen, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+            }
+
+            using (Font headerFont = new Font(Font.FontFamily, 9f, FontStyle.Bold))
+            using (SolidBrush textBrush = new SolidBrush(_headerFg))
+            using (StringFormat sf = new StringFormat()) {
+                sf.LineAlignment = StringAlignment.Center;
+                Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
+                g.DrawString(e.Header.Text, headerFont, textBrush, textRect, sf);
+            }
+        }
+
+        private void OnDrawItem(object sender, DrawListViewItemEventArgs e) {
+            // Handled in DrawSubItem
+        }
+
+        private void OnDrawSubItem(object sender, DrawListViewSubItemEventArgs e) {
+            Graphics g = e.Graphics;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            bool isSelected = e.Item.Selected;
+            Rectangle bounds = e.Bounds;
+
+            Color bg = isSelected ? _itemSelectedBg : _itemBg;
+            using (SolidBrush bgBrush = new SolidBrush(bg)) {
+                g.FillRectangle(bgBrush, bounds);
+            }
+
+            if (isSelected && e.ColumnIndex == 0) {
+                using (SolidBrush accentBrush = new SolidBrush(Color.FromArgb(88, 101, 242))) {
+                    g.FillRectangle(accentBrush, bounds.Left, bounds.Top, 3, bounds.Height);
+                }
+            }
+
+            Color fg = isSelected ? _itemSelectedFg : (e.ColumnIndex == 0 ? _itemFg : _itemSubFg);
+            using (SolidBrush textBrush = new SolidBrush(fg))
+            using (StringFormat sf = new StringFormat()) {
+                sf.LineAlignment = StringAlignment.Center;
+                sf.Trimming = StringTrimming.EllipsisCharacter;
+                int padLeft = (e.ColumnIndex == 0) ? (isSelected ? 10 : 8) : 6;
+                Rectangle textRect = new Rectangle(bounds.Left + padLeft, bounds.Top, bounds.Width - padLeft - 4, bounds.Height);
+                g.DrawString(e.SubItem.Text, Font, textBrush, textRect, sf);
             }
         }
     }

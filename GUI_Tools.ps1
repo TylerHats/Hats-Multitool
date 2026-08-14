@@ -23,55 +23,11 @@ $ToolsGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 Set-DarkTitleBar -TargetForm $ToolsGUI
 
 # Create Dark Tab Control
-$ToolsTabControl = New-Object System.Windows.Forms.TabControl
+$ToolsTabControl = New-Object HMT.Tools.DarkTabControl
 $ToolsTabControl.Location = New-Object System.Drawing.Point(20, 15)
 $ToolsTabControl.Size = New-Object System.Drawing.Size(740, 470)
 $ToolsTabControl.Font = $font
-$ToolsTabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
-$ToolsTabControl.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
-$ToolsTabControl.ItemSize = New-Object System.Drawing.Size(142, 30)
-$ToolsTabControl.Padding = New-Object System.Drawing.Point(12, 6)
-
-$ToolsTabControl.Add_DrawItem({
-    param($sender, $e)
-    $tc = $sender
-    $tab = $tc.TabPages[$e.Index]
-    $isSelected = ($e.Index -eq $tc.SelectedIndex)
-    $g = $e.Graphics
-
-    $bgBrush = if ($isSelected) {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#36393f"))
-    } else {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
-    }
-    $g.FillRectangle($bgBrush, $e.Bounds)
-    $bgBrush.Dispose()
-
-    if ($isSelected) {
-        $accentPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#5865F2"), 3)
-        $g.DrawLine($accentPen, $e.Bounds.Left, $e.Bounds.Top + 1, $e.Bounds.Right, $e.Bounds.Top + 1)
-        $accentPen.Dispose()
-    }
-
-    $textBrush = if ($isSelected) {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#ffffff"))
-    } else {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#a0a0a0"))
-    }
-    $sf = New-Object System.Drawing.StringFormat
-    $sf.Alignment = [System.Drawing.StringAlignment]::Center
-    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $tabFont = if ($isSelected) {
-        New-Object System.Drawing.Font($tc.Font, [System.Drawing.FontStyle]::Bold)
-    } else {
-        $tc.Font
-    }
-    $g.DrawString($tab.Text, $tabFont, $textBrush, [System.Drawing.RectangleF]$e.Bounds, $sf)
-    $textBrush.Dispose()
-    $sf.Dispose()
-    if ($isSelected) { $tabFont.Dispose() }
-})
-
+$ToolsTabControl.ItemSize = New-Object System.Drawing.Size(142, 32)
 $ToolsGUI.Controls.Add($ToolsTabControl)
 
 # Tool Lists by Category
@@ -139,19 +95,11 @@ $passList = @(
 # Helper function to create a styled ListView for a tab
 $createTabListView = {
     param($parentTab, $itemsList)
-    $lv = New-Object System.Windows.Forms.ListView
+    $lv = New-Object HMT.Tools.DarkListView
     $lv.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $lv.View = [System.Windows.Forms.View]::Details
-    $lv.FullRowSelect = $true
-    $lv.GridLines = $false
-    $lv.HeaderStyle = [System.Windows.Forms.ColumnHeaderStyle]::Nonclickable
-    $lv.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $lv.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lv.BorderStyle = [System.Windows.Forms.BorderStyle]::None
     $lv.Font = $font
     $lv.Columns.Add("Tool", 210) | Out-Null
     $lv.Columns.Add("Description", 480) | Out-Null
-    [HMT.NativeMethods]::SetWindowTheme($lv.Handle, "DarkMode_Explorer", $null) | Out-Null
 
     foreach ($t in $itemsList) {
         $item = New-Object System.Windows.Forms.ListViewItem($t.Name)
@@ -187,8 +135,8 @@ $tabViewer.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $lvViewer = &$createTabListView $tabViewer $viewerList
 $ToolsTabControl.TabPages.Add($tabViewer)
 
-# 5. Tab: Password & Recovery (Advanced)
-$tabPass = New-Object System.Windows.Forms.TabPage("Password Recovery (Advanced)")
+# 5. Tab: Password Recovery
+$tabPass = New-Object System.Windows.Forms.TabPage("Passwords")
 $tabPass.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $ToolsTabControl.TabPages.Add($tabPass)
 

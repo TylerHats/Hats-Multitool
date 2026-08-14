@@ -1,4 +1,4 @@
-﻿# GUI Main Menu & About - Tyler Hatfield - v2.20
+# GUI Main Menu & About - Tyler Hatfield - v2.20
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -55,6 +55,7 @@ $HeaderPanel.Controls.Add($HeaderTitle)
 
 $HeaderSubtitle = New-Object System.Windows.Forms.Label
 $HeaderSubtitle.Text = "v$CurVerAbout | System Setup & Utilities"
+$HeaderSubtitle.UseMnemonic = $false
 $HeaderSubtitle.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $HeaderSubtitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $HeaderSubtitle.Location = New-Object System.Drawing.Point(74, 48)

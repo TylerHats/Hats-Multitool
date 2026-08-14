@@ -1,4 +1,4 @@
-﻿# Programs Module - Tyler Hatfield - v2.30
+# Programs Module - Tyler Hatfield - v2.30
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor 12288
@@ -119,58 +119,14 @@ foreach ($cat in $catalog.Keys) {
     $programs += $catalog[$cat]
 }
 
-$form.ClientSize = New-Object System.Drawing.Size(580, 560)
+$form.ClientSize = New-Object System.Drawing.Size(580, 440)
 
 # Tab Control for Categories
-$tabControl = New-Object System.Windows.Forms.TabControl
+$tabControl = New-Object HMT.Tools.DarkTabControl
 $tabControl.Location = New-Object System.Drawing.Point(15, 12)
 $tabControl.Size = New-Object System.Drawing.Size(550, 240)
 $tabControl.Font = $progFont
-$tabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
-$tabControl.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
-$tabControl.ItemSize = New-Object System.Drawing.Size(108, 28)
-$tabControl.Padding = New-Object System.Drawing.Point(8, 4)
-
-$tabControl.Add_DrawItem({
-    param($sender, $e)
-    $tc = $sender
-    $tab = $tc.TabPages[$e.Index]
-    $isSelected = ($e.Index -eq $tc.SelectedIndex)
-    $g = $e.Graphics
-
-    $bgBrush = if ($isSelected) {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#36393f"))
-    } else {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
-    }
-    $g.FillRectangle($bgBrush, $e.Bounds)
-    $bgBrush.Dispose()
-
-    if ($isSelected) {
-        $accentPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#5865F2"), 3)
-        $g.DrawLine($accentPen, $e.Bounds.Left, $e.Bounds.Top + 1, $e.Bounds.Right, $e.Bounds.Top + 1)
-        $accentPen.Dispose()
-    }
-
-    $textBrush = if ($isSelected) {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#ffffff"))
-    } else {
-        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#a0a0a0"))
-    }
-    $sf = New-Object System.Drawing.StringFormat
-    $sf.Alignment = [System.Drawing.StringAlignment]::Center
-    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $tabFont = if ($isSelected) {
-        New-Object System.Drawing.Font($tc.Font, [System.Drawing.FontStyle]::Bold)
-    } else {
-        $tc.Font
-    }
-    $g.DrawString($tab.Text, $tabFont, $textBrush, [System.Drawing.RectangleF]$e.Bounds, $sf)
-    $textBrush.Dispose()
-    $sf.Dispose()
-    if ($isSelected) { $tabFont.Dispose() }
-})
-
+$tabControl.ItemSize = New-Object System.Drawing.Size(108, 30)
 $form.Controls.Add($tabControl)
 
 $checkboxes = @{}
@@ -273,18 +229,14 @@ $detailLabel.AutoSize = $true
 $form.Controls.Add($detailLabel)
 
 $y += 44
-$trackPanel = New-Object System.Windows.Forms.Panel
-$trackPanel.Size = New-Object System.Drawing.Size(540, 22)
-$trackPanel.Location = New-Object System.Drawing.Point(20, $y)
-$trackPanel.BorderStyle = 'FixedSingle'
-$trackPanel.BackColor = [System.Drawing.Color]::DarkGray
-$form.Controls.Add($trackPanel)
-
-$fillPanel = New-Object System.Windows.Forms.Panel
-$fillPanel.Size = New-Object System.Drawing.Size(0, 19)
-$fillPanel.Location = New-Object System.Drawing.Point(1, 1)
-$fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
-$trackPanel.Controls.Add($fillPanel)
+$progressBar = New-Object HMT.Tools.SmoothProgressBar
+$progressBar.Size = New-Object System.Drawing.Size(540, 20)
+$progressBar.Location = New-Object System.Drawing.Point(20, $y)
+$progressBar.BorderRadius = 5
+$progressBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+$progressBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+$progressBar.ShowShimmer = $true
+$form.Controls.Add($progressBar)
 
 # Secondary Progress UI Controls for Microsoft Office Payload
 $msStatusLabel = New-Object System.Windows.Forms.Label
@@ -303,18 +255,14 @@ $msDetailLabel.AutoSize = $true
 $msDetailLabel.Visible = $false
 $form.Controls.Add($msDetailLabel)
 
-$msTrackPanel = New-Object System.Windows.Forms.Panel
-$msTrackPanel.Size = New-Object System.Drawing.Size(540, 22)
-$msTrackPanel.BorderStyle = 'FixedSingle'
-$msTrackPanel.BackColor = [System.Drawing.Color]::DarkGray
-$msTrackPanel.Visible = $false
-$form.Controls.Add($msTrackPanel)
-
-$msFillPanel = New-Object System.Windows.Forms.Panel
-$msFillPanel.Size = New-Object System.Drawing.Size(0, 19)
-$msFillPanel.Location = New-Object System.Drawing.Point(1, 1)
-$msFillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
-$msTrackPanel.Controls.Add($msFillPanel)
+$msProgressBar = New-Object HMT.Tools.SmoothProgressBar
+$msProgressBar.Size = New-Object System.Drawing.Size(540, 20)
+$msProgressBar.BorderRadius = 5
+$msProgressBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+$msProgressBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+$msProgressBar.ShowShimmer = $true
+$msProgressBar.Visible = $false
+$form.Controls.Add($msProgressBar)
 
 $y += 35
 $okButton = New-Object System.Windows.Forms.Button
@@ -356,12 +304,15 @@ $form.Add_Load({
     $detailLabel.Top = $yPos + [int](20 * $global:HMTScaleFactor)
     
     $yPos += [int](44 * $global:HMTScaleFactor)
-    $trackPanel.Top = $yPos
-    $trackPanel.Width = $form.ClientSize.Width - ($p * 2)
+    $progressBar.Top = $yPos
+    $progressBar.Width = $form.ClientSize.Width - ($p * 2)
     
     $yPos += [int](35 * $global:HMTScaleFactor)
     $okButton.Top = $yPos
     $skipButton.Top = $yPos
+
+    # Snap client size snugly to the bottom of the buttons
+    $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
 })
 
 # Progress bar and status updater
@@ -369,18 +320,16 @@ $updateMSProgress = {
     if ($null -ne $script:msState) {
         $msStatusLabel.Text = $script:msState.StatusText
         $msDetailLabel.Text = $script:msState.DetailText
-        $pct = [math]::Max(0, [math]::Min(100, $script:msState.ProgressPct))
-        $maxW = $msTrackPanel.ClientSize.Width - 2
-        $msFillPanel.Width = [int](($pct / 100) * $maxW)
+        $pct = [math]::Max(0, [math]::Min(100, [int]$script:msState.ProgressPct))
+        $msProgressBar.Value = $pct
     }
 }
 
 $updateLocalProgress = {
     param($progIndex, $totPrograms, $segProgressPct, $statusText, $DetailText)
 
-    $pct = [math]::Max(0, [math]::Min(100, $segProgressPct))
-    $maxW = $trackPanel.ClientSize.Width - 2
-    $fillPanel.Width = [int](($pct / 100) * $maxW)
+    $pct = [math]::Max(0, [math]::Min(100, [int]$segProgressPct))
+    $progressBar.Value = $pct
 
     if ($null -ne $statusText) {
         $statuslabel.Text = $statusText
@@ -512,17 +461,19 @@ $okButton.Add_Click({
         $isAll = $msProgName -eq "Microsoft Office (64-Bit)"
         $displayName = if ($isAll) { "Microsoft Office (x64)" } else { "Outlook (Classic)" }
         $productID = if ($isAll) { "O365BusinessRetail" } else { "OutlookRetail" }
+        $zipName = "o365_payload.zip"
+        $scriptRoot = $PSScriptRoot
 
         $msStatusLabel.Visible = $true
         $msDetailLabel.Visible = $true
-        $msTrackPanel.Visible = $true
+        $msProgressBar.Visible = $true
 
-        $yMS = $trackPanel.Bottom + [int](15 * $global:HMTScaleFactor)
+        $yMS = $progressBar.Bottom + [int](15 * $global:HMTScaleFactor)
         $msStatusLabel.Location = New-Object System.Drawing.Point(20, $yMS)
         $msDetailLabel.Location = New-Object System.Drawing.Point(20, ($yMS + 18))
-        $msTrackPanel.Location = New-Object System.Drawing.Point(20, ($yMS + 38))
+        $msProgressBar.Location = New-Object System.Drawing.Point(20, ($yMS + 38))
 
-        $yBtn = $msTrackPanel.Bottom + [int](20 * $global:HMTScaleFactor)
+        $yBtn = $msProgressBar.Bottom + [int](20 * $global:HMTScaleFactor)
         $okButton.Top = $yBtn
         $skipButton.Top = $yBtn
 
@@ -543,71 +494,121 @@ $okButton.Add_Click({
         $msPowerShell.Runspace = $msRunspace
 
         $msScriptBlock = {
-            param($state, $productID, $displayName)
+            param($state, $productID, $displayName, $zipName, $scriptRoot)
 
             try {
-                $zipName = "o365_payload.zip"
                 $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
                 $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
 
+                $extProgramsDir = Join-Path -Path $scriptRoot -ChildPath "ExtPrograms"
+                if (-not (Test-Path $extProgramsDir)) { New-Item -ItemType Directory -Path $extProgramsDir -Force | Out-Null }
+
                 $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
-                if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir | Out-Null }
-                $zipPath = "$workingDir\$zipName"
+                if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir -Force | Out-Null }
+
+                $localZipInExt = Join-Path -Path $extProgramsDir -ChildPath $zipName
+                $zipPath = if (Test-Path $localZipInExt) { $localZipInExt } else { Join-Path -Path $workingDir -ChildPath $zipName }
 
                 $cdnSuccess = $false
-                try {
-                    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
-                    $handler = New-Object System.Net.Http.HttpClientHandler
-                    $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
-                    $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
-                    foreach ($k in $tokenHeaders.Keys) { $client.DefaultRequestHeaders.Add($k, $tokenHeaders[$k]) }
 
-                    $response = $client.GetAsync($cdnUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-                    if (-not $response.IsSuccessStatusCode) { throw "HTTP Error: $($response.StatusCode)" }
-
-                    $totalBytes = $response.Content.Headers.ContentLength
-                    $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-                    $fileStream = [System.IO.File]::Create($zipPath)
-
-                    $buffer = New-Object byte[] 262144
-                    $bytesRead = 0
-                    $totalBytesRead = 0
-                    while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                        $fileStream.Write($buffer, 0, $bytesRead)
-                        $totalBytesRead += $bytesRead
-                        if ($totalBytes) {
-                            $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
-                            $state.ProgressPct = [int]($pct * 0.8)
-                            $state.StatusText = "Downloading $displayName..."
-                            $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB)"
-                        }
-                    }
-                    $fileStream.Close()
-                    $downloadStream.Close()
-                    $client.Dispose()
+                if (Test-Path $localZipInExt) {
+                    $state.ProgressPct = 75
+                    $state.StatusText = "Found local $displayName payload..."
+                    $state.DetailText = "Using cached payload in ExtPrograms..."
                     $cdnSuccess = $true
-                } catch {
-                    $state.DetailText = "CDN fetch failed ($($_)). Falling back to standard deployment..."
+                    $zipPath = $localZipInExt
+                } else {
+                    try {
+                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+                        $handler = New-Object System.Net.Http.HttpClientHandler
+                        $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+                        $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
+                        $client.Timeout = [System.TimeSpan]::FromMinutes(30)
+                        $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+                        foreach ($k in $tokenHeaders.Keys) { $client.DefaultRequestHeaders.Add($k, $tokenHeaders[$k]) }
+
+                        $response = $client.GetAsync($cdnUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+                        if (-not $response.IsSuccessStatusCode) { throw "HTTP Error: $($response.StatusCode)" }
+
+                        $totalBytes = $response.Content.Headers.ContentLength
+                        $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+
+                        # Prefer caching into ExtPrograms folder if accessible
+                        $targetZipPath = try {
+                            $testFs = [System.IO.File]::Create($localZipInExt)
+                            $testFs.Close()
+                            $localZipInExt
+                        } catch {
+                            Join-Path -Path $workingDir -ChildPath $zipName
+                        }
+
+                        $fileStream = [System.IO.File]::Create($targetZipPath)
+                        $buffer = New-Object byte[] 524288
+                        $bytesRead = 0
+                        $totalBytesRead = 0
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                        $lastTick = 0
+
+                        while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                            $fileStream.Write($buffer, 0, $bytesRead)
+                            $totalBytesRead += $bytesRead
+
+                            if ($sw.ElapsedMilliseconds - $lastTick -gt 150) {
+                                $lastTick = $sw.ElapsedMilliseconds
+                                $elapsedSec = [math]::Max(0.1, $sw.Elapsed.TotalSeconds)
+                                $speedMBs = ($totalBytesRead / 1MB) / $elapsedSec
+
+                                if ($totalBytes -gt 0) {
+                                    $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
+                                    $state.ProgressPct = [int]($pct * 0.8)
+                                    $state.StatusText = "Downloading $displayName..."
+                                    $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB at $([math]::Round($speedMBs, 1)) MB/s)"
+                                } else {
+                                    $state.DetailText = "$([math]::Round($totalBytesRead / 1MB, 1)) MB downloaded at $([math]::Round($speedMBs, 1)) MB/s"
+                                }
+                            }
+                        }
+                        $fileStream.Close()
+                        $downloadStream.Close()
+                        $client.Dispose()
+                        $zipPath = $targetZipPath
+                        $cdnSuccess = $true
+                    } catch {
+                        $state.DetailText = "Local CDN fetch failed ($($_)). Falling back to Microsoft CDN deployment..."
+                    }
                 }
 
                 $state.ProgressPct = 85
                 $state.StatusText = "Installing $displayName..."
-                $state.DetailText = "Extracting payloads and configuring Office Click-to-Run..."
+                $state.DetailText = "Extracting payload and configuring Office deployment..."
 
-                $odtUrl = "https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_17830-20162.exe"
-                $odtExe = "$workingDir\odt.exe"
-                (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
-                Start-Process $odtExe -ArgumentList "/quiet /extract:`"$workingDir`"" -Wait -WindowStyle Hidden
-
+                # Extract CDN Payload if present (prefer tar.exe for high speed, fallback to Expand-Archive)
                 if ($cdnSuccess -and (Test-Path $zipPath)) {
-                    Expand-Archive -Path $zipPath -DestinationPath $workingDir -Force
-                    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+                    $extracted = $false
+                    if (Get-Command "tar.exe" -ErrorAction SilentlyContinue) {
+                        try {
+                            $tarProc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$zipPath`" -C `"$workingDir`"" -PassThru -WindowStyle Hidden -Wait
+                            if ($tarProc.ExitCode -eq 0) { $extracted = $true }
+                        } catch {}
+                    }
+                    if (-not $extracted) {
+                        Expand-Archive -Path $zipPath -DestinationPath $workingDir -Force
+                    }
+                }
+
+                $setupExe = Join-Path -Path $workingDir -ChildPath "setup.exe"
+                if (-not (Test-Path $setupExe)) {
+                    # Download official Microsoft ODT if setup.exe is missing
+                    $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
+                    $odtExe = "$workingDir\odt.exe"
+                    (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
+                    Start-Process $odtExe -ArgumentList "/quiet /extract:`"$workingDir`"" -Wait -WindowStyle Hidden
                 }
 
                 $xmlPath = "$workingDir\configuration.xml"
                 $xmlContent = @"
 <Configuration>
-  <Add OfficeClientEdition="64" Channel="Current">
+  <Add SourcePath="$workingDir" OfficeClientEdition="64" Channel="Current">
     <Product ID="$productID">
       <Language ID="en-us" />
     </Product>
@@ -618,8 +619,7 @@ $okButton.Add_Click({
 "@
                 Set-Content -Path $xmlPath -Value $xmlContent -Encoding UTF8 -Force
 
-                $setupExe = "$workingDir\setup.exe"
-                $proc = Start-Process $setupExe -ArgumentList "/configure `"$xmlPath`"" -Wait -PassThru -WindowStyle Hidden
+                $proc = Start-Process -FilePath $setupExe -ArgumentList "/configure `"$xmlPath`"" -WorkingDirectory $workingDir -Wait -PassThru -WindowStyle Hidden
                 
                 $state.ProgressPct = 100
                 $state.StatusText = "Finished: $displayName"
@@ -633,7 +633,7 @@ $okButton.Add_Click({
             }
         }
 
-        $msPowerShell.AddScript($msScriptBlock).AddArgument($script:msState).AddArgument($productID).AddArgument($displayName) | Out-Null
+        $msPowerShell.AddScript($msScriptBlock).AddArgument($script:msState).AddArgument($productID).AddArgument($displayName).AddArgument($zipName).AddArgument($scriptRoot) | Out-Null
         $msPowerShell.BeginInvoke() | Out-Null
     }
 
@@ -654,7 +654,7 @@ $okButton.Add_Click({
                 $script:SkipCurrent = $false
                 $skipButton.Enabled = $true
             
-                # 1. Scrape WinGet for URL and Silent Switches
+                # 1. Scrape WinGet for URL and Silent Switches (try x64 first, then neutral)
                 $procInfo = New-Object System.Diagnostics.ProcessStartInfo
                 $procInfo.FileName = "winget.exe"
                 $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --architecture x64 --disable-interactivity"
@@ -690,13 +690,43 @@ $okButton.Add_Click({
                     }
                 }
 
-                # Hardcoded App Overrides
+                # Fallback without --architecture flag (resolves 32-bit/neutral apps like Steam)
+                if ([string]::IsNullOrWhiteSpace($installerUrl)) {
+                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --disable-interactivity"
+                    $proc = [System.Diagnostics.Process]::Start($procInfo)
+                    $wingetOutput = $proc.StandardOutput.ReadToEnd()
+                    $proc.WaitForExit()
+
+                    foreach ($line in ($wingetOutput -split '\r?\n')) {
+                        if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
+                        if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
+                        if ($line -match '^\s*Silent:\s+(.+)') { $silentArgs = $matches[1].Trim() }
+                        elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { $silentArgs = $matches[1].Trim() }
+                    }
+                }
+
+                # Hardcoded App Overrides & Direct Fallbacks
                 if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
                     $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
                 }
+                elseif ($program.WingetID -eq 'Valve.Steam' -and [string]::IsNullOrWhiteSpace($installerUrl)) {
+                    $installerUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
+                    $silentArgs = "/S"
+                }
 
+                # Fallback to direct WinGet CLI execution if URL extraction is unavailable
                 if ([string]::IsNullOrWhiteSpace($installerUrl)) {
-                    throw "Failed to locate direct download URL from WinGet."
+                    Log-Message "Direct installer URL not found for $($program.Name). Installing via WinGet CLI..." "Info"
+                    &$updateLocalProgress $currentIndex $totalWinget 50 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Running WinGet CLI install..."
+                    $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                    if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010) {
+                        Log-Message "$($program.Name): Installed successfully via WinGet CLI." "Success"
+                        &$updateLocalProgress $currentIndex $totalWinget 100 "Finished: $($program.Name)" ""
+                        $currentIndex++
+                        continue
+                    } else {
+                        throw "WinGet CLI installation exited with code $($wgProc.ExitCode)"
+                    }
                 }
 
                 if ([string]::IsNullOrWhiteSpace($silentArgs)) {
@@ -787,8 +817,14 @@ $okButton.Add_Click({
 
     # Synchronize and wait for background O365 task if still running
     if ($msProgName -and $null -ne $script:msState -and -not $script:msState.Finished) {
-        $statuslabel.Text = "Waiting for Microsoft Office setup to complete..."
-        $detailLabel.Text = "Background payload download/extract in progress..."
+        $msWaitText = "Waiting on $displayName to finish downloading..."
+        Log-Message "$msWaitText" "Info"
+        $statuslabel.Text = $msWaitText
+        $detailLabel.Text = "Background payload streaming in progress..."
+        $global:BGRBaseText = $msWaitText
+        if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) {
+            $global:BGRlabel.Text = $msWaitText
+        }
         while (-not $script:msState.Finished) {
             &$updateMSProgress
             [System.Windows.Forms.Application]::DoEvents()
@@ -801,12 +837,12 @@ $okButton.Add_Click({
     if ($null -ne $msRunspace) { $msRunspace.Close(); $msRunspace.Dispose() }
 
     # Collapse O365 secondary UI controls and shrink form height
-    if ($msTrackPanel.Visible) {
+    if ($msProgressBar.Visible) {
         $msStatusLabel.Visible = $false
         $msDetailLabel.Visible = $false
-        $msTrackPanel.Visible = $false
+        $msProgressBar.Visible = $false
 
-        $okButton.Top = $trackPanel.Bottom + [int](35 * $global:HMTScaleFactor)
+        $okButton.Top = $progressBar.Bottom + [int](35 * $global:HMTScaleFactor)
         $skipButton.Top = $okButton.Top
         $p = [int]($padding * $global:HMTScaleFactor)
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
@@ -830,7 +866,7 @@ $okButton.Add_Click({
     
         $retryTotal = $failedWinget.Count
         $retryIndex = 0
-        $fillPanel.Width = 0
+        $progressBar.Value = 0
 
         foreach ($programName in $failedWinget) {
             $program = $programs | Where-Object { $_.Name -eq $programName }

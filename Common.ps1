@@ -674,20 +674,15 @@ function Show-DownloadDialog {
     $dform.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
     Set-DarkTitleBar -TargetForm $dform
 
-    # Progress Track panel
-    $trackPanel = New-Object System.Windows.Forms.Panel
-    $trackPanel.Size = New-Object System.Drawing.Size(480, 22)
-    $trackPanel.Location = New-Object System.Drawing.Point(20, 20)
-    $trackPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $trackPanel.BackColor = [System.Drawing.Color]::DarkGray
-    $dform.Controls.Add($trackPanel)
-
-    # Progress Fill panel
-    $fillPanel = New-Object System.Windows.Forms.Panel
-    $fillPanel.Size = New-Object System.Drawing.Size(0, 19)
-    $fillPanel.Location = New-Object System.Drawing.Point(1, 1)
-    $fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
-    $trackPanel.Controls.Add($fillPanel)
+    # Modern Rounded Animated Progress Bar
+    $progressBar = New-Object HMT.Tools.SmoothProgressBar
+    $progressBar.Size = New-Object System.Drawing.Size(480, 20)
+    $progressBar.Location = New-Object System.Drawing.Point(20, 20)
+    $progressBar.BorderRadius = 5
+    $progressBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+    $progressBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+    $progressBar.ShowShimmer = $true
+    $dform.Controls.Add($progressBar)
 
     # Speed label
     $speedLabel = New-Object System.Windows.Forms.Label
@@ -718,7 +713,7 @@ function Show-DownloadDialog {
     $dform.Add_Load({
         Invoke-HMTScale $dform
         Set-RoundedControl $btnCancel
-        $trackPanel.Width = $dform.ClientSize.Width - 40
+        $progressBar.Width = $dform.ClientSize.Width - 40
         $btnCancel.Left = $dform.ClientSize.Width - $btnCancel.Width - 20
     })
 
@@ -850,7 +845,7 @@ function Show-DownloadDialog {
             $uiTimer.Stop()
             $script:dlIsActive = $false
             $script:dlSuccess = $true
-            $fillPanel.Width = $trackPanel.ClientSize.Width - 2
+            $progressBar.Value = 100
             $statsLabel.Text = "Download Complete!"
             $statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
             $dform.Close()
@@ -887,9 +882,8 @@ function Show-DownloadDialog {
 
         if ($state.TotalBytes -gt 0) {
             $pct = [Math]::Max(0.0, [Math]::Min(1.0, ($state.BytesRead / $state.TotalBytes)))
-            $maxW = $trackPanel.ClientSize.Width - 2
-            $fillPanel.Width = [int]($maxW * $pct)
             $pctInt = [int]($pct * 100)
+            $progressBar.Value = $pctInt
 
             if ($totMB -ge 1000) {
                 $statsLabel.Text = ('{0:N2} GB / {1:N2} GB ({2}%)' -f ($readMB / 1000), ($totMB / 1000), $pctInt)
