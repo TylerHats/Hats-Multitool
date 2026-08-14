@@ -99,7 +99,8 @@ $createTabListView = {
     $lv.Dock = [System.Windows.Forms.DockStyle]::Fill
     $lv.Font = $font
     $lv.Columns.Add("Tool", 210) | Out-Null
-    $lv.Columns.Add("Description", 480) | Out-Null
+    $lv.Columns.Add("Description", 510) | Out-Null
+    $lv.AutoFillLastColumn = $true
 
     foreach ($t in $itemsList) {
         $item = New-Object System.Windows.Forms.ListViewItem($t.Name)

@@ -252,6 +252,7 @@ namespace HMT.Tools {
         private bool _isMarquee = false;
         private bool _showShimmer = true;
         private float _shimmerPos = -0.5f;
+        private float _shimmerPixelOffset = -55f;
         private System.Windows.Forms.Timer _animTimer;
         private float _visualPercent = 0f;
 
@@ -289,10 +290,12 @@ namespace HMT.Tools {
                         _visualPercent = targetPercent;
                     }
 
-                    if (_showShimmer && _visualPercent > 0.01f) {
-                        _shimmerPos += 0.025f;
-                        if (_shimmerPos > 1.4f) {
-                            _shimmerPos = -0.4f;
+                    if (_showShimmer && _visualPercent > 0.01f && _visualPercent < 0.999f) {
+                        int fillWidth = (int)((ClientSize.Width - 1) * _visualPercent);
+                        const int shimmerWidth = 55;
+                        _shimmerPixelOffset += 3.5f; // Constant smooth travel speed (~140 px/sec)
+                        if (_shimmerPixelOffset > fillWidth + shimmerWidth) {
+                            _shimmerPixelOffset = -shimmerWidth;
                         }
                         needsRedraw = true;
                     }
@@ -429,28 +432,31 @@ namespace HMT.Tools {
                     int fillWidth = (int)((rect.Width) * _visualPercent);
                     if (fillWidth > 2) {
                         Rectangle fillRect = new Rectangle(rect.X, rect.Y, fillWidth, rect.Height);
+
+                        // Strictly clip to the intersection of the track's rounded boundary AND the filled region
                         g.SetClip(trackPath);
+                        g.SetClip(fillRect, CombineMode.Intersect);
 
                         using (LinearGradientBrush fillBrush = new LinearGradientBrush(
                             rect, _progressColor, _progressColorEnd, LinearGradientMode.Horizontal)) {
                             g.FillRectangle(fillBrush, fillRect);
                         }
 
-                        if (_showShimmer) {
-                            int shimmerWidth = Math.Max(30, fillWidth / 3);
-                            int shimmerX = (int)(fillWidth * _shimmerPos);
+                        if (_showShimmer && _visualPercent < 0.999f) {
+                            const int shimmerWidth = 55;
+                            int shimmerX = (int)_shimmerPixelOffset;
                             Rectangle shimmerRect = new Rectangle(shimmerX, rect.Y, shimmerWidth, rect.Height);
 
                             using (LinearGradientBrush shimmerBrush = new LinearGradientBrush(
                                 shimmerRect,
                                 Color.FromArgb(0, 255, 255, 255),
-                                Color.FromArgb(100, 255, 255, 255),
+                                Color.FromArgb(80, 255, 255, 255),
                                 LinearGradientMode.Horizontal)) {
                                 
                                 ColorBlend cb = new ColorBlend(3);
                                 cb.Colors = new Color[] {
                                     Color.FromArgb(0, 255, 255, 255),
-                                    Color.FromArgb(100, 255, 255, 255),
+                                    Color.FromArgb(80, 255, 255, 255),
                                     Color.FromArgb(0, 255, 255, 255)
                                 };
                                 cb.Positions = new float[] { 0f, 0.5f, 1f };
@@ -494,15 +500,16 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
-    // Modern Dark Tab Control (Eliminates Win9x borders and classic styling)
+    // Modern Dark Tab Control (Eliminates Win9x borders and connects seamlessly to content)
     // ==============================================================================
     public class DarkTabControl : TabControl {
-        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225
-        private Color _tabSelectedBg = Color.FromArgb(54, 57, 63);    // #36393f
+        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225 (Inactive)
+        private Color _tabSelectedBg = Color.FromArgb(47, 49, 54);    // #2f3136 (Active - matches TabPage)
         private Color _tabTextColor = Color.FromArgb(160, 160, 160);  // #a0a0a0
         private Color _tabSelectedTextColor = Color.White;
         private Color _accentColor = Color.FromArgb(88, 101, 242);     // #5865F2
-        private Color _borderColor = Color.FromArgb(47, 49, 54);      // #2f3136
+        private Color _borderColor = Color.FromArgb(32, 34, 37);      // #202225
+        private Color _pageBg = Color.FromArgb(47, 49, 54);           // #2f3136
 
         public DarkTabControl() {
             SetStyle(
@@ -514,8 +521,8 @@ namespace HMT.Tools {
             );
             DrawMode = TabDrawMode.OwnerDrawFixed;
             SizeMode = TabSizeMode.Fixed;
-            ItemSize = new Size(135, 32);
-            Padding = new Point(12, 6);
+            ItemSize = new Size(135, 34);
+            Padding = new Point(0, 0);
             Font = new Font("Segoe UI", 9f, FontStyle.Regular);
         }
 
@@ -524,47 +531,79 @@ namespace HMT.Tools {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            // Fill background behind tabs
-            using (SolidBrush bgBrush = new SolidBrush(_borderColor)) {
-                g.FillRectangle(bgBrush, ClientRectangle);
+            // Fill entire TabControl canvas with Page Background (#2f3136) so there are no outer borders
+            using (SolidBrush pageBrush = new SolidBrush(_pageBg)) {
+                g.FillRectangle(pageBrush, ClientRectangle);
             }
 
-            // Draw each tab header
+            if (TabCount == 0) return;
+
+            Rectangle firstTabRect = GetTabRect(0);
+            int headerAreaHeight = firstTabRect.Bottom;
+
+            // Fill header strip area behind inactive tabs with #202225
+            using (SolidBrush headerStripBrush = new SolidBrush(_tabHeaderBg)) {
+                g.FillRectangle(headerStripBrush, 0, 0, ClientSize.Width, headerAreaHeight);
+            }
+
+            int selectedIndex = SelectedIndex;
+
+            // 1. Draw inactive tabs first
             for (int i = 0; i < TabCount; i++) {
-                TabPage tab = TabPages[i];
-                Rectangle tabRect = GetTabRect(i);
-                bool isSelected = (SelectedIndex == i);
+                if (i == selectedIndex) continue;
+                DrawTabHeader(g, i, false);
+            }
 
-                Color bg = isSelected ? _tabSelectedBg : _tabHeaderBg;
-                Color fg = isSelected ? _tabSelectedTextColor : _tabTextColor;
+            // 2. Draw line separating inactive tabs from page content
+            using (Pen borderPen = new Pen(_borderColor, 1f)) {
+                g.DrawLine(borderPen, 0, headerAreaHeight, ClientSize.Width, headerAreaHeight);
+            }
 
-                using (SolidBrush tabBrush = new SolidBrush(bg)) {
-                    g.FillRectangle(tabBrush, tabRect);
-                }
+            // 3. Draw active tab (seamlessly merges with page content below)
+            if (selectedIndex >= 0 && selectedIndex < TabCount) {
+                DrawTabHeader(g, selectedIndex, true);
+            }
+        }
 
-                if (isSelected) {
-                    using (SolidBrush accentBrush = new SolidBrush(_accentColor)) {
-                        g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, 3);
-                    }
-                }
+        private void DrawTabHeader(Graphics g, int index, bool isSelected) {
+            TabPage tab = TabPages[index];
+            Rectangle tabRect = GetTabRect(index);
 
-                using (StringFormat sf = new StringFormat()) {
-                    sf.Alignment = StringAlignment.Center;
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    using (Font tabFont = isSelected ? new Font(Font, FontStyle.Bold) : new Font(Font, FontStyle.Regular))
-                    using (SolidBrush textBrush = new SolidBrush(fg)) {
-                        g.DrawString(tab.Text, tabFont, textBrush, tabRect, sf);
-                    }
+            // Active tab extends 2px downwards into page to overwrite the separator line seamlessly
+            if (isSelected) {
+                tabRect.Height += 2;
+            }
+
+            Color bg = isSelected ? _tabSelectedBg : _tabHeaderBg;
+            Color fg = isSelected ? _tabSelectedTextColor : _tabTextColor;
+
+            using (SolidBrush tabBrush = new SolidBrush(bg)) {
+                g.FillRectangle(tabBrush, tabRect);
+            }
+
+            // Accent bar on top of selected tab
+            if (isSelected) {
+                using (SolidBrush accentBrush = new SolidBrush(_accentColor)) {
+                    g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, 3);
                 }
             }
 
-            // Bottom boundary line separating tabs from content
-            if (TabCount > 0) {
-                Rectangle firstTabRect = GetTabRect(0);
-                int bottomY = firstTabRect.Bottom;
-                using (Pen borderPen = new Pen(_borderColor, 1f)) {
-                    g.DrawLine(borderPen, 0, bottomY, ClientSize.Width, bottomY);
+            // Draw subtle vertical separator between inactive tabs
+            if (!isSelected && index < TabCount - 1 && index + 1 != SelectedIndex) {
+                using (Pen sepPen = new Pen(Color.FromArgb(47, 49, 54), 1f)) {
+                    g.DrawLine(sepPen, tabRect.Right - 1, tabRect.Top + 6, tabRect.Right - 1, tabRect.Bottom - 6);
+                }
+            }
+
+            // Tab Text (with multi-line centering support)
+            using (StringFormat sf = new StringFormat()) {
+                sf.Alignment = StringAlignment.Center;
+                sf.LineAlignment = StringAlignment.Center;
+                sf.Trimming = StringTrimming.EllipsisCharacter;
+                using (Font tabFont = isSelected ? new Font(Font, FontStyle.Bold) : new Font(Font, FontStyle.Regular))
+                using (SolidBrush textBrush = new SolidBrush(fg)) {
+                    Rectangle textRect = new Rectangle(tabRect.Left + 2, tabRect.Top + (isSelected ? 3 : 0), tabRect.Width - 4, tabRect.Height - (isSelected ? 5 : 0));
+                    g.DrawString(tab.Text, tabFont, textBrush, textRect, sf);
                 }
             }
         }
@@ -582,6 +621,7 @@ namespace HMT.Tools {
         private Color _itemSelectedFg = Color.White;
         private Color _itemFg = Color.FromArgb(217, 217, 217);        // #d9d9d9
         private Color _itemSubFg = Color.FromArgb(160, 160, 160);     // #a0a0a0
+        private bool _autoFillLastColumn = true;
 
         public DarkListView() {
             SetStyle(
@@ -604,6 +644,28 @@ namespace HMT.Tools {
             DrawSubItem += OnDrawSubItem;
         }
 
+        public bool AutoFillLastColumn {
+            get { return _autoFillLastColumn; }
+            set { _autoFillLastColumn = value; AutoResizeColumnsInternal(); }
+        }
+
+        protected override void OnResize(EventArgs e) {
+            base.OnResize(e);
+            AutoResizeColumnsInternal();
+        }
+
+        public void AutoResizeColumnsInternal() {
+            if (!_autoFillLastColumn || Columns.Count < 2 || ClientSize.Width <= 0) return;
+            int totalOther = 0;
+            for (int i = 0; i < Columns.Count - 1; i++) {
+                totalOther += Columns[i].Width;
+            }
+            int lastWidth = Math.Max(100, ClientSize.Width - totalOther - (Scrollable ? SystemInformation.VerticalScrollBarWidth : 0) - 2);
+            if (Columns[Columns.Count - 1].Width != lastWidth) {
+                Columns[Columns.Count - 1].Width = lastWidth;
+            }
+        }
+
         private void OnDrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e) {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -615,7 +677,9 @@ namespace HMT.Tools {
 
             using (Pen borderPen = new Pen(_headerBorder, 1f)) {
                 g.DrawLine(borderPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
-                g.DrawLine(borderPen, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+                if (e.ColumnIndex < Columns.Count - 1) {
+                    g.DrawLine(borderPen, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+                }
             }
 
             using (Font headerFont = new Font(Font.FontFamily, 9f, FontStyle.Bold))
@@ -662,6 +726,73 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
+    // Native File Downloader (Thread-Safe Streaming Background Downloader)
+    // ==============================================================================
+    public class FileDownloadState {
+        public long BytesRead = 0;
+        public long TotalBytes = 0;
+        public double SpeedMbps = 0.0;
+        public volatile bool IsCompleted = false;
+        public volatile bool IsCancelled = false;
+        public volatile string Error = null;
+    }
+
+    public class FileDownloader {
+        public static FileDownloadState StartDownload(string url, string outputPath) {
+            FileDownloadState state = new FileDownloadState();
+            Thread t = new Thread(() => {
+                try {
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)12288;
+                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+                    request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0 Safari/537.36";
+                    request.AllowAutoRedirect = true;
+                    request.MaximumAutomaticRedirections = 15;
+                    request.Timeout = 600000;
+
+                    if (url.IndexOf("sourceforge.net", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        request.UserAgent = "curl/8.5.0";
+                    } else if (url.IndexOf("forensit.com", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        request.Referer = "https://www.forensit.com/downloads.html";
+                    }
+
+                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse()) {
+                        state.TotalBytes = response.ContentLength;
+                        string dir = Path.GetDirectoryName(outputPath);
+                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) {
+                            Directory.CreateDirectory(dir);
+                        }
+
+                        using (Stream responseStream = response.GetResponseStream())
+                        using (FileStream fileStream = File.Create(outputPath)) {
+                            byte[] buffer = new byte[65536];
+                            int bytesRead = 0;
+                            var sw = System.Diagnostics.Stopwatch.StartNew();
+                            long total = 0;
+
+                            while ((bytesRead = responseStream.Read(buffer, 0, buffer.Length)) > 0) {
+                                if (state.IsCancelled) break;
+                                fileStream.Write(buffer, 0, bytesRead);
+                                total += bytesRead;
+                                state.BytesRead = total;
+                                double sec = Math.Max(0.001, sw.Elapsed.TotalSeconds);
+                                state.SpeedMbps = (total * 8.0 / 1048576.0) / sec;
+                            }
+                            if (!state.IsCancelled) {
+                                state.IsCompleted = true;
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    state.Error = ex.Message;
+                }
+            });
+            t.IsBackground = true;
+            t.Start();
+            return state;
+        }
+    }
+
+    // ==============================================================================
     // 2. High-Precision Asynchronous Ping Engine
     // ==============================================================================
     public class PingSample {
@@ -704,12 +835,22 @@ namespace HMT.Tools {
         private double _lastRtt = -1;
         private double _jitter = 0;
         private System.Diagnostics.Stopwatch _stopwatch;
+        private readonly List<PingSample> _samples = new List<PingSample>();
+        private readonly object _sampleLock = new object();
 
         public event Action<PingSample> OnPingSample;
         public event Action<PingSummary> OnSummaryUpdate;
         public event Action<PingSummary> OnCompleted;
 
         public bool IsRunning { get { return _isRunning; } }
+
+        public PingSample[] DrainSamples() {
+            lock (_sampleLock) {
+                var arr = _samples.ToArray();
+                _samples.Clear();
+                return arr;
+            }
+        }
 
         public void Start(string host, int pingsPerSecond, int packetSize, int durationSeconds = 0) {
             if (_isRunning) Stop();
@@ -728,6 +869,7 @@ namespace HMT.Tools {
             _lastRtt = -1;
             _jitter = 0;
             _stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            lock (_sampleLock) { _samples.Clear(); }
 
             _isRunning = true;
             _workerThread = new Thread(WorkerLoop) {
@@ -799,6 +941,10 @@ namespace HMT.Tools {
                 }
 
                 sample.JitterMs = _jitter;
+                lock (_sampleLock) {
+                    _samples.Add(sample);
+                }
+
                 if (OnPingSample != null) {
                     try { OnPingSample(sample); } catch { }
                 }
@@ -857,11 +1003,42 @@ namespace HMT.Tools {
 
     public class FastSpeedTestEngine {
         private volatile bool _cancelled;
+        public volatile bool IsRunning = false;
+        public volatile bool IsFinished = false;
+        public volatile SpeedSample CurrentSample = null;
+        public volatile SpeedSample Result = null;
 
         public event Action<SpeedSample> OnSpeedSample;
 
         public void Cancel() {
             _cancelled = true;
+            IsRunning = false;
+        }
+
+        public void StartDownloadTest(string url, int streams, int durationSeconds) {
+            IsRunning = true;
+            IsFinished = false;
+            Result = null;
+            CurrentSample = null;
+            Thread t = new Thread(() => {
+                Result = RunDownloadTest(url, streams, durationSeconds);
+                IsRunning = false;
+                IsFinished = true;
+            }) { IsBackground = true };
+            t.Start();
+        }
+
+        public void StartUploadTest(string url, int streams, int durationSeconds) {
+            IsRunning = true;
+            IsFinished = false;
+            Result = null;
+            CurrentSample = null;
+            Thread t = new Thread(() => {
+                Result = RunUploadTest(url, streams, durationSeconds);
+                IsRunning = false;
+                IsFinished = true;
+            }) { IsBackground = true };
+            t.Start();
         }
 
         public SpeedSample RunDownloadTest(string url, int streams, int durationSeconds) {
@@ -926,6 +1103,7 @@ namespace HMT.Tools {
                         Phase = "Download",
                         IsFinished = false
                     };
+                    CurrentSample = sample;
                     if (OnSpeedSample != null) {
                         try { OnSpeedSample(sample); } catch { }
                     }
@@ -947,6 +1125,7 @@ namespace HMT.Tools {
                 Phase = "Download",
                 IsFinished = true
             };
+            CurrentSample = finalSample;
             if (OnSpeedSample != null) {
                 try { OnSpeedSample(finalSample); } catch { }
             }
@@ -1022,6 +1201,7 @@ namespace HMT.Tools {
                         Phase = "Upload",
                         IsFinished = false
                     };
+                    CurrentSample = sample;
                     if (OnSpeedSample != null) {
                         try { OnSpeedSample(sample); } catch { }
                     }
@@ -1043,6 +1223,7 @@ namespace HMT.Tools {
                 Phase = "Upload",
                 IsFinished = true
             };
+            CurrentSample = finalSample;
             if (OnSpeedSample != null) {
                 try { OnSpeedSample(finalSample); } catch { }
             }
@@ -1075,11 +1256,29 @@ namespace HMT.Tools {
 
     public class DiskBenchmarkEngine {
         private volatile bool _cancelled;
+        public volatile bool IsRunning = false;
+        public volatile bool IsFinished = false;
+        public volatile BenchmarkProgress CurrentProgress = null;
+        public volatile BenchmarkResult Result = null;
 
         public event Action<BenchmarkProgress> OnProgress;
 
         public void Cancel() {
             _cancelled = true;
+            IsRunning = false;
+        }
+
+        public void StartBenchmark(string directoryPath, long fileSizeMb = 250) {
+            IsRunning = true;
+            IsFinished = false;
+            Result = null;
+            CurrentProgress = null;
+            Thread t = new Thread(() => {
+                Result = RunBenchmark(directoryPath, fileSizeMb);
+                IsRunning = false;
+                IsFinished = true;
+            }) { IsBackground = true };
+            t.Start();
         }
 
         public BenchmarkResult RunBenchmark(string directoryPath, long fileSizeMb = 250) {
@@ -1215,15 +1414,14 @@ namespace HMT.Tools {
         }
 
         private void ReportProgress(string test, double pct, double mbSec, double iops) {
+            CurrentProgress = new BenchmarkProgress {
+                CurrentTest = test,
+                ProgressPercent = pct,
+                CurrentSpeedMBs = mbSec,
+                CurrentIops = iops
+            };
             if (OnProgress != null) {
-                try {
-                    OnProgress(new BenchmarkProgress {
-                        CurrentTest = test,
-                        ProgressPercent = pct,
-                        CurrentSpeedMBs = mbSec,
-                        CurrentIops = iops
-                    });
-                } catch { }
+                try { OnProgress(CurrentProgress); } catch { }
             }
         }
     }

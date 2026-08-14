@@ -144,6 +144,172 @@ function Show-CommandRunnerDialog {
         Set-RoundedControl $btnClose
     })
 
+    $processLine = {
+        param([string]$line)
+        if ([string]::IsNullOrWhiteSpace($line)) { return }
+        
+        $txtOutput.AppendText($line + "`r`n")
+        $txtOutput.SelectionStart = $txtOutput.Text.Length
+        $txtOutput.ScrollToCaret()
+
+        $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
+        $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
+
+        # --- 1. SFC Parsing ---
+        if ($line -match 'Verification\s+(\d+)%\s+complete') {
+            $pct = [int]$matches[1]
+            $script:lastProgressPct = $pct
+            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
+            
+            $etaStr = "Estimating..."
+            if ($pct -gt 2 -and $elapsed.TotalSeconds -gt 4) {
+                $rate = $pct / $elapsed.TotalSeconds
+                $remSec = [int]((100 - $pct) / $rate)
+                $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
+            }
+            $lblStatus.Text = "Scanning and verifying system files ($pct% complete)..."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+            $lblDetail.Text = "Verification: $pct% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+        }
+        elseif ($line -match 'Beginning system scan') {
+            $lblStatus.Text = "Initializing system scan and verification..."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Preparing verification phase"
+        }
+        elseif ($line -match 'Beginning verification phase') {
+            $lblStatus.Text = "Scanning protected Windows system files..."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Verifying component integrity"
+        }
+        elseif ($line -match 'did not find any integrity violations') {
+            $lblStatus.Text = "Verification Complete: No integrity violations found."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblDetail.Text = "Elapsed: $elapsedStr | System files are healthy."
+        }
+        elseif ($line -match 'found corrupt files and successfully repaired them') {
+            $lblStatus.Text = "Verification Complete: Corrupted files found and successfully repaired."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblDetail.Text = "Elapsed: $elapsedStr | Repairs applied successfully."
+        }
+        elseif ($line -match 'found corrupt files but was unable to fix some') {
+            $lblStatus.Text = "Corrupted files found that could not all be repaired."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
+            $lblDetail.Text = "Elapsed: $elapsedStr | Check CBS.log for details."
+        }
+
+        # --- 2. DISM & .NET 3.5 Feature Parsing ---
+        elseif ($line -match '\[\s*={0,}\s*(\d+(?:\.\d+)?)%\s*={0,}\s*\]' -or $line -match '(\d+(?:\.\d+)?)%\s*$') {
+            $pctFloat = [double]$matches[1]
+            $pct = [int]$pctFloat
+            $script:lastProgressPct = $pct
+            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
+
+            $etaStr = "Estimating..."
+            if ($pct -gt 5 -and $elapsed.TotalSeconds -gt 5) {
+                $rate = $pct / $elapsed.TotalSeconds
+                $remSec = [int]((100 - $pct) / $rate)
+                $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
+            }
+
+            $phaseText = "Processing component store..."
+            if ($pctFloat -lt 20.0) {
+                $phaseText = "Phase 1/3: Initializing & scanning component store integrity..."
+            } elseif ($pctFloat -lt 80.0) {
+                $phaseText = "Phase 2/3: Checking corruption & downloading repair payloads from Windows Update..."
+            } elseif ($pctFloat -lt 100.0) {
+                $phaseText = "Phase 3/3: Applying component repairs to Windows image..."
+            } else {
+                $phaseText = "Finalizing component store operations..."
+            }
+
+            $lblStatus.Text = $phaseText
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+            $lblDetail.Text = "Progress: $pctFloat% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+        }
+        elseif ($line -match 'The restore operation completed successfully|The operation completed successfully') {
+            $lblStatus.Text = "Operation completed successfully."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblDetail.Text = "Elapsed: $elapsedStr | Image health restored."
+        }
+        elseif ($line -match 'No component store corruption detected') {
+            $lblStatus.Text = "No component store corruption detected."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblDetail.Text = "Elapsed: $elapsedStr | Image is healthy."
+        }
+
+        # --- 3. CHKDSK Parsing ---
+        elseif ($line -match 'Stage\s+(\d+)\s*(?:of\s*(\d+))?:\s*([^\r\n.]+)') {
+            $stg = $matches[1]
+            $stgTot = if ($matches[2]) { $matches[2] } else { "3" }
+            $stgDesc = $matches[3].Trim()
+            $script:chkdskStage = [int]$stg
+            $script:chkdskTotal = [int]$stgTot
+            $lblStatus.Text = "Stage $stg of $($stgTot): $stgDesc..."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+            $lblDetail.Text = "Elapsed: $elapsedStr | Analyzing volume structure"
+        }
+        elseif ($line -match '(\d+)\s*(?:percent|%)\s*complete') {
+            $stgPct = [int]$matches[1]
+            $stg = if ($script:chkdskStage) { $script:chkdskStage } else { 1 }
+            $stgTot = if ($script:chkdskTotal) { $script:chkdskTotal } else { 3 }
+            $overallPct = [int]((($stg - 1) * (100 / $stgTot)) + ($stgPct / $stgTot))
+            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.Value = [math]::Max(0, [math]::Min(100, $overallPct))
+            $lblDetail.Text = "Stage $stg/$($stgTot): $stgPct% (Overall: ~$overallPct%) | Elapsed: $elapsedStr"
+        }
+        elseif ($line -match 'The type of the file system is\s+(\w+)') {
+            $lblDetail.Text = "File System: $($matches[1]) | Initializing scan..."
+        }
+        elseif ($line -match 'Windows has scanned the file system and found no problems') {
+            $lblStatus.Text = "Check Disk Complete: No problems found."
+            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblDetail.Text = "Elapsed: $elapsedStr | File system is clean."
+        }
+    }
+
+    $pollTimer = New-Object System.Windows.Forms.Timer
+    $pollTimer.Interval = 40
+    $pollTimer.Add_Tick({
+        if ($null -ne $script:runnerProc) {
+            try {
+                while (-not $script:runnerProc.StandardOutput.EndOfStream) {
+                    $l = $script:runnerProc.StandardOutput.ReadLine()
+                    &$processLine $l
+                }
+                while (-not $script:runnerProc.StandardError.EndOfStream) {
+                    $l = $script:runnerProc.StandardError.ReadLine()
+                    &$processLine $l
+                }
+            } catch {}
+
+            if ($script:runnerProc.HasExited -or $script:runnerCancelled) {
+                $pollTimer.Stop()
+                $pBar.MarqueeAnimationSpeed = 0
+                $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+                $pBar.Value = 100
+                $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
+                $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
+
+                if ($script:runnerCancelled) {
+                    $lblStatus.Text = "Execution cancelled."
+                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
+                } elseif ($script:runnerProc.ExitCode -eq 0) {
+                    $lblStatus.Text = "Completed successfully (Exit code: 0)."
+                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Success"
+                } else {
+                    $lblStatus.Text = "Finished with exit code $($script:runnerProc.ExitCode)."
+                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
+                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Check log output above."
+                }
+
+                $btnCancel.Enabled = $false
+                $btnClose.Enabled = $true
+                $btnCopy.Enabled = $true
+            }
+        }
+    })
+
     $runnerForm.Add_Shown({
         $script:cmdStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         $lblStatus.Text = "Running diagnostic process..."
@@ -165,173 +331,24 @@ function Show-CommandRunnerDialog {
         $script:runnerProc = New-Object System.Diagnostics.Process
         $script:runnerProc.StartInfo = $psi
 
-        $outputHandler = {
-            param($sender, $eventArgs)
-            if ($eventArgs.Data) {
-                $line = $eventArgs.Data
-                $txtOutput.Invoke([action]{
-                    $txtOutput.AppendText($line + "`r`n")
-                    $txtOutput.SelectionStart = $txtOutput.Text.Length
-                    $txtOutput.ScrollToCaret()
-
-                    $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
-                    $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
-
-                    # --- 1. SFC Parsing ---
-                    if ($line -match 'Verification\s+(\d+)%\s+complete') {
-                        $pct = [int]$matches[1]
-                        $script:lastProgressPct = $pct
-                        $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-                        $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
-                        
-                        $etaStr = "Estimating..."
-                        if ($pct -gt 2 -and $elapsed.TotalSeconds -gt 4) {
-                            $rate = $pct / $elapsed.TotalSeconds
-                            $remSec = [int]((100 - $pct) / $rate)
-                            $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
-                        }
-                        $lblStatus.Text = "Scanning and verifying system files ($pct% complete)..."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Verification: $pct% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
-                    }
-                    elseif ($line -match 'Beginning system scan') {
-                        $lblStatus.Text = "Initializing system scan and verification..."
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Preparing verification phase"
-                    }
-                    elseif ($line -match 'Beginning verification phase') {
-                        $lblStatus.Text = "Scanning protected Windows system files..."
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Verifying component integrity"
-                    }
-                    elseif ($line -match 'did not find any integrity violations') {
-                        $lblStatus.Text = "Verification Complete: No integrity violations found."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | System files are healthy."
-                    }
-                    elseif ($line -match 'found corrupt files and successfully repaired them') {
-                        $lblStatus.Text = "Verification Complete: Corrupted files found and successfully repaired."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Repairs applied successfully."
-                    }
-                    elseif ($line -match 'found corrupt files but was unable to fix some') {
-                        $lblStatus.Text = "Corrupted files found that could not all be repaired."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Check CBS.log for details."
-                    }
-
-                    # --- 2. DISM & .NET 3.5 Feature Parsing ---
-                    elseif ($line -match '\[\s*={0,}\s*(\d+(?:\.\d+)?)%\s*={0,}\s*\]' -or $line -match '(\d+(?:\.\d+)?)%\s*$') {
-                        $pctFloat = [double]$matches[1]
-                        $pct = [int]$pctFloat
-                        $script:lastProgressPct = $pct
-                        $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-                        $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
-
-                        $etaStr = "Estimating..."
-                        if ($pct -gt 5 -and $elapsed.TotalSeconds -gt 5) {
-                            $rate = $pct / $elapsed.TotalSeconds
-                            $remSec = [int]((100 - $pct) / $rate)
-                            $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
-                        }
-
-                        $phaseText = "Processing component store..."
-                        if ($pctFloat -lt 20.0) {
-                            $phaseText = "Phase 1/3: Initializing & scanning component store integrity..."
-                        } elseif ($pctFloat -lt 80.0) {
-                            $phaseText = "Phase 2/3: Checking corruption & downloading repair payloads from Windows Update..."
-                        } elseif ($pctFloat -lt 100.0) {
-                            $phaseText = "Phase 3/3: Applying component repairs to Windows image..."
-                        } else {
-                            $phaseText = "Finalizing component store operations..."
-                        }
-
-                        $lblStatus.Text = $phaseText
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Progress: $pctFloat% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
-                    }
-                    elseif ($line -match 'The restore operation completed successfully|The operation completed successfully') {
-                        $lblStatus.Text = "Operation completed successfully."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Image health restored."
-                    }
-                    elseif ($line -match 'No component store corruption detected') {
-                        $lblStatus.Text = "No component store corruption detected."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Image is healthy."
-                    }
-
-                    # --- 3. CHKDSK Parsing ---
-                    elseif ($line -match 'Stage\s+(\d+)\s*(?:of\s*(\d+))?:\s*([^\r\n.]+)') {
-                        $stg = $matches[1]
-                        $stgTot = if ($matches[2]) { $matches[2] } else { "3" }
-                        $stgDesc = $matches[3].Trim()
-                        $script:chkdskStage = [int]$stg
-                        $script:chkdskTotal = [int]$stgTot
-                        $lblStatus.Text = "Stage $stg of $($stgTot): $stgDesc..."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | Analyzing volume structure"
-                    }
-                    elseif ($line -match '(\d+)\s*(?:percent|%)\s*complete') {
-                        $stgPct = [int]$matches[1]
-                        $stg = if ($script:chkdskStage) { $script:chkdskStage } else { 1 }
-                        $stgTot = if ($script:chkdskTotal) { $script:chkdskTotal } else { 3 }
-                        $overallPct = [int]((($stg - 1) * (100 / $stgTot)) + ($stgPct / $stgTot))
-                        $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-                        $pBar.Value = [math]::Max(0, [math]::Min(100, $overallPct))
-                        $lblDetail.Text = "Stage $stg/$($stgTot): $stgPct% (Overall: ~$overallPct%) | Elapsed: $elapsedStr"
-                    }
-                    elseif ($line -match 'The type of the file system is\s+(\w+)') {
-                        $lblDetail.Text = "File System: $($matches[1]) | Initializing scan..."
-                    }
-                    elseif ($line -match 'Windows has scanned the file system and found no problems') {
-                        $lblStatus.Text = "Check Disk Complete: No problems found."
-                        $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr | File system is clean."
-                    }
-                })
-            }
-        }
-
-        $script:runnerProc.add_OutputDataReceived($outputHandler)
-        $script:runnerProc.add_ErrorDataReceived($outputHandler)
-
         try {
             $script:runnerProc.Start() | Out-Null
-            $script:runnerProc.BeginOutputReadLine()
-            $script:runnerProc.BeginErrorReadLine()
-
-            while (-not $script:runnerProc.HasExited) {
-                [System.Windows.Forms.Application]::DoEvents()
-                Start-Sleep -Milliseconds 80
-                if ($script:runnerCancelled) { break }
-            }
-
-            if (-not $script:runnerCancelled) {
-                $script:runnerProc.WaitForExit()
-                $pBar.MarqueeAnimationSpeed = 0
-                $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-                $pBar.Value = 100
-                $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
-                $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
-
-                if ($script:runnerProc.ExitCode -eq 0) {
-                    $lblStatus.Text = "Completed successfully (Exit code: 0)."
-                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Success"
-                } else {
-                    $lblStatus.Text = "Finished with exit code $($script:runnerProc.ExitCode)."
-                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
-                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Check log output above."
-                }
-            }
+            $pollTimer.Start()
         } catch {
             $lblStatus.Text = "Execution failed: $_"
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
             $txtOutput.AppendText("`r`nError starting process: $_`r`n")
-        } finally {
             $btnCancel.Enabled = $false
             $btnClose.Enabled = $true
             $btnCopy.Enabled = $true
-            if ($script:runnerProc) { $script:runnerProc.Dispose() }
+        }
+    })
+
+    $runnerForm.Add_FormClosing({
+        $pollTimer.Stop()
+        $pollTimer.Dispose()
+        if ($script:runnerProc -and -not $script:runnerProc.HasExited) {
+            try { $script:runnerProc.Kill() } catch {}
         }
     })
 
@@ -552,29 +569,23 @@ function Show-SpeedTestDialog {
         $lblCurrentPhase.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
         $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
 
-        $dlHandler = {
-            param($sample)
-            $stForm.Invoke([action]{
+        $downUrl = "https://speed.cloudflare.com/__down?bytes=50000000"
+        $script:stEngine.StartDownloadTest($downUrl, $streamCount, 9)
+
+        while (-not $script:stEngine.IsFinished) {
+            $sample = $script:stEngine.CurrentSample
+            if ($null -ne $sample) {
                 $smoothChart.AddPoint($sample.CurrentMbps)
                 $valDownload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
                 $lblCurrentPhase.Text = "Downloading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
-            })
-        }
-        $script:stEngine.add_OnSpeedSample($dlHandler)
-
-        $downUrl = "https://speed.cloudflare.com/__down?bytes=50000000"
-        $asyncDl = [System.Threading.Tasks.Task]::Run([Func[HMT.Tools.SpeedSample]]{
-            $script:stEngine.RunDownloadTest($downUrl, $streamCount, 9)
-        })
-
-        while (-not $asyncDl.IsCompleted) {
+            }
             [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 50
+            Start-Sleep -Milliseconds 40
+            if (-not $script:stRunning) { break }
         }
-        $script:stEngine.remove_OnSpeedSample($dlHandler)
 
-        if ($asyncDl.Result) {
-            $valDownload.Text = "$([math]::Round($asyncDl.Result.AverageMbps, 1)) Mbps"
+        if ($script:stEngine.Result) {
+            $valDownload.Text = "$([math]::Round($script:stEngine.Result.AverageMbps, 1)) Mbps"
         }
 
         if (-not $script:stRunning) { return }
@@ -586,29 +597,23 @@ function Show-SpeedTestDialog {
         $lblCurrentPhase.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
         $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
 
-        $ulHandler = {
-            param($sample)
-            $stForm.Invoke([action]{
+        $upUrl = "https://speed.cloudflare.com/__up"
+        $script:stEngine.StartUploadTest($upUrl, $streamCount, 8)
+
+        while (-not $script:stEngine.IsFinished) {
+            $sample = $script:stEngine.CurrentSample
+            if ($null -ne $sample) {
                 $smoothChart.AddPoint($sample.CurrentMbps)
                 $valUpload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
                 $lblCurrentPhase.Text = "Uploading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
-            })
-        }
-        $script:stEngine.add_OnSpeedSample($ulHandler)
-
-        $upUrl = "https://speed.cloudflare.com/__up"
-        $asyncUl = [System.Threading.Tasks.Task]::Run([Func[HMT.Tools.SpeedSample]]{
-            $script:stEngine.RunUploadTest($upUrl, $streamCount, 8)
-        })
-
-        while (-not $asyncUl.IsCompleted) {
+            }
             [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 50
+            Start-Sleep -Milliseconds 40
+            if (-not $script:stRunning) { break }
         }
-        $script:stEngine.remove_OnSpeedSample($ulHandler)
 
-        if ($asyncUl.Result) {
-            $valUpload.Text = "$([math]::Round($asyncUl.Result.AverageMbps, 1)) Mbps"
+        if ($script:stEngine.Result) {
+            $valUpload.Text = "$([math]::Round($script:stEngine.Result.AverageMbps, 1)) Mbps"
         }
 
         # --- Finished ---
@@ -633,7 +638,10 @@ function Show-SpeedTestDialog {
         Invoke-HMTScale $stForm
         Set-RoundedControl $btnStart
         Set-RoundedControl $btnClose
-        [System.Threading.ThreadPool]::QueueUserWorkItem({ &$detectServer }) | Out-Null
+    })
+
+    $stForm.Add_Shown({
+        &$detectServer
     })
 
     Show-HMTDialog $stForm | Out-Null
@@ -1193,29 +1201,22 @@ function Show-StorageHealthDialog {
         $valRandRead.Text = "-- IOPS"
         $valRandWrite.Text = "-- IOPS"
 
-        $progHandler = {
-            param($p)
-            $shForm.Invoke([action]{
+        $script:benchEngine.StartBenchmark($targetRoot, $sizeMb)
+
+        while (-not $script:benchEngine.IsFinished) {
+            $p = $script:benchEngine.CurrentProgress
+            if ($null -ne $p) {
                 $benchProgressBar.Value = [math]::Max(0, [math]::Min(100, [int]$p.ProgressPercent))
                 $lblBenchStatus.Text = "$($p.CurrentTest)... $([math]::Round($p.CurrentSpeedMBs, 1)) MB/s"
                 if ($p.CurrentSpeedMBs -gt 0) {
                     $benchGraph.AddPoint($p.CurrentSpeedMBs)
                 }
-            })
-        }
-        $script:benchEngine.add_OnProgress($progHandler)
-
-        $asyncBench = [System.Threading.Tasks.Task]::Run([Func[HMT.Tools.BenchmarkResult]]{
-            $script:benchEngine.RunBenchmark($targetRoot, $sizeMb)
-        })
-
-        while (-not $asyncBench.IsCompleted) {
+            }
             [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 50
+            Start-Sleep -Milliseconds 40
         }
-        $script:benchEngine.remove_OnProgress($progHandler)
 
-        $res = $asyncBench.Result
+        $res = $script:benchEngine.Result
         if ($res -and $res.Success) {
             $valSeqRead.Text = "$([math]::Round($res.SeqReadMBs, 1)) MB/s"
             $valSeqWrite.Text = "$([math]::Round($res.SeqWriteMBs, 1)) MB/s"
@@ -1225,7 +1226,7 @@ function Show-StorageHealthDialog {
             $lblBenchStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
             $benchProgressBar.Value = 100
         } else {
-            $lblBenchStatus.Text = if ($res.ErrorMessage) { "Benchmark failed: $($res.ErrorMessage)" } else { "Benchmark cancelled." }
+            $lblBenchStatus.Text = if ($res -and $res.ErrorMessage) { "Benchmark failed: $($res.ErrorMessage)" } else { "Benchmark cancelled." }
             $lblBenchStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
         }
 
@@ -1510,61 +1511,66 @@ function Show-PacketLossTestDialog {
         $pingGraph.Clear()
         $txtLog.Clear()
 
-        $sampleHandler = {
-            param($s)
-            $pltForm.Invoke([action]{
-                if ($s.Success) {
-                    $pingGraph.AddPoint($s.RttMs)
-                    $valLatency.Text = "$([math]::Round($s.RttMs, 1)) ms"
-                    $valJitter.Text = "$([math]::Round($s.JitterMs, 1)) ms"
-                } else {
-                    $pingGraph.AddPoint(0)
-                    $txtLog.AppendText("[$($s.Timestamp.ToString('HH:mm:ss.fff'))] PACKET DROP #$($s.Sequence): $($s.ErrorMessage)`r`n")
-                }
-            })
-        }
+        $script:pingEngine.Start($hostVal, $pps, $sz, $dur)
+        $pingTimer.Start()
+    })
 
-        $summaryHandler = {
-            param($sum)
-            $pltForm.Invoke([action]{
-                $valLoss.Text = "$([math]::Round($sum.LossPercent, 1))%"
-                $valLoss.ForeColor = if ($sum.LossPercent -eq 0) {
-                    [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                } elseif ($sum.LossPercent -lt 5) {
-                    [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
-                } else {
-                    [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
+    $pingTimer = New-Object System.Windows.Forms.Timer
+    $pingTimer.Interval = 40
+    $pingTimer.Add_Tick({
+        if ($null -ne $script:pingEngine) {
+            $samples = $script:pingEngine.DrainSamples()
+            if ($samples -and $samples.Length -gt 0) {
+                foreach ($s in $samples) {
+                    if ($s.Success) {
+                        $pingGraph.AddPoint($s.RttMs)
+                        $valLatency.Text = "$([math]::Round($s.RttMs, 1)) ms"
+                        $valJitter.Text = "$([math]::Round($s.JitterMs, 1)) ms"
+                    } else {
+                        $pingGraph.AddPoint(0)
+                        $txtLog.AppendText("[$($s.Timestamp.ToString('HH:mm:ss.fff'))] PACKET DROP #$($s.Sequence): $($s.ErrorMessage)`r`n")
+                    }
                 }
-                $valPackets.Text = "$($sum.TotalReceived) / $($sum.TotalLost)"
-            })
-        }
 
-        $completeHandler = {
-            param($sum)
-            $pltForm.Invoke([action]{
+                $sum = $script:pingEngine.GetSummary()
+                if ($null -ne $sum) {
+                    $valLoss.Text = "$([math]::Round($sum.LossPercent, 1))%"
+                    $valLoss.ForeColor = if ($sum.LossPercent -eq 0) {
+                        [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+                    } elseif ($sum.LossPercent -lt 5) {
+                        [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
+                    } else {
+                        [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
+                    }
+                    $valPackets.Text = "$($sum.TotalReceived) / $($sum.TotalLost)"
+                }
+            }
+
+            if (-not $script:pingEngine.IsRunning) {
+                $pingTimer.Stop()
                 $btnStart.Text = "Start Test"
                 $btnStart.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
                 $txtHost.Enabled = $true
                 $txtPps.Enabled = $true
                 $txtSize.Enabled = $true
                 $txtDuration.Enabled = $true
-                $txtLog.AppendText("`r`n--- Test Complete: $($sum.TotalSent) Sent, $($sum.TotalReceived) Recv, $($sum.TotalLost) Lost ($([math]::Round($sum.LossPercent, 1))% loss) ---`r`n")
-            })
+                $finalSum = $script:pingEngine.GetSummary()
+                if ($finalSum) {
+                    $txtLog.AppendText("`r`n--- Test Complete: $($finalSum.TotalSent) Sent, $($finalSum.TotalReceived) Recv, $($finalSum.TotalLost) Lost ($([math]::Round($finalSum.LossPercent, 1))% loss) ---`r`n")
+                }
+            }
         }
-
-        $script:pingEngine.add_OnPingSample($sampleHandler)
-        $script:pingEngine.add_OnSummaryUpdate($summaryHandler)
-        $script:pingEngine.add_OnCompleted($completeHandler)
-
-        $script:pingEngine.Start($hostVal, $pps, $sz, $dur)
     })
 
     $btnClose.Add_Click({
+        $pingTimer.Stop()
         if ($script:pingEngine.IsRunning) { $script:pingEngine.Stop() }
         $pltForm.Close()
     })
 
     $pltForm.Add_FormClosing({
+        $pingTimer.Stop()
+        $pingTimer.Dispose()
         if ($script:pingEngine.IsRunning) { $script:pingEngine.Stop() }
     })
 

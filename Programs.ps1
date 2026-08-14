@@ -124,9 +124,9 @@ $form.ClientSize = New-Object System.Drawing.Size(580, 440)
 # Tab Control for Categories
 $tabControl = New-Object HMT.Tools.DarkTabControl
 $tabControl.Location = New-Object System.Drawing.Point(15, 12)
-$tabControl.Size = New-Object System.Drawing.Size(550, 240)
+$tabControl.Size = New-Object System.Drawing.Size(550, 255)
 $tabControl.Font = $progFont
-$tabControl.ItemSize = New-Object System.Drawing.Size(108, 30)
+$tabControl.ItemSize = New-Object System.Drawing.Size(104, 38)
 $form.Controls.Add($tabControl)
 
 $checkboxes = @{}
@@ -147,16 +147,16 @@ foreach ($tabName in $tabOrder) {
     $tab.Controls.Add($container)
 
     $col1 = New-Object System.Windows.Forms.FlowLayoutPanel
-    $col1.Location = New-Object System.Drawing.Point(10, 10)
-    $col1.Size = New-Object System.Drawing.Size(255, 195)
+    $col1.Location = New-Object System.Drawing.Point(10, 8)
+    $col1.Size = New-Object System.Drawing.Size(255, 200)
     $col1.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
     $col1.WrapContents = $false
     $col1.BackColor = [System.Drawing.Color]::Transparent
     $container.Controls.Add($col1)
 
     $col2 = New-Object System.Windows.Forms.FlowLayoutPanel
-    $col2.Location = New-Object System.Drawing.Point(275, 10)
-    $col2.Size = New-Object System.Drawing.Size(255, 195)
+    $col2.Location = New-Object System.Drawing.Point(275, 8)
+    $col2.Size = New-Object System.Drawing.Size(255, 200)
     $col2.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
     $col2.WrapContents = $false
     $col2.BackColor = [System.Drawing.Color]::Transparent
@@ -500,23 +500,25 @@ $okButton.Add_Click({
                 $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
                 $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
 
-                $extProgramsDir = Join-Path -Path $scriptRoot -ChildPath "ExtPrograms"
-                if (-not (Test-Path $extProgramsDir)) { New-Item -ItemType Directory -Path $extProgramsDir -Force | Out-Null }
+                $installDir = Join-Path -Path $scriptRoot -ChildPath "ExtPrograms"
+                if (-not (Test-Path $installDir)) { New-Item -ItemType Directory -Path $installDir -Force | Out-Null }
 
-                $workingDir = Join-Path -Path $env:TEMP -ChildPath "HMT_O365_Install"
-                if (-not (Test-Path $workingDir)) { New-Item -ItemType Directory -Path $workingDir -Force | Out-Null }
-
-                $localZipInExt = Join-Path -Path $extProgramsDir -ChildPath $zipName
-                $zipPath = if (Test-Path $localZipInExt) { $localZipInExt } else { Join-Path -Path $workingDir -ChildPath $zipName }
+                $zipPath = Join-Path -Path $installDir -ChildPath $zipName
+                $officeDataDir = Join-Path -Path $installDir -ChildPath "Office\Data"
 
                 $cdnSuccess = $false
 
-                if (Test-Path $localZipInExt) {
-                    $state.ProgressPct = 75
+                if ((Test-Path $officeDataDir) -and (Test-Path (Join-Path $installDir "setup.exe"))) {
+                    $state.ProgressPct = 85
                     $state.StatusText = "Found local $displayName payload..."
-                    $state.DetailText = "Using cached payload in ExtPrograms..."
+                    $state.DetailText = "Using existing decompressed payload in ExtPrograms..."
                     $cdnSuccess = $true
-                    $zipPath = $localZipInExt
+                }
+                elseif (Test-Path $zipPath) {
+                    $state.ProgressPct = 75
+                    $state.StatusText = "Found cached $displayName zip..."
+                    $state.DetailText = "Using cached zip in ExtPrograms..."
+                    $cdnSuccess = $true
                 } else {
                     try {
                         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
@@ -533,16 +535,7 @@ $okButton.Add_Click({
                         $totalBytes = $response.Content.Headers.ContentLength
                         $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
 
-                        # Prefer caching into ExtPrograms folder if accessible
-                        $targetZipPath = try {
-                            $testFs = [System.IO.File]::Create($localZipInExt)
-                            $testFs.Close()
-                            $localZipInExt
-                        } catch {
-                            Join-Path -Path $workingDir -ChildPath $zipName
-                        }
-
-                        $fileStream = [System.IO.File]::Create($targetZipPath)
+                        $fileStream = [System.IO.File]::Create($zipPath)
                         $buffer = New-Object byte[] 524288
                         $bytesRead = 0
                         $totalBytesRead = 0
@@ -556,22 +549,21 @@ $okButton.Add_Click({
                             if ($sw.ElapsedMilliseconds - $lastTick -gt 150) {
                                 $lastTick = $sw.ElapsedMilliseconds
                                 $elapsedSec = [math]::Max(0.1, $sw.Elapsed.TotalSeconds)
-                                $speedMBs = ($totalBytesRead / 1MB) / $elapsedSec
+                                $speedMbps = (($totalBytesRead * 8) / 1MB) / $elapsedSec
 
                                 if ($totalBytes -gt 0) {
                                     $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
                                     $state.ProgressPct = [int]($pct * 0.8)
                                     $state.StatusText = "Downloading $displayName..."
-                                    $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB at $([math]::Round($speedMBs, 1)) MB/s)"
+                                    $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB at $([math]::Round($speedMbps, 1)) Mbps)"
                                 } else {
-                                    $state.DetailText = "$([math]::Round($totalBytesRead / 1MB, 1)) MB downloaded at $([math]::Round($speedMBs, 1)) MB/s"
+                                    $state.DetailText = "$([math]::Round($totalBytesRead / 1MB, 1)) MB downloaded at $([math]::Round($speedMbps, 1)) Mbps"
                                 }
                             }
                         }
                         $fileStream.Close()
                         $downloadStream.Close()
                         $client.Dispose()
-                        $zipPath = $targetZipPath
                         $cdnSuccess = $true
                     } catch {
                         $state.DetailText = "Local CDN fetch failed ($($_)). Falling back to Microsoft CDN deployment..."
@@ -580,46 +572,57 @@ $okButton.Add_Click({
 
                 $state.ProgressPct = 85
                 $state.StatusText = "Installing $displayName..."
-                $state.DetailText = "Extracting payload and configuring Office deployment..."
 
-                # Extract CDN Payload if present (prefer tar.exe for high speed, fallback to Expand-Archive)
-                if ($cdnSuccess -and (Test-Path $zipPath)) {
+                # Decompress archive directly into ExtPrograms if not already unpacked
+                if (-not (Test-Path $officeDataDir) -and (Test-Path $zipPath)) {
+                    $state.DetailText = "Extracting payload into ExtPrograms..."
                     $extracted = $false
                     if (Get-Command "tar.exe" -ErrorAction SilentlyContinue) {
                         try {
-                            $tarProc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$zipPath`" -C `"$workingDir`"" -PassThru -WindowStyle Hidden -Wait
-                            if ($tarProc.ExitCode -eq 0) { $extracted = $true }
+                            $tarProc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$zipPath`" -C `"$installDir`"" -PassThru -WindowStyle Hidden -Wait
+                            if ($tarProc.ExitCode -eq 0 -and (Test-Path $officeDataDir)) { 
+                                $extracted = $true 
+                            }
                         } catch {}
                     }
                     if (-not $extracted) {
-                        Expand-Archive -Path $zipPath -DestinationPath $workingDir -Force
+                        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+                        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $installDir)
                     }
                 }
 
-                $setupExe = Join-Path -Path $workingDir -ChildPath "setup.exe"
+                $setupExe = Join-Path -Path $installDir -ChildPath "setup.exe"
                 if (-not (Test-Path $setupExe)) {
                     # Download official Microsoft ODT if setup.exe is missing
                     $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-                    $odtExe = "$workingDir\odt.exe"
+                    $odtExe = Join-Path -Path $installDir -ChildPath "odt.exe"
                     (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
-                    Start-Process $odtExe -ArgumentList "/quiet /extract:`"$workingDir`"" -Wait -WindowStyle Hidden
+                    Start-Process $odtExe -ArgumentList "/quiet /extract:`"$installDir`"" -Wait -WindowStyle Hidden
                 }
 
-                $xmlPath = "$workingDir\configuration.xml"
+                # Dynamically detect offline version directory to guarantee offline install
+                $verDir = if (Test-Path $officeDataDir) { 
+                    Get-ChildItem -Path $officeDataDir -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } | Select-Object -First 1 
+                } else { $null }
+
+                $verAttr = if ($verDir) { "Version=`"$($verDir.Name)`"" } else { "" }
+
+                $xmlPath = Join-Path -Path $installDir -ChildPath "configuration.xml"
                 $xmlContent = @"
 <Configuration>
-  <Add SourcePath="$workingDir" OfficeClientEdition="64" Channel="Current">
+  <Add SourcePath="$installDir" OfficeClientEdition="64" Channel="Current" $verAttr>
     <Product ID="$productID">
       <Language ID="en-us" />
     </Product>
   </Add>
-  <Display Level="None" AcceptEULA="TRUE" />
+  <Display Level="Full" AcceptEULA="TRUE" />
   <Property Name="AUTOACTIVATE" Value="0" />
 </Configuration>
 "@
                 Set-Content -Path $xmlPath -Value $xmlContent -Encoding UTF8 -Force
 
-                $proc = Start-Process -FilePath $setupExe -ArgumentList "/configure `"$xmlPath`"" -WorkingDirectory $workingDir -Wait -PassThru -WindowStyle Hidden
+                $state.DetailText = "Running Office Click-to-Run setup..."
+                $proc = Start-Process -FilePath $setupExe -ArgumentList "/configure `"$xmlPath`"" -WorkingDirectory $installDir -Wait -PassThru
                 
                 $state.ProgressPct = 100
                 $state.StatusText = "Finished: $displayName"
@@ -817,6 +820,8 @@ $okButton.Add_Click({
 
     # Synchronize and wait for background O365 task if still running
     if ($msProgName -and $null -ne $script:msState -and -not $script:msState.Finished) {
+        $progressBar.Value = 100
+        $progressBar.ShowShimmer = $false
         $msWaitText = "Waiting on $displayName to finish downloading..."
         Log-Message "$msWaitText" "Info"
         $statuslabel.Text = $msWaitText

@@ -509,18 +509,7 @@ function Show-HMTDialog {
     } catch {}
 
     Invoke-HMTScale $TargetForm
-    $TargetForm.Opacity = 0
-    $shownScript = {
-        param($s, $e)
-        $s.Opacity = 1
-        $s.Refresh()
-    }
-    $TargetForm.Add_Shown($shownScript)
-    try {
-        return $TargetForm.ShowDialog()
-    } finally {
-        $TargetForm.Opacity = 1
-    }
+    return $TargetForm.ShowDialog()
 }
 
 # Common function for user requested exits
@@ -727,8 +716,12 @@ function Show-DownloadDialog {
     $script:dlCancelled = $false
     $script:dlIsActive = $true
 
+    # Launch native thread-safe streaming download in C#
+    $state = [HMT.Tools.FileDownloader]::StartDownload($downloadUrl, $OutputPath)
+
     $cancelDownload = {
         if ($script:dlIsActive) {
+            $state.IsCancelled = $true
             $script:dlCancelled = $true
             $script:dlIsActive = $false
         }
@@ -740,106 +733,15 @@ function Show-DownloadDialog {
     $dform.Add_FormClosing({
         param($sender, $e)
         if ($script:dlIsActive) {
+            $state.IsCancelled = $true
             $script:dlCancelled = $true
             $script:dlIsActive = $false
         }
     })
 
-    # Background async download execution on ThreadPool with HttpClient
-    $state = [hashtable]::Synchronized(@{
-        BytesRead = [long]0
-        TotalBytes = [long]0
-        SpeedMbps = [double]0
-        IsCompleted = $false
-        Error = $null
-    })
-
-    $downloadWorker = {
-        param($targetUrl, $outPath, $syncState)
-
-        $clientHandler = $null
-        $httpClient = $null
-        $respStream = $null
-        $fileStream = $null
-
-        try {
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
-            $clientHandler = New-Object System.Net.Http.HttpClientHandler
-            $clientHandler.AllowAutoRedirect = $true
-            $clientHandler.MaxAutomaticRedirections = 15
-
-            $httpClient = New-Object System.Net.Http.HttpClient -ArgumentList $clientHandler
-            $httpClient.Timeout = [TimeSpan]::FromMinutes(10)
-            
-            # Browser-like headers with fallback
-            if ($targetUrl -like "*sourceforge.net*") {
-                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("curl/8.5.0")
-            } elseif ($targetUrl -like "*forensit.com*") {
-                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0")
-                $httpClient.DefaultRequestHeaders.Referrer = New-Object System.Uri("https://www.forensit.com/downloads.html")
-            } else {
-                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0 Safari/537.36")
-            }
-
-            $responseTask = $httpClient.GetAsync($targetUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
-            $response = $responseTask.GetAwaiter().GetResult()
-            if (-not $response.IsSuccessStatusCode) {
-                throw "HTTP Error $($response.StatusCode)"
-            }
-
-            $contentLength = $response.Content.Headers.ContentLength
-            if ($contentLength) {
-                $syncState.TotalBytes = [long]$contentLength
-            }
-
-            # Prepare target directory
-            $targetDir = [System.IO.Path]::GetDirectoryName($outPath)
-            if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
-
-            $respStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-            $fileStream = [System.IO.File]::Create($outPath)
-
-            $buffer = New-Object byte[] 65536
-            $bytesRead = 0
-            $totalRead = [long]0
-            $sw = [System.Diagnostics.Stopwatch]::StartNew()
-            $lastTick = [System.Diagnostics.Stopwatch]::StartNew()
-
-            while (($bytesRead = $respStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                if ($script:dlCancelled) { break }
-
-                $fileStream.Write($buffer, 0, $bytesRead)
-                $totalRead += $bytesRead
-                $syncState.BytesRead = $totalRead
-
-                if ($lastTick.ElapsedMilliseconds -ge 100) {
-                    $lastTick.Restart()
-                    $elapsedSec = [Math]::Max(0.001, $sw.Elapsed.TotalSeconds)
-                    $syncState.SpeedMbps = (($totalRead * 8) / 1MB) / $elapsedSec
-                }
-            }
-
-            if (-not $script:dlCancelled) {
-                $syncState.IsCompleted = $true
-            }
-        } catch {
-            $syncState.Error = $_
-        } finally {
-            if ($fileStream) { $fileStream.Close(); $fileStream.Dispose() }
-            if ($respStream) { $respStream.Close(); $respStream.Dispose() }
-            if ($httpClient) { $httpClient.Dispose() }
-            if ($clientHandler) { $clientHandler.Dispose() }
-        }
-    }
-
-    # Launch worker
-    [System.Threading.ThreadPool]::QueueUserWorkItem({
-        &$downloadWorker $downloadUrl $OutputPath $state
-    }) | Out-Null
-
     # UI Polling Timer
     $uiTimer = New-Object System.Windows.Forms.Timer
-    $uiTimer.Interval = 60
+    $uiTimer.Interval = 50
     $uiTimer.Add_Tick({
         if ($state.IsCompleted) {
             $uiTimer.Stop()
@@ -864,7 +766,7 @@ function Show-DownloadDialog {
             return
         }
 
-        if ($script:dlCancelled) {
+        if ($script:dlCancelled -or $state.IsCancelled) {
             $uiTimer.Stop()
             $script:dlIsActive = $false
             if (Test-Path -LiteralPath $OutputPath) {
