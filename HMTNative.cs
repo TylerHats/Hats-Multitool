@@ -1,4 +1,4 @@
-// C# Methods Pre-Comp File - Tyler Hatfield - v1.2
+// C# Methods Pre-Comp File - Tyler Hatfield - v2.0
 
 using System;
 using System.Drawing;
@@ -56,12 +56,9 @@ namespace HMT {
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
         // --- Window Messaging (Icons & UI Elements) ---
-        
-        // Signature 1: For passing icon handles (lParam as IntPtr)
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-        // Signature 2: For passing strings (lParam as string - used for Cue Banners/Placeholders)
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern Int32 SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
 
@@ -75,6 +72,248 @@ namespace HMT {
         // --- Taskbar Management ---
         [DllImport("shell32.dll", SetLastError = true)]
         public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+    }
+
+    // --- Low-Level Drive & Storage Interop ---
+    public static class DriveInterop {
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr CreateFile(
+            string lpFileName,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool DeviceIoControl(
+            IntPtr hDevice,
+            uint dwIoControlCode,
+            IntPtr lpInBuffer,
+            uint nInBufferSize,
+            IntPtr lpOutBuffer,
+            uint nOutBufferSize,
+            out uint lpBytesReturned,
+            IntPtr lpOverlapped);
+
+        public const uint GENERIC_READ = 0x80000000;
+        public const uint GENERIC_WRITE = 0x40000000;
+        public const uint FILE_SHARE_READ = 0x00000001;
+        public const uint FILE_SHARE_WRITE = 0x00000002;
+        public const uint OPEN_EXISTING = 3;
+        public const uint FILE_ATTRIBUTE_NORMAL = 0x00000080;
+
+        public const uint IOCTL_STORAGE_QUERY_PROPERTY = 0x002D1400;
+
+        public enum STORAGE_PROPERTY_ID {
+            StorageDeviceProperty = 0,
+            StorageAdapterProperty = 1,
+            StorageDeviceIdProperty = 2,
+            StorageDeviceUniqueIdProperty = 3,
+            StorageDeviceWriteCacheProperty = 4,
+            StorageMiniportProperty = 5,
+            StorageAccessAlignmentProperty = 6,
+            StorageDeviceSeekPenaltyProperty = 7,
+            StorageDeviceTrimProperty = 8
+        }
+
+        public enum STORAGE_QUERY_TYPE {
+            PropertyStandardQuery = 0,
+            PropertyExistsQuery = 1,
+            PropertyMaskQuery = 2,
+            PropertyQueryMaxDefined = 3
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct STORAGE_PROPERTY_QUERY {
+            public STORAGE_PROPERTY_ID PropertyId;
+            public STORAGE_QUERY_TYPE QueryType;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
+            public byte[] AdditionalParameters;
+        }
+
+        public enum STORAGE_BUS_TYPE {
+            BusTypeUnknown = 0x00,
+            BusTypeScsi = 0x01,
+            BusTypeAtapi = 0x02,
+            BusTypeAta = 0x03,
+            BusType1394 = 0x04,
+            BusTypeSsa = 0x05,
+            BusTypeFibre = 0x06,
+            BusTypeUsb = 0x07,
+            BusTypeRAID = 0x08,
+            BusTypeiScsi = 0x09,
+            BusTypeSas = 0x0A,
+            BusTypeSata = 0x0B,
+            BusTypeSd = 0x0C,
+            BusTypeMmc = 0x0D,
+            BusTypeVirtual = 0x0E,
+            BusTypeFileBackedVirtual = 0x0F,
+            BusTypeSpaces = 0x10,
+            BusTypeNvme = 0x11,
+            BusTypeSCM = 0x12,
+            BusTypeUfs = 0x13,
+            BusTypeMax = 0x14,
+            BusTypeMaxReserved = 0x7F
+        }
+
+        public class DriveInfoResult {
+            public int DriveIndex { get; set; }
+            public string DevicePath { get; set; }
+            public string VendorId { get; set; }
+            public string ProductId { get; set; }
+            public string ProductRevision { get; set; }
+            public string SerialNumber { get; set; }
+            public STORAGE_BUS_TYPE BusType { get; set; }
+            public string BusTypeName { get; set; }
+            public bool IsRemovable { get; set; }
+            public bool IsSSD { get; set; }
+            public bool Success { get; set; }
+            public string ErrorMessage { get; set; }
+        }
+
+        public static DriveInfoResult QueryPhysicalDriveInfo(int driveIndex) {
+            var result = new DriveInfoResult {
+                DriveIndex = driveIndex,
+                DevicePath = string.Format(@"\\.\PhysicalDrive{0}", driveIndex),
+                VendorId = string.Empty,
+                ProductId = string.Empty,
+                ProductRevision = string.Empty,
+                SerialNumber = string.Empty,
+                BusType = STORAGE_BUS_TYPE.BusTypeUnknown,
+                BusTypeName = "Unknown",
+                IsSSD = false,
+                Success = false
+            };
+
+            IntPtr hDrive = CreateFile(
+                result.DevicePath,
+                0,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                IntPtr.Zero,
+                OPEN_EXISTING,
+                0,
+                IntPtr.Zero
+            );
+
+            if (hDrive == IntPtr.Zero || hDrive == (IntPtr)(-1)) {
+                result.ErrorMessage = "Unable to open device handle (error: " + Marshal.GetLastWin32Error() + ")";
+                return result;
+            }
+
+            try {
+                STORAGE_PROPERTY_QUERY query = new STORAGE_PROPERTY_QUERY {
+                    PropertyId = STORAGE_PROPERTY_ID.StorageDeviceProperty,
+                    QueryType = STORAGE_QUERY_TYPE.PropertyStandardQuery,
+                    AdditionalParameters = new byte[1]
+                };
+
+                uint querySize = (uint)Marshal.SizeOf(query);
+                IntPtr pQuery = Marshal.AllocHGlobal((int)querySize);
+                Marshal.StructureToPtr(query, pQuery, false);
+
+                uint outBufferSize = 2048;
+                IntPtr pOutBuffer = Marshal.AllocHGlobal((int)outBufferSize);
+
+                uint bytesReturned = 0;
+                bool success = DeviceIoControl(
+                    hDrive,
+                    IOCTL_STORAGE_QUERY_PROPERTY,
+                    pQuery,
+                    querySize,
+                    pOutBuffer,
+                    outBufferSize,
+                    out bytesReturned,
+                    IntPtr.Zero
+                );
+
+                if (success && bytesReturned > 0) {
+                    byte[] buffer = new byte[bytesReturned];
+                    Marshal.Copy(pOutBuffer, buffer, 0, (int)bytesReturned);
+
+                    int busTypeVal = (int)buffer[28];
+                    result.BusType = (STORAGE_BUS_TYPE)busTypeVal;
+                    result.BusTypeName = result.BusType.ToString().Replace("BusType", "");
+                    result.IsRemovable = (buffer[4] != 0);
+
+                    int vendorOffset = BitConverter.ToInt32(buffer, 8);
+                    int productOffset = BitConverter.ToInt32(buffer, 12);
+                    int revisionOffset = BitConverter.ToInt32(buffer, 16);
+                    int serialOffset = BitConverter.ToInt32(buffer, 20);
+
+                    if (vendorOffset > 0 && vendorOffset < buffer.Length)
+                        result.VendorId = ReadNullTerminatedAscii(buffer, vendorOffset).Trim();
+                    if (productOffset > 0 && productOffset < buffer.Length)
+                        result.ProductId = ReadNullTerminatedAscii(buffer, productOffset).Trim();
+                    if (revisionOffset > 0 && revisionOffset < buffer.Length)
+                        result.ProductRevision = ReadNullTerminatedAscii(buffer, revisionOffset).Trim();
+                    if (serialOffset > 0 && serialOffset < buffer.Length)
+                        result.SerialNumber = ReadNullTerminatedAscii(buffer, serialOffset).Trim();
+
+                    result.Success = true;
+                }
+
+                Marshal.FreeHGlobal(pQuery);
+                Marshal.FreeHGlobal(pOutBuffer);
+
+                STORAGE_PROPERTY_QUERY seekQuery = new STORAGE_PROPERTY_QUERY {
+                    PropertyId = STORAGE_PROPERTY_ID.StorageDeviceSeekPenaltyProperty,
+                    QueryType = STORAGE_QUERY_TYPE.PropertyStandardQuery,
+                    AdditionalParameters = new byte[1]
+                };
+
+                uint seekQuerySize = (uint)Marshal.SizeOf(seekQuery);
+                IntPtr pSeekQuery = Marshal.AllocHGlobal((int)seekQuerySize);
+                Marshal.StructureToPtr(seekQuery, pSeekQuery, false);
+
+                uint seekOutSize = 16;
+                IntPtr pSeekOut = Marshal.AllocHGlobal((int)seekOutSize);
+
+                uint seekBytesReturned = 0;
+                bool seekSuccess = DeviceIoControl(
+                    hDrive,
+                    IOCTL_STORAGE_QUERY_PROPERTY,
+                    pSeekQuery,
+                    seekQuerySize,
+                    pSeekOut,
+                    seekOutSize,
+                    out seekBytesReturned,
+                    IntPtr.Zero
+                );
+
+                if (seekSuccess && seekBytesReturned >= 5) {
+                    byte[] seekBuf = new byte[seekBytesReturned];
+                    Marshal.Copy(pSeekOut, seekBuf, 0, (int)seekBytesReturned);
+                    bool incursSeekPenalty = (seekBuf[4] != 0);
+                    result.IsSSD = !incursSeekPenalty;
+                } else if (result.BusType == STORAGE_BUS_TYPE.BusTypeNvme) {
+                    result.IsSSD = true;
+                }
+
+                Marshal.FreeHGlobal(pSeekQuery);
+                Marshal.FreeHGlobal(pSeekOut);
+
+            } catch (Exception ex) {
+                result.ErrorMessage = ex.Message;
+            } finally {
+                CloseHandle(hDrive);
+            }
+
+            return result;
+        }
+
+        private static string ReadNullTerminatedAscii(byte[] data, int startIndex) {
+            int end = startIndex;
+            while (end < data.Length && data[end] != 0) {
+                end++;
+            }
+            if (end <= startIndex) return string.Empty;
+            return System.Text.Encoding.ASCII.GetString(data, startIndex, end - startIndex);
+        }
     }
 
     // --- Per-Pixel Alpha WinForms Helper ---

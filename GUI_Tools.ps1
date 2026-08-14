@@ -45,16 +45,17 @@ $diskList = @(
     [pscustomobject]@{ Name = "BleachBit"; Desc = "System and program temporary data cleaner to reclaim drive space." }
     [pscustomobject]@{ Name = "Patch Cleaner"; Desc = "Scans and allows safe removal of orphaned installer/driver store files." }
     [pscustomobject]@{ Name = "Windows Disk Cleanup"; Desc = "Launches the native Windows Disk Cleanup utility." }
-    [pscustomobject]@{ Name = "Storage SMART & Health Summary"; Desc = "Displays physical disk model, media type, SMART total writes, wearout, and health status." }
+    [pscustomobject]@{ Name = "Storage SMART & Benchmark Dashboard"; Desc = "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark." }
     [pscustomobject]@{ Name = "Display Driver Uninstaller"; Desc = "Runs Display Driver Uninstaller (DDU) to clean graphics/audio drivers for fresh installs." }
     [pscustomobject]@{ Name = "HDDScan"; Desc = "Runs HDDScan to verify block health and SMART diagnostics." }
     [pscustomobject]@{ Name = "Crystal Disk Mark"; Desc = "SSD/HDD storage benchmark utility." }
     [pscustomobject]@{ Name = "Crystal Disk Info"; Desc = "Drive health and temperature monitoring utility." }
+    [pscustomobject]@{ Name = "BitLocker Drive Encryption & Recovery"; Desc = "Inspect status, enable/disable encryption, manage recovery keys, and unlock locked drives." }
 )
 
 $netList = @(
     [pscustomobject]@{ Name = "Internet Speed Test"; Desc = "Native, real-time speed test against Cloudflare Anycast measuring Ping, Jitter, Download, and Upload." }
-    [pscustomobject]@{ Name = "Packet Loss Test"; Desc = "Real-time continuous ping test measuring latency graph, packet loss rate, and drop reasons." }
+    [pscustomobject]@{ Name = "Packet Loss & Latency Test"; Desc = "High-precision async latency & packet loss tester with real-time jitter, loss metrics, and smooth GDI+ graph." }
     [pscustomobject]@{ Name = "TCP Port & Connection Checker"; Desc = "Tests IP/hostname reachability and open TCP ports with response time." }
     [pscustomobject]@{ Name = "Flush DNS & Reset IP"; Desc = "Releases/renews IP, flushes DNS client cache, and clears ARP entries." }
     [pscustomobject]@{ Name = "Advanced IP Scanner"; Desc = "Fast network scanner for remote subnet discovery and device inventory." }
@@ -71,6 +72,7 @@ $viewerList = @(
     [pscustomobject]@{ Name = "Hat's User Move Tool"; Desc = "Collects user and system data for transferring to new machines." }
     [pscustomobject]@{ Name = "User Profile Wizard"; Desc = "Migrates user profile data between domains or computers (Profwiz)." }
     [pscustomobject]@{ Name = "Generate Battery Report"; Desc = "Generates and opens a detailed HTML report of laptop battery health and cycle history." }
+    [pscustomobject]@{ Name = "Startup & Autoruns Manager"; Desc = "Inspect, enable, disable, or remove startup applications and registry autorun entries." }
     [pscustomobject]@{ Name = "Reliability Monitor"; Desc = "Opens Windows Reliability Monitor timeline to view crash and software install history." }
     [pscustomobject]@{ Name = "Read Motherboard OEM Product Key"; Desc = "Reads OEM Windows product key embedded in BIOS/ACPI MSDM table." }
     [pscustomobject]@{ Name = "Enable Safe Boot (w/Network)"; Desc = "Configures BCD to boot into Safe Mode with networking enabled." }
@@ -86,6 +88,7 @@ $passList = @(
     [pscustomobject]@{ Name = "Dialupass"; Desc = "Recovers passwords for VPN, Dialup, and RAS connections." }
     [pscustomobject]@{ Name = "CredentialFileView"; Desc = "Decrypts and displays credentials stored inside Windows Credentials files." }
     [pscustomobject]@{ Name = "VaultPasswordView"; Desc = "Decrypts and displays passwords stored in Windows Vault and Windows Credentials Manager." }
+    [pscustomobject]@{ Name = "BitLocker Recovery Keys & Unlock"; Desc = "Retrieve 48-digit numerical recovery passwords, export keys, and unlock BitLocker volumes." }
 )
 
 # Helper function to create a styled ListView for a tab
@@ -343,6 +346,9 @@ $TLaunchButton.Add_Click({
             "Windows Disk Cleanup" {
                 Start-Process -FilePath cleanmgr.exe -Verb RunAs
             }
+            "Storage SMART & Benchmark Dashboard" {
+                Show-StorageHealthDialog
+            }
             "Storage SMART & Health Summary" {
                 Show-StorageHealthDialog
             }
@@ -396,10 +402,16 @@ $TLaunchButton.Add_Click({
                     if ($CDIEPath) { Start-Process $CDIEPath }
                 }
             }
+            "BitLocker Drive Encryption & Recovery" {
+                Show-BitLockerManagerDialog
+            }
 
             # --- Network & Connectivity ---
             "Internet Speed Test" {
                 Show-SpeedTestDialog
+            }
+            "Packet Loss & Latency Test" {
+                Show-PacketLossTestDialog
             }
             "Packet Loss Test" {
                 Show-PacketLossTestDialog
@@ -531,6 +543,9 @@ $TLaunchButton.Add_Click({
             "Reliability Monitor" {
                 Start-Process perfmon.exe -ArgumentList "/rel"
             }
+            "Startup & Autoruns Manager" {
+                Show-StartupManagerDialog
+            }
             "Read Motherboard OEM Product Key" {
                 $oemKey = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction SilentlyContinue).OA3xOriginalProductKey
                 if (-not [string]::IsNullOrWhiteSpace($oemKey)) {
@@ -627,6 +642,9 @@ $TLaunchButton.Add_Click({
                     $exe = Get-ChildItem -Path $recDir -Filter "VaultPasswordView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                     if ($exe) { Start-Process $exe }
                 }
+            }
+            "BitLocker Recovery Keys & Unlock" {
+                Show-BitLockerManagerDialog
             }
         }
     } finally {

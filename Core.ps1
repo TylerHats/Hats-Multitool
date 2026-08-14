@@ -16,8 +16,23 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
     exit
 }
 
-# Initialize DPI awareness assemblies
-Add-Type -Path (Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.dll')
+# Initialize Native & Tool assemblies
+$nativeDll = Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.dll'
+if (Test-Path $nativeDll) {
+    Add-Type -Path $nativeDll
+} else {
+    $csNative = Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.cs'
+    if (Test-Path $csNative) { Add-Type -TypeDefinition (Get-Content $csNative -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing }
+}
+
+$toolsDll = Join-Path -Path $PSScriptRoot -ChildPath 'HMTTools.dll'
+if (Test-Path $toolsDll) {
+    Add-Type -Path $toolsDll
+} else {
+    $csTools = Join-Path -Path $PSScriptRoot -ChildPath 'HMTTools.cs'
+    if (Test-Path $csTools) { Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing }
+}
+
 [DpiHelper]::SetProcessDPIAware() | Out-Null
 
 # Initialize WinForms assemblies and styling

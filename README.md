@@ -68,7 +68,8 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 - **`GUI_Diagnostics.ps1`**: Contains standalone diagnostic engines (Cloudflare Speed Test, Packet Loss Tester, Storage SMART Health, TCP Port Checker, and Command Runner).
 - **`GUI_Setup.ps1`**: Handles the setup module selection interface.
 - **`[Module].ps1`**: Individual scripts (like `BloatCleanup.ps1` or `SystemManagement.ps1`) that handle specific tasks chosen by the user.
-- **`HMTNative.cs` / `HMTNative.dll`**: A C# library compiled into a DLL via P/Invoke. It allows the PowerShell scripts to utilize advanced UI controls beyond standard WinForms capabilities.
+- **`HMTNative.cs` / `HMTNative.dll`**: Low-level Win32 P/Invoke interop library for DPI awareness, window theming, layered forms, and direct hardware storage descriptor queries.
+- **`HMTTools.cs` / `HMTTools.dll`**: High-performance diagnostic & graphing engine containing `SmoothGraphControl` (double-buffered GDI+ charts), `HighPrecisionPingEngine` (sub-millisecond latency & RFC 3550 jitter), `FastSpeedTestEngine` (multi-stream HTTP throughput), and `DiskBenchmarkEngine` (direct sequential & 4K random disk benchmark).
 
 ---
 
@@ -76,16 +77,20 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 
 ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged executables based on the codebase at the time of creation.
 
-These executables are currently built using **NSIS** as simple, silent, self-extracting archives that launch the main `Core.ps1` file. Since version 3.7.4, C# methods are compiled into a DLL (`HMTNative.dll`) using Mono-MCS during the build process.
+These executables are currently built using **NSIS** as simple, silent, self-extracting archives that launch the main `Core.ps1` file. C# methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
 
 **To package the project yourself:**
-1. Compile `HMTNative.cs` into `HMTNative.dll` and ensure it is in the root directory alongside the `.ps1` files and icons.
+1. Compile `HMTNative.cs` into `HMTNative.dll` and `HMTTools.cs` into `HMTTools.dll`:
+   ```bash
+   mcs -target:library -out:HMTNative.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTNative.cs
+   mcs -target:library -out:HMTTools.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTTools.cs
+   ```
 2. Using your preferred archiving software (like NSIS or 7-Zip SFX), pack the repository files into a self-extracting archive.
 3. Set the archive to extract silently and execute the following command upon extraction:
    ```cmd
    PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "Core.ps1" -WindowStyle Hidden
    ```
-*The multitool can also be opened simply by running* ***Core.ps1*** *directly, but the cs file must still be compiled before hand.*
+*The multitool can also be opened simply by running* ***Core.ps1*** *directly; if the DLLs are not precompiled, it will automatically compile the CS files on first run.*
 
 ---
 
