@@ -1,4 +1,4 @@
-# Programs Module - Tyler Hatfield - v2.30
+﻿# Programs Module - Tyler Hatfield - v2.30
 
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor 12288
@@ -126,6 +126,51 @@ $tabControl = New-Object System.Windows.Forms.TabControl
 $tabControl.Location = New-Object System.Drawing.Point(15, 12)
 $tabControl.Size = New-Object System.Drawing.Size(550, 240)
 $tabControl.Font = $progFont
+$tabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+$tabControl.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
+$tabControl.ItemSize = New-Object System.Drawing.Size(108, 28)
+$tabControl.Padding = New-Object System.Drawing.Point(8, 4)
+
+$tabControl.Add_DrawItem({
+    param($sender, $e)
+    $tc = $sender
+    $tab = $tc.TabPages[$e.Index]
+    $isSelected = ($e.Index -eq $tc.SelectedIndex)
+    $g = $e.Graphics
+
+    $bgBrush = if ($isSelected) {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#36393f"))
+    } else {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
+    }
+    $g.FillRectangle($bgBrush, $e.Bounds)
+    $bgBrush.Dispose()
+
+    if ($isSelected) {
+        $accentPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#5865F2"), 3)
+        $g.DrawLine($accentPen, $e.Bounds.Left, $e.Bounds.Top + 1, $e.Bounds.Right, $e.Bounds.Top + 1)
+        $accentPen.Dispose()
+    }
+
+    $textBrush = if ($isSelected) {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#ffffff"))
+    } else {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#a0a0a0"))
+    }
+    $sf = New-Object System.Drawing.StringFormat
+    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $tabFont = if ($isSelected) {
+        New-Object System.Drawing.Font($tc.Font, [System.Drawing.FontStyle]::Bold)
+    } else {
+        $tc.Font
+    }
+    $g.DrawString($tab.Text, $tabFont, $textBrush, [System.Drawing.RectangleF]$e.Bounds, $sf)
+    $textBrush.Dispose()
+    $sf.Dispose()
+    if ($isSelected) { $tabFont.Dispose() }
+})
+
 $form.Controls.Add($tabControl)
 
 $checkboxes = @{}

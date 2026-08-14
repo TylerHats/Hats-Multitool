@@ -39,6 +39,7 @@ if (Test-Path $toolsDll) {
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
+try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}
 
 # Splashscreen
 function Show-ImageSplash {
@@ -131,6 +132,7 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 . "$commonPath"
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
+Log-Message "Initialized environment (OS: $WindowsEdition, Scale: $global:HMTScaleFactor)" "Info"
 Hide-ConsoleWindow
 
 # Execute Self Update module

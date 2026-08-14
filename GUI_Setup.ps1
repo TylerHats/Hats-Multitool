@@ -1,4 +1,4 @@
-# GUI Setup Module Selection - Tyler Hatfield - v2.20
+﻿# GUI Setup Module Selection - Tyler Hatfield - v2.20
 
 # Setup Module Selection GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 $ModGUI = New-Object System.Windows.Forms.Form
@@ -95,14 +95,23 @@ $SelectAllButton.Add_Click({
 })
 
 $ModOkayButton.Add_Click({
-    $checkedCount = $ModCLB.CheckedIndices.Count
-    if ($checkedCount -gt 0) {
-        $ModGUIcheckboxes.Clear()
-        for ($i = 0; $i -lt $ModCLB.Items.Count; $i++) {
-            $name = $ModCLB.Items[$i].ToString()
-            $isChecked = $ModCLB.GetItemChecked($i)
-            $dummyCb = [PSCustomObject]@{ Checked = $isChecked }
-            $ModGUIcheckboxes[$name] = $dummyCb
+    $selectedModules = @()
+    for ($i = 0; $i -lt $ModCLB.Items.Count; $i++) {
+        if ($ModCLB.GetItemChecked($i)) {
+            $selectedModules += $ModCLB.Items[$i].ToString()
+        }
+    }
+
+    if ($selectedModules.Count -gt 0) {
+        # Reset all module run flags
+        foreach ($module in $modules) {
+            $varName = "Run_" + ($module.Name -replace '\s', '')
+            Set-Variable -Name $varName -Value $false -Scope Global
+        }
+        # Set selected module run flags to true
+        foreach ($moduleName in $selectedModules) {
+            $varName = "Run_" + ($moduleName -replace '\s', '')
+            Set-Variable -Name $varName -Value $true -Scope Global
         }
         $Global:NextAction = 'RunSetup'
         $ModGUI.DialogResult = [System.Windows.Forms.DialogResult]::OK

@@ -205,8 +205,8 @@ $A1OkayButton.Add_Click({
                 }
                 Log-Message "Created local user $($UsernameInput.Text)." "Success"
             } catch {
-                Log-Message "Exception: $($_.Exception.Message)" "Error"
-                PopupError "Failed to create user. Please check log." "Error"
+                Log-Message "Failed to create local user '$($UsernameInput.Text)': $($_.Exception.Message)" "Error"
+                PopupError "Failed to create user '$($UsernameInput.Text)':`n$($_.Exception.Message)" "Error"
             }
         } else {
             # EXISTING USER SCENARIO
@@ -217,8 +217,8 @@ $A1OkayButton.Add_Click({
                     Set-LocalUser -Name $UsernameInput.Text -Password $SecurePassword -ErrorAction Stop
                     Log-Message "Updated password for user $($UsernameInput.Text)." "Success"
                 } catch {
-                    Log-Message "Exception: $($_.Exception.Message)" "Error"
-                    PopupError "Failed to update user password. Please check log." "Error"
+                    Log-Message "Failed to update password for '$($UsernameInput.Text)': $($_.Exception.Message)" "Error"
+                    PopupError "Failed to update user password for '$($UsernameInput.Text)':`n$($_.Exception.Message)" "Error"
                 }
             } elseif ($PWCheckbox.Checked -and -not $SecurePassword) {
                 PopupError "Cannot update password to blank using this method." "Error"
@@ -236,8 +236,8 @@ $A1OkayButton.Add_Click({
                     Add-LocalGroupMember -Group "Administrators" -Member $UsernameInput.Text -ErrorAction Stop
                     Log-Message "Successfully elevated $($UsernameInput.Text) to Administrator." "Success"
                 } catch {
-                    Log-Message "Exception: $($_.Exception.Message)" "Error"
-                    PopupError "Failed to elevate user. Please check log." "Error"
+                    Log-Message "Failed to elevate '$($UsernameInput.Text)' to Administrator: $($_.Exception.Message)" "Error"
+                    PopupError "Failed to elevate user '$($UsernameInput.Text)':`n$($_.Exception.Message)" "Error"
                 }
             } else {
                 Log-Message "Skipping account elevation, user account is already a local administrator." "Skip"

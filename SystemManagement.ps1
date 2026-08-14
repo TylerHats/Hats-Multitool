@@ -195,12 +195,12 @@ $PCNameInput.Add_KeyPress({
 		$ch = $e.KeyChar
 		# Allow all control keys (Enter, Backspace, Ctrl+C/V/X/A, etc.)
 		if ([char]::IsControl($ch)) { return }
-		# Allow only A–Z, a–z, 0–9, hyphen
+		# Allow only A-Z, a-z, 0-9, hyphen
 		if ($ch -notmatch '[A-Za-z0-9-]') { $e.Handled = $true }
 	})
 function Test-ComputerName([string]$name) {
 	if ([string]::IsNullOrEmpty($name)) { return $false }
-	# 1–15 chars; start & end alnum; middle alnum or '-'; not all digits
+	# 1-15 chars; start & end alnum; middle alnum or '-'; not all digits
 	return ($name -match '^(?!\d+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')
 }
 
@@ -437,6 +437,7 @@ $SMOkayButton.Add_Click({
 			}
 			$SMOkayButton.Text = "OK"
 			$SMOkayButton.Enabled = $true
+			Log-Message "System Management operation failed: $($_.Exception.Message)" "Error"
 			$formattedErr = Format-HMTError -ErrorRecord $_ -Context "System Management operation failed:"
 			PopupError $formattedErr "Error"
 		}

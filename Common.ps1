@@ -22,7 +22,6 @@ if ($InteractiveUser) {
     # Fallback for headless environments
     $DownloadsPath = Join-Path -Path $env:USERPROFILE -ChildPath "Downloads"
 }
-$logPathName = "Hats-Multitool-Log.txt"
 
 # Check for an IRM launch breadcrumb
 $breadcrumbPath = Join-Path $env:PUBLIC "HMT_IRM_Target.txt"
@@ -39,8 +38,6 @@ $global:ExeDir = if ($Global:IRMExeTarget -and (Test-Path -LiteralPath (Split-Pa
 } else {
     [System.AppDomain]::CurrentDomain.BaseDirectory
 }
-$global:logPath = Join-Path $global:ExeDir $logPathName
-$global:TempLogPath = Join-Path $env:TEMP $logPathName
 $global:HasErrors = $false
 
 $ProgramExiting = $false
@@ -80,46 +77,58 @@ function Invoke-HMTScale {
     Set-DarkTitleBar -TargetForm $TargetForm
 }
 
-# Log-Message writes to log path and console
+# Log-Message formats and writes structured, color-coded output to the console
 function Log-Message {
     param(
         [string]$message,
-        [string]$level = "Info"  # Options: Info, Success, Error, Prompt, Skip, LogOnly
+        [string]$level = "Info"  # Options: Info, Success, Error, Warning, Prompt, Skip, Debug, LogOnly
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "$timestamp [$level] - $message"
-    $consoleMessage = "[$level] - $message"
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $consoleMessage = "[$timestamp] [$level] - $message"
     
-    $isError = ($level.ToLower() -eq "error")
-    if ($isError) {
-        $global:HasErrors = $true
-        try {
-            $logMessage | Out-File -FilePath $global:logPath -Append -ErrorAction SilentlyContinue
-        } catch {}
-    }
-
-    if ($level.ToLower() -eq "info") {
-        Write-Host $consoleMessage
-    } elseif ($level.ToLower() -eq "prompt") {
-        Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
-    } elseif ($level.ToLower() -eq "error") {
-        Write-Host $consoleMessage -ForegroundColor "Red"
-    } elseif ($level.ToLower() -eq "success") {
-        Write-Host $consoleMessage -ForegroundColor "Green"
-    } elseif ($level.ToLower() -eq "skip") {
-        Write-Host $consoleMessage -ForegroundColor "Cyan"
-    } elseif ($level.ToLower() -eq "logonly") {
-        # Silent console output; non-error
-    } else {
-        Write-Host $consoleMessage
+    switch ($level.ToLower()) {
+        "error" {
+            $global:HasErrors = $true
+            Write-Host $consoleMessage -ForegroundColor "Red"
+        }
+        "warning" {
+            Write-Host $consoleMessage -ForegroundColor "Yellow"
+        }
+        "success" {
+            Write-Host $consoleMessage -ForegroundColor "Green"
+        }
+        "prompt" {
+            Write-Host -NoNewLine "$consoleMessage " -ForegroundColor "Yellow"
+        }
+        "skip" {
+            Write-Host $consoleMessage -ForegroundColor "Cyan"
+        }
+        "debug" {
+            Write-Host $consoleMessage -ForegroundColor "DarkGray"
+        }
+        "logonly" {
+            # Silent console output; non-error
+        }
+        default {
+            Write-Host $consoleMessage -ForegroundColor "White"
+        }
     }
 }
 
-# Trap uncaught script errors globally and record them
+# Trap uncaught script errors globally and record them with line context
 trap {
     $errObj = $_
-    $errMsg = if ($errObj.Exception -and $errObj.Exception.GetBaseException()) { $errObj.Exception.GetBaseException().Message } else { $errObj.ToString() }
-    Log-Message "Unhandled Exception: $errMsg" "Error"
+    $errMsg = if ($errObj.Exception -and $errObj.Exception.GetBaseException()) { 
+        $errObj.Exception.GetBaseException().Message 
+    } else { 
+        $errObj.ToString() 
+    }
+    $invInfo = if ($errObj.InvocationInfo -and $errObj.InvocationInfo.ScriptLineNumber) { 
+        " (Line $($errObj.InvocationInfo.ScriptLineNumber))" 
+    } else { 
+        "" 
+    }
+    Log-Message "Unhandled Script Exception: $errMsg$invInfo" "Error"
     continue
 }
 
@@ -523,10 +532,8 @@ function User-Exit {
         [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
         [System.Windows.Forms.Application]::DoEvents()
         
-        # Errors are appended directly to $global:logPath as they occur during execution
-
         # Prepare cleanup command
-        $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }; Remove-Item -LiteralPath '$($global:TempLogPath)' -Force -ErrorAction SilentlyContinue"
+        $cleanupCommand = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; if ('$($Global:IRMExeTarget)' -ne '' -and (Test-Path -LiteralPath '$($Global:IRMExeTarget)')) { `$retry = 0; while ((Test-Path -LiteralPath '$($Global:IRMExeTarget)') -and `$retry -lt 5) { Remove-Item -LiteralPath '$($Global:IRMExeTarget)' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }"
      
         # Execute async cleanup process
         $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -626,6 +633,17 @@ function Show-MainMenu {
 #	while ($ReminderPopup.Visible) {[System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50}
 #}
 
+# Global Windows Forms unhandled exception trap to display styled error dialogs
+try {
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+    [System.Windows.Forms.Application]::add_ThreadException({
+        param($sender, $e)
+        $clean = Format-HMTError -ErrorRecord $e.Exception -Context "An unexpected error occurred"
+        Log-Message "Unhandled UI Exception: $($e.Exception.ToString())" "Error"
+        PopupError $clean "Error"
+    })
+} catch {}
+
 function Show-DownloadDialog {
     [CmdletBinding()]
     param(
@@ -640,153 +658,263 @@ function Show-DownloadDialog {
         [string]$Url
     )
 
-    Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-	$script:dlCompleteClose = $false
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.Net.Http
 
-    # Create the form
     $dform = New-Object System.Windows.Forms.Form
     $dform.Text = "Downloading $DisplayName..."
-    $dform.ClientSize = [System.Drawing.Size]::new(500,120)
-    $dform.FormBorderStyle = 'FixedDialog'
+    $dform.ClientSize = New-Object System.Drawing.Size(520, 160)
+    $dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $dform.MaximizeBox = $false
-    $dform.MinimizeBox = $true
+    $dform.MinimizeBox = $false
     $dform.StartPosition = 'CenterScreen'
-	$dform.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-	$dform.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-	$dform.Font = $font
-	$dform.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
-	$dform.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    $dform.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    if ($HMTIcon) { $dform.Icon = $HMTIcon }
+    $dform.Font = $font
+    $dform.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $dform.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $dform
 
-    # Container panel with border
+    # Progress Track panel
     $trackPanel = New-Object System.Windows.Forms.Panel
-    $trackPanel.Size        = [System.Drawing.Size]::new(462,22)
-    $trackPanel.Location    = [System.Drawing.Point]::new(14,19)
-    $trackPanel.BorderStyle = 'FixedSingle'
-    $trackPanel.BackColor   = [System.Drawing.Color]::DarkGray
+    $trackPanel.Size = New-Object System.Drawing.Size(480, 22)
+    $trackPanel.Location = New-Object System.Drawing.Point(20, 20)
+    $trackPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $trackPanel.BackColor = [System.Drawing.Color]::DarkGray
     $dform.Controls.Add($trackPanel)
 
-    # Fill panel for progress
+    # Progress Fill panel
     $fillPanel = New-Object System.Windows.Forms.Panel
-    $fillPanel.Size      = [System.Drawing.Size]::new(0,19)
-    $fillPanel.Location  = [System.Drawing.Point]::new(1,1)
+    $fillPanel.Size = New-Object System.Drawing.Size(0, 19)
+    $fillPanel.Location = New-Object System.Drawing.Point(1, 1)
     $fillPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
     $trackPanel.Controls.Add($fillPanel)
 
     # Speed label
     $speedLabel = New-Object System.Windows.Forms.Label
     $speedLabel.AutoSize = $true
-    $speedLabel.Location = [System.Drawing.Point]::new(15,50)
-    $speedLabel.Text = "Speed: 0 Mbps"
-	$speedLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $speedLabel.Location = New-Object System.Drawing.Point(20, 52)
+    $speedLabel.Text = "Speed: Connecting..."
+    $speedLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $dform.Controls.Add($speedLabel)
 
-    # Stats label (downloaded / total)
+    # Stats label
     $statsLabel = New-Object System.Windows.Forms.Label
     $statsLabel.AutoSize = $true
-    $statsLabel.Location = [System.Drawing.Point]::new(15,75)
-    $statsLabel.Text = "0 MB / 0 MB"
-	$statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $statsLabel.Location = New-Object System.Drawing.Point(20, 76)
+    $statsLabel.Text = "0 MB / 0 MB (0%)"
+    $statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
     $dform.Controls.Add($statsLabel)
 
-    # Timer to keep UI responsive
-    $uiTimer = New-Object System.Windows.Forms.Timer
-    $uiTimer.Interval = 100     # reduce interval for snappier UI
-    $uiTimer.add_Tick({ [System.Windows.Forms.Application]::DoEvents() })
-    $uiTimer.Start()
+    # Cancel Button
+    $btnCancel = New-Object System.Windows.Forms.Button
+    $btnCancel.Text = "Cancel"
+    $btnCancel.Size = New-Object System.Drawing.Size(100, 32)
+    $btnCancel.Location = New-Object System.Drawing.Point(400, 110)
+    $btnCancel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnCancel.FlatStyle = 'Flat'
+    $btnCancel.FlatAppearance.BorderSize = 1
+    $dform.Controls.Add($btnCancel)
 
-    # WebClient and stopwatch
-    $webClient = New-Object System.Net.WebClient
-    $webClient.Proxy = $null
-    $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-    $webClient.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-    $webClient.Headers.Add("Accept-Language", "en-US,en;q=0.5")
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
-    try {
-        $uri = [Uri]$Url
-        if ($uri.Host -like "*forensit.com*") {
-            $webClient.Headers.Add("Referer", "https://www.forensit.com/downloads.html")
-        } elseif ($uri.Host -like "*sourceforge.net*") {
-            $webClient.Headers["User-Agent"] = "curl/8.5.0"
-        } else {
-            $webClient.Headers.Add("Referer", "$($uri.Scheme)://$($uri.Host)/")
-        }
-    } catch {}
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-
-    # Progress event updates fill panel width and labels
-    $webClient.add_DownloadProgressChanged({ param($s,$e)
-        # Calculate fill width
-        $percent = $e.ProgressPercentage / 100
-        $maxWidth = $trackPanel.ClientSize.Width - 2  # account for border
-        $fillPanel.Width = [int]($maxWidth * $percent)
-        # Update speed label
-        $speedMbps = (($e.BytesReceived * 8) / 1MB) / $stopwatch.Elapsed.TotalSeconds
-        $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $speedMbps)
-        # Update stats label
-        $downloadedMB = $e.BytesReceived / 1MB
-        $totalMB      = $e.TotalBytesToReceive / 1MB
-		if ($totalMB -lt 1000) {
-			$statsLabel.Text = ('{0:N2} MB / {1:N2} MB' -f $downloadedMB, $totalMB)
-		} else {
-			$totalGB = $totalMB / 1000
-			$downloadedGB = $downloadedMB / 1000
-			$statsLabel.Text = ('{0:N2} GB / {1:N2} GB' -f $downloadedGB, $totalGB)
-		}
+    $dform.Add_Load({
+        Invoke-HMTScale $dform
+        Set-RoundedControl $btnCancel
+        $trackPanel.Width = $dform.ClientSize.Width - 40
+        $btnCancel.Left = $dform.ClientSize.Width - $btnCancel.Width - 20
     })
 
-    $script:dlError = $null
-    # Completion event stops timer and closes form
-    $webClient.add_DownloadFileCompleted({ param($s,$e)
-        $uiTimer.Stop()
-        
-        if ($e.Error) {
-            $script:dlError = $e.Error
-            Log-Message "Download failed for ${DisplayName}: $($e.Error.Message)" "Warning"
-            if (Test-Path -LiteralPath $OutputPath) { 
-                Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue 
-            }
-        } else {
-            $script:dlCompleteClose = $true
-        }
-
-        $webClient.Dispose()
-        $dform.Close()
-    })
-	
-	$dform.Add_FormClosing({
-		param($_sender, $e)
-		# $e.CloseReason tells you why it's closing
-		# UserClosing covers the “X” or Alt-F4
-		if (($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) -and ($script:dlCompleteClose -ne $true)) {
-			# Do your “cleanup” or alternate logic here
-			if ($webClient.IsBusy) {
-				$e.Cancel = $true             # prevent immediate close; wait for Completed event
-				$uiTimer.Stop()
-				$webClient.CancelAsync()
-				return
-			}
-			# Not busy: allow close; dispose safely
-			try { $uiTimer.Stop() } catch {}
-			try { $webClient.Dispose() } catch {}
-		}
-	})
-
-    # Start async download
-    try { $webClient.DownloadFileAsync([Uri]$Url, $OutputPath) }
-    catch { [System.Windows.Forms.MessageBox]::Show("Failed to start download: $_", "Error", 'OK', 'Error') | Out-Null; $uiTimer.Stop(); Log-Message "Failed to download file: $DisplayName" "Error"; throw $_ }
-
-    # Show dialog until done
-    Show-HMTDialog $dform | Out-Null
-
-    # Remove Mark of the Web to bypass execution delays
-    if (Test-Path -LiteralPath $OutputPath) {
-        Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+    # Prepare download parameters
+    $downloadUrl = $Url
+    if ($downloadUrl -like "*sourceforge.net/project/*" -and $downloadUrl -notlike "*?use_mirror=*" -and $downloadUrl -notlike "*?viasf=*") {
+        $downloadUrl = "$downloadUrl?use_mirror=autoselect"
     }
 
-    if ($script:dlError) {
-        $errObj = $script:dlError
-        $script:dlError = $null
-        throw $errObj
+    $script:dlSuccess = $false
+    $script:dlCancelled = $false
+    $script:dlIsActive = $true
+
+    $cancelDownload = {
+        if ($script:dlIsActive) {
+            $script:dlCancelled = $true
+            $script:dlIsActive = $false
+        }
+        $dform.Close()
+    }
+
+    $btnCancel.Add_Click({ &$cancelDownload })
+
+    $dform.Add_FormClosing({
+        param($sender, $e)
+        if ($script:dlIsActive) {
+            $script:dlCancelled = $true
+            $script:dlIsActive = $false
+        }
+    })
+
+    # Background async download execution on ThreadPool with HttpClient
+    $state = [hashtable]::Synchronized(@{
+        BytesRead = [long]0
+        TotalBytes = [long]0
+        SpeedMbps = [double]0
+        IsCompleted = $false
+        Error = $null
+    })
+
+    $downloadWorker = {
+        param($targetUrl, $outPath, $syncState)
+
+        $clientHandler = $null
+        $httpClient = $null
+        $respStream = $null
+        $fileStream = $null
+
+        try {
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+            $clientHandler = New-Object System.Net.Http.HttpClientHandler
+            $clientHandler.AllowAutoRedirect = $true
+            $clientHandler.MaxAutomaticRedirections = 15
+
+            $httpClient = New-Object System.Net.Http.HttpClient -ArgumentList $clientHandler
+            $httpClient.Timeout = [TimeSpan]::FromMinutes(10)
+            
+            # Browser-like headers with fallback
+            if ($targetUrl -like "*sourceforge.net*") {
+                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("curl/8.5.0")
+            } elseif ($targetUrl -like "*forensit.com*") {
+                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0")
+                $httpClient.DefaultRequestHeaders.Referrer = New-Object System.Uri("https://www.forensit.com/downloads.html")
+            } else {
+                $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0 Safari/537.36")
+            }
+
+            $responseTask = $httpClient.GetAsync($targetUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+            $response = $responseTask.GetAwaiter().GetResult()
+            if (-not $response.IsSuccessStatusCode) {
+                throw "HTTP Error $($response.StatusCode)"
+            }
+
+            $contentLength = $response.Content.Headers.ContentLength
+            if ($contentLength) {
+                $syncState.TotalBytes = [long]$contentLength
+            }
+
+            # Prepare target directory
+            $targetDir = [System.IO.Path]::GetDirectoryName($outPath)
+            if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+
+            $respStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+            $fileStream = [System.IO.File]::Create($outPath)
+
+            $buffer = New-Object byte[] 65536
+            $bytesRead = 0
+            $totalRead = [long]0
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            $lastTick = [System.Diagnostics.Stopwatch]::StartNew()
+
+            while (($bytesRead = $respStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                if ($script:dlCancelled) { break }
+
+                $fileStream.Write($buffer, 0, $bytesRead)
+                $totalRead += $bytesRead
+                $syncState.BytesRead = $totalRead
+
+                if ($lastTick.ElapsedMilliseconds -ge 100) {
+                    $lastTick.Restart()
+                    $elapsedSec = [Math]::Max(0.001, $sw.Elapsed.TotalSeconds)
+                    $syncState.SpeedMbps = (($totalRead * 8) / 1MB) / $elapsedSec
+                }
+            }
+
+            if (-not $script:dlCancelled) {
+                $syncState.IsCompleted = $true
+            }
+        } catch {
+            $syncState.Error = $_
+        } finally {
+            if ($fileStream) { $fileStream.Close(); $fileStream.Dispose() }
+            if ($respStream) { $respStream.Close(); $respStream.Dispose() }
+            if ($httpClient) { $httpClient.Dispose() }
+            if ($clientHandler) { $clientHandler.Dispose() }
+        }
+    }
+
+    # Launch worker
+    [System.Threading.ThreadPool]::QueueUserWorkItem({
+        &$downloadWorker $downloadUrl $OutputPath $state
+    }) | Out-Null
+
+    # UI Polling Timer
+    $uiTimer = New-Object System.Windows.Forms.Timer
+    $uiTimer.Interval = 60
+    $uiTimer.Add_Tick({
+        if ($state.IsCompleted) {
+            $uiTimer.Stop()
+            $script:dlIsActive = $false
+            $script:dlSuccess = $true
+            $fillPanel.Width = $trackPanel.ClientSize.Width - 2
+            $statsLabel.Text = "Download Complete!"
+            $statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $dform.Close()
+            return
+        }
+
+        if ($state.Error) {
+            $uiTimer.Stop()
+            $script:dlIsActive = $false
+            if (Test-Path -LiteralPath $OutputPath) {
+                Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue
+            }
+            Log-Message "Download error on $DisplayName : $($state.Error)" "Warning"
+            PopupError "Failed to download $DisplayName :`n$($state.Error)" "Error"
+            $dform.Close()
+            return
+        }
+
+        if ($script:dlCancelled) {
+            $uiTimer.Stop()
+            $script:dlIsActive = $false
+            if (Test-Path -LiteralPath $OutputPath) {
+                Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue
+            }
+            Log-Message "Download cancelled by user: $DisplayName" "Info"
+            $dform.Close()
+            return
+        }
+
+        # Update Progress Bar & Labels
+        $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $state.SpeedMbps)
+        $readMB = $state.BytesRead / 1MB
+        $totMB = $state.TotalBytes / 1MB
+
+        if ($state.TotalBytes -gt 0) {
+            $pct = [Math]::Max(0.0, [Math]::Min(1.0, ($state.BytesRead / $state.TotalBytes)))
+            $maxW = $trackPanel.ClientSize.Width - 2
+            $fillPanel.Width = [int]($maxW * $pct)
+            $pctInt = [int]($pct * 100)
+
+            if ($totMB -ge 1000) {
+                $statsLabel.Text = ('{0:N2} GB / {1:N2} GB ({2}%)' -f ($readMB / 1000), ($totMB / 1000), $pctInt)
+            } else {
+                $statsLabel.Text = ('{0:N2} MB / {1:N2} MB ({2}%)' -f $readMB, $totMB, $pctInt)
+            }
+        } else {
+            $statsLabel.Text = ('{0:N2} MB downloaded' -f $readMB)
+        }
+    })
+
+    $uiTimer.Start()
+    Show-HMTDialog $dform | Out-Null
+    $uiTimer.Stop()
+    $uiTimer.Dispose()
+
+    # Unblock file on success
+    if ($script:dlSuccess -and (Test-Path -LiteralPath $OutputPath)) {
+        Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+        return $true
+    } else {
+        if (Test-Path -LiteralPath $OutputPath) {
+            Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue
+        }
+        return $false
     }
 }
 

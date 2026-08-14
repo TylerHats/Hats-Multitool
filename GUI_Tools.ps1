@@ -27,6 +27,51 @@ $ToolsTabControl = New-Object System.Windows.Forms.TabControl
 $ToolsTabControl.Location = New-Object System.Drawing.Point(20, 15)
 $ToolsTabControl.Size = New-Object System.Drawing.Size(740, 470)
 $ToolsTabControl.Font = $font
+$ToolsTabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+$ToolsTabControl.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
+$ToolsTabControl.ItemSize = New-Object System.Drawing.Size(142, 30)
+$ToolsTabControl.Padding = New-Object System.Drawing.Point(12, 6)
+
+$ToolsTabControl.Add_DrawItem({
+    param($sender, $e)
+    $tc = $sender
+    $tab = $tc.TabPages[$e.Index]
+    $isSelected = ($e.Index -eq $tc.SelectedIndex)
+    $g = $e.Graphics
+
+    $bgBrush = if ($isSelected) {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#36393f"))
+    } else {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#202225"))
+    }
+    $g.FillRectangle($bgBrush, $e.Bounds)
+    $bgBrush.Dispose()
+
+    if ($isSelected) {
+        $accentPen = New-Object System.Drawing.Pen([System.Drawing.ColorTranslator]::FromHtml("#5865F2"), 3)
+        $g.DrawLine($accentPen, $e.Bounds.Left, $e.Bounds.Top + 1, $e.Bounds.Right, $e.Bounds.Top + 1)
+        $accentPen.Dispose()
+    }
+
+    $textBrush = if ($isSelected) {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#ffffff"))
+    } else {
+        New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#a0a0a0"))
+    }
+    $sf = New-Object System.Drawing.StringFormat
+    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $tabFont = if ($isSelected) {
+        New-Object System.Drawing.Font($tc.Font, [System.Drawing.FontStyle]::Bold)
+    } else {
+        $tc.Font
+    }
+    $g.DrawString($tab.Text, $tabFont, $textBrush, [System.Drawing.RectangleF]$e.Bounds, $sf)
+    $textBrush.Dispose()
+    $sf.Dispose()
+    if ($isSelected) { $tabFont.Dispose() }
+})
+
 $ToolsGUI.Controls.Add($ToolsTabControl)
 
 # Tool Lists by Category
@@ -155,7 +200,7 @@ $passHeaderPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#3a2528
 $tabPass.Controls.Add($passHeaderPanel)
 
 $lblPassWarn = New-Object System.Windows.Forms.Label
-$lblPassWarn.Text = "⚠️ Advanced Diagnostic & Recovery Tools: These legitimate NirSoft utilities are frequently flagged as HackTool / RiskTool by Antivirus engines. They are downloaded on-demand only."
+$lblPassWarn.Text = "[!] Advanced Diagnostic & Recovery Tools: These legitimate NirSoft utilities are frequently flagged as HackTool / RiskTool by Antivirus engines. They are downloaded on-demand only."
 $lblPassWarn.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
 $lblPassWarn.Location = New-Object System.Drawing.Point(15, 10)
 $lblPassWarn.Size = New-Object System.Drawing.Size(700, 32)
@@ -172,7 +217,7 @@ try {
 $avDisplay = if ($avList.Count -gt 0) { $avList -join ", " } else { "Windows Defender" }
 
 $lblAvDetect = New-Object System.Windows.Forms.Label
-$lblAvDetect.Text = "Active AV: $avDisplay • Recommend running in Safe Mode without networking if blocked."
+$lblAvDetect.Text = "Active AV: $avDisplay | Recommend running in Safe Mode without networking if blocked."
 $lblAvDetect.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $lblAvDetect.Location = New-Object System.Drawing.Point(15, 46)
 $lblAvDetect.Size = New-Object System.Drawing.Size(460, 42)
@@ -240,6 +285,7 @@ $TLaunchButton.Add_Click({
     if (-not $currentLv -or $currentLv.SelectedItems.Count -eq 0) { return }
 
     $selected = $currentLv.SelectedItems[0].Text
+    Log-Message "Invoking tool: $selected" "Info"
     $TLaunchButton.Enabled = $false
 
     try {

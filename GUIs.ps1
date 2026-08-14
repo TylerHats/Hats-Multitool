@@ -1,4 +1,4 @@
-# GUI Aggregator / Backwards Compatibility Loader - Tyler Hatfield - v2.20
+﻿# GUI Aggregator / Backwards Compatibility Loader - Tyler Hatfield - v2.20
 # Loads modular GUI scripts
 
 . (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Diagnostics.ps1')

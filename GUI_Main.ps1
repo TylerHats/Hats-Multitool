@@ -1,4 +1,4 @@
-# GUI Main Menu & About - Tyler Hatfield - v2.20
+﻿# GUI Main Menu & About - Tyler Hatfield - v2.20
 
 # Main Menu GUI ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # Prepare form
@@ -34,8 +34,8 @@ $HeaderPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
 $MainMenu.Controls.Add($HeaderPanel)
 
 $HeaderIconBox = New-Object System.Windows.Forms.PictureBox
-$HeaderIconBox.Size = New-Object System.Drawing.Size(48, 48)
-$HeaderIconBox.Location = New-Object System.Drawing.Point(20, 21)
+$HeaderIconBox.Size = New-Object System.Drawing.Size(46, 46)
+$HeaderIconBox.Location = New-Object System.Drawing.Point(20, 22)
 $HeaderIconBox.SizeMode = 'StretchImage'
 $PngIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIcon.png"
 if (Test-Path $PngIconPath) {
@@ -49,16 +49,16 @@ $HeaderTitle = New-Object System.Windows.Forms.Label
 $HeaderTitle.Text = "Hat's Multitool"
 $HeaderTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 $HeaderTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$HeaderTitle.Location = New-Object System.Drawing.Point(80, 22)
-$HeaderTitle.Size = New-Object System.Drawing.Size(220, 24)
+$HeaderTitle.Location = New-Object System.Drawing.Point(74, 22)
+$HeaderTitle.Size = New-Object System.Drawing.Size(235, 24)
 $HeaderPanel.Controls.Add($HeaderTitle)
 
 $HeaderSubtitle = New-Object System.Windows.Forms.Label
-$HeaderSubtitle.Text = "v$CurVerAbout • System Setup & Utilities"
+$HeaderSubtitle.Text = "v$CurVerAbout | System Setup & Utilities"
 $HeaderSubtitle.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $HeaderSubtitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-$HeaderSubtitle.Location = New-Object System.Drawing.Point(80, 48)
-$HeaderSubtitle.Size = New-Object System.Drawing.Size(220, 20)
+$HeaderSubtitle.Location = New-Object System.Drawing.Point(74, 48)
+$HeaderSubtitle.Size = New-Object System.Drawing.Size(235, 20)
 $HeaderPanel.Controls.Add($HeaderSubtitle)
 
 # Add Setup button
@@ -146,6 +146,20 @@ $MainMenu.Add_Load({
     $w = [int](320 * $global:HMTScaleFactor)
     $p = [int](25 * $global:HMTScaleFactor)
     $HeaderPanel.Width = $w
+    
+    $iconW = $HeaderIconBox.Width
+    $gap = [int](10 * $global:HMTScaleFactor)
+    $textW = [Math]::Max($HeaderTitle.PreferredWidth, $HeaderSubtitle.PreferredWidth)
+    $totalHeaderW = $iconW + $gap + $textW
+    $startX = [int](($w - $totalHeaderW) / 2)
+    if ($startX -lt [int](12 * $global:HMTScaleFactor)) { $startX = [int](12 * $global:HMTScaleFactor) }
+    
+    $HeaderIconBox.Left = $startX
+    $HeaderTitle.Left = $startX + $iconW + $gap
+    $HeaderSubtitle.Left = $startX + $iconW + $gap
+    $HeaderTitle.Width = $w - $HeaderTitle.Left - [int](10 * $global:HMTScaleFactor)
+    $HeaderSubtitle.Width = $HeaderTitle.Width
+
     $MainMenu.ClientSize = [System.Drawing.Size]::new($w, ($MainMenuExitButton.Bottom + $p))
 })
 

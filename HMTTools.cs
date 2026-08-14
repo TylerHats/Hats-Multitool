@@ -1,4 +1,4 @@
-// HMTTools.cs - High-Performance Diagnostic & Visualization Engine - Tyler Hatfield - v1.0
+﻿// HMTTools.cs - High-Performance Diagnostic & Visualization Engine - Tyler Hatfield - v1.0
 
 using System;
 using System.Collections.Generic;
@@ -224,7 +224,7 @@ namespace HMT.Tools {
             // Top Status Badge (Current, Avg, Max, Min)
             if (_showMinMaxAvg && pts.Length > 0) {
                 string statsText = string.Format(
-                    "CUR: {0:F1} {4}   |   AVG: {1:F1} {4}   |   MAX: {2:F1} {4}   |   MIN: {3:F1} {4}",
+                    "CUR: {0:F1} {4}  |  AVG: {1:F1} {4}  |  MAX: {2:F1} {4}  |  MIN: {3:F1} {4}",
                     CurrentValue, AvgValue, MaxValue, MinValue, _unitLabel
                 );
 

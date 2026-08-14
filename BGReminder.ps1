@@ -1,4 +1,4 @@
-# Background Reminder Module - Tyler Hatfield - v1.10
+﻿# Background Reminder Module - Tyler Hatfield - v1.10
 
 # Prepare form
 $BGR = New-Object System.Windows.Forms.Form

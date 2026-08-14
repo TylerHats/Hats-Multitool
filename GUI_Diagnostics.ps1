@@ -1,4 +1,4 @@
-# GUI Diagnostics & Standalone Tools - Tyler Hatfield - v2.30
+﻿# GUI Diagnostics & Standalone Tools - Tyler Hatfield - v2.30
 
 # ==============================================================================
 # 1. Command Runner Dialog (DISM, SFC, ChkDsk, NetFx3)
@@ -190,30 +190,30 @@ function Show-CommandRunnerDialog {
                         }
                         $lblStatus.Text = "Scanning and verifying system files ($pct% complete)..."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Verification: $pct% • Elapsed: $elapsedStr • Est. Remaining: $etaStr"
+                        $lblDetail.Text = "Verification: $pct% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
                     }
                     elseif ($line -match 'Beginning system scan') {
                         $lblStatus.Text = "Initializing system scan and verification..."
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Preparing verification phase"
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Preparing verification phase"
                     }
                     elseif ($line -match 'Beginning verification phase') {
                         $lblStatus.Text = "Scanning protected Windows system files..."
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Verifying component integrity"
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Verifying component integrity"
                     }
                     elseif ($line -match 'did not find any integrity violations') {
                         $lblStatus.Text = "Verification Complete: No integrity violations found."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • System files are healthy."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | System files are healthy."
                     }
                     elseif ($line -match 'found corrupt files and successfully repaired them') {
                         $lblStatus.Text = "Verification Complete: Corrupted files found and successfully repaired."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Repairs applied successfully."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Repairs applied successfully."
                     }
                     elseif ($line -match 'found corrupt files but was unable to fix some') {
                         $lblStatus.Text = "Corrupted files found that could not all be repaired."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Check CBS.log for details."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Check CBS.log for details."
                     }
 
                     # --- 2. DISM & .NET 3.5 Feature Parsing ---
@@ -244,17 +244,17 @@ function Show-CommandRunnerDialog {
 
                         $lblStatus.Text = $phaseText
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Progress: $pctFloat% • Elapsed: $elapsedStr • Est. Remaining: $etaStr"
+                        $lblDetail.Text = "Progress: $pctFloat% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
                     }
                     elseif ($line -match 'The restore operation completed successfully|The operation completed successfully') {
                         $lblStatus.Text = "Operation completed successfully."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Image health restored."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Image health restored."
                     }
                     elseif ($line -match 'No component store corruption detected') {
                         $lblStatus.Text = "No component store corruption detected."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Image is healthy."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Image is healthy."
                     }
 
                     # --- 3. CHKDSK Parsing ---
@@ -266,7 +266,7 @@ function Show-CommandRunnerDialog {
                         $script:chkdskTotal = [int]$stgTot
                         $lblStatus.Text = "Stage $stg of $($stgTot): $stgDesc..."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • Analyzing volume structure"
+                        $lblDetail.Text = "Elapsed: $elapsedStr | Analyzing volume structure"
                     }
                     elseif ($line -match '(\d+)\s*(?:percent|%)\s*complete') {
                         $stgPct = [int]$matches[1]
@@ -275,15 +275,15 @@ function Show-CommandRunnerDialog {
                         $overallPct = [int]((($stg - 1) * (100 / $stgTot)) + ($stgPct / $stgTot))
                         $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
                         $pBar.Value = [math]::Max(0, [math]::Min(100, $overallPct))
-                        $lblDetail.Text = "Stage $stg/$($stgTot): $stgPct% (Overall: ~$overallPct%) • Elapsed: $elapsedStr"
+                        $lblDetail.Text = "Stage $stg/$($stgTot): $stgPct% (Overall: ~$overallPct%) | Elapsed: $elapsedStr"
                     }
                     elseif ($line -match 'The type of the file system is\s+(\w+)') {
-                        $lblDetail.Text = "File System: $($matches[1]) • Initializing scan..."
+                        $lblDetail.Text = "File System: $($matches[1]) | Initializing scan..."
                     }
                     elseif ($line -match 'Windows has scanned the file system and found no problems') {
                         $lblStatus.Text = "Check Disk Complete: No problems found."
                         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                        $lblDetail.Text = "Elapsed: $elapsedStr • File system is clean."
+                        $lblDetail.Text = "Elapsed: $elapsedStr | File system is clean."
                     }
                 })
             }
@@ -314,11 +314,11 @@ function Show-CommandRunnerDialog {
                 if ($script:runnerProc.ExitCode -eq 0) {
                     $lblStatus.Text = "Completed successfully (Exit code: 0)."
                     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-                    $lblDetail.Text = "Total Execution Time: $elapsedStr • Success"
+                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Success"
                 } else {
                     $lblStatus.Text = "Finished with exit code $($script:runnerProc.ExitCode)."
                     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
-                    $lblDetail.Text = "Total Execution Time: $elapsedStr • Check log output above."
+                    $lblDetail.Text = "Total Execution Time: $elapsedStr | Check log output above."
                 }
             }
         } catch {
@@ -471,7 +471,7 @@ function Show-SpeedTestDialog {
             $trace = Invoke-WebRequest -Uri "https://speed.cloudflare.com/meta" -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop
             $json = $trace.Content | ConvertFrom-Json
             if ($json.city -and $json.country) {
-                $lblServer.Text = "Server: Cloudflare Edge — $($json.city), $($json.country) (Colo: $($json.colo)) • IP: $($json.clientIp)"
+                $lblServer.Text = "Server: Cloudflare Edge - $($json.city), $($json.country) (Colo: $($json.colo)) | IP: $($json.clientIp)"
             }
         } catch {
             $lblServer.Text = "Server: Cloudflare Anycast Edge Network (Global CDN)"
@@ -555,7 +555,7 @@ function Show-SpeedTestDialog {
             $stForm.Invoke([action]{
                 $smoothChart.AddPoint($sample.CurrentMbps)
                 $valDownload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
-                $lblCurrentPhase.Text = "Downloading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) • Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
+                $lblCurrentPhase.Text = "Downloading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
             })
         }
         $script:stEngine.add_OnSpeedSample($dlHandler)
@@ -589,7 +589,7 @@ function Show-SpeedTestDialog {
             $stForm.Invoke([action]{
                 $smoothChart.AddPoint($sample.CurrentMbps)
                 $valUpload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
-                $lblCurrentPhase.Text = "Uploading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) • Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
+                $lblCurrentPhase.Text = "Uploading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
             })
         }
         $script:stEngine.add_OnSpeedSample($ulHandler)
