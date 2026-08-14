@@ -437,7 +437,8 @@ $SMOkayButton.Add_Click({
 			}
 			$SMOkayButton.Text = "OK"
 			$SMOkayButton.Enabled = $true
-			PopupError "PC Naming, Domain, or Edition operation failed.`nError: $_" "Error"
+			$formattedErr = Format-HMTError -ErrorRecord $_ -Context "System Management operation failed:"
+			PopupError $formattedErr "Error"
 		}
 	})
 

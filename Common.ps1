@@ -123,18 +123,199 @@ trap {
     continue
 }
 
+function Show-CustomMessageBox {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [string]$Title = "Hat's Multitool",
+        [ValidateSet('Information', 'Warning', 'Error', 'Question', 'None')]
+        [string]$Style = 'Information',
+        [ValidateSet('OK', 'OKCancel', 'YesNo')]
+        [string]$Buttons = 'OK'
+    )
+
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+    $msgForm = New-Object System.Windows.Forms.Form
+    $msgForm.Text = $Title
+    $msgForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $msgForm.StartPosition = 'CenterScreen'
+    if ($HMTIcon) { $msgForm.Icon = $HMTIcon }
+    $msgForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $msgForm.MaximizeBox = $false
+    $msgForm.MinimizeBox = $false
+    $msgForm.ShowInTaskbar = $true
+    $msgForm.Font = $font
+    $msgForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $msgForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $msgForm
+
+    $accentColor = switch ($Style) {
+        'Error'       { [System.Drawing.ColorTranslator]::FromHtml("#ED4245") }
+        'Warning'     { [System.Drawing.ColorTranslator]::FromHtml("#FEE75C") }
+        'Question'    { [System.Drawing.ColorTranslator]::FromHtml("#5865F2") }
+        'Information' { [System.Drawing.ColorTranslator]::FromHtml("#6f1fde") }
+        Default       { [System.Drawing.ColorTranslator]::FromHtml("#6f1fde") }
+    }
+
+    # Left decorative accent bar
+    $accentBar = New-Object System.Windows.Forms.Panel
+    $accentBar.Location = New-Object System.Drawing.Point(0, 0)
+    $accentBar.Size = New-Object System.Drawing.Size(6, 400)
+    $accentBar.BackColor = $accentColor
+    $msgForm.Controls.Add($accentBar)
+
+    $msgLabel = New-Object System.Windows.Forms.Label
+    $msgLabel.Text = $Message
+    $msgLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $msgLabel.Location = New-Object System.Drawing.Point(25, 25)
+    $msgLabel.MaximumSize = New-Object System.Drawing.Size(430, 0)
+    $msgLabel.AutoSize = $true
+    $msgForm.Controls.Add($msgLabel)
+
+    $btnPanel = New-Object System.Windows.Forms.Panel
+    $btnPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $btnPanel.Dock = [System.Windows.Forms.DockStyle]::Bottom
+    $btnPanel.Height = 60
+    $msgForm.Controls.Add($btnPanel)
+
+    $createdButtons = @()
+    if ($Buttons -eq 'YesNo') {
+        $btnYes = New-Object System.Windows.Forms.Button
+        $btnYes.Text = "Yes"
+        $btnYes.Size = New-Object System.Drawing.Size(85, 34)
+        $btnYes.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnYes.FlatStyle = 'Flat'
+        $btnYes.FlatAppearance.BorderSize = 1
+        $btnYes.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+        $btnPanel.Controls.Add($btnYes)
+        $createdButtons += $btnYes
+
+        $btnNo = New-Object System.Windows.Forms.Button
+        $btnNo.Text = "No"
+        $btnNo.Size = New-Object System.Drawing.Size(85, 34)
+        $btnNo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnNo.FlatStyle = 'Flat'
+        $btnNo.FlatAppearance.BorderSize = 1
+        $btnNo.DialogResult = [System.Windows.Forms.DialogResult]::No
+        $btnPanel.Controls.Add($btnNo)
+        $createdButtons += $btnNo
+
+        $msgForm.AcceptButton = $btnYes
+        $msgForm.CancelButton = $btnNo
+    }
+    elseif ($Buttons -eq 'OKCancel') {
+        $btnOK = New-Object System.Windows.Forms.Button
+        $btnOK.Text = "OK"
+        $btnOK.Size = New-Object System.Drawing.Size(85, 34)
+        $btnOK.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnOK.FlatStyle = 'Flat'
+        $btnOK.FlatAppearance.BorderSize = 1
+        $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $btnPanel.Controls.Add($btnOK)
+        $createdButtons += $btnOK
+
+        $btnCancel = New-Object System.Windows.Forms.Button
+        $btnCancel.Text = "Cancel"
+        $btnCancel.Size = New-Object System.Drawing.Size(85, 34)
+        $btnCancel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnCancel.FlatStyle = 'Flat'
+        $btnCancel.FlatAppearance.BorderSize = 1
+        $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $btnPanel.Controls.Add($btnCancel)
+        $createdButtons += $btnCancel
+
+        $msgForm.AcceptButton = $btnOK
+        $msgForm.CancelButton = $btnCancel
+    }
+    else {
+        $btnOK = New-Object System.Windows.Forms.Button
+        $btnOK.Text = "OK"
+        $btnOK.Size = New-Object System.Drawing.Size(85, 34)
+        $btnOK.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnOK.FlatStyle = 'Flat'
+        $btnOK.FlatAppearance.BorderSize = 1
+        $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $btnPanel.Controls.Add($btnOK)
+        $createdButtons += $btnOK
+
+        $msgForm.AcceptButton = $btnOK
+        $msgForm.CancelButton = $btnOK
+    }
+
+    $msgForm.Add_Load({
+        Invoke-HMTScale $msgForm
+        foreach ($b in $createdButtons) {
+            Set-RoundedControl $b
+        }
+        $scaledPadding = [int](30 * $global:HMTScaleFactor)
+        $minW = [int](360 * $global:HMTScaleFactor)
+        $calcW = [math]::Max($minW, ($msgLabel.Right + $scaledPadding))
+        $calcH = $msgLabel.Bottom + [int](85 * $global:HMTScaleFactor)
+        $msgForm.ClientSize = New-Object System.Drawing.Size($calcW, $calcH)
+
+        # Right-align buttons inside bottom panel
+        $btnY = ($btnPanel.ClientSize.Height - $createdButtons[0].Height) / 2
+        $currX = $btnPanel.ClientSize.Width - [int](20 * $global:HMTScaleFactor)
+        for ($i = $createdButtons.Count - 1; $i -ge 0; $i--) {
+            $currX -= $createdButtons[$i].Width
+            $createdButtons[$i].Location = New-Object System.Drawing.Point($currX, $btnY)
+            $currX -= [int](10 * $global:HMTScaleFactor)
+        }
+    })
+
+    return (Show-HMTDialog $msgForm)
+}
+
+function Format-HMTError {
+    param(
+        [Parameter(Mandatory = $true)]
+        $ErrorRecord,
+        [string]$Context = ""
+    )
+
+    $rawMsg = if ($ErrorRecord -is [string]) { 
+        $ErrorRecord 
+    } elseif ($ErrorRecord.Exception -and $ErrorRecord.Exception.GetBaseException()) { 
+        $ErrorRecord.Exception.GetBaseException().Message 
+    } else { 
+        $ErrorRecord.ToString() 
+    }
+
+    $cleanMsg = $rawMsg
+    if ($rawMsg -match "1326|0x8007052E|Logon failure|unknown user name or bad password|user name or password is incorrect") {
+        $cleanMsg = "Authentication Failed: The username or password provided was incorrect."
+    }
+    elseif ($rawMsg -match "1355|0x8007054B|domain.*could not be contacted|specified domain either does not exist") {
+        $cleanMsg = "Domain Not Found: Could not contact a domain controller. Please verify your network connection and DNS settings."
+    }
+    elseif ($rawMsg -match "5|0x80070005|Access is denied|General access denied") {
+        $cleanMsg = "Access Denied: The specified credentials do not have administrative permission to complete this action."
+    }
+    elseif ($rawMsg -match "2224|0x80070524|account already exists|object already exists") {
+        $cleanMsg = "Account Conflict: An account with this computer name already exists on the domain."
+    }
+    elseif ($rawMsg -match "53|0x80070035|network path was not found") {
+        $cleanMsg = "Network Error: The network path could not be found. Check connectivity to the remote server."
+    }
+    elseif ($rawMsg -match "Exception calling|FullyQualifiedErrorId|System.Management.Automation") {
+        $cleanMsg = ($rawMsg -split ':\s*', 2)[-1].Trim()
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Context)) {
+        return "$Context`n`n$cleanMsg"
+    }
+    return $cleanMsg
+}
+
 function PopupError {
 	param(
 		[string]$ErrorMessage,
-		[ValidateSet('Information','Warning','Error','None')] [string]$Style = 'Error'
+		[ValidateSet('Information','Warning','Error','None','Question')] [string]$Style = 'Error',
+        [ValidateSet('OK', 'OKCancel', 'YesNo')] [string]$Buttons = 'OK'
 	)
-	$icon = [System.Windows.Forms.MessageBoxIcon]$Style
-	[void][System.Windows.Forms.MessageBox]::Show(
-		"$ErrorMessage",
-		"Hat's Multitool",
-		[System.Windows.Forms.MessageBoxButtons]::OK,
-		$icon
-	)
+    return Show-CustomMessageBox -Message $ErrorMessage -Style $Style -Buttons $Buttons
 }
 
 # constants for WM_SETICON
@@ -380,15 +561,11 @@ function Invoke-HMTExtract {
     }
 }
 
-# Load GUI Configs
-$GUIPath = Join-Path -Path $PSScriptRoot -ChildPath 'GUIs.ps1'
-. "$GUIPath"
-# Planning to break GUI file into multiple as it has become massive and hard to deal with
-#. "$MMGUIPath"
-#. "$SGUIPath"
-#. "$ToolGUIPath"
-#. "$TroubleGUIPath"
-#. "AboutGUIPath"
+# Load GUI Modules (Loaded during splashscreen)
+. (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Diagnostics.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Setup.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Tools.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Main.ps1')
 
 #GUI Functions
 function Show-MainMenu {
@@ -430,7 +607,7 @@ function Show-MainMenu {
             }
             
             'Troubleshooting' {
-                [void](Show-HMTDialog $TroubleGUI)
+                [void](Show-HMTDialog $ToolsGUI)
                 $Global:NextAction = 'Main'
             }
             
@@ -523,10 +700,13 @@ function Show-DownloadDialog {
     $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
     $webClient.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
     $webClient.Headers.Add("Accept-Language", "en-US,en;q=0.5")
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
     try {
         $uri = [Uri]$Url
         if ($uri.Host -like "*forensit.com*") {
             $webClient.Headers.Add("Referer", "https://www.forensit.com/downloads.html")
+        } elseif ($uri.Host -like "*sourceforge.net*") {
+            $webClient.Headers["User-Agent"] = "curl/8.5.0"
         } else {
             $webClient.Headers.Add("Referer", "$($uri.Scheme)://$($uri.Host)/")
         }

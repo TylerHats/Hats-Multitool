@@ -63,7 +63,10 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 
 - **`Core.ps1`**: The brain of the operation. This script prepares the environment, handles DPI scaling, initializes WinForms, and coordinates the modules.
 - **`Common.ps1`**: A library of shared variables and helper functions used throughout the other scripts.
-- **`GUIs.ps1`**: Contains the code for all the graphical interfaces, from the main menu to the tools and troubleshooting windows.
+- **`GUI_Main.ps1`**: Defines the Main Menu with branded header and the About dialog.
+- **`GUI_Tools.ps1`**: Houses the unified 5-tab Tools & Troubleshooting window and central execution router.
+- **`GUI_Diagnostics.ps1`**: Contains standalone diagnostic engines (Cloudflare Speed Test, Packet Loss Tester, Storage SMART Health, TCP Port Checker, and Command Runner).
+- **`GUI_Setup.ps1`**: Handles the setup module selection interface.
 - **`[Module].ps1`**: Individual scripts (like `BloatCleanup.ps1` or `SystemManagement.ps1`) that handle specific tasks chosen by the user.
 - **`HMTNative.cs` / `HMTNative.dll`**: A C# library compiled into a DLL via P/Invoke. It allows the PowerShell scripts to utilize advanced UI controls beyond standard WinForms capabilities.
 

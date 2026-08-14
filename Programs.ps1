@@ -62,34 +62,54 @@ $programs = @(
     @{ Name = 'Outlook Classic'; WingetID = ''; Type = 'MSOutlook' }
 )
 
-$form.ClientSize = New-Object System.Drawing.Size(400, 500)
+$form.ClientSize = New-Object System.Drawing.Size(520, 520)
 
 # Prepare Program Checkboxes
 $checkboxes = @{ }
-$y = 20
+$y = 15
 $label = New-Object System.Windows.Forms.Label
 $label.Text = "Programs:"
 $label.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $label.Location = New-Object System.Drawing.Point(20, $y)
 $label.AutoSize = $true
 $form.Controls.Add($label)
-$y += $labelHeight
+$y += 28
 
-$programFlow = New-Object System.Windows.Forms.FlowLayoutPanel
-$programFlow.Location = New-Object System.Drawing.Point(20, $y)
-$programFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
-$programFlow.WrapContents = $false
-$programFlow.AutoSize = $true
-$programFlow.AutoSizeMode = [System.Windows.Forms.AutoSizeMode]::GrowAndShrink
-$form.Controls.Add($programFlow)
+$progContainer = New-Object System.Windows.Forms.Panel
+$progContainer.Location = New-Object System.Drawing.Point(20, $y)
+$progContainer.Size = New-Object System.Drawing.Size(480, 200)
+$progContainer.BackColor = [System.Drawing.Color]::Transparent
+$form.Controls.Add($progContainer)
 
-foreach ($program in $programs) {
+$col1Flow = New-Object System.Windows.Forms.FlowLayoutPanel
+$col1Flow.Location = New-Object System.Drawing.Point(0, 0)
+$col1Flow.Size = New-Object System.Drawing.Size(235, 200)
+$col1Flow.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
+$col1Flow.WrapContents = $false
+$col1Flow.BackColor = [System.Drawing.Color]::Transparent
+$progContainer.Controls.Add($col1Flow)
+
+$col2Flow = New-Object System.Windows.Forms.FlowLayoutPanel
+$col2Flow.Location = New-Object System.Drawing.Point(245, 0)
+$col2Flow.Size = New-Object System.Drawing.Size(235, 200)
+$col2Flow.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
+$col2Flow.WrapContents = $false
+$col2Flow.BackColor = [System.Drawing.Color]::Transparent
+$progContainer.Controls.Add($col2Flow)
+
+$halfCount = [math]::Ceiling($programs.Count / 2)
+for ($i = 0; $i -lt $programs.Count; $i++) {
+    $program = $programs[$i]
     $checkbox = New-Object System.Windows.Forms.CheckBox
     $checkbox.Text = $program.Name
     $checkbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $checkbox.AutoSize = $true
     $checkbox.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 5)
-    $programFlow.Controls.Add($checkbox)
+    if ($i -lt $halfCount) {
+        $col1Flow.Controls.Add($checkbox)
+    } else {
+        $col2Flow.Controls.Add($checkbox)
+    }
     $checkboxes[$program.Name] = $checkbox
 }
 
@@ -98,10 +118,10 @@ $userExitCheckbox = New-Object System.Windows.Forms.CheckBox
 $userExitCheckbox.Text = "Automatically exit multitool when complete"
 $userExitCheckbox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $userExitCheckbox.AutoSize = $true
-$userExitCheckbox.Margin = New-Object System.Windows.Forms.Padding(0, 10, 0, 5)
-$programFlow.Controls.Add($userExitCheckbox)
+$userExitCheckbox.Location = New-Object System.Drawing.Point(20, ($progContainer.Bottom + 6))
+$form.Controls.Add($userExitCheckbox)
 
-$y = $programFlow.Bottom + 15
+$y = $userExitCheckbox.Bottom + 15
 
 $outlookCheckbox = $checkboxes["Outlook Classic"]
 $officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]
@@ -222,15 +242,26 @@ $form.Add_Load({
         Set-RoundedControl $skipButton
         $p = [int]($padding * $global:HMTScaleFactor)
         
-        $y = $programFlow.Bottom + [int](30 * $global:HMTScaleFactor)
+        $progContainer.Width = $form.ClientSize.Width - ($p * 2)
+        $colW = [int](($progContainer.Width - 10) / 2)
+        $col1Flow.Width = $colW
+        $col2Flow.Left = $colW + 10
+        $col2Flow.Width = $colW
+
+        $userExitCheckbox.Top = $progContainer.Bottom + [int](6 * $global:HMTScaleFactor)
+        $y = $userExitCheckbox.Bottom + [int](12 * $global:HMTScaleFactor)
         $statuslabel.Top = $y - [int](10 * $global:HMTScaleFactor)
         $detailLabel.Top = $y + [int](10 * $global:HMTScaleFactor)
         
         $y += [int](35 * $global:HMTScaleFactor)
         $trackPanel.Top = $y
+        $trackPanel.Width = $form.ClientSize.Width - ($p * 2)
         
         $y += [int](40 * $global:HMTScaleFactor)
+        $btnTotalW = $okButton.Width + $skipButton.Width + [int](20 * $global:HMTScaleFactor)
+        $okButton.Left = [int](($form.ClientSize.Width - $btnTotalW) / 2)
         $okButton.Top = $y
+        $skipButton.Left = $okButton.Right + [int](20 * $global:HMTScaleFactor)
         $skipButton.Top = $y
         
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
@@ -323,13 +354,14 @@ $downloadWithProgress = {
         $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
         $fileStream = [System.IO.File]::Create($OutFile)
 
-        # 256 KB buffer chunk sizing
-        $buffer = New-Object byte[] 262144
+        # 64 KB buffer chunk sizing
+        $buffer = New-Object byte[] 65536
         $bytesRead = 0
         $totalBytesRead = 0
-        $lastPct = -1
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $lastUiTick = [System.Diagnostics.Stopwatch]::StartNew()
 
-        # Stream reading loop
+        # Stream reading loop with responsive UI pumping
         while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
             if ($script:SkipCurrent) {
                 break
@@ -338,19 +370,21 @@ $downloadWithProgress = {
             $fileStream.Write($buffer, 0, $bytesRead)
             $totalBytesRead += $bytesRead
 
-            if ($totalBytes) {
-                $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
-                
-                # Only update UI when the whole percentage changes
-                if ($pct -ne $lastPct) {
-                    $lastPct = $pct
-                    &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... ($pct%)"
-                    [System.Windows.Forms.Application]::DoEvents()
+            [System.Windows.Forms.Application]::DoEvents()
+
+            if ($lastUiTick.ElapsedMilliseconds -ge 100) {
+                $lastUiTick.Restart()
+                $elapsedSec = [math]::Max(0.001, $stopwatch.Elapsed.TotalSeconds)
+                $speedMbps = (($totalBytesRead * 8) / 1MB) / $elapsedSec
+                $dlMB = [math]::Round($totalBytesRead / 1MB, 1)
+
+                if ($totalBytes -and $totalBytes -gt 0) {
+                    $totMB = [math]::Round($totalBytes / 1MB, 1)
+                    $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
+                    &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $pct% ($dlMB MB / $totMB MB @ $([math]::Round($speedMbps, 1)) Mbps)"
+                } else {
+                    &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $dlMB MB @ $([math]::Round($speedMbps, 1)) Mbps"
                 }
-            }
-            else {
-                &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... (Size Unknown)"
-                [System.Windows.Forms.Application]::DoEvents()
             }
         }
         $global:DlDone = $true
@@ -368,7 +402,11 @@ $downloadWithProgress = {
 
 $okButton.Add_Click({
         $okButton.Enabled = $false
-        $global:RunUserExitOnComplete = $userExitCheckbox.Checked
+        # Lock and grey out program checkboxes immediately
+        foreach ($cb in $checkboxes.Values) {
+            $cb.Enabled = $false
+        }
+        $userExitCheckbox.Enabled = $true
 
         $checkedNames = @($checkboxes.GetEnumerator() | Where-Object { $_.Value.Checked } | ForEach-Object { $_.Key })
         $msProgName = $checkedNames | Where-Object { $_ -eq "Microsoft Office (64-Bit)" -or $_ -eq "Outlook Classic" } | Select-Object -First 1
@@ -587,7 +625,12 @@ $okButton.Add_Click({
                     $proc.StartInfo = $procInfo
                     $proc.Start() | Out-Null
 
-                    $wingetOutput = $proc.StandardOutput.ReadToEnd()
+                    $readTask = $proc.StandardOutput.ReadToEndAsync()
+                    while (-not $readTask.IsCompleted) {
+                        [System.Windows.Forms.Application]::DoEvents()
+                        Start-Sleep -Milliseconds 50
+                    }
+                    $wingetOutput = $readTask.Result
                     $proc.WaitForExit()
 
                     $installerUrl = $null
@@ -669,8 +712,11 @@ $okButton.Add_Click({
                         if ($dotCount -gt 3) { $dotCount = 0 }
                         $dots = "." * $dotCount
                         &$updateLocalProgress $currentIndex $totalWinget 99 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Running Installer$dots"
-                        [System.Windows.Forms.Application]::DoEvents()
-                        Start-Sleep -Milliseconds 500
+                        for ($s = 0; $s -lt 5; $s++) {
+                            [System.Windows.Forms.Application]::DoEvents()
+                            Start-Sleep -Milliseconds 100
+                            if ($installProc.HasExited -or $script:SkipCurrent) { break }
+                        }
                     }
 
                     if (-not $script:SkipCurrent) {
@@ -766,7 +812,12 @@ $okButton.Add_Click({
                         $proc.StartInfo = $procInfo
                         $proc.Start() | Out-Null
 
-                        $wingetOutput = $proc.StandardOutput.ReadToEnd()
+                        $readTask = $proc.StandardOutput.ReadToEndAsync()
+                        while (-not $readTask.IsCompleted) {
+                            [System.Windows.Forms.Application]::DoEvents()
+                            Start-Sleep -Milliseconds 50
+                        }
+                        $wingetOutput = $readTask.Result
                         $proc.WaitForExit()
 
                         $installerUrl = $null
@@ -844,8 +895,11 @@ $okButton.Add_Click({
                             if ($dotCount -gt 3) { $dotCount = 0 }
                             $dots = "." * $dotCount
                             &$updateLocalProgress $retryIndex $retryTotal 99 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Running Installer$dots"
-                            [System.Windows.Forms.Application]::DoEvents()
-                            Start-Sleep -Milliseconds 500
+                            for ($s = 0; $s -lt 5; $s++) {
+                                [System.Windows.Forms.Application]::DoEvents()
+                                Start-Sleep -Milliseconds 100
+                                if ($installProc.HasExited -or $script:SkipCurrent) { break }
+                            }
                         }
                     
                         if (-not $script:SkipCurrent) {
@@ -872,6 +926,8 @@ $okButton.Add_Click({
             }
         }
 
+        # Evaluate auto-exit option only after all installations complete
+        $global:RunUserExitOnComplete = $userExitCheckbox.Checked
         $form.Close()
         $global:BGRBaseText = "Hat's Multitool is running"
     })
