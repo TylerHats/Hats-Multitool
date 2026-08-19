@@ -16,6 +16,12 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
     exit
 }
 
+# Initialize WinForms and System assemblies
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.IO.Compression -ErrorAction SilentlyContinue
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+} catch {}
+
 # Initialize Native & Tool assemblies
 $nativeDll = Join-Path -Path $PSScriptRoot -ChildPath 'HMTNative.dll'
 if (Test-Path $nativeDll) {
@@ -30,13 +36,13 @@ if (Test-Path $toolsDll) {
     Add-Type -Path $toolsDll
 } else {
     $csTools = Join-Path -Path $PSScriptRoot -ChildPath 'HMTTools.cs'
-    if (Test-Path $csTools) { Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing, System.IO.Compression, System.IO.Compression.FileSystem }
+    if (Test-Path $csTools) { 
+        Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing, System.IO.Compression
+    }
 }
 
 [DpiHelper]::SetProcessDPIAware() | Out-Null
 
-# Initialize WinForms assemblies and styling
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.IO.Compression, System.IO.Compression.FileSystem
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}

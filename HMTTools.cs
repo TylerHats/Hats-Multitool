@@ -1132,7 +1132,8 @@ namespace HMT.Tools {
                         Directory.CreateDirectory(destinationDirectory);
                     }
 
-                    using (var zip = System.IO.Compression.ZipFile.OpenRead(archivePath)) {
+                    using (var fileStream = File.OpenRead(archivePath))
+                    using (var zip = new System.IO.Compression.ZipArchive(fileStream, System.IO.Compression.ZipArchiveMode.Read)) {
                         state.TotalEntries = zip.Entries.Count;
                         int count = 0;
                         string destRoot = Path.GetFullPath(destinationDirectory);
@@ -1149,6 +1150,10 @@ namespace HMT.Tools {
                             if (string.IsNullOrEmpty(entry.Name)) {
                                 Directory.CreateDirectory(fullDest);
                             } else {
+                                string parentDir = Path.GetDirectoryName(fullDest);
+                                if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir)) {
+                                    Directory.CreateDirectory(parentDir);
+                                }
                                 using (var entryStream = entry.Open())
                                 using (var outStream = File.Create(fullDest)) {
                                     entryStream.CopyTo(outStream);
