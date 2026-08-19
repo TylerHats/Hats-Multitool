@@ -2017,4 +2017,160 @@ namespace HMT.Tools {
             }
         }
     }
+
+    // ==============================================================================
+    // 7. Thread-Safe Diagnostic Process Runner Engine
+    // ==============================================================================
+    public class ProcessRunnerEngine : IDisposable {
+        private System.Diagnostics.Process _process;
+        private readonly List<string> _outputQueue = new List<string>();
+        private readonly object _lock = new object();
+        private bool _hasExited = false;
+        private int _exitCode = -1;
+        private string _errorMessage = null;
+
+        public bool IsRunning {
+            get {
+                if (_process == null) return false;
+                try {
+                    return !_process.HasExited;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
+        public bool HasExited {
+            get {
+                if (_hasExited) return true;
+                if (_process == null) return false;
+                try {
+                    if (_process.HasExited) {
+                        _hasExited = true;
+                        _exitCode = _process.ExitCode;
+                    }
+                } catch { }
+                return _hasExited;
+            }
+        }
+
+        public int ExitCode {
+            get {
+                if (_hasExited) return _exitCode;
+                if (_process != null) {
+                    try {
+                        if (_process.HasExited) {
+                            _exitCode = _process.ExitCode;
+                            _hasExited = true;
+                        }
+                    } catch { }
+                }
+                return _exitCode;
+            }
+        }
+
+        public string ErrorMessage {
+            get { return _errorMessage; }
+        }
+
+        public bool Start(string fileName, string arguments, bool isPowerShellScript = false) {
+            Dispose();
+            lock (_lock) {
+                _outputQueue.Clear();
+                _hasExited = false;
+                _exitCode = -1;
+                _errorMessage = null;
+            }
+
+            try {
+                var psi = new System.Diagnostics.ProcessStartInfo();
+                if (isPowerShellScript) {
+                    psi.FileName = "powershell.exe";
+                    psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
+                } else {
+                    psi.FileName = fileName;
+                    psi.Arguments = arguments ?? "";
+                }
+                psi.UseShellExecute = false;
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                psi.CreateNoWindow = true;
+
+                _process = new System.Diagnostics.Process();
+                _process.StartInfo = psi;
+                _process.EnableRaisingEvents = true;
+
+                _process.OutputDataReceived += (s, e) => {
+                    if (e.Data != null) {
+                        lock (_lock) {
+                            _outputQueue.Add(e.Data);
+                        }
+                    }
+                };
+
+                _process.ErrorDataReceived += (s, e) => {
+                    if (e.Data != null) {
+                        lock (_lock) {
+                            _outputQueue.Add(e.Data);
+                        }
+                    }
+                };
+
+                _process.Exited += (s, e) => {
+                    lock (_lock) {
+                        _hasExited = true;
+                        try {
+                            _exitCode = _process.ExitCode;
+                        } catch { }
+                    }
+                };
+
+                bool started = _process.Start();
+                if (started) {
+                    _process.BeginOutputReadLine();
+                    _process.BeginErrorReadLine();
+                }
+                return started;
+            } catch (Exception ex) {
+                _errorMessage = ex.Message;
+                _hasExited = true;
+                _exitCode = -1;
+                return false;
+            }
+        }
+
+        public string[] DrainOutput() {
+            lock (_lock) {
+                if (_outputQueue.Count == 0) return new string[0];
+                string[] lines = _outputQueue.ToArray();
+                _outputQueue.Clear();
+                return lines;
+            }
+        }
+
+        public void Kill() {
+            if (_process != null) {
+                try {
+                    if (!_process.HasExited) {
+                        _process.Kill();
+                    }
+                } catch { }
+                _hasExited = true;
+            }
+        }
+
+        public void Dispose() {
+            if (_process != null) {
+                try {
+                    if (!_process.HasExited) {
+                        _process.Kill();
+                    }
+                } catch { }
+                try {
+                    _process.Dispose();
+                } catch { }
+                _process = null;
+            }
+        }
+    }
 }

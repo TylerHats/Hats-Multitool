@@ -118,7 +118,7 @@ function Show-CommandRunnerDialog {
     $pollTimer.Interval = 40
 
     $state = @{
-        Proc = $null
+        Runner = New-Object HMT.Tools.ProcessRunnerEngine
         Cancelled = $false
         RunInBackground = $false
         Stopwatch = $null
@@ -126,7 +126,6 @@ function Show-CommandRunnerDialog {
         ChkdskTotal = 3
         LastProgressPct = 0
         LastLoggedProgress = -1
-        OutputQueue = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
     }
 
     $calculateEta = {
@@ -318,8 +317,8 @@ function Show-CommandRunnerDialog {
         if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) { return }
 
         $state.Cancelled = $true
-        if ($state.Proc -and -not $state.Proc.HasExited) {
-            try { $state.Proc.Kill() } catch {}
+        if ($null -ne $state.Runner) {
+            $state.Runner.Kill()
         }
         $lblStatus.Text = "Cancelled by user."
         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
@@ -339,7 +338,7 @@ function Show-CommandRunnerDialog {
     }.GetNewClosure())
 
     $btnClose.Add_Click({
-        if ($state.Proc -and -not $state.Proc.HasExited) {
+        if ($null -ne $state.Runner -and $state.Runner.IsRunning) {
             $choice = PopupError "This process ($Title) is still running.`n`nClick 'Yes' to continue running in the background and close this window.`nClick 'No' to abort and terminate the process.`nClick 'Cancel' to keep this window open." "Question" "YesNoCancel"
             if ($choice -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
             if ($choice -eq [System.Windows.Forms.DialogResult]::Yes) {
@@ -349,7 +348,7 @@ function Show-CommandRunnerDialog {
                 return
             } else {
                 $state.Cancelled = $true
-                try { $state.Proc.Kill() } catch {}
+                $state.Runner.Kill()
             }
         }
         if ($pollTimer) { $pollTimer.Stop() }
@@ -365,21 +364,21 @@ function Show-CommandRunnerDialog {
     }.GetNewClosure())
 
     $pollTimer.Add_Tick({
-        if ($null -ne $state.OutputQueue) {
-            $line = $null
-            while ($state.OutputQueue.TryDequeue([ref]$line)) {
-                if ($null -ne $line) {
-                    &$processLine $line
+        if ($null -ne $state.Runner) {
+            $lines = $state.Runner.DrainOutput()
+            if ($lines -and $lines.Length -gt 0) {
+                foreach ($l in $lines) {
+                    if ($null -ne $l) {
+                        &$processLine $l
+                    }
                 }
             }
-        }
 
-        if ($null -ne $state.Proc) {
-            if ($state.Proc.HasExited -or $state.Cancelled) {
-                if ($null -ne $state.OutputQueue) {
-                    $remLine = $null
-                    while ($state.OutputQueue.TryDequeue([ref]$remLine)) {
-                        if ($null -ne $remLine) { &$processLine $remLine }
+            if ($state.Runner.HasExited -or $state.Cancelled) {
+                $remLines = $state.Runner.DrainOutput()
+                if ($remLines -and $remLines.Length -gt 0) {
+                    foreach ($rl in $remLines) {
+                        if ($null -ne $rl) { &$processLine $rl }
                     }
                 }
 
@@ -392,12 +391,12 @@ function Show-CommandRunnerDialog {
                 if ($state.Cancelled) {
                     $lblStatus.Text = "Execution cancelled."
                     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
-                } elseif ($state.Proc.ExitCode -eq 0) {
+                } elseif ($state.Runner.ExitCode -eq 0) {
                     $lblStatus.Text = "Completed successfully (Exit code: 0)."
                     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
                     $lblDetail.Text = "Total Execution Time: $elapsedStr | Success"
                 } else {
-                    $lblStatus.Text = "Finished with exit code $($state.Proc.ExitCode)."
+                    $lblStatus.Text = "Finished with exit code $($state.Runner.ExitCode)."
                     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
                     $lblDetail.Text = "Total Execution Time: $elapsedStr | Check log output above."
                 }
@@ -415,42 +414,14 @@ function Show-CommandRunnerDialog {
         $lblStatus.Text = "Running diagnostic process..."
         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        if ($IsPowerShellScript) {
-            $psi.FileName = "powershell.exe"
-            $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"$Arguments`""
-        } else {
-            $psi.FileName = $CommandName
-            $psi.Arguments = $Arguments
-        }
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.CreateNoWindow = $true
-
-        $proc = New-Object System.Diagnostics.Process
-        $proc.StartInfo = $psi
-        $proc.EnableRaisingEvents = $true
-        $state.Proc = $proc
-
-        $outHandler = [System.Diagnostics.DataReceivedEventHandler]{
-            param($s, $e)
-            if ($null -ne $e.Data -and $null -ne $state.OutputQueue) {
-                $state.OutputQueue.Enqueue($e.Data)
-            }
-        }
-        $proc.add_OutputDataReceived($outHandler)
-        $proc.add_ErrorDataReceived($outHandler)
-
-        try {
-            $proc.Start() | Out-Null
-            $proc.BeginOutputReadLine()
-            $proc.BeginErrorReadLine()
+        $started = $state.Runner.Start($CommandName, $Arguments, [bool]$IsPowerShellScript)
+        if ($started) {
             if ($pollTimer) { $pollTimer.Start() }
-        } catch {
-            $lblStatus.Text = "Execution failed: $_"
+        } else {
+            $err = if ($state.Runner.ErrorMessage) { $state.Runner.ErrorMessage } else { "Unknown error" }
+            $lblStatus.Text = "Execution failed: $err"
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
-            $txtOutput.AppendText("`r`nError starting process: $_`r`n")
+            $txtOutput.AppendText("`r`nError starting process: $err`r`n")
             $btnCancel.Enabled = $false
             $btnContinueBg.Enabled = $false
             $btnClose.Enabled = $true
@@ -463,8 +434,8 @@ function Show-CommandRunnerDialog {
             $pollTimer.Stop()
             $pollTimer.Dispose()
         }
-        if (-not $state.RunInBackground -and $state.Proc -and -not $state.Proc.HasExited) {
-            try { $state.Proc.Kill() } catch {}
+        if (-not $state.RunInBackground -and $null -ne $state.Runner) {
+            $state.Runner.Dispose()
         }
     }.GetNewClosure())
 
