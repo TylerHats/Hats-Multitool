@@ -16,8 +16,26 @@ namespace HMT.Tools {
     // ==============================================================================
     // 1. Smooth Double-Buffered GDI+ Line Graph Control
     // ==============================================================================
+    public struct GraphPoint {
+        public double Value;
+        public Color PointColor;
+        public bool HasCustomColor;
+
+        public GraphPoint(double value) {
+            Value = value;
+            PointColor = Color.Empty;
+            HasCustomColor = false;
+        }
+
+        public GraphPoint(double value, Color color) {
+            Value = value;
+            PointColor = color;
+            HasCustomColor = true;
+        }
+    }
+
     public class SmoothGraphControl : Control {
-        private readonly List<double> _points = new List<double>();
+        private readonly List<GraphPoint> _points = new List<GraphPoint>();
         private readonly object _lock = new object();
         private int _maxPoints = 60;
         private string _unitLabel = "ms";
@@ -71,8 +89,17 @@ namespace HMT.Tools {
         public double AvgValue { get; private set; }
 
         public void AddPoint(double value) {
+            AddPoint(value, Color.Empty);
+        }
+
+        public void AddPoint(double value, Color customColor) {
             lock (_lock) {
-                _points.Add(value);
+                if (customColor.IsEmpty) {
+                    _points.Add(new GraphPoint(value));
+                } else {
+                    _points.Add(new GraphPoint(value, customColor));
+                }
+
                 if (_points.Count > _maxPoints) {
                     _points.RemoveAt(0);
                 }
@@ -83,7 +110,7 @@ namespace HMT.Tools {
                 double sum = 0;
 
                 for (int i = 0; i < _points.Count; i++) {
-                    double v = _points[i];
+                    double v = _points[i].Value;
                     if (v < min) min = v;
                     if (v > max) max = v;
                     sum += v;
@@ -118,6 +145,38 @@ namespace HMT.Tools {
                     Invalidate();
                 }
             }
+        }
+
+        private bool _useDynamicLatencyColors = false;
+
+        public bool UseDynamicLatencyColors {
+            get { return _useDynamicLatencyColors; }
+            set { _useDynamicLatencyColors = value; Invalidate(); }
+        }
+
+        public static Color GetLatencyColor(double ms) {
+            if (ms <= 25.0) {
+                return Color.FromArgb(87, 242, 135); // #57F287 Pure Green
+            } else if (ms <= 50.0) {
+                float t = (float)((ms - 25.0) / 25.0);
+                return InterpolateColor(Color.FromArgb(87, 242, 135), Color.FromArgb(254, 231, 92), t); // Green -> Yellow #FEE75C
+            } else if (ms <= 75.0) {
+                float t = (float)((ms - 50.0) / 25.0);
+                return InterpolateColor(Color.FromArgb(254, 231, 92), Color.FromArgb(230, 126, 34), t); // Yellow -> Orange #E67E22
+            } else if (ms <= 100.0) {
+                float t = (float)((ms - 75.0) / 25.0);
+                return InterpolateColor(Color.FromArgb(230, 126, 34), Color.FromArgb(237, 66, 69), t); // Orange -> Red #ED4245
+            } else {
+                return Color.FromArgb(237, 66, 69); // #ED4245 Pure Red
+            }
+        }
+
+        private static Color InterpolateColor(Color c1, Color c2, float t) {
+            t = Math.Max(0f, Math.Min(1f, t));
+            int r = (int)(c1.R + (c2.R - c1.R) * t);
+            int g = (int)(c1.G + (c2.G - c1.G) * t);
+            int b = (int)(c1.B + (c2.B - c1.B) * t);
+            return Color.FromArgb(r, g, b);
         }
 
         protected override void OnPaint(PaintEventArgs e) {
@@ -171,53 +230,120 @@ namespace HMT.Tools {
             }
 
             // Draw Data Line & Gradient Area Fill
-            double[] pts;
+            GraphPoint[] pts;
             lock (_lock) {
                 pts = _points.ToArray();
             }
 
             if (pts.Length > 1) {
-                PointF[] linePoints = new PointF[pts.Length];
-                for (int i = 0; i < pts.Length; i++) {
-                    float x = leftMargin + (plotW * (float)i / (_maxPoints - 1));
-                    float normY = (float)Math.Max(0.0, Math.Min(scaleMax, pts[i])) / (float)scaleMax;
-                    float y = topMargin + plotH * (1.0f - normY);
-                    linePoints[i] = new PointF(x, y);
+                int totalPoints = pts.Length;
+                PointF[] linePoints;
+                Color[] pointColors;
+
+                // For very high point counts (e.g. 60,000 at 1000 pps), downsample into plotW pixel columns for max 60fps performance
+                if (totalPoints > plotW * 2) {
+                    List<PointF> sampledPoints = new List<PointF>(plotW * 2);
+                    List<Color> sampledColors = new List<Color>(plotW * 2);
+                    float pointsPerPixel = (float)totalPoints / plotW;
+
+                    for (int xCol = 0; xCol < plotW; xCol++) {
+                        int startIdx = (int)(xCol * pointsPerPixel);
+                        int endIdx = Math.Min(totalPoints, (int)((xCol + 1) * pointsPerPixel));
+                        if (startIdx >= endIdx) continue;
+
+                        double minVal = double.MaxValue;
+                        double maxVal = double.MinValue;
+                        GraphPoint lastPt = pts[endIdx - 1];
+
+                        for (int k = startIdx; k < endIdx; k++) {
+                            if (pts[k].Value < minVal) minVal = pts[k].Value;
+                            if (pts[k].Value > maxVal) maxVal = pts[k].Value;
+                        }
+
+                        float xPos = leftMargin + xCol;
+                        float yMax = topMargin + plotH * (1.0f - (float)Math.Max(0.0, Math.Min(scaleMax, maxVal)) / (float)scaleMax);
+                        float yMin = topMargin + plotH * (1.0f - (float)Math.Max(0.0, Math.Min(scaleMax, minVal)) / (float)scaleMax);
+
+                        Color c = _useDynamicLatencyColors ? GetLatencyColor(lastPt.Value) : (lastPt.HasCustomColor ? lastPt.PointColor : _lineColor);
+
+                        sampledPoints.Add(new PointF(xPos, yMax));
+                        sampledColors.Add(c);
+                        if (Math.Abs(yMin - yMax) > 1f) {
+                            sampledPoints.Add(new PointF(xPos, yMin));
+                            sampledColors.Add(c);
+                        }
+                    }
+                    linePoints = sampledPoints.ToArray();
+                    pointColors = sampledColors.ToArray();
+                } else {
+                    linePoints = new PointF[totalPoints];
+                    pointColors = new Color[totalPoints];
+                    for (int i = 0; i < totalPoints; i++) {
+                        float x = leftMargin + (plotW * (float)i / Math.Max(1, totalPoints - 1));
+                        float normY = (float)Math.Max(0.0, Math.Min(scaleMax, pts[i].Value)) / (float)scaleMax;
+                        float y = topMargin + plotH * (1.0f - normY);
+                        linePoints[i] = new PointF(x, y);
+                        pointColors[i] = _useDynamicLatencyColors ? GetLatencyColor(pts[i].Value) : (pts[i].HasCustomColor ? pts[i].PointColor : _lineColor);
+                    }
                 }
 
-                // Fill gradient under the curve
-                using (GraphicsPath fillPath = new GraphicsPath()) {
-                    fillPath.AddLine(linePoints[0].X, topMargin + plotH, linePoints[0].X, linePoints[0].Y);
+                if (linePoints.Length > 1) {
+                    // Fill gradient under the curve
+                    using (GraphicsPath fillPath = new GraphicsPath()) {
+                        fillPath.AddLine(linePoints[0].X, topMargin + plotH, linePoints[0].X, linePoints[0].Y);
+                        for (int i = 1; i < linePoints.Length; i++) {
+                            fillPath.AddLine(linePoints[i - 1], linePoints[i]);
+                        }
+                        fillPath.AddLine(linePoints[linePoints.Length - 1].X, linePoints[linePoints.Length - 1].Y, linePoints[linePoints.Length - 1].X, topMargin + plotH);
+                        fillPath.CloseFigure();
+
+                        using (LinearGradientBrush lgb = new LinearGradientBrush(
+                            new PointF(0, topMargin),
+                            new PointF(0, topMargin + plotH),
+                            Color.White, Color.Black)) {
+
+                            if (_useDynamicLatencyColors) {
+                                int stopCount = 20;
+                                ColorBlend cb = new ColorBlend(stopCount);
+                                for (int s = 0; s < stopCount; s++) {
+                                    float pos = (float)s / (stopCount - 1);
+                                    double latAtPos = scaleMax * (1.0 - pos);
+                                    Color latCol = GetLatencyColor(latAtPos);
+                                    int alpha = (int)(10 + (70 * (1.0f - pos)));
+                                    cb.Colors[s] = Color.FromArgb(alpha, latCol);
+                                    cb.Positions[s] = pos;
+                                }
+                                lgb.InterpolationColors = cb;
+                            } else {
+                                Color primary = (pointColors.Length > 0) ? pointColors[pointColors.Length - 1] : _lineColor;
+                                Color fillTop = Color.FromArgb(70, primary);
+                                Color fillBottom = Color.FromArgb(5, primary);
+                                lgb.LinearColors = new Color[] { fillTop, fillBottom };
+                            }
+
+                            g.FillPath(lgb, fillPath);
+                        }
+                    }
+
+                    // Draw line segments and glow
                     for (int i = 1; i < linePoints.Length; i++) {
-                        fillPath.AddLine(linePoints[i - 1], linePoints[i]);
+                        Color segCol = pointColors[i];
+                        using (Pen glowPen = new Pen(Color.FromArgb(45, segCol), 4f)) {
+                            g.DrawLine(glowPen, linePoints[i - 1], linePoints[i]);
+                        }
+                        using (Pen linePen = new Pen(segCol, 2f)) {
+                            g.DrawLine(linePen, linePoints[i - 1], linePoints[i]);
+                        }
                     }
-                    fillPath.AddLine(linePoints[linePoints.Length - 1].X, linePoints[linePoints.Length - 1].Y, linePoints[linePoints.Length - 1].X, topMargin + plotH);
-                    fillPath.CloseFigure();
 
-                    Color fillTop = Color.FromArgb(70, _lineColor);
-                    Color fillBottom = Color.FromArgb(5, _lineColor);
-                    using (LinearGradientBrush lgb = new LinearGradientBrush(
-                        new PointF(0, topMargin),
-                        new PointF(0, topMargin + plotH),
-                        fillTop, fillBottom)) {
-                        g.FillPath(lgb, fillPath);
+                    // Highlight latest point
+                    PointF lastPt = linePoints[linePoints.Length - 1];
+                    Color latestCol = pointColors[pointColors.Length - 1];
+                    using (SolidBrush dotBrush = new SolidBrush(latestCol))
+                    using (SolidBrush whiteBrush = new SolidBrush(Color.White)) {
+                        g.FillEllipse(dotBrush, lastPt.X - 5, lastPt.Y - 5, 10, 10);
+                        g.FillEllipse(whiteBrush, lastPt.X - 2.5f, lastPt.Y - 2.5f, 5, 5);
                     }
-                }
-
-                // Draw line glow and main stroke
-                using (Pen glowPen = new Pen(Color.FromArgb(50, _lineColor), 4f)) {
-                    g.DrawLines(glowPen, linePoints);
-                }
-                using (Pen linePen = new Pen(_lineColor, 2f)) {
-                    g.DrawLines(linePen, linePoints);
-                }
-
-                // Highlight latest point
-                PointF lastPt = linePoints[linePoints.Length - 1];
-                using (SolidBrush dotBrush = new SolidBrush(_lineColor))
-                using (SolidBrush whiteBrush = new SolidBrush(Color.White)) {
-                    g.FillEllipse(dotBrush, lastPt.X - 5, lastPt.Y - 5, 10, 10);
-                    g.FillEllipse(whiteBrush, lastPt.X - 2.5f, lastPt.Y - 2.5f, 5, 5);
                 }
             }
 
@@ -526,6 +652,14 @@ namespace HMT.Tools {
             Font = new Font("Segoe UI", 9f, FontStyle.Regular);
         }
 
+        public override Rectangle DisplayRectangle {
+            get {
+                Rectangle tabRect = TabCount > 0 ? GetTabRect(0) : Rectangle.Empty;
+                int top = tabRect.Bottom;
+                return new Rectangle(0, top, ClientRectangle.Width, Math.Max(0, ClientRectangle.Height - top));
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e) {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -622,6 +756,68 @@ namespace HMT.Tools {
         private Color _itemFg = Color.FromArgb(217, 217, 217);        // #d9d9d9
         private Color _itemSubFg = Color.FromArgb(160, 160, 160);     // #a0a0a0
         private bool _autoFillLastColumn = true;
+        private DarkHeaderControl _headerSubclass;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        private class DarkHeaderControl : NativeWindow {
+            private DarkListView _parent;
+            public DarkHeaderControl(DarkListView parent) {
+                _parent = parent;
+            }
+
+            protected override void WndProc(ref Message m) {
+                const int WM_PAINT = 0x000F;
+                const int WM_ERASEBKGND = 0x0014;
+
+                if (m.Msg == WM_ERASEBKGND) {
+                    RECT rc;
+                    GetClientRect(this.Handle, out rc);
+                    using (Graphics g = Graphics.FromHdc(m.WParam))
+                    using (SolidBrush bgBrush = new SolidBrush(_parent._headerBg)) {
+                        g.FillRectangle(bgBrush, 0, 0, rc.Right - rc.Left, rc.Bottom - rc.Top);
+                    }
+                    m.Result = (IntPtr)1;
+                    return;
+                }
+
+                base.WndProc(ref m);
+
+                if (m.Msg == WM_PAINT) {
+                    RECT rc;
+                    GetClientRect(this.Handle, out rc);
+                    int totalColWidth = 0;
+                    foreach (ColumnHeader col in _parent.Columns) {
+                        totalColWidth += col.Width;
+                    }
+                    int headerWidth = rc.Right - rc.Left;
+                    int headerHeight = rc.Bottom - rc.Top;
+                    if (totalColWidth < headerWidth) {
+                        using (Graphics g = Graphics.FromHwnd(this.Handle)) {
+                            Rectangle emptyRect = new Rectangle(totalColWidth, 0, headerWidth - totalColWidth, headerHeight);
+                            using (SolidBrush bgBrush = new SolidBrush(_parent._headerBg)) {
+                                g.FillRectangle(bgBrush, emptyRect);
+                            }
+                            using (Pen borderPen = new Pen(_parent._headerBorder, 1f)) {
+                                g.DrawLine(borderPen, totalColWidth, headerHeight - 1, headerWidth, headerHeight - 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         public DarkListView() {
             SetStyle(
@@ -644,6 +840,34 @@ namespace HMT.Tools {
             DrawSubItem += OnDrawSubItem;
         }
 
+        protected override CreateParams CreateParams {
+            get {
+                CreateParams cp = base.CreateParams;
+                cp.Style &= ~0x00800000; // WS_BORDER
+                cp.ExStyle &= ~0x00000200; // WS_EX_CLIENTEDGE
+                return cp;
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e) {
+            base.OnHandleCreated(e);
+            IntPtr hHeader = SendMessage(this.Handle, 0x101F, IntPtr.Zero, IntPtr.Zero);
+            if (hHeader != IntPtr.Zero) {
+                if (_headerSubclass == null) {
+                    _headerSubclass = new DarkHeaderControl(this);
+                }
+                _headerSubclass.ReleaseHandle();
+                _headerSubclass.AssignHandle(hHeader);
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e) {
+            if (_headerSubclass != null) {
+                _headerSubclass.ReleaseHandle();
+            }
+            base.OnHandleDestroyed(e);
+        }
+
         public bool AutoFillLastColumn {
             get { return _autoFillLastColumn; }
             set { _autoFillLastColumn = value; AutoResizeColumnsInternal(); }
@@ -660,7 +884,7 @@ namespace HMT.Tools {
             for (int i = 0; i < Columns.Count - 1; i++) {
                 totalOther += Columns[i].Width;
             }
-            int lastWidth = Math.Max(100, ClientSize.Width - totalOther - (Scrollable ? SystemInformation.VerticalScrollBarWidth : 0) - 2);
+            int lastWidth = Math.Max(100, ClientSize.Width - totalOther);
             if (Columns[Columns.Count - 1].Width != lastWidth) {
                 Columns[Columns.Count - 1].Width = lastWidth;
             }
@@ -726,6 +950,70 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
+    // Modern Dark ComboBox (Owner-Drawn DropDownList with Sleek Arrow & Dark Menu)
+    // ==============================================================================
+    public class DarkComboBox : ComboBox {
+        private Color _bgColor = Color.FromArgb(32, 34, 37);
+        private Color _fgColor = Color.FromArgb(220, 221, 222);
+        private Color _borderColor = Color.FromArgb(64, 68, 75);
+        private Color _hoverColor = Color.FromArgb(88, 101, 242);
+        private Color _arrowColor = Color.FromArgb(160, 160, 160);
+
+        public DarkComboBox() {
+            DrawMode = DrawMode.OwnerDrawFixed;
+            DropDownStyle = ComboBoxStyle.DropDownList;
+            BackColor = _bgColor;
+            ForeColor = _fgColor;
+            FlatStyle = FlatStyle.Flat;
+            ItemHeight = 22;
+        }
+
+        protected override void OnDrawItem(DrawItemEventArgs e) {
+            if (e.Index < 0) return;
+            Graphics g = e.Graphics;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color bg = isSelected ? _hoverColor : _bgColor;
+            Color fg = Color.White;
+
+            using (SolidBrush brush = new SolidBrush(bg)) {
+                g.FillRectangle(brush, e.Bounds);
+            }
+
+            string text = Items[e.Index].ToString();
+            using (SolidBrush textBrush = new SolidBrush(fg))
+            using (StringFormat sf = new StringFormat { LineAlignment = StringAlignment.Center }) {
+                Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
+                g.DrawString(text, Font, textBrush, textRect, sf);
+            }
+        }
+
+        protected override void WndProc(ref Message m) {
+            base.WndProc(ref m);
+            if (m.Msg == 0x000F) { // WM_PAINT
+                try {
+                    using (Graphics g = Graphics.FromHwnd(this.Handle)) {
+                        using (Pen p = new Pen(_borderColor, 1f)) {
+                            g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
+                        }
+                        int arrowX = Width - 16;
+                        int arrowY = (Height / 2) - 2;
+                        Point[] arrow = new Point[] {
+                            new Point(arrowX, arrowY),
+                            new Point(arrowX + 8, arrowY),
+                            new Point(arrowX + 4, arrowY + 5)
+                        };
+                        using (SolidBrush arrowBrush = new SolidBrush(_arrowColor)) {
+                            g.FillPolygon(arrowBrush, arrow);
+                        }
+                    }
+                } catch {}
+            }
+        }
+    }
+
+    // ==============================================================================
     // Native File Downloader (Thread-Safe Streaming Background Downloader)
     // ==============================================================================
     public class FileDownloadState {
@@ -743,50 +1031,158 @@ namespace HMT.Tools {
             Thread t = new Thread(() => {
                 try {
                     ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)12288;
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                    request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0 Safari/537.36";
-                    request.AllowAutoRedirect = true;
-                    request.MaximumAutomaticRedirections = 15;
-                    request.Timeout = 600000;
+                    ServicePointManager.DefaultConnectionLimit = 64;
 
-                    if (url.IndexOf("sourceforge.net", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        request.UserAgent = "curl/8.5.0";
-                    } else if (url.IndexOf("forensit.com", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        request.Referer = "https://www.forensit.com/downloads.html";
-                    }
+                    string currentUrl = url;
+                    int maxRedirects = 10;
+                    HttpWebResponse response = null;
 
-                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse()) {
-                        state.TotalBytes = response.ContentLength;
-                        string dir = Path.GetDirectoryName(outputPath);
-                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) {
-                            Directory.CreateDirectory(dir);
+                    for (int r = 0; r < maxRedirects; r++) {
+                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(currentUrl);
+                        request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+                        request.Accept = "*/*";
+                        request.AllowAutoRedirect = false; // Manually handle redirects for reliable relative/SourceForge URI resolution
+                        request.Timeout = 60000;
+                        request.ReadWriteTimeout = 60000;
+
+                        if (currentUrl.IndexOf("forensit.com", StringComparison.OrdinalIgnoreCase) >= 0) {
+                            request.Referer = "https://www.forensit.com/downloads.html";
+                        } else if (currentUrl.IndexOf("wagnardsoft.com", StringComparison.OrdinalIgnoreCase) >= 0) {
+                            request.Referer = "https://www.wagnardsoft.com/";
                         }
 
-                        using (Stream responseStream = response.GetResponseStream())
-                        using (FileStream fileStream = File.Create(outputPath)) {
-                            byte[] buffer = new byte[65536];
-                            int bytesRead = 0;
-                            var sw = System.Diagnostics.Stopwatch.StartNew();
-                            long total = 0;
+                        response = (HttpWebResponse)request.GetResponse();
+                        int statusCode = (int)response.StatusCode;
 
-                            while ((bytesRead = responseStream.Read(buffer, 0, buffer.Length)) > 0) {
-                                if (state.IsCancelled) break;
-                                fileStream.Write(buffer, 0, bytesRead);
-                                total += bytesRead;
-                                state.BytesRead = total;
-                                double sec = Math.Max(0.001, sw.Elapsed.TotalSeconds);
-                                state.SpeedMbps = (total * 8.0 / 1048576.0) / sec;
+                        if (statusCode >= 300 && statusCode < 400) {
+                            string loc = response.Headers["Location"];
+                            response.Close();
+                            if (string.IsNullOrEmpty(loc)) break;
+
+                            if (!Uri.IsWellFormedUriString(loc, UriKind.Absolute)) {
+                                Uri baseUri = new Uri(currentUrl);
+                                currentUrl = new Uri(baseUri, loc).ToString();
+                            } else {
+                                currentUrl = loc;
                             }
-                            if (!state.IsCancelled) {
-                                state.IsCompleted = true;
-                            }
+                            continue;
+                        }
+                        break;
+                    }
+
+                    if (response == null) {
+                        state.Error = "Failed to connect to download server.";
+                        return;
+                    }
+
+                    state.TotalBytes = response.ContentLength;
+                    string dir = Path.GetDirectoryName(outputPath);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) {
+                        Directory.CreateDirectory(dir);
+                    }
+
+                    using (response)
+                    using (Stream responseStream = response.GetResponseStream())
+                    using (FileStream fileStream = File.Create(outputPath)) {
+                        byte[] buffer = new byte[65536];
+                        int bytesRead = 0;
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        long total = 0;
+
+                        while ((bytesRead = responseStream.Read(buffer, 0, buffer.Length)) > 0) {
+                            if (state.IsCancelled) break;
+                            fileStream.Write(buffer, 0, bytesRead);
+                            total += bytesRead;
+                            state.BytesRead = total;
+                            double sec = Math.Max(0.001, sw.Elapsed.TotalSeconds);
+                            state.SpeedMbps = (total * 8.0 / 1048576.0) / sec;
+                        }
+                        if (!state.IsCancelled) {
+                            state.IsCompleted = true;
                         }
                     }
                 } catch (Exception ex) {
                     state.Error = ex.Message;
                 }
-            });
-            t.IsBackground = true;
+            }) { IsBackground = true };
+            t.Start();
+            return state;
+        }
+    }
+
+    // ==============================================================================
+    // Native Archive Extractor (Non-Blocking Fast Background Extraction)
+    // ==============================================================================
+    public class ExtractionState {
+        public int EntriesExtracted = 0;
+        public int TotalEntries = 0;
+        public double Percent = 0.0;
+        public string CurrentEntry = "";
+        public volatile bool IsCompleted = false;
+        public volatile bool IsCancelled = false;
+        public volatile string Error = null;
+    }
+
+    public class ArchiveExtractor {
+        public static ExtractionState StartExtract(string archivePath, string destinationDirectory) {
+            var state = new ExtractionState();
+            Thread t = new Thread(() => {
+                try {
+                    if (!Directory.Exists(destinationDirectory)) {
+                        Directory.CreateDirectory(destinationDirectory);
+                    }
+
+                    using (var zip = System.IO.Compression.ZipFile.OpenRead(archivePath)) {
+                        state.TotalEntries = zip.Entries.Count;
+                        int count = 0;
+                        string destRoot = Path.GetFullPath(destinationDirectory);
+
+                        foreach (var entry in zip.Entries) {
+                            if (state.IsCancelled) break;
+                            state.CurrentEntry = entry.Name;
+
+                            string fullDest = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName));
+                            if (!fullDest.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) {
+                                continue; // Path traversal protection
+                            }
+
+                            if (string.IsNullOrEmpty(entry.Name)) {
+                                Directory.CreateDirectory(fullDest);
+                            } else {
+                                using (var entryStream = entry.Open())
+                                using (var outStream = File.Create(fullDest)) {
+                                    entryStream.CopyTo(outStream);
+                                }
+                            }
+
+                            count++;
+                            state.EntriesExtracted = count;
+                            state.Percent = (state.TotalEntries > 0) ? (count * 100.0 / state.TotalEntries) : 100.0;
+                        }
+                    }
+
+                    if (!state.IsCancelled) {
+                        state.IsCompleted = true;
+                    }
+                } catch (Exception ex) {
+                    // Fallback to tar.exe if non-standard zip or format
+                    try {
+                        var psi = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "tar.exe",
+                            Arguments = string.Format("-xf \"{0}\" -C \"{1}\"", archivePath, destinationDirectory),
+                            CreateNoWindow = true,
+                            UseShellExecute = false,
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                        };
+                        using (var p = System.Diagnostics.Process.Start(psi)) {
+                            p.WaitForExit();
+                        }
+                        state.IsCompleted = true;
+                    } catch {
+                        state.Error = ex.Message;
+                    }
+                }
+            }) { IsBackground = true };
             t.Start();
             return state;
         }
@@ -856,7 +1252,7 @@ namespace HMT.Tools {
             if (_isRunning) Stop();
 
             _targetHost = host ?? "1.1.1.1";
-            _pingsPerSecond = Math.Max(1, Math.Min(200, pingsPerSecond));
+            _pingsPerSecond = Math.Max(1, Math.Min(5000, pingsPerSecond));
             _packetSize = Math.Max(1, Math.Min(65500, packetSize));
             _durationSeconds = Math.Max(0, durationSeconds);
 
@@ -889,65 +1285,78 @@ namespace HMT.Tools {
         private void WorkerLoop() {
             byte[] buffer = new byte[_packetSize];
             new Random().NextBytes(buffer);
-            var pingSender = new Ping();
             var pingOptions = new PingOptions(64, true);
 
-            int intervalMs = Math.Max(5, (int)(1000.0 / _pingsPerSecond));
+            double intervalMs = 1000.0 / _pingsPerSecond;
             int sequence = 0;
+            long freq = System.Diagnostics.Stopwatch.Frequency;
+            long nextDispatchTicks = System.Diagnostics.Stopwatch.GetTimestamp();
 
             while (_isRunning) {
-                var loopStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 sequence++;
-                _sentCount++;
+                int seq = sequence;
+                Interlocked.Increment(ref _sentCount);
 
-                var sample = new PingSample {
-                    Sequence = sequence,
-                    Timestamp = DateTime.Now
-                };
+                // Asynchronously dispatch ICMP ping without blocking the dispatch timer loop
+                ThreadPool.QueueUserWorkItem(_ => {
+                    if (!_isRunning) return;
+                    var sample = new PingSample {
+                        Sequence = seq,
+                        Timestamp = DateTime.Now
+                    };
 
-                try {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    var reply = pingSender.Send(_targetHost, 1500, buffer, pingOptions);
-                    sw.Stop();
+                    try {
+                        using (var pingSender = new Ping()) {
+                            var sw = System.Diagnostics.Stopwatch.StartNew();
+                            var reply = pingSender.Send(_targetHost, 1500, buffer, pingOptions);
+                            sw.Stop();
 
-                    if (reply != null && reply.Status == IPStatus.Success) {
-                        sample.Success = true;
-                        sample.RttMs = (reply.RoundtripTime > 0) ? reply.RoundtripTime : sw.Elapsed.TotalMilliseconds;
-                        sample.Status = reply.Status;
+                            if (reply != null && reply.Status == IPStatus.Success) {
+                                sample.Success = true;
+                                sample.RttMs = (reply.RoundtripTime > 0) ? reply.RoundtripTime : sw.Elapsed.TotalMilliseconds;
+                                sample.Status = reply.Status;
 
-                        _recvCount++;
-                        if (sample.RttMs < _minRtt) _minRtt = sample.RttMs;
-                        if (sample.RttMs > _maxRtt) _maxRtt = sample.RttMs;
-                        _sumRtt += sample.RttMs;
+                                lock (_sampleLock) {
+                                    _recvCount++;
+                                    if (sample.RttMs < _minRtt) _minRtt = sample.RttMs;
+                                    if (sample.RttMs > _maxRtt) _maxRtt = sample.RttMs;
+                                    _sumRtt += sample.RttMs;
 
-                        // RFC 3550 Jitter Calculation
-                        if (_lastRtt >= 0) {
-                            double d = Math.Abs(sample.RttMs - _lastRtt);
-                            _jitter += (d - _jitter) / 16.0;
+                                    // RFC 3550 Jitter Calculation
+                                    if (_lastRtt >= 0) {
+                                        double d = Math.Abs(sample.RttMs - _lastRtt);
+                                        _jitter += (d - _jitter) / 16.0;
+                                    }
+                                    _lastRtt = sample.RttMs;
+                                    sample.JitterMs = _jitter;
+                                    _samples.Add(sample);
+                                }
+                            } else {
+                                sample.Success = false;
+                                sample.Status = (reply != null) ? reply.Status : IPStatus.TimedOut;
+                                sample.ErrorMessage = sample.Status.ToString();
+                                lock (_sampleLock) {
+                                    _lostCount++;
+                                    sample.JitterMs = _jitter;
+                                    _samples.Add(sample);
+                                }
+                            }
                         }
-                        _lastRtt = sample.RttMs;
-                        sample.JitterMs = _jitter;
-                    } else {
+                    } catch (Exception ex) {
                         sample.Success = false;
-                        sample.Status = (reply != null) ? reply.Status : IPStatus.TimedOut;
-                        sample.ErrorMessage = sample.Status.ToString();
-                        _lostCount++;
+                        sample.Status = IPStatus.Unknown;
+                        sample.ErrorMessage = ex.Message;
+                        lock (_sampleLock) {
+                            _lostCount++;
+                            sample.JitterMs = _jitter;
+                            _samples.Add(sample);
+                        }
                     }
-                } catch (Exception ex) {
-                    sample.Success = false;
-                    sample.Status = IPStatus.Unknown;
-                    sample.ErrorMessage = ex.Message;
-                    _lostCount++;
-                }
 
-                sample.JitterMs = _jitter;
-                lock (_sampleLock) {
-                    _samples.Add(sample);
-                }
-
-                if (OnPingSample != null) {
-                    try { OnPingSample(sample); } catch { }
-                }
+                    if (OnPingSample != null) {
+                        try { OnPingSample(sample); } catch { }
+                    }
+                });
 
                 if (OnSummaryUpdate != null && sequence % Math.Max(1, _pingsPerSecond / 2) == 0) {
                     try { OnSummaryUpdate(GetSummary()); } catch { }
@@ -957,11 +1366,21 @@ namespace HMT.Tools {
                     break;
                 }
 
-                // High precision sleep
-                var elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - loopStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
-                int sleepTime = Math.Max(0, (int)(intervalMs - elapsedMs));
-                if (sleepTime > 0) {
-                    Thread.Sleep(sleepTime);
+                // High precision sleep to next scheduled dispatch
+                nextDispatchTicks += (long)(intervalMs * freq / 1000.0);
+                long currentTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+                long waitTicks = nextDispatchTicks - currentTicks;
+
+                if (waitTicks > 0) {
+                    int sleepMs = (int)(waitTicks * 1000.0 / freq);
+                    if (sleepMs > 2) {
+                        Thread.Sleep(sleepMs - 1);
+                    }
+                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks && _isRunning) {
+                        Thread.SpinWait(10);
+                    }
+                } else {
+                    nextDispatchTicks = currentTicks;
                 }
             }
 
@@ -1003,6 +1422,7 @@ namespace HMT.Tools {
 
     public class FastSpeedTestEngine {
         private volatile bool _cancelled;
+        private volatile bool _targetTimeReached;
         public volatile bool IsRunning = false;
         public volatile bool IsFinished = false;
         public volatile SpeedSample CurrentSample = null;
@@ -1012,88 +1432,111 @@ namespace HMT.Tools {
 
         public void Cancel() {
             _cancelled = true;
+            _targetTimeReached = true;
             IsRunning = false;
         }
 
-        public void StartDownloadTest(string url, int streams, int durationSeconds) {
+        public void StartDownloadTest(string url, int streams, int minDurationSeconds = 6, int maxDurationSeconds = 14) {
             IsRunning = true;
             IsFinished = false;
             Result = null;
             CurrentSample = null;
             Thread t = new Thread(() => {
-                Result = RunDownloadTest(url, streams, durationSeconds);
+                Result = RunDownloadTest(url, streams, minDurationSeconds, maxDurationSeconds);
                 IsRunning = false;
                 IsFinished = true;
             }) { IsBackground = true };
             t.Start();
         }
 
-        public void StartUploadTest(string url, int streams, int durationSeconds) {
+        public void StartUploadTest(string url, int streams, int minDurationSeconds = 6, int maxDurationSeconds = 14) {
             IsRunning = true;
             IsFinished = false;
             Result = null;
             CurrentSample = null;
             Thread t = new Thread(() => {
-                Result = RunUploadTest(url, streams, durationSeconds);
+                Result = RunUploadTest(url, streams, minDurationSeconds, maxDurationSeconds);
                 IsRunning = false;
                 IsFinished = true;
             }) { IsBackground = true };
             t.Start();
         }
 
-        public SpeedSample RunDownloadTest(string url, int streams, int durationSeconds) {
+        public SpeedSample RunDownloadTest(string url, int streams, int minDurationSeconds = 6, int maxDurationSeconds = 14) {
             _cancelled = false;
-            streams = Math.Max(1, Math.Min(16, streams));
-            durationSeconds = Math.Max(2, Math.Min(30, durationSeconds));
+            _targetTimeReached = false;
+            streams = Math.Max(1, Math.Min(32, streams));
+            minDurationSeconds = Math.Max(4, Math.Min(20, minDurationSeconds));
+            maxDurationSeconds = Math.Max(minDurationSeconds + 2, Math.Min(30, maxDurationSeconds));
+
+            try {
+                ServicePointManager.DefaultConnectionLimit = 128;
+                ServicePointManager.Expect100Continue = false;
+                ServicePointManager.UseNagleAlgorithm = false;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)3072;
+            } catch { }
 
             long totalBytes = 0;
             long lastSampleBytes = 0;
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var lastSampleTime = sw.Elapsed.TotalSeconds;
 
+            List<double> recentMbps = new List<double>();
+
             Thread[] workers = new Thread[streams];
             for (int i = 0; i < streams; i++) {
                 workers[i] = new Thread(() => {
-                    byte[] buffer = new byte[65536];
-                    while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds) {
+                    byte[] buffer = new byte[262144]; // 256KB buffer for max wire throughput
+                    while (!_cancelled && !_targetTimeReached) {
                         try {
-                            string reqUrl = url + "?r=" + Guid.NewGuid().ToString("N");
+                            string reqUrl = url.Contains("?")
+                                ? url + "&r=" + Guid.NewGuid().ToString("N")
+                                : url + "?bytes=25000000&r=" + Guid.NewGuid().ToString("N");
+
                             var req = (HttpWebRequest)WebRequest.Create(reqUrl);
                             req.Method = "GET";
-                            req.Timeout = 5000;
-                            req.ReadWriteTimeout = 5000;
-                            req.UserAgent = "HMT-SpeedTest/2.0";
+                            req.Headers.Add("Origin", "https://speed.cloudflare.com");
+                            req.Referer = "https://speed.cloudflare.com/";
+                            req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+                            req.Timeout = 8000;
+                            req.ReadWriteTimeout = 8000;
+                            req.Proxy = null;
+                            req.ServicePoint.ConnectionLimit = 128;
+                            req.ServicePoint.UseNagleAlgorithm = false;
 
                             using (var resp = req.GetResponse())
                             using (var stream = resp.GetResponseStream()) {
                                 int read;
-                                while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds &&
+                                while (!_cancelled && !_targetTimeReached &&
                                        (read = stream.Read(buffer, 0, buffer.Length)) > 0) {
                                     Interlocked.Add(ref totalBytes, read);
                                 }
                             }
                         } catch {
-                            if (_cancelled) break;
-                            Thread.Sleep(50);
+                            if (_cancelled || _targetTimeReached) break;
+                            Thread.Sleep(25);
                         }
                     }
                 }) { IsBackground = true };
                 workers[i].Start();
             }
 
-            while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds) {
+            while (!_cancelled && !_targetTimeReached) {
                 Thread.Sleep(100);
                 double currentElapsed = sw.Elapsed.TotalSeconds;
                 double deltaT = currentElapsed - lastSampleTime;
                 long curTotal = Interlocked.Read(ref totalBytes);
                 long deltaBytes = curTotal - lastSampleBytes;
 
-                if (deltaT > 0.05) {
+                if (deltaT > 0.08) {
                     double currentMbps = (deltaBytes * 8.0) / (deltaT * 1000000.0);
                     double avgMbps = (curTotal * 8.0) / (currentElapsed * 1000000.0);
 
                     lastSampleBytes = curTotal;
                     lastSampleTime = currentElapsed;
+
+                    recentMbps.Add(currentMbps);
+                    if (recentMbps.Count > 10) recentMbps.RemoveAt(0);
 
                     var sample = new SpeedSample {
                         CurrentMbps = currentMbps,
@@ -1107,10 +1550,37 @@ namespace HMT.Tools {
                     if (OnSpeedSample != null) {
                         try { OnSpeedSample(sample); } catch { }
                     }
+
+                    // Adaptive test duration
+                    if (currentElapsed >= minDurationSeconds) {
+                        if (currentElapsed >= maxDurationSeconds) {
+                            _targetTimeReached = true;
+                            break;
+                        }
+
+                        if (recentMbps.Count >= 6) {
+                            double mean = 0;
+                            for (int m = 0; m < recentMbps.Count; m++) mean += recentMbps[m];
+                            mean /= recentMbps.Count;
+
+                            double variance = 0;
+                            for (int m = 0; m < recentMbps.Count; m++) {
+                                double diff = recentMbps[m] - mean;
+                                variance += diff * diff;
+                            }
+                            double stdDev = Math.Sqrt(variance / recentMbps.Count);
+                            double coeffOfVar = (mean > 0) ? (stdDev / mean) : 1.0;
+
+                            if (coeffOfVar < 0.06) {
+                                _targetTimeReached = true;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
-            _cancelled = true;
+            _targetTimeReached = true;
             for (int i = 0; i < streams; i++) {
                 workers[i].Join(300);
             }
@@ -1132,66 +1602,86 @@ namespace HMT.Tools {
             return finalSample;
         }
 
-        public SpeedSample RunUploadTest(string url, int streams, int durationSeconds) {
+        public SpeedSample RunUploadTest(string url, int streams, int minDurationSeconds = 6, int maxDurationSeconds = 14) {
             _cancelled = false;
-            streams = Math.Max(1, Math.Min(16, streams));
-            durationSeconds = Math.Max(2, Math.Min(30, durationSeconds));
+            _targetTimeReached = false;
+            streams = Math.Max(1, Math.Min(32, streams));
+            minDurationSeconds = Math.Max(4, Math.Min(20, minDurationSeconds));
+            maxDurationSeconds = Math.Max(minDurationSeconds + 2, Math.Min(30, maxDurationSeconds));
+
+            try {
+                ServicePointManager.DefaultConnectionLimit = 128;
+                ServicePointManager.Expect100Continue = false;
+                ServicePointManager.UseNagleAlgorithm = false;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)3072;
+            } catch { }
 
             long totalBytes = 0;
             long lastSampleBytes = 0;
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var lastSampleTime = sw.Elapsed.TotalSeconds;
 
-            byte[] uploadPayload = new byte[1048576]; // 1MB payload
-            new Random().NextBytes(uploadPayload);
+            List<double> recentMbps = new List<double>();
+            byte[] uploadChunk = new byte[262144]; // 256KB upload chunk
+            new Random().NextBytes(uploadChunk);
+            int postPayloadSize = 10485760; // 10MB per POST
 
             Thread[] workers = new Thread[streams];
             for (int i = 0; i < streams; i++) {
                 workers[i] = new Thread(() => {
-                    while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds) {
+                    while (!_cancelled && !_targetTimeReached) {
                         try {
                             string reqUrl = url + "?r=" + Guid.NewGuid().ToString("N");
                             var req = (HttpWebRequest)WebRequest.Create(reqUrl);
                             req.Method = "POST";
                             req.ContentType = "application/octet-stream";
-                            req.ContentLength = uploadPayload.Length;
-                            req.Timeout = 5000;
-                            req.ReadWriteTimeout = 5000;
-                            req.UserAgent = "HMT-SpeedTest/2.0";
+                            req.ContentLength = postPayloadSize;
+                            req.Headers.Add("Origin", "https://speed.cloudflare.com");
+                            req.Referer = "https://speed.cloudflare.com/";
+                            req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+                            req.Timeout = 8000;
+                            req.ReadWriteTimeout = 8000;
+                            req.Proxy = null;
+                            req.AllowWriteStreamBuffering = false;
+                            req.ServicePoint.Expect100Continue = false;
+                            req.ServicePoint.UseNagleAlgorithm = false;
+                            req.ServicePoint.ConnectionLimit = 128;
 
                             using (var reqStream = req.GetRequestStream()) {
-                                int offset = 0;
-                                int chunkSize = 32768;
-                                while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds && offset < uploadPayload.Length) {
-                                    int count = Math.Min(chunkSize, uploadPayload.Length - offset);
-                                    reqStream.Write(uploadPayload, offset, count);
-                                    offset += count;
-                                    Interlocked.Add(ref totalBytes, count);
+                                int written = 0;
+                                while (!_cancelled && !_targetTimeReached && written < postPayloadSize) {
+                                    int toWrite = Math.Min(uploadChunk.Length, postPayloadSize - written);
+                                    reqStream.Write(uploadChunk, 0, toWrite);
+                                    written += toWrite;
+                                    Interlocked.Add(ref totalBytes, toWrite);
                                 }
                             }
                             using (var resp = req.GetResponse()) { }
                         } catch {
-                            if (_cancelled) break;
-                            Thread.Sleep(50);
+                            if (_cancelled || _targetTimeReached) break;
+                            Thread.Sleep(25);
                         }
                     }
                 }) { IsBackground = true };
                 workers[i].Start();
             }
 
-            while (!_cancelled && sw.Elapsed.TotalSeconds < durationSeconds) {
+            while (!_cancelled && !_targetTimeReached) {
                 Thread.Sleep(100);
                 double currentElapsed = sw.Elapsed.TotalSeconds;
                 double deltaT = currentElapsed - lastSampleTime;
                 long curTotal = Interlocked.Read(ref totalBytes);
                 long deltaBytes = curTotal - lastSampleBytes;
 
-                if (deltaT > 0.05) {
+                if (deltaT > 0.08) {
                     double currentMbps = (deltaBytes * 8.0) / (deltaT * 1000000.0);
                     double avgMbps = (curTotal * 8.0) / (currentElapsed * 1000000.0);
 
                     lastSampleBytes = curTotal;
                     lastSampleTime = currentElapsed;
+
+                    recentMbps.Add(currentMbps);
+                    if (recentMbps.Count > 10) recentMbps.RemoveAt(0);
 
                     var sample = new SpeedSample {
                         CurrentMbps = currentMbps,
@@ -1205,10 +1695,37 @@ namespace HMT.Tools {
                     if (OnSpeedSample != null) {
                         try { OnSpeedSample(sample); } catch { }
                     }
+
+                    // Adaptive test duration
+                    if (currentElapsed >= minDurationSeconds) {
+                        if (currentElapsed >= maxDurationSeconds) {
+                            _targetTimeReached = true;
+                            break;
+                        }
+
+                        if (recentMbps.Count >= 6) {
+                            double mean = 0;
+                            for (int m = 0; m < recentMbps.Count; m++) mean += recentMbps[m];
+                            mean /= recentMbps.Count;
+
+                            double variance = 0;
+                            for (int m = 0; m < recentMbps.Count; m++) {
+                                double diff = recentMbps[m] - mean;
+                                variance += diff * diff;
+                            }
+                            double stdDev = Math.Sqrt(variance / recentMbps.Count);
+                            double coeffOfVar = (mean > 0) ? (stdDev / mean) : 1.0;
+
+                            if (coeffOfVar < 0.06) {
+                                _targetTimeReached = true;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
-            _cancelled = true;
+            _targetTimeReached = true;
             for (int i = 0; i < streams; i++) {
                 workers[i].Join(300);
             }

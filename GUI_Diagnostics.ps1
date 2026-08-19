@@ -17,7 +17,7 @@ function Show-CommandRunnerDialog {
     $runnerForm = New-Object System.Windows.Forms.Form
     $runnerForm.Text = $Title
     $runnerForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $runnerForm.ClientSize = New-Object System.Drawing.Size(700, 480)
+    $runnerForm.ClientSize = New-Object System.Drawing.Size(740, 510)
     $runnerForm.StartPosition = 'CenterScreen'
     if ($HMTIcon) { $runnerForm.Icon = $HMTIcon }
     $runnerForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -41,7 +41,7 @@ function Show-CommandRunnerDialog {
     $lblStatus.Text = if ($Description) { "$Description (Starting...)" } else { "Executing command..." }
     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
     $lblStatus.Location = New-Object System.Drawing.Point(20, 36)
-    $lblStatus.Size = New-Object System.Drawing.Size(660, 20)
+    $lblStatus.Size = New-Object System.Drawing.Size(700, 20)
     $lblStatus.AutoEllipsis = $true
     $runnerForm.Controls.Add($lblStatus)
 
@@ -50,24 +50,25 @@ function Show-CommandRunnerDialog {
     $lblDetail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
     $lblDetail.Font = New-Object System.Drawing.Font($font.FontFamily, 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
     $lblDetail.Location = New-Object System.Drawing.Point(20, 58)
-    $lblDetail.Size = New-Object System.Drawing.Size(660, 18)
+    $lblDetail.Size = New-Object System.Drawing.Size(700, 18)
     $lblDetail.AutoEllipsis = $true
     $runnerForm.Controls.Add($lblDetail)
 
     $pBar = New-Object HMT.Tools.SmoothProgressBar
     $pBar.Location = New-Object System.Drawing.Point(20, 80)
-    $pBar.Size = New-Object System.Drawing.Size(660, 10)
+    $pBar.Size = New-Object System.Drawing.Size(700, 12)
     $pBar.BorderRadius = 4
     $pBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
     $pBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+    $pBar.IsMarquee = $true
+    $pBar.ShowShimmer = $true
     $pBar.Minimum = 0
     $pBar.Maximum = 100
     $runnerForm.Controls.Add($pBar)
 
     $txtOutput = New-Object System.Windows.Forms.TextBox
-    $txtOutput.Location = New-Object System.Drawing.Point(20, 98)
-    $txtOutput.Size = New-Object System.Drawing.Size(660, 312)
+    $txtOutput.Location = New-Object System.Drawing.Point(20, 100)
+    $txtOutput.Size = New-Object System.Drawing.Size(700, 338)
     $txtOutput.Multiline = $true
     $txtOutput.ReadOnly = $true
     $txtOutput.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
@@ -76,41 +77,70 @@ function Show-CommandRunnerDialog {
     $txtOutput.Font = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
     $runnerForm.Controls.Add($txtOutput)
 
+    $yBtn = 455
     $btnCopy = New-Object System.Windows.Forms.Button
     $btnCopy.Text = "Copy Output"
-    $btnCopy.Location = New-Object System.Drawing.Point(20, 424)
-    $btnCopy.Size = New-Object System.Drawing.Size(120, 36)
+    $btnCopy.Location = New-Object System.Drawing.Point(20, $yBtn)
+    $btnCopy.Size = New-Object System.Drawing.Size(110, 36)
     $btnCopy.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $btnCopy.FlatStyle = 'Flat'
     $btnCopy.FlatAppearance.BorderSize = 1
-    $btnCopy.Enabled = $false
     $runnerForm.Controls.Add($btnCopy)
+
+    $btnContinueBg = New-Object System.Windows.Forms.Button
+    $btnContinueBg.Text = "Continue in Background & Close"
+    $btnContinueBg.Location = New-Object System.Drawing.Point(140, $yBtn)
+    $btnContinueBg.Size = New-Object System.Drawing.Size(230, 36)
+    $btnContinueBg.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnContinueBg.FlatStyle = 'Flat'
+    $btnContinueBg.FlatAppearance.BorderSize = 1
+    $runnerForm.Controls.Add($btnContinueBg)
 
     $btnCancel = New-Object System.Windows.Forms.Button
     $btnCancel.Text = "Cancel"
-    $btnCancel.Location = New-Object System.Drawing.Point(445, 424)
+    $btnCancel.Location = New-Object System.Drawing.Point(485, $yBtn)
     $btnCancel.Size = New-Object System.Drawing.Size(110, 36)
-    $btnCancel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnCancel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
     $btnCancel.FlatStyle = 'Flat'
     $btnCancel.FlatAppearance.BorderSize = 1
     $runnerForm.Controls.Add($btnCancel)
 
     $btnClose = New-Object System.Windows.Forms.Button
     $btnClose.Text = "Close"
-    $btnClose.Location = New-Object System.Drawing.Point(570, 424)
-    $btnClose.Size = New-Object System.Drawing.Size(110, 36)
+    $btnClose.Location = New-Object System.Drawing.Point(605, $yBtn)
+    $btnClose.Size = New-Object System.Drawing.Size(115, 36)
     $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $btnClose.FlatStyle = 'Flat'
     $btnClose.FlatAppearance.BorderSize = 1
-    $btnClose.Enabled = $false
     $runnerForm.Controls.Add($btnClose)
 
     $script:runnerProc = $null
     $script:runnerCancelled = $false
+    $script:runInBackground = $false
     $script:cmdStopwatch = $null
     $script:chkdskStage = 1
     $script:chkdskTotal = 3
     $script:lastProgressPct = 0
+    $script:lastLoggedProgress = -1
+
+    $calculateEta = {
+        param([double]$currentPct)
+        if ($currentPct -le 2 -or -not $script:cmdStopwatch -or $script:cmdStopwatch.Elapsed.TotalSeconds -lt 4) {
+            return "Calculating..."
+        }
+        $sec = $script:cmdStopwatch.Elapsed.TotalSeconds
+        $rate = $currentPct / $sec
+        if ($rate -le 0) { return "Estimating..." }
+        $remSec = [int]((100 - $currentPct) / $rate)
+        if ($remSec -le 0) { return "Finishing..." }
+        if ($remSec -ge 3600) {
+            return "~{0}h {1}m" -f [int]($remSec / 3600), [int](($remSec % 3600) / 60)
+        } elseif ($remSec -ge 60) {
+            return "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60)
+        } else {
+            return "~{0}s" -f $remSec
+        }
+    }
 
     $btnCopy.Add_Click({
         if ($txtOutput.Text) {
@@ -120,6 +150,9 @@ function Show-CommandRunnerDialog {
     })
 
     $btnCancel.Add_Click({
+        $confirm = PopupError "Are you sure you want to cancel and terminate this process ($Title)?" "Question" "YesNo"
+        if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
         $script:runnerCancelled = $true
         if ($script:runnerProc -and -not $script:runnerProc.HasExited) {
             try { $script:runnerProc.Kill() } catch {}
@@ -127,19 +160,42 @@ function Show-CommandRunnerDialog {
         $lblStatus.Text = "Cancelled by user."
         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
         $lblDetail.Text = "Execution aborted."
-        $pBar.MarqueeAnimationSpeed = 0
-        $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+        $pBar.IsMarquee = $false
         $pBar.Value = 0
         $btnCancel.Enabled = $false
+        $btnContinueBg.Enabled = $false
         $btnClose.Enabled = $true
         $btnCopy.Enabled = $true
     })
 
-    $btnClose.Add_Click({ $runnerForm.Close() })
+    $btnContinueBg.Add_Click({
+        $script:runInBackground = $true
+        $pollTimer.Stop()
+        $runnerForm.Close()
+    })
+
+    $btnClose.Add_Click({
+        if ($script:runnerProc -and -not $script:runnerProc.HasExited) {
+            $choice = PopupError "This process ($Title) is still running.`n`nClick 'Yes' to continue running in the background and close this window.`nClick 'No' to abort and terminate the process.`nClick 'Cancel' to keep this window open." "Question" "YesNoCancel"
+            if ($choice -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
+            if ($choice -eq [System.Windows.Forms.DialogResult]::Yes) {
+                $script:runInBackground = $true
+                $pollTimer.Stop()
+                $runnerForm.Close()
+                return
+            } else {
+                $script:runnerCancelled = $true
+                try { $script:runnerProc.Kill() } catch {}
+            }
+        }
+        $pollTimer.Stop()
+        $runnerForm.Close()
+    })
 
     $runnerForm.Add_Load({
         Invoke-HMTScale $runnerForm
         Set-RoundedControl $btnCopy
+        Set-RoundedControl $btnContinueBg
         Set-RoundedControl $btnCancel
         Set-RoundedControl $btnClose
     })
@@ -148,76 +204,81 @@ function Show-CommandRunnerDialog {
         param([string]$line)
         if ([string]::IsNullOrWhiteSpace($line)) { return }
         
-        $txtOutput.AppendText($line + "`r`n")
-        $txtOutput.SelectionStart = $txtOutput.Text.Length
-        $txtOutput.ScrollToCaret()
-
+        $lineClean = $line.Trim()
         $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
         $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
 
         # --- 1. SFC Parsing ---
-        if ($line -match 'Verification\s+(\d+)%\s+complete') {
+        if ($lineClean -match '^Verification\s+(\d+)%\s+complete') {
             $pct = [int]$matches[1]
             $script:lastProgressPct = $pct
-            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.IsMarquee = $false
             $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
             
-            $etaStr = "Estimating..."
-            if ($pct -gt 2 -and $elapsed.TotalSeconds -gt 4) {
-                $rate = $pct / $elapsed.TotalSeconds
-                $remSec = [int]((100 - $pct) / $rate)
-                $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
-            }
-            $lblStatus.Text = "Scanning and verifying system files ($pct% complete)..."
+            $etaStr = &$calculateEta $pct
+            $lblStatus.Text = "Scanning and verifying protected system files ($pct% complete)..."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $lblDetail.Text = "Verification: $pct% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+            $lblDetail.Text = "Stage: Verification ($pct%) | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+
+            # Filter repetitive % lines and only log milestones to keep the log clean
+            if ($pct -eq 100 -or ($pct % 20 -eq 0 -and $pct -ne $script:lastLoggedProgress)) {
+                $script:lastLoggedProgress = $pct
+                $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $pct% complete`r`n")
+            }
         }
-        elseif ($line -match 'Beginning system scan') {
-            $lblStatus.Text = "Initializing system scan and verification..."
-            $lblDetail.Text = "Elapsed: $elapsedStr | Preparing verification phase"
+        elseif ($lineClean -match 'Beginning system scan') {
+            $pBar.IsMarquee = $true
+            $lblStatus.Text = "Stage 1/2: Initializing system file scan..."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Preparing Windows Resource Protection"
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'Beginning verification phase') {
-            $lblStatus.Text = "Scanning protected Windows system files..."
+        elseif ($lineClean -match 'Beginning verification phase') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 0
+            $lblStatus.Text = "Stage 2/2: Verifying Windows system files..."
             $lblDetail.Text = "Elapsed: $elapsedStr | Verifying component integrity"
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'did not find any integrity violations') {
+        elseif ($lineClean -match 'did not find any integrity violations') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 100
             $lblStatus.Text = "Verification Complete: No integrity violations found."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-            $lblDetail.Text = "Elapsed: $elapsedStr | System files are healthy."
+            $lblDetail.Text = "Elapsed: $elapsedStr | All system files are intact."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'found corrupt files and successfully repaired them') {
+        elseif ($lineClean -match 'found corrupt files and successfully repaired them') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 100
             $lblStatus.Text = "Verification Complete: Corrupted files found and successfully repaired."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-            $lblDetail.Text = "Elapsed: $elapsedStr | Repairs applied successfully."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Repairs successfully applied to system."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'found corrupt files but was unable to fix some') {
+        elseif ($lineClean -match 'found corrupt files but was unable to fix some') {
             $lblStatus.Text = "Corrupted files found that could not all be repaired."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
-            $lblDetail.Text = "Elapsed: $elapsedStr | Check CBS.log for details."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Check CBS.log for detailed repair errors."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
 
         # --- 2. DISM & .NET 3.5 Feature Parsing ---
-        elseif ($line -match '\[\s*={0,}\s*(\d+(?:\.\d+)?)%\s*={0,}\s*\]' -or $line -match '(\d+(?:\.\d+)?)%\s*$') {
+        elseif ($lineClean -match '\[\s*={0,}\s*(\d+(?:\.\d+)?)%\s*={0,}\s*\]' -or $lineClean -match '^(\d+(?:\.\d+)?)%\s*$') {
             $pctFloat = [double]$matches[1]
             $pct = [int]$pctFloat
             $script:lastProgressPct = $pct
-            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.IsMarquee = $false
             $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
 
-            $etaStr = "Estimating..."
-            if ($pct -gt 5 -and $elapsed.TotalSeconds -gt 5) {
-                $rate = $pct / $elapsed.TotalSeconds
-                $remSec = [int]((100 - $pct) / $rate)
-                $etaStr = if ($remSec -ge 60) { "~{0}m {1}s" -f [int]($remSec / 60), ($remSec % 60) } else { "~{0}s" -f $remSec }
-            }
+            $etaStr = &$calculateEta $pctFloat
 
             $phaseText = "Processing component store..."
             if ($pctFloat -lt 20.0) {
-                $phaseText = "Phase 1/3: Initializing & scanning component store integrity..."
+                $phaseText = "Stage 1/3: Checking component store corruption & hash integrity..."
             } elseif ($pctFloat -lt 80.0) {
-                $phaseText = "Phase 2/3: Checking corruption & downloading repair payloads from Windows Update..."
+                $phaseText = "Stage 2/3: Restoring store & downloading repair payloads from Windows Update..."
             } elseif ($pctFloat -lt 100.0) {
-                $phaseText = "Phase 3/3: Applying component repairs to Windows image..."
+                $phaseText = "Stage 3/3: Applying component repairs to Windows system image..."
             } else {
                 $phaseText = "Finalizing component store operations..."
             }
@@ -225,67 +286,107 @@ function Show-CommandRunnerDialog {
             $lblStatus.Text = $phaseText
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
             $lblDetail.Text = "Progress: $pctFloat% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+
+            # Log clean milestone entries rather than 100+ console progress lines
+            if ($pct -eq 100 -or ($pct % 20 -eq 0 -and $pct -ne $script:lastLoggedProgress)) {
+                $script:lastLoggedProgress = $pct
+                $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Progress: $pctFloat% complete`r`n")
+            }
         }
-        elseif ($line -match 'The restore operation completed successfully|The operation completed successfully') {
+        elseif ($lineClean -match 'The restore operation completed successfully|The operation completed successfully') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 100
             $lblStatus.Text = "Operation completed successfully."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-            $lblDetail.Text = "Elapsed: $elapsedStr | Image health restored."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Image health restored successfully."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'No component store corruption detected') {
+        elseif ($lineClean -match 'No component store corruption detected') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 100
             $lblStatus.Text = "No component store corruption detected."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-            $lblDetail.Text = "Elapsed: $elapsedStr | Image is healthy."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Component store is clean and healthy."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
 
         # --- 3. CHKDSK Parsing ---
-        elseif ($line -match 'Stage\s+(\d+)\s*(?:of\s*(\d+))?:\s*([^\r\n.]+)') {
-            $stg = $matches[1]
-            $stgTot = if ($matches[2]) { $matches[2] } else { "3" }
+        elseif ($lineClean -match 'Stage\s+(\d+)\s*(?:of\s*(\d+))?:\s*([^\r\n.]+)') {
+            $stg = [int]$matches[1]
+            $stgTot = if ($matches[2]) { [int]$matches[2] } else { 3 }
             $stgDesc = $matches[3].Trim()
-            $script:chkdskStage = [int]$stg
-            $script:chkdskTotal = [int]$stgTot
+            $script:chkdskStage = $stg
+            $script:chkdskTotal = $stgTot
+            $pBar.IsMarquee = $false
+            $stageBase = [int](($stg - 1) * (100 / $stgTot))
+            $pBar.Value = $stageBase
             $lblStatus.Text = "Stage $stg of $($stgTot): $stgDesc..."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $lblDetail.Text = "Elapsed: $elapsedStr | Analyzing volume structure"
+            $lblDetail.Text = "Stage $stg/$stgTot | Elapsed: $elapsedStr | Analyzing file system structure"
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Stage $stg of $($stgTot): $stgDesc`r`n")
         }
-        elseif ($line -match '(\d+)\s*(?:percent|%)\s*complete') {
+        elseif ($lineClean -match '(\d+)\s*(?:percent|%)\s*complete') {
             $stgPct = [int]$matches[1]
             $stg = if ($script:chkdskStage) { $script:chkdskStage } else { 1 }
             $stgTot = if ($script:chkdskTotal) { $script:chkdskTotal } else { 3 }
             $overallPct = [int]((($stg - 1) * (100 / $stgTot)) + ($stgPct / $stgTot))
-            $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $pBar.IsMarquee = $false
             $pBar.Value = [math]::Max(0, [math]::Min(100, $overallPct))
-            $lblDetail.Text = "Stage $stg/$($stgTot): $stgPct% (Overall: ~$overallPct%) | Elapsed: $elapsedStr"
+            $etaStr = &$calculateEta $overallPct
+            $lblDetail.Text = "Stage $stg/$stgTot ($stgPct%) | Overall: ~$overallPct% | Elapsed: $elapsedStr | Est. Remaining: $etaStr"
+
+            if ($stgPct % 25 -eq 0 -and $stgPct -ne $script:lastLoggedProgress) {
+                $script:lastLoggedProgress = $stgPct
+                $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Stage $($stg): $stgPct% complete (Overall: ~$overallPct%)`r`n")
+            }
         }
-        elseif ($line -match 'The type of the file system is\s+(\w+)') {
-            $lblDetail.Text = "File System: $($matches[1]) | Initializing scan..."
+        elseif ($lineClean -match 'The type of the file system is\s+(\w+)') {
+            $lblDetail.Text = "File System: $($matches[1]) | Initializing volume check..."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
-        elseif ($line -match 'Windows has scanned the file system and found no problems') {
-            $lblStatus.Text = "Check Disk Complete: No problems found."
+        elseif ($lineClean -match 'Windows has scanned the file system and found no problems') {
+            $pBar.IsMarquee = $false
+            $pBar.Value = 100
+            $lblStatus.Text = "Check Disk Complete: No file system problems found."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-            $lblDetail.Text = "Elapsed: $elapsedStr | File system is clean."
+            $lblDetail.Text = "Elapsed: $elapsedStr | Volume is clean and consistent."
+            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
         }
+        else {
+            # Standard diagnostic log line
+            $txtOutput.AppendText($line + "`r`n")
+        }
+
+        $txtOutput.SelectionStart = $txtOutput.Text.Length
+        $txtOutput.ScrollToCaret()
     }
+
+    $script:cmdOutputQueue = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
 
     $pollTimer = New-Object System.Windows.Forms.Timer
     $pollTimer.Interval = 40
     $pollTimer.Add_Tick({
-        if ($null -ne $script:runnerProc) {
-            try {
-                while (-not $script:runnerProc.StandardOutput.EndOfStream) {
-                    $l = $script:runnerProc.StandardOutput.ReadLine()
-                    &$processLine $l
+        if ($null -ne $script:cmdOutputQueue) {
+            $line = $null
+            while ($script:cmdOutputQueue.TryDequeue([ref]$line)) {
+                if ($null -ne $line) {
+                    &$processLine $line
                 }
-                while (-not $script:runnerProc.StandardError.EndOfStream) {
-                    $l = $script:runnerProc.StandardError.ReadLine()
-                    &$processLine $l
-                }
-            } catch {}
+            }
+        }
 
+        if ($null -ne $script:runnerProc) {
             if ($script:runnerProc.HasExited -or $script:runnerCancelled) {
+                # Drain any remaining output lines
+                if ($null -ne $script:cmdOutputQueue) {
+                    $remLine = $null
+                    while ($script:cmdOutputQueue.TryDequeue([ref]$remLine)) {
+                        if ($null -ne $remLine) { &$processLine $remLine }
+                    }
+                }
+
                 $pollTimer.Stop()
-                $pBar.MarqueeAnimationSpeed = 0
-                $pBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+                $pBar.IsMarquee = $false
                 $pBar.Value = 100
                 $elapsed = if ($script:cmdStopwatch) { $script:cmdStopwatch.Elapsed } else { [timespan]::Zero }
                 $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
@@ -304,6 +405,7 @@ function Show-CommandRunnerDialog {
                 }
 
                 $btnCancel.Enabled = $false
+                $btnContinueBg.Enabled = $false
                 $btnClose.Enabled = $true
                 $btnCopy.Enabled = $true
             }
@@ -330,15 +432,28 @@ function Show-CommandRunnerDialog {
 
         $script:runnerProc = New-Object System.Diagnostics.Process
         $script:runnerProc.StartInfo = $psi
+        $script:runnerProc.EnableRaisingEvents = $true
+
+        $outHandler = [System.Diagnostics.DataReceivedEventHandler]{
+            param($s, $e)
+            if ($null -ne $e.Data -and $null -ne $script:cmdOutputQueue) {
+                $script:cmdOutputQueue.Enqueue($e.Data)
+            }
+        }
+        $script:runnerProc.add_OutputDataReceived($outHandler)
+        $script:runnerProc.add_ErrorDataReceived($outHandler)
 
         try {
             $script:runnerProc.Start() | Out-Null
+            $script:runnerProc.BeginOutputReadLine()
+            $script:runnerProc.BeginErrorReadLine()
             $pollTimer.Start()
         } catch {
             $lblStatus.Text = "Execution failed: $_"
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
             $txtOutput.AppendText("`r`nError starting process: $_`r`n")
             $btnCancel.Enabled = $false
+            $btnContinueBg.Enabled = $false
             $btnClose.Enabled = $true
             $btnCopy.Enabled = $true
         }
@@ -347,12 +462,12 @@ function Show-CommandRunnerDialog {
     $runnerForm.Add_FormClosing({
         $pollTimer.Stop()
         $pollTimer.Dispose()
-        if ($script:runnerProc -and -not $script:runnerProc.HasExited) {
+        if (-not $script:runInBackground -and $script:runnerProc -and -not $script:runnerProc.HasExited) {
             try { $script:runnerProc.Kill() } catch {}
         }
     })
 
-    Show-HMTDialog $runnerForm | Out-Null
+    Show-HMTWindow $runnerForm | Out-Null
 }
 
 # ==============================================================================
@@ -423,6 +538,8 @@ function Show-SpeedTestDialog {
     $valJitter = &$createCard "JITTER" "-- ms" 162 152
     $valDownload = &$createCard "DOWNLOAD" "-- Mbps" 324 152
     $valUpload = &$createCard "UPLOAD" "-- Mbps" 486 152
+    $valDownload.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#00A8FC")
+    $valUpload.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#BD00FF")
 
     # Status / Phase Indicator
     $lblCurrentPhase = New-Object System.Windows.Forms.Label
@@ -439,8 +556,8 @@ function Show-SpeedTestDialog {
     $smoothChart.Location = New-Object System.Drawing.Point(20, 155)
     $smoothChart.Size = New-Object System.Drawing.Size(640, 220)
     $smoothChart.UnitLabel = "Mbps"
-    $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $smoothChart.MaxPoints = 80
+    $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#00A8FC")
+    $smoothChart.MaxPoints = 250
     $stForm.Controls.Add($smoothChart)
 
     # Settings Row
@@ -452,14 +569,11 @@ function Show-SpeedTestDialog {
     $lblStreams.AutoSize = $true
     $stForm.Controls.Add($lblStreams)
 
-    $cmbStreams = New-Object System.Windows.Forms.ComboBox
-    $cmbStreams.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbStreams = New-Object HMT.Tools.DarkComboBox
     $cmbStreams.Items.AddRange(@("2 Streams", "4 Streams (Recommended)", "8 Streams", "16 Streams (Gigabit+)"))
     $cmbStreams.SelectedIndex = 1
     $cmbStreams.Location = New-Object System.Drawing.Point(85, $yBot)
     $cmbStreams.Size = New-Object System.Drawing.Size(200, 26)
-    $cmbStreams.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $cmbStreams.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $stForm.Controls.Add($cmbStreams)
 
     # Buttons
@@ -564,18 +678,18 @@ function Show-SpeedTestDialog {
 
         if (-not $script:stRunning) { return }
 
-        # --- Phase 2: Download Test ---
+        # --- Phase 2: Download Test (Blue #00A8FC) ---
+        $colorBlue = [System.Drawing.ColorTranslator]::FromHtml("#00A8FC")
         $lblCurrentPhase.Text = "Testing Download Speed ($streamCount streams)..."
-        $lblCurrentPhase.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-        $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+        $lblCurrentPhase.ForeColor = $colorBlue
 
-        $downUrl = "https://speed.cloudflare.com/__down?bytes=50000000"
-        $script:stEngine.StartDownloadTest($downUrl, $streamCount, 9)
+        $downUrl = "https://speed.cloudflare.com/__down"
+        $script:stEngine.StartDownloadTest($downUrl, $streamCount, 6, 14)
 
         while (-not $script:stEngine.IsFinished) {
             $sample = $script:stEngine.CurrentSample
             if ($null -ne $sample) {
-                $smoothChart.AddPoint($sample.CurrentMbps)
+                $smoothChart.AddPoint($sample.CurrentMbps, $colorBlue)
                 $valDownload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
                 $lblCurrentPhase.Text = "Downloading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
             }
@@ -584,26 +698,27 @@ function Show-SpeedTestDialog {
             if (-not $script:stRunning) { break }
         }
 
+        $finalDownMbps = 0
         if ($script:stEngine.Result) {
-            $valDownload.Text = "$([math]::Round($script:stEngine.Result.AverageMbps, 1)) Mbps"
+            $finalDownMbps = $script:stEngine.Result.AverageMbps
+            $valDownload.Text = "$([math]::Round($finalDownMbps, 1)) Mbps"
         }
 
         if (-not $script:stRunning) { return }
-        Start-Sleep -Milliseconds 400
-        $smoothChart.Clear()
+        Start-Sleep -Milliseconds 300
 
-        # --- Phase 3: Upload Test ---
+        # --- Phase 3: Upload Test (Purple #BD00FF) ---
+        $colorPurple = [System.Drawing.ColorTranslator]::FromHtml("#BD00FF")
         $lblCurrentPhase.Text = "Testing Upload Speed ($streamCount streams)..."
-        $lblCurrentPhase.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
-        $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
+        $lblCurrentPhase.ForeColor = $colorPurple
 
         $upUrl = "https://speed.cloudflare.com/__up"
-        $script:stEngine.StartUploadTest($upUrl, $streamCount, 8)
+        $script:stEngine.StartUploadTest($upUrl, $streamCount, 6, 14)
 
         while (-not $script:stEngine.IsFinished) {
             $sample = $script:stEngine.CurrentSample
             if ($null -ne $sample) {
-                $smoothChart.AddPoint($sample.CurrentMbps)
+                $smoothChart.AddPoint($sample.CurrentMbps, $colorPurple)
                 $valUpload.Text = "$([math]::Round($sample.AverageMbps, 1)) Mbps"
                 $lblCurrentPhase.Text = "Uploading ($([math]::Round($sample.CurrentMbps, 1)) Mbps) | Total: $([math]::Round($sample.TotalBytesTransferred / 1MB, 1)) MB"
             }
@@ -612,11 +727,13 @@ function Show-SpeedTestDialog {
             if (-not $script:stRunning) { break }
         }
 
+        $finalUpMbps = 0
         if ($script:stEngine.Result) {
-            $valUpload.Text = "$([math]::Round($script:stEngine.Result.AverageMbps, 1)) Mbps"
+            $finalUpMbps = $script:stEngine.Result.AverageMbps
+            $valUpload.Text = "$([math]::Round($finalUpMbps, 1)) Mbps"
         }
 
-        # --- Finished ---
+        # --- Finished (Both curves remain viewable on graph) ---
         $script:stRunning = $false
         $btnStart.Text = "Test Again"
         $cmbStreams.Enabled = $true
@@ -644,7 +761,7 @@ function Show-SpeedTestDialog {
         &$detectServer
     })
 
-    Show-HMTDialog $stForm | Out-Null
+    Show-HMTWindow $stForm | Out-Null
 }
 
 # ==============================================================================
@@ -788,7 +905,7 @@ function Show-TcpCheckerDialog {
         Set-RoundedControl $btnClose
     })
 
-    Show-HMTDialog $tcpForm | Out-Null
+    Show-HMTWindow $tcpForm | Out-Null
 }
 
 # ==============================================================================
@@ -818,12 +935,9 @@ function Show-StorageHealthDialog {
     $lblSelDrive.AutoSize = $true
     $shForm.Controls.Add($lblSelDrive)
 
-    $cmbDrives = New-Object System.Windows.Forms.ComboBox
-    $cmbDrives.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbDrives = New-Object HMT.Tools.DarkComboBox
     $cmbDrives.Location = New-Object System.Drawing.Point(160, 11)
     $cmbDrives.Size = New-Object System.Drawing.Size(530, 26)
-    $cmbDrives.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $cmbDrives.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $shForm.Controls.Add($cmbDrives)
 
     $btnRefresh = New-Object System.Windows.Forms.Button
@@ -836,7 +950,7 @@ function Show-StorageHealthDialog {
     $shForm.Controls.Add($btnRefresh)
 
     # Tab Control
-    $shTabs = New-Object System.Windows.Forms.TabControl
+    $shTabs = New-Object HMT.Tools.DarkTabControl
     $shTabs.Location = New-Object System.Drawing.Point(20, 48)
     $shTabs.Size = New-Object System.Drawing.Size(800, 455)
     $shTabs.Font = $font
@@ -893,14 +1007,9 @@ function Show-StorageHealthDialog {
     $cardPanel.Controls.Add($lblCardWear)
 
     # Physical Disks Table
-    $shLV = New-Object System.Windows.Forms.ListView
+    $shLV = New-Object HMT.Tools.DarkListView
     $shLV.Location = New-Object System.Drawing.Point(15, 98)
     $shLV.Size = New-Object System.Drawing.Size(765, 310)
-    $shLV.View = [System.Windows.Forms.View]::Details
-    $shLV.FullRowSelect = $true
-    $shLV.GridLines = $true
-    $shLV.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $shLV.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $shLV.Columns.Add("Disk #", 55) | Out-Null
     $shLV.Columns.Add("Model", 210) | Out-Null
     $shLV.Columns.Add("Bus / Type", 100) | Out-Null
@@ -909,7 +1018,6 @@ function Show-StorageHealthDialog {
     $shLV.Columns.Add("Wearout", 70) | Out-Null
     $shLV.Columns.Add("Total Writes", 95) | Out-Null
     $shLV.Columns.Add("Health", 80) | Out-Null
-    [HMT.NativeMethods]::SetWindowTheme($shLV.Handle, "DarkMode_Explorer", $null) | Out-Null
     $tabHealth.Controls.Add($shLV)
 
     # ---------------- TAB 2: Drive Speed Benchmark ----------------
@@ -925,12 +1033,9 @@ function Show-StorageHealthDialog {
     $lblBenchTarget.AutoSize = $true
     $tabBench.Controls.Add($lblBenchTarget)
 
-    $cmbBenchTarget = New-Object System.Windows.Forms.ComboBox
-    $cmbBenchTarget.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbBenchTarget = New-Object HMT.Tools.DarkComboBox
     $cmbBenchTarget.Location = New-Object System.Drawing.Point(125, 11)
     $cmbBenchTarget.Size = New-Object System.Drawing.Size(150, 26)
-    $cmbBenchTarget.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $cmbBenchTarget.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $tabBench.Controls.Add($cmbBenchTarget)
 
     $lblBenchSize = New-Object System.Windows.Forms.Label
@@ -940,14 +1045,11 @@ function Show-StorageHealthDialog {
     $lblBenchSize.AutoSize = $true
     $tabBench.Controls.Add($lblBenchSize)
 
-    $cmbBenchSize = New-Object System.Windows.Forms.ComboBox
-    $cmbBenchSize.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbBenchSize = New-Object HMT.Tools.DarkComboBox
     $cmbBenchSize.Items.AddRange(@("100 MB (Quick)", "250 MB (Standard)", "500 MB (Thorough)", "1 GB (Extended)"))
     $cmbBenchSize.SelectedIndex = 1
     $cmbBenchSize.Location = New-Object System.Drawing.Point(360, 11)
     $cmbBenchSize.Size = New-Object System.Drawing.Size(160, 26)
-    $cmbBenchSize.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $cmbBenchSize.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $tabBench.Controls.Add($cmbBenchSize)
 
     $btnBenchStart = New-Object System.Windows.Forms.Button
@@ -1192,7 +1294,7 @@ function Show-StorageHealthDialog {
         }
 
         $btnBenchStart.Enabled = $false
-        $btnBenchCancel.Enabled = $true
+        $btnBenchCancel.Enabled = true
         $cmbBenchTarget.Enabled = $false
         $cmbBenchSize.Enabled = $false
         $benchGraph.Clear()
@@ -1260,7 +1362,7 @@ function Show-StorageHealthDialog {
         &$populateDisks
     })
 
-    Show-HMTDialog $shForm | Out-Null
+    Show-HMTWindow $shForm | Out-Null
 }
 
 # ==============================================================================
@@ -1270,7 +1372,7 @@ function Show-PacketLossTestDialog {
     $pltForm = New-Object System.Windows.Forms.Form
     $pltForm.Text = "Packet Loss & Latency Precision Tester"
     $pltForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $pltForm.ClientSize = New-Object System.Drawing.Size(780, 560)
+    $pltForm.ClientSize = New-Object System.Drawing.Size(780, 455)
     $pltForm.StartPosition = 'CenterScreen'
     if ($HMTIcon) { $pltForm.Icon = $HMTIcon }
     $pltForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1442,30 +1544,18 @@ function Show-PacketLossTestDialog {
     $valLoss = &$createKpiCard "PACKET LOSS" "0.0%" 376 178
     $valPackets = &$createKpiCard "PACKETS (RECV / LOST)" "0 / 0" 564 176
 
-    # Smooth GDI+ Double-Buffered Ping Graph
+    # Smooth GDI+ Double-Buffered Ping Graph with Dynamic Latency Gradient
     $y += 78
     $pingGraph = New-Object HMT.Tools.SmoothGraphControl
     $pingGraph.Location = New-Object System.Drawing.Point(20, $y)
-    $pingGraph.Size = New-Object System.Drawing.Size(740, 180)
+    $pingGraph.Size = New-Object System.Drawing.Size(740, 225)
     $pingGraph.UnitLabel = "ms"
     $pingGraph.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+    $pingGraph.UseDynamicLatencyColors = $true
     $pingGraph.MaxPoints = 100
     $pltForm.Controls.Add($pingGraph)
 
-    # Real-Time Packet Event Log Box
-    $y += 188
-    $txtLog = New-Object System.Windows.Forms.TextBox
-    $txtLog.Location = New-Object System.Drawing.Point(20, $y)
-    $txtLog.Size = New-Object System.Drawing.Size(740, 110)
-    $txtLog.Multiline = $true
-    $txtLog.ReadOnly = $true
-    $txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
-    $txtLog.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1f22")
-    $txtLog.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $txtLog.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-    $pltForm.Controls.Add($txtLog)
-
-    $y += 120
+    $y += 238
     $btnClose = New-Object System.Windows.Forms.Button
     $btnClose.Location = New-Object System.Drawing.Point(645, $y)
     $btnClose.Size = New-Object System.Drawing.Size(115, 36)
@@ -1508,8 +1598,8 @@ function Show-PacketLossTestDialog {
         $txtPps.Enabled = $false
         $txtSize.Enabled = $false
         $txtDuration.Enabled = $false
+        $pingGraph.MaxPoints = [math]::Max(60, ($pps * 60))
         $pingGraph.Clear()
-        $txtLog.Clear()
 
         $script:pingEngine.Start($hostVal, $pps, $sz, $dur)
         $pingTimer.Start()
@@ -1528,7 +1618,6 @@ function Show-PacketLossTestDialog {
                         $valJitter.Text = "$([math]::Round($s.JitterMs, 1)) ms"
                     } else {
                         $pingGraph.AddPoint(0)
-                        $txtLog.AppendText("[$($s.Timestamp.ToString('HH:mm:ss.fff'))] PACKET DROP #$($s.Sequence): $($s.ErrorMessage)`r`n")
                     }
                 }
 
@@ -1554,10 +1643,6 @@ function Show-PacketLossTestDialog {
                 $txtPps.Enabled = $true
                 $txtSize.Enabled = $true
                 $txtDuration.Enabled = $true
-                $finalSum = $script:pingEngine.GetSummary()
-                if ($finalSum) {
-                    $txtLog.AppendText("`r`n--- Test Complete: $($finalSum.TotalSent) Sent, $($finalSum.TotalReceived) Recv, $($finalSum.TotalLost) Lost ($([math]::Round($finalSum.LossPercent, 1))% loss) ---`r`n")
-                }
             }
         }
     })
@@ -1584,7 +1669,7 @@ function Show-PacketLossTestDialog {
         Set-RoundedControl $btnClose
     })
 
-    Show-HMTDialog $pltForm | Out-Null
+    Show-HMTWindow $pltForm | Out-Null
 }
 
 # ==============================================================================
@@ -1614,12 +1699,9 @@ function Show-BitLockerManagerDialog {
     $lblSelectDrive.AutoSize = $true
     $blForm.Controls.Add($lblSelectDrive)
 
-    $cmbDrives = New-Object System.Windows.Forms.ComboBox
-    $cmbDrives.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbDrives = New-Object HMT.Tools.DarkComboBox
     $cmbDrives.Location = New-Object System.Drawing.Point(170, 14)
     $cmbDrives.Size = New-Object System.Drawing.Size(430, 26)
-    $cmbDrives.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $cmbDrives.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $blForm.Controls.Add($cmbDrives)
 
     $btnRefresh = New-Object System.Windows.Forms.Button
@@ -1718,19 +1800,12 @@ function Show-BitLockerManagerDialog {
     $btnSaveKey.FlatAppearance.BorderSize = 1
     $blForm.Controls.Add($btnSaveKey)
 
-    $lvProtectors = New-Object System.Windows.Forms.ListView
+    $lvProtectors = New-Object HMT.Tools.DarkListView
     $lvProtectors.Location = New-Object System.Drawing.Point(20, 192)
     $lvProtectors.Size = New-Object System.Drawing.Size(720, 85)
-    $lvProtectors.View = [System.Windows.Forms.View]::Details
-    $lvProtectors.FullRowSelect = $true
-    $lvProtectors.GridLines = $true
-    $lvProtectors.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $lvProtectors.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lvProtectors.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $lvProtectors.Columns.Add("Protector Type", 180) | Out-Null
     $lvProtectors.Columns.Add("Key / Details", 410) | Out-Null
     $lvProtectors.Columns.Add("ID", 110) | Out-Null
-    [HMT.NativeMethods]::SetWindowTheme($lvProtectors.Handle, "DarkMode_Explorer", $null) | Out-Null
     $blForm.Controls.Add($lvProtectors)
 
     # Section 2: Unlock Mechanism (Visible/Enabled when drive is locked)
@@ -1748,14 +1823,11 @@ function Show-BitLockerManagerDialog {
     $lblUnlockMethod.Size = New-Object System.Drawing.Size(120, 18)
     $unlockPanel.Controls.Add($lblUnlockMethod)
 
-    $cmbUnlockMethod = New-Object System.Windows.Forms.ComboBox
-    $cmbUnlockMethod.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbUnlockMethod = New-Object HMT.Tools.DarkComboBox
     $cmbUnlockMethod.Items.AddRange(@("Recovery Password (48-digit)", "Password / Passphrase", "PIN"))
     $cmbUnlockMethod.SelectedIndex = 0
     $cmbUnlockMethod.Location = New-Object System.Drawing.Point(10, 28)
     $cmbUnlockMethod.Size = New-Object System.Drawing.Size(210, 26)
-    $cmbUnlockMethod.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $cmbUnlockMethod.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $unlockPanel.Controls.Add($cmbUnlockMethod)
 
     $lblUnlockInput = New-Object System.Windows.Forms.Label
@@ -1768,7 +1840,7 @@ function Show-BitLockerManagerDialog {
     $txtUnlockSecret = New-Object System.Windows.Forms.TextBox
     $txtUnlockSecret.Location = New-Object System.Drawing.Point(235, 28)
     $txtUnlockSecret.Size = New-Object System.Drawing.Size(350, 25)
-    $txtUnlockSecret.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $txtUnlockSecret.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
     $txtUnlockSecret.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $unlockPanel.Controls.Add($txtUnlockSecret)
 
@@ -1802,9 +1874,10 @@ function Show-BitLockerManagerDialog {
     $pBar.BorderRadius = 5
     $pBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
     $pBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $pBar.ShowShimmer = $true
+    $pBar.ShowShimmer = $false
     $pBar.Minimum = 0
     $pBar.Maximum = 100
+    $pBar.Value = 0
     $progPanel.Controls.Add($pBar)
 
     $btnContinueBg = New-Object System.Windows.Forms.Button
@@ -1814,6 +1887,7 @@ function Show-BitLockerManagerDialog {
     $btnContinueBg.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $btnContinueBg.FlatStyle = 'Flat'
     $btnContinueBg.FlatAppearance.BorderSize = 1
+    $btnContinueBg.Enabled = $false
     $progPanel.Controls.Add($btnContinueBg)
 
     $btnPauseResume = New-Object System.Windows.Forms.Button
@@ -1823,6 +1897,7 @@ function Show-BitLockerManagerDialog {
     $btnPauseResume.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $btnPauseResume.FlatStyle = 'Flat'
     $btnPauseResume.FlatAppearance.BorderSize = 1
+    $btnPauseResume.Enabled = $false
     $progPanel.Controls.Add($btnPauseResume)
 
     # Section 4: Main Action Buttons
@@ -1926,6 +2001,14 @@ function Show-BitLockerManagerDialog {
                 if ($latest) { $v = $latest; $script:selectedVolume = $latest }
             } catch {}
 
+            $convStatus = "Full Volume"
+            try {
+                $bdeOut = & "$env:WINDIR\System32\manage-bde.exe" -status $mp 2>&1
+                if ($bdeOut -match "Conversion Status:\s*(.*)") {
+                    $convStatus = $matches[1].Trim()
+                }
+            } catch {}
+
             $lblCardVol.Text = "Volume: $mp ($($v.VolumeType))"
             $lblCardStatus.Text = "Status: $($v.VolumeStatus)"
             $lblCardLock.Text = "Lock: $($v.LockStatus)"
@@ -1933,7 +2016,7 @@ function Show-BitLockerManagerDialog {
             $lblCardProt.Text = "Protection: $($v.ProtectionStatus)"
             $lblCardMethod.Text = "Algorithm: $($v.EncryptionMethod)"
             $pct = if ($null -ne $v.EncryptionPercentage) { $v.EncryptionPercentage } else { 0 }
-            $lblCardPct.Text = "Encrypted: $pct%"
+            $lblCardPct.Text = "Encrypted: $pct% ($convStatus)"
 
             # Key Protectors & Recovery Key Extraction
             $lvProtectors.Items.Clear()
@@ -1975,10 +2058,16 @@ function Show-BitLockerManagerDialog {
             if ($isInProgress) {
                 $lblProgStatus.Text = "$($v.VolumeStatus) on $mp ($pct% Complete)..."
                 $pBar.Value = [math]::Max(0, [math]::Min(100, [int]$pct))
+                $pBar.ShowShimmer = $true
+                $btnContinueBg.Enabled = $true
+                $btnPauseResume.Enabled = $true
                 $pollTimer.Start()
             } else {
                 $lblProgStatus.Text = "Operation Status: Idle ($($v.VolumeStatus))"
-                $pBar.Value = [math]::Max(0, [math]::Min(100, [int]$pct))
+                $pBar.Value = 0
+                $pBar.ShowShimmer = $false
+                $btnContinueBg.Enabled = $false
+                $btnPauseResume.Enabled = $false
                 $pollTimer.Stop()
             }
 
@@ -2086,15 +2175,24 @@ Store this recovery password in a secure, confidential location.
         if (-not $script:selectedVolume) { return }
         $mp = $script:selectedVolume.MountPoint
         
-        $confirm = PopupError "Are you sure you want to enable BitLocker encryption on volume $mp?`n`nA recovery password protector will be generated automatically." "Question" "YesNo"
-        if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        $modeChoice = PopupError "Choose BitLocker Encryption Mode for $($mp):`n`nClick 'Yes' for Used Space Only (Faster - recommended for clean/new PCs)`nClick 'No' for Full Volume Encryption (Thorough - recommended for active PCs)`nClick 'Cancel' to abort." "Question" "YesNoCancel"
+        if ($modeChoice -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
+        $usedOnly = ($modeChoice -eq [System.Windows.Forms.DialogResult]::Yes)
 
         try {
             $isOs = ($script:selectedVolume.VolumeType -eq 'OperatingSystem')
             if ($isOs) {
-                Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes128 -UsedSpaceOnly -TpmProtector -RecoveryPasswordProtector -ErrorAction Stop
+                if ($usedOnly) {
+                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector -RecoveryPasswordProtector -ErrorAction Stop
+                } else {
+                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -TpmProtector -RecoveryPasswordProtector -ErrorAction Stop
+                }
             } else {
-                Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector -ErrorAction Stop
+                if ($usedOnly) {
+                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -RecoveryPasswordProtector -ErrorAction Stop
+                } else {
+                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -ErrorAction Stop
+                }
             }
             PopupError "BitLocker encryption initiated on $mp!`n`nPlease view and save your Recovery Key." "Information"
             &$refreshVolumes
@@ -2182,7 +2280,7 @@ Store this recovery password in a secure, confidential location.
         &$refreshVolumes
     })
 
-    Show-HMTDialog $blForm | Out-Null
+    Show-HMTWindow $blForm | Out-Null
 }
 
 # ==============================================================================
@@ -2204,17 +2302,31 @@ function Show-StartupManagerDialog {
     $suForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
     Set-DarkTitleBar -TargetForm $suForm
 
-    # Header / Search Filter
+    # Header / Search Filter & Category Row
+    $lblCategory = New-Object System.Windows.Forms.Label
+    $lblCategory.Text = "Category:"
+    $lblCategory.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblCategory.Location = New-Object System.Drawing.Point(20, 15)
+    $lblCategory.AutoSize = $true
+    $suForm.Controls.Add($lblCategory)
+
+    $cmbCategory = New-Object HMT.Tools.DarkComboBox
+    $cmbCategory.Items.AddRange(@("All Categories", "Registry Run (HKCU/HKLM)", "Startup Folders (Shell)", "Logon Scheduled Tasks", "Shell & Winlogon Extensions", "Startup Services"))
+    $cmbCategory.SelectedIndex = 0
+    $cmbCategory.Location = New-Object System.Drawing.Point(85, 11)
+    $cmbCategory.Size = New-Object System.Drawing.Size(200, 26)
+    $suForm.Controls.Add($cmbCategory)
+
     $lblSearch = New-Object System.Windows.Forms.Label
-    $lblSearch.Text = "Filter / Search:"
+    $lblSearch.Text = "Filter:"
     $lblSearch.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblSearch.Location = New-Object System.Drawing.Point(20, 15)
+    $lblSearch.Location = New-Object System.Drawing.Point(295, 15)
     $lblSearch.AutoSize = $true
     $suForm.Controls.Add($lblSearch)
 
     $txtSearch = New-Object System.Windows.Forms.TextBox
-    $txtSearch.Location = New-Object System.Drawing.Point(120, 12)
-    $txtSearch.Size = New-Object System.Drawing.Size(260, 25)
+    $txtSearch.Location = New-Object System.Drawing.Point(340, 12)
+    $txtSearch.Size = New-Object System.Drawing.Size(180, 25)
     $txtSearch.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
     $txtSearch.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $suForm.Controls.Add($txtSearch)
@@ -2222,26 +2334,20 @@ function Show-StartupManagerDialog {
     $lblSummary = New-Object System.Windows.Forms.Label
     $lblSummary.Text = "Total Items: 0 (Enabled: 0, Disabled: 0)"
     $lblSummary.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblSummary.Location = New-Object System.Drawing.Point(400, 15)
-    $lblSummary.Size = New-Object System.Drawing.Size(420, 20)
+    $lblSummary.Location = New-Object System.Drawing.Point(525, 15)
+    $lblSummary.Size = New-Object System.Drawing.Size(295, 20)
     $lblSummary.TextAlign = 'MiddleRight'
     $suForm.Controls.Add($lblSummary)
 
     # Startup Items ListView
-    $lvStartup = New-Object System.Windows.Forms.ListView
+    $lvStartup = New-Object HMT.Tools.DarkListView
     $lvStartup.Location = New-Object System.Drawing.Point(20, 45)
     $lvStartup.Size = New-Object System.Drawing.Size(800, 445)
-    $lvStartup.View = [System.Windows.Forms.View]::Details
-    $lvStartup.FullRowSelect = $true
-    $lvStartup.GridLines = $true
-    $lvStartup.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $lvStartup.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lvStartup.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $lvStartup.Columns.Add("Program Name", 180) | Out-Null
-    $lvStartup.Columns.Add("Command Line / Target", 340) | Out-Null
-    $lvStartup.Columns.Add("Location", 170) | Out-Null
-    $lvStartup.Columns.Add("Status", 90) | Out-Null
-    [HMT.NativeMethods]::SetWindowTheme($lvStartup.Handle, "DarkMode_Explorer", $null) | Out-Null
+    $lvStartup.Columns.Add("Category", 130) | Out-Null
+    $lvStartup.Columns.Add("Command Line / Target", 290) | Out-Null
+    $lvStartup.Columns.Add("Location", 130) | Out-Null
+    $lvStartup.Columns.Add("Status", 70) | Out-Null
     $suForm.Controls.Add($lvStartup)
 
     # Buttons Row
@@ -2320,6 +2426,7 @@ function Show-StartupManagerDialog {
                         $st = &$checkApproved $hkcuApprPath $prop.Name
                         $script:startupData += [pscustomobject]@{
                             Name = $prop.Name
+                            Category = "Registry Run"
                             Command = [string]$prop.Value
                             Location = "HKCU Run"
                             Type = "Registry"
@@ -2343,6 +2450,7 @@ function Show-StartupManagerDialog {
                         $st = &$checkApproved $hklmApprPath $prop.Name
                         $script:startupData += [pscustomobject]@{
                             Name = $prop.Name
+                            Category = "Registry Run"
                             Command = [string]$prop.Value
                             Location = "HKLM Run"
                             Type = "Registry"
@@ -2366,6 +2474,7 @@ function Show-StartupManagerDialog {
                         $st = &$checkApproved $hklm32ApprPath $prop.Name
                         $script:startupData += [pscustomobject]@{
                             Name = $prop.Name
+                            Category = "Registry Run"
                             Command = [string]$prop.Value
                             Location = "HKLM Run (32-bit)"
                             Type = "Registry"
@@ -2388,6 +2497,7 @@ function Show-StartupManagerDialog {
                 $st = if ($isDisabled) { "Disabled" } else { &$checkApproved $userApprFolder $f.Name }
                 $script:startupData += [pscustomobject]@{
                     Name = $f.Name
+                    Category = "Startup Folder"
                     Command = $f.FullName
                     Location = "User Startup Folder"
                     Type = "File"
@@ -2408,6 +2518,7 @@ function Show-StartupManagerDialog {
                 $st = if ($isDisabled) { "Disabled" } else { &$checkApproved $commonApprFolder $f.Name }
                 $script:startupData += [pscustomobject]@{
                     Name = $f.Name
+                    Category = "Startup Folder"
                     Command = $f.FullName
                     Location = "All Users Startup Folder"
                     Type = "File"
@@ -2418,28 +2529,106 @@ function Show-StartupManagerDialog {
             }
         }
 
+        # 6. Scheduled Tasks (Logon Triggers)
+        try {
+            $tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+                $_.Triggers.CimClass.CimClassName -match 'Logon|Boot|Startup' -and $_.TaskPath -notlike '\Microsoft\Windows\*'
+            }
+            foreach ($t in $tasks) {
+                $actionExec = ($t.Actions | Select-Object -First 1).Execute
+                $script:startupData += [pscustomobject]@{
+                    Name = $t.TaskName
+                    Category = "Scheduled Task"
+                    Command = [string]$actionExec
+                    Location = $t.TaskPath
+                    Type = "Task"
+                    TaskName = $t.TaskName
+                    TaskPath = $t.TaskPath
+                    Status = if ($t.State -eq 'Disabled') { "Disabled" } else { "Enabled" }
+                }
+            }
+        } catch {}
+
+        # 7. Shell & Winlogon Extensions
+        $winlogonPath = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon"
+        try {
+            $wl = Get-ItemProperty -Path $winlogonPath -ErrorAction SilentlyContinue
+            if ($wl.Userinit) {
+                $script:startupData += [pscustomobject]@{
+                    Name = "Userinit"
+                    Category = "Shell / Winlogon"
+                    Command = [string]$wl.Userinit
+                    Location = "HKLM Winlogon"
+                    Type = "Winlogon"
+                    RegPath = $winlogonPath
+                    Status = "Enabled"
+                }
+            }
+            if ($wl.Shell -and $wl.Shell -ne "explorer.exe") {
+                $script:startupData += [pscustomobject]@{
+                    Name = "Custom Shell"
+                    Category = "Shell / Winlogon"
+                    Command = [string]$wl.Shell
+                    Location = "HKLM Winlogon"
+                    Type = "Winlogon"
+                    RegPath = $winlogonPath
+                    Status = "Enabled"
+                }
+            }
+        } catch {}
+
+        # 8. Startup Services (Auto-start 3rd party services)
+        try {
+            $services = Get-CimInstance -ClassName Win32_Service -Filter "StartMode = 'Auto'" -ErrorAction SilentlyContinue | Where-Object {
+                $_.PathName -and $_.PathName -notlike "*Windows\System32\svchost.exe*" -and $_.PathName -notlike "*Windows\System32\*"
+            }
+            foreach ($svc in $services) {
+                $script:startupData += [pscustomobject]@{
+                    Name = $svc.DisplayName
+                    Category = "Startup Service"
+                    Command = [string]$svc.PathName
+                    Location = "Services ($($svc.Name))"
+                    Type = "Service"
+                    ServiceName = $svc.Name
+                    Status = if ($svc.State -eq 'Running') { "Enabled" } else { "Disabled" }
+                }
+            }
+        } catch {}
+
         &$renderStartupList
     }
 
     $renderStartupList = {
         $lvStartup.Items.Clear()
         $filter = $txtSearch.Text.Trim()
+        $catFilter = if ($cmbCategory.SelectedItem) { $cmbCategory.SelectedItem.ToString() } else { "All Categories" }
         $enabledCount = 0
         $disabledCount = 0
 
         foreach ($item in $script:startupData) {
             if ($item.Status -eq "Enabled") { $enabledCount++ } else { $disabledCount++ }
 
+            # Filter by Category
+            if ($catFilter -ne "All Categories") {
+                if ($catFilter -eq "Registry Run (HKCU/HKLM)" -and $item.Category -ne "Registry Run") { continue }
+                if ($catFilter -eq "Startup Folders (Shell)" -and $item.Category -ne "Startup Folder") { continue }
+                if ($catFilter -eq "Logon Scheduled Tasks" -and $item.Category -ne "Scheduled Task") { continue }
+                if ($catFilter -eq "Shell & Winlogon Extensions" -and $item.Category -ne "Shell / Winlogon") { continue }
+                if ($catFilter -eq "Startup Services" -and $item.Category -ne "Startup Service") { continue }
+            }
+
+            # Filter by Search text
             if ($filter) {
-                if ($item.Name -notlike "*$filter*" -and $item.Command -notlike "*$filter*" -and $item.Location -notlike "*$filter*") {
+                if ($item.Name -notlike "*$filter*" -and $item.Command -notlike "*$filter*" -and $item.Location -notlike "*$filter*" -and $item.Category -notlike "*$filter*") {
                     continue
                 }
             }
 
             $lvi = New-Object System.Windows.Forms.ListViewItem($item.Name)
+            $lvi.SubItems.Add($item.Category) | Out-Null
             $lvi.SubItems.Add($item.Command) | Out-Null
             $lvi.SubItems.Add($item.Location) | Out-Null
-            $statusSub = $lvi.SubItems.Add($item.Status)
+            $lvi.SubItems.Add($item.Status) | Out-Null
             $lvi.Tag = $item
 
             if ($item.Status -eq "Enabled") {
@@ -2454,6 +2643,7 @@ function Show-StartupManagerDialog {
     }
 
     $txtSearch.Add_TextChanged({ &$renderStartupList })
+    $cmbCategory.Add_SelectedIndexChanged({ &$renderStartupList })
     $btnRefresh.Add_Click({ &$loadStartupItems })
     $btnClose.Add_Click({ $suForm.Close() })
 
@@ -2486,6 +2676,20 @@ function Show-StartupManagerDialog {
                         Rename-Item -Path $fPath -NewName $origName -Force -ErrorAction Stop
                     }
                 }
+            } elseif ($selItem.Type -eq "Task") {
+                if ($newStatus -eq "Disabled") {
+                    Disable-ScheduledTask -TaskName $selItem.TaskName -TaskPath $selItem.TaskPath -ErrorAction Stop | Out-Null
+                } else {
+                    Enable-ScheduledTask -TaskName $selItem.TaskName -TaskPath $selItem.TaskPath -ErrorAction Stop | Out-Null
+                }
+            } elseif ($selItem.Type -eq "Service") {
+                if ($newStatus -eq "Disabled") {
+                    Set-Service -Name $selItem.ServiceName -StartupType Disabled -ErrorAction Stop
+                    Stop-Service -Name $selItem.ServiceName -Force -ErrorAction SilentlyContinue
+                } else {
+                    Set-Service -Name $selItem.ServiceName -StartupType Automatic -ErrorAction Stop
+                    Start-Service -Name $selItem.ServiceName -ErrorAction SilentlyContinue
+                }
             }
             &$loadStartupItems
         } catch {
@@ -2510,6 +2714,8 @@ function Show-StartupManagerDialog {
                 try { Remove-ItemProperty -Path $selItem.ApprPath -Name $selItem.Name -Force -ErrorAction SilentlyContinue } catch {}
             } elseif ($selItem.Type -eq "File") {
                 Remove-Item -Path $selItem.FilePath -Force -ErrorAction Stop
+            } elseif ($selItem.Type -eq "Task") {
+                Unregister-ScheduledTask -TaskName $selItem.TaskName -TaskPath $selItem.TaskPath -Confirm:$false -ErrorAction Stop
             }
             PopupError "Startup item '$($selItem.Name)' deleted successfully." "Information"
             &$loadStartupItems
@@ -2540,9 +2746,7 @@ function Show-StartupManagerDialog {
                     PopupError "Target file not found at:`n$targetPath" "Information"
                 }
             }
-        } catch {
-            PopupError "Unable to open file location:`n$_" "Error"
-        }
+        } catch {}
     })
 
     $suForm.Add_Load({
@@ -2555,6 +2759,199 @@ function Show-StartupManagerDialog {
         &$loadStartupItems
     })
 
-    Show-HMTDialog $suForm | Out-Null
+    Show-HMTWindow $suForm | Out-Null
+}
+
+# ==============================================================================
+# 8. Windows Update Component Reset Dialog (Smooth, Non-Blocking Step-by-Step UI)
+# ==============================================================================
+function Show-WindowsUpdateResetDialog {
+    $wuForm = New-Object System.Windows.Forms.Form
+    $wuForm.Text = "Reset Windows Update Components"
+    $wuForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+    $wuForm.ClientSize = New-Object System.Drawing.Size(560, 290)
+    $wuForm.StartPosition = 'CenterScreen'
+    if ($HMTIcon) { $wuForm.Icon = $HMTIcon }
+    $wuForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $wuForm.MaximizeBox = $false
+    $wuForm.MinimizeBox = $true
+    $wuForm.ShowInTaskbar = $true
+    $wuForm.Font = $font
+    $wuForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $wuForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    Set-DarkTitleBar -TargetForm $wuForm
+
+    # Header Title & Subtitle
+    $lblTitle = New-Object System.Windows.Forms.Label
+    $lblTitle.Text = "Reset Windows Update Components"
+    $lblTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
+    $lblTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 13, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblTitle.Location = New-Object System.Drawing.Point(20, 16)
+    $lblTitle.Size = New-Object System.Drawing.Size(520, 22)
+    $wuForm.Controls.Add($lblTitle)
+
+    $lblSubtitle = New-Object System.Windows.Forms.Label
+    $lblSubtitle.Text = "Stops update services, clears SoftwareDistribution & catroot2 caches, and restarts services."
+    $lblSubtitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+    $lblSubtitle.Location = New-Object System.Drawing.Point(20, 40)
+    $lblSubtitle.Size = New-Object System.Drawing.Size(520, 36)
+    $wuForm.Controls.Add($lblSubtitle)
+
+    # Step Status Card
+    $cardPanel = New-Object System.Windows.Forms.Panel
+    $cardPanel.Location = New-Object System.Drawing.Point(20, 82)
+    $cardPanel.Size = New-Object System.Drawing.Size(520, 110)
+    $cardPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $cardPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $wuForm.Controls.Add($cardPanel)
+
+    $lblStepNum = New-Object System.Windows.Forms.Label
+    $lblStepNum.Text = "Status: Ready"
+    $lblStepNum.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+    $lblStepNum.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblStepNum.Location = New-Object System.Drawing.Point(15, 12)
+    $lblStepNum.Size = New-Object System.Drawing.Size(490, 18)
+    $cardPanel.Controls.Add($lblStepNum)
+
+    $lblStepDetail = New-Object System.Windows.Forms.Label
+    $lblStepDetail.Text = "Click 'Start Reset' to begin resetting Windows Update components."
+    $lblStepDetail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $lblStepDetail.Font = New-Object System.Drawing.Font($font.FontFamily, 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblStepDetail.Location = New-Object System.Drawing.Point(15, 34)
+    $lblStepDetail.Size = New-Object System.Drawing.Size(490, 28)
+    $cardPanel.Controls.Add($lblStepDetail)
+
+    $pb = New-Object HMT.Tools.SmoothProgressBar
+    $pb.Location = New-Object System.Drawing.Point(15, 70)
+    $pb.Size = New-Object System.Drawing.Size(490, 18)
+    $pb.Value = 0
+    $pb.ShowShimmer = $false
+    $cardPanel.Controls.Add($pb)
+
+    # Action Buttons
+    $btnStart = New-Object System.Windows.Forms.Button
+    $btnStart.Location = New-Object System.Drawing.Point(305, 210)
+    $btnStart.Size = New-Object System.Drawing.Size(120, 36)
+    $btnStart.Text = "Start Reset"
+    $btnStart.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+    $btnStart.FlatStyle = 'Flat'
+    $btnStart.FlatAppearance.BorderSize = 1
+    $wuForm.Controls.Add($btnStart)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Location = New-Object System.Drawing.Point(435, 210)
+    $btnClose.Size = New-Object System.Drawing.Size(105, 36)
+    $btnClose.Text = "Cancel"
+    $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+    $btnClose.FlatStyle = 'Flat'
+    $btnClose.FlatAppearance.BorderSize = 1
+    $wuForm.Controls.Add($btnClose)
+
+    $btnStart.Add_Click({
+        $btnStart.Enabled = $false
+        $btnClose.Text = "Close"
+        $btnClose.Enabled = $false
+        $pb.ShowShimmer = $true
+
+        $script:wuRunning = $true
+        Log-Message "Beginning Windows Update component reset..." "Info"
+
+        # Worker action with smooth UI updates
+        $updateUI = {
+            param($step, $total, $titleText, $detailText, $pct)
+            $lblStepNum.Text = "Step $($step) of $($total): $titleText"
+            $lblStepDetail.Text = $detailText
+            $pb.Value = $pct
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        try {
+            # Step 1: Stopping Windows Update & Transfer Services
+            &$updateUI 1 4 "Stopping Services" "Stopping wuauserv, bits, cryptsvc, and msiserver..." 15
+            $services = @("wuauserv", "bits", "cryptsvc", "msiserver")
+            foreach ($s in $services) {
+                $lblStepDetail.Text = "Stopping service: $s..."
+                [System.Windows.Forms.Application]::DoEvents()
+                try {
+                    $svc = Get-Service -Name $s -ErrorAction SilentlyContinue
+                    if ($svc -and $svc.Status -ne 'Stopped') {
+                        Stop-Service -Name $s -Force -NoWait -ErrorAction SilentlyContinue
+                    }
+                } catch {}
+            }
+            # Wait up to 5 seconds for services to stop gracefully
+            for ($w = 0; $w -lt 20; $w++) {
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Milliseconds 100
+            }
+
+            # Step 2: Clearing / Renaming Cache Folders
+            &$updateUI 2 4 "Clearing Cache Folders" "Renaming SoftwareDistribution and catroot2 cache folders..." 50
+            $timestamp = (Get-Date).ToString("yyyyMMddHHmmss")
+            $sdPath = "$env:WINDIR\SoftwareDistribution"
+            $crPath = "$env:WINDIR\System32\catroot2"
+
+            if (Test-Path -LiteralPath $sdPath) {
+                $lblStepDetail.Text = "Renaming SoftwareDistribution cache..."
+                [System.Windows.Forms.Application]::DoEvents()
+                Rename-Item -LiteralPath $sdPath -NewName "SoftwareDistribution.old.$timestamp" -ErrorAction SilentlyContinue
+            }
+
+            if (Test-Path -LiteralPath $crPath) {
+                $lblStepDetail.Text = "Renaming catroot2 cache..."
+                [System.Windows.Forms.Application]::DoEvents()
+                Rename-Item -LiteralPath $crPath -NewName "catroot2.old.$timestamp" -ErrorAction SilentlyContinue
+            }
+
+            # Clean BITS qmgr files
+            $qmgrFiles = Get-ChildItem -Path "$env:ALLUSERSPROFILE\Microsoft\Network\Downloader\qmgr*.dat" -ErrorAction SilentlyContinue
+            if ($qmgrFiles) {
+                $qmgrFiles | Remove-Item -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Milliseconds 250
+            [System.Windows.Forms.Application]::DoEvents()
+
+            # Step 3: Starting Services
+            &$updateUI 3 4 "Starting Services" "Restarting cryptsvc, bits, wuauserv, and msiserver..." 75
+            foreach ($s in @("cryptsvc", "bits", "wuauserv", "msiserver")) {
+                $lblStepDetail.Text = "Starting service: $s..."
+                [System.Windows.Forms.Application]::DoEvents()
+                try {
+                    Start-Service -Name $s -ErrorAction SilentlyContinue
+                } catch {}
+                Start-Sleep -Milliseconds 150
+            }
+
+            # Step 4: Finished
+            $pb.Value = 100
+            $pb.ShowShimmer = $false
+            $lblStepNum.Text = "Status: Completed Successfully"
+            $lblStepNum.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+            $lblStepDetail.Text = "Windows Update services restarted and caches cleared."
+            Log-Message "Successfully reset Windows Update services and cleared caches." "Success"
+        } catch {
+            $pb.ShowShimmer = $false
+            $lblStepNum.Text = "Status: Error Encountered"
+            $lblStepNum.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ED4245")
+            $lblStepDetail.Text = "Error: $($_.Exception.Message)"
+            Log-Message "Windows Update reset failed: $_" "Error"
+        } finally {
+            $btnClose.Text = "Close"
+            $btnClose.Enabled = $true
+            $btnStart.Visible = $false
+        }
+    })
+
+    $btnClose.Add_Click({
+        $wuForm.Close()
+    })
+
+    $wuForm.Add_Load({
+        Invoke-HMTScale $wuForm
+        Set-RoundedControl $btnStart
+        Set-RoundedControl $btnClose
+    })
+
+    Show-HMTWindow $wuForm | Out-Null
 }
 

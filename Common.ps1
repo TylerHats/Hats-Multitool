@@ -512,6 +512,20 @@ function Show-HMTDialog {
     return $TargetForm.ShowDialog()
 }
 
+function Show-HMTWindow {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    try {
+        $prop = $TargetForm.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance, NonPublic")
+        if ($null -ne $prop) { $prop.SetValue($TargetForm, $true, $null) }
+    } catch {}
+
+    Invoke-HMTScale $TargetForm
+    $TargetForm.Show()
+}
+
 # Common function for user requested exits
 function User-Exit {
     if ($script:ProgramExiting -ne $true) {
@@ -546,14 +560,10 @@ function Invoke-HMTExtract {
         [Parameter(Mandatory=$true)]
         [string]$DestinationPath
     )
-    if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
-        $proc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$Path`" -C `"$DestinationPath`"" -PassThru -WindowStyle Hidden
-    } else {
-        $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"Expand-Archive -LiteralPath '$Path' -DestinationPath '$DestinationPath' -Force`"" -PassThru -WindowStyle Hidden
-    }
-    while (-not $proc.HasExited) {
+    $state = [HMT.Tools.ArchiveExtractor]::StartExtract($Path, $DestinationPath)
+    while (-not $state.IsCompleted -and -not $state.Error) {
         [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 50
+        Start-Sleep -Milliseconds 40
     }
 }
 
@@ -598,8 +608,29 @@ function Show-MainMenu {
             }
             
             'Tools' {
+                $ToolsGUI.ShowInTaskbar = $true
+                $ToolsGUI.MinimizeBox = $true
                 [void](Show-HMTDialog $ToolsGUI)
-                $Global:NextAction = 'Main'
+                
+                # If they exit the tools GUI without hitting Back, drop back to Main Menu
+                if ($ToolsGUI.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Tools') {
+                    $Global:NextAction = 'Main'
+                }
+            }
+            
+            'Programs' {
+                $ProgramsGUI.ShowInTaskbar = $true
+                $ProgramsGUI.MinimizeBox = $true
+                [void](Show-HMTDialog $ProgramsGUI)
+                
+                # If they exit the tools GUI without hitting Back, drop back to Main Menu
+                if ($ProgramsGUI.DialogResult -ne [System.Windows.Forms.DialogResult]::OK -and $Global:NextAction -eq 'Programs') {
+                    $Global:NextAction = 'Main'
+                }
+            }
+            
+            'Default' {
+                User-Exit
             }
             
             'Troubleshooting' {
@@ -624,10 +655,9 @@ function Show-MainMenu {
 
 # Global Windows Forms unhandled exception trap to display styled error dialogs
 try {
-    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
-    [System.Windows.Forms.Application]::add_ThreadException({
+    [System.Windows.Forms.Application]::Add_ThreadException({
         param($sender, $e)
-        $clean = Format-HMTError -ErrorRecord $e.Exception -Context "An unexpected error occurred"
+        $clean = $e.Exception.Message
         Log-Message "Unhandled UI Exception: $($e.Exception.ToString())" "Error"
         PopupError $clean "Error"
     })
@@ -644,7 +674,10 @@ function Show-DownloadDialog {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$Url
+        [string]$Url,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ExtractTo = ""
     )
 
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.Net.Http
@@ -715,6 +748,8 @@ function Show-DownloadDialog {
     $script:dlSuccess = $false
     $script:dlCancelled = $false
     $script:dlIsActive = $true
+    $script:isExtracting = $false
+    $script:extractState = $null
 
     # Launch native thread-safe streaming download in C#
     $state = [HMT.Tools.FileDownloader]::StartDownload($downloadUrl, $OutputPath)
@@ -722,6 +757,7 @@ function Show-DownloadDialog {
     $cancelDownload = {
         if ($script:dlIsActive) {
             $state.IsCancelled = $true
+            if ($script:extractState) { $script:extractState.IsCancelled = $true }
             $script:dlCancelled = $true
             $script:dlIsActive = $false
         }
@@ -734,6 +770,7 @@ function Show-DownloadDialog {
         param($sender, $e)
         if ($script:dlIsActive) {
             $state.IsCancelled = $true
+            if ($script:extractState) { $script:extractState.IsCancelled = $true }
             $script:dlCancelled = $true
             $script:dlIsActive = $false
         }
@@ -741,9 +778,58 @@ function Show-DownloadDialog {
 
     # UI Polling Timer
     $uiTimer = New-Object System.Windows.Forms.Timer
-    $uiTimer.Interval = 50
+    $uiTimer.Interval = 40
     $uiTimer.Add_Tick({
+        # Phase 2: Extraction Handling
+        if ($script:isExtracting) {
+            if ($null -ne $script:extractState) {
+                if ($script:extractState.IsCompleted) {
+                    $uiTimer.Stop()
+                    $script:dlIsActive = $false
+                    $script:dlSuccess = $true
+                    $progressBar.Value = 100
+                    $statsLabel.Text = "Extraction Complete!"
+                    $statsLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 250
+                    $dform.Close()
+                    return
+                }
+
+                if ($script:extractState.Error) {
+                    $uiTimer.Stop()
+                    $script:dlIsActive = $false
+                    Log-Message "Extraction error on $DisplayName : $($script:extractState.Error)" "Warning"
+                    PopupError "Failed to extract $DisplayName :`n$($script:extractState.Error)" "Error"
+                    $dform.Close()
+                    return
+                }
+
+                # Update extraction progress UI
+                $pctInt = [int]$script:extractState.Percent
+                $progressBar.Value = [Math]::Max(0, [Math]::Min(100, $pctInt))
+                $statsLabel.Text = "Extracted $($script:extractState.EntriesExtracted) of $($script:extractState.TotalEntries) files ($pctInt%)"
+                $entryText = if ($script:extractState.CurrentEntry) { $script:extractState.CurrentEntry } else { "Extracting files..." }
+                $speedLabel.Text = "Extracting: $entryText"
+            }
+            return
+        }
+
+        # Phase 1: Download Handling
         if ($state.IsCompleted) {
+            if (-not [string]::IsNullOrWhiteSpace($ExtractTo)) {
+                # Transition into Extraction Phase in the same UI dialog
+                $script:isExtracting = $true
+                $dform.Text = "Extracting $DisplayName..."
+                $speedLabel.Text = "Starting extraction..."
+                $statsLabel.Text = "Reading archive contents..."
+                $progressBar.Value = 0
+                $progressBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#206694")
+                $progressBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+                $script:extractState = [HMT.Tools.ArchiveExtractor]::StartExtract($OutputPath, $ExtractTo)
+                return
+            }
+
             $uiTimer.Stop()
             $script:dlIsActive = $false
             $script:dlSuccess = $true
@@ -777,7 +863,7 @@ function Show-DownloadDialog {
             return
         }
 
-        # Update Progress Bar & Labels
+        # Update Download Progress Bar & Labels
         $speedLabel.Text = ('Speed: {0:N2} Mbps' -f $state.SpeedMbps)
         $readMB = $state.BytesRead / 1MB
         $totMB = $state.TotalBytes / 1MB
@@ -804,7 +890,7 @@ function Show-DownloadDialog {
 
     # Unblock file on success
     if ($script:dlSuccess -and (Test-Path -LiteralPath $OutputPath)) {
-        Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+        try { Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue } catch {}
         return $true
     } else {
         if (Test-Path -LiteralPath $OutputPath) {

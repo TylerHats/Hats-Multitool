@@ -30,13 +30,13 @@ if (Test-Path $toolsDll) {
     Add-Type -Path $toolsDll
 } else {
     $csTools = Join-Path -Path $PSScriptRoot -ChildPath 'HMTTools.cs'
-    if (Test-Path $csTools) { Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing }
+    if (Test-Path $csTools) { Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing, System.IO.Compression, System.IO.Compression.FileSystem }
 }
 
 [DpiHelper]::SetProcessDPIAware() | Out-Null
 
 # Initialize WinForms assemblies and styling
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.IO.Compression, System.IO.Compression.FileSystem
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}

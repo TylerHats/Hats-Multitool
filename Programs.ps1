@@ -187,12 +187,15 @@ $userExitCheckbox.AutoSize = $true
 $userExitCheckbox.Location = New-Object System.Drawing.Point(20, ($tabControl.Bottom + 10))
 $form.Controls.Add($userExitCheckbox)
 
+$script:Installing = $false
+
 # Mutual exclusivity for Office 64-Bit vs Outlook Classic
 if ($checkboxes.ContainsKey("Outlook Classic") -and $checkboxes.ContainsKey("Microsoft Office (64-Bit)")) {
     $outlookCheckbox = $checkboxes["Outlook Classic"]
     $officeCheckbox = $checkboxes["Microsoft Office (64-Bit)"]
 
     $outlookCheckbox.Add_CheckedChanged({
+        if ($script:Installing) { return }
         if ($outlookCheckbox.Checked) {
             $officeCheckbox.Enabled = $false
             $officeCheckbox.Checked = $false
@@ -202,6 +205,7 @@ if ($checkboxes.ContainsKey("Outlook Classic") -and $checkboxes.ContainsKey("Mic
     })
 
     $officeCheckbox.Add_CheckedChanged({
+        if ($script:Installing) { return }
         if ($officeCheckbox.Checked) {
             $outlookCheckbox.Enabled = $false
             $outlookCheckbox.Checked = $false
@@ -361,9 +365,14 @@ $downloadWithProgress = {
     $script:SkipCurrent = $false
 
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+    [System.Net.ServicePointManager]::DefaultConnectionLimit = 64
+    [System.Net.ServicePointManager]::Expect100Continue = $false
+    [System.Net.ServicePointManager]::UseNagleAlgorithm = $false
 
     $handler = New-Object System.Net.Http.HttpClientHandler
+    $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
     $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
+    $client.Timeout = [System.TimeSpan]::FromMinutes(30)
     $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     if ($null -ne $Headers) {
@@ -377,31 +386,44 @@ $downloadWithProgress = {
 
     try {
         $responseTask = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+        while (-not $responseTask.IsCompleted) {
+            [System.Windows.Forms.Application]::DoEvents()
+            Start-Sleep -Milliseconds 25
+            if ($script:SkipCurrent) { break }
+        }
+        if ($script:SkipCurrent) { return }
+
         $response = $responseTask.GetAwaiter().GetResult()
-        
         if (-not $response.IsSuccessStatusCode) {
             throw "HTTP Error: $($response.StatusCode)"
         }
 
         $totalBytes = $response.Content.Headers.ContentLength
         $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-        $fileStream = [System.IO.File]::Create($OutFile)
+        $fileStream = New-Object System.IO.FileStream($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None, 524288)
 
-        $buffer = New-Object byte[] 65536
-        $bytesRead = 0
+        $buffer = New-Object byte[] 524288
         $totalBytesRead = 0
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         $lastUiTick = [System.Diagnostics.Stopwatch]::StartNew()
 
-        while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            if ($script:SkipCurrent) {
-                break
+        while ($true) {
+            if ($script:SkipCurrent) { break }
+
+            # Decoupled non-blocking read to keep GUI animations, lerp, and shimmer responsive on slow networks
+            $readTask = $downloadStream.ReadAsync($buffer, 0, $buffer.Length)
+            while (-not $readTask.IsCompleted) {
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Milliseconds 25
+                if ($script:SkipCurrent) { break }
             }
+            if ($script:SkipCurrent) { break }
+
+            $bytesRead = $readTask.GetAwaiter().GetResult()
+            if ($bytesRead -le 0) { break }
 
             $fileStream.Write($buffer, 0, $bytesRead)
             $totalBytesRead += $bytesRead
-
-            [System.Windows.Forms.Application]::DoEvents()
 
             if ($lastUiTick.ElapsedMilliseconds -ge 100) {
                 $lastUiTick.Restart()
@@ -432,6 +454,7 @@ $downloadWithProgress = {
 }
 
 $okButton.Add_Click({
+    $script:Installing = $true
     $okButton.Enabled = $false
     foreach ($cb in $checkboxes.Values) {
         $cb.Enabled = $false
@@ -500,104 +523,144 @@ $okButton.Add_Click({
                 $cdnUrl = "https://cdn.hatsthings.com/O365/$zipName"
                 $tokenHeaders = @{ "X-HMT-Token" = "HMTDAT1" }
 
-                $installDir = Join-Path -Path $scriptRoot -ChildPath "ExtPrograms"
-                if (-not (Test-Path $installDir)) { New-Item -ItemType Directory -Path $installDir -Force | Out-Null }
+                $extProgramsDir = Join-Path -Path $scriptRoot -ChildPath "ExtPrograms"
+                if (-not (Test-Path $extProgramsDir)) { New-Item -ItemType Directory -Path $extProgramsDir -Force | Out-Null }
 
-                $zipPath = Join-Path -Path $installDir -ChildPath $zipName
-                $officeDataDir = Join-Path -Path $installDir -ChildPath "Office\Data"
+                $officeDir = Join-Path -Path $extProgramsDir -ChildPath "MicrosoftOffice"
+                if (-not (Test-Path $officeDir)) { New-Item -ItemType Directory -Path $officeDir -Force | Out-Null }
 
-                $cdnSuccess = $false
+                $zipPath = Join-Path -Path $extProgramsDir -ChildPath $zipName
 
-                if ((Test-Path $officeDataDir) -and (Test-Path (Join-Path $installDir "setup.exe"))) {
+                # Check if Office\Data and setup.exe are already present in MicrosoftOffice directory
+                $existingData = Test-Path (Join-Path $officeDir "Office\Data")
+                $existingSetup = Test-Path (Join-Path $officeDir "setup.exe")
+
+                if ($existingData -and $existingSetup) {
                     $state.ProgressPct = 85
                     $state.StatusText = "Found local $displayName payload..."
-                    $state.DetailText = "Using existing decompressed payload in ExtPrograms..."
-                    $cdnSuccess = $true
-                }
-                elseif (Test-Path $zipPath) {
-                    $state.ProgressPct = 75
-                    $state.StatusText = "Found cached $displayName zip..."
-                    $state.DetailText = "Using cached zip in ExtPrograms..."
-                    $cdnSuccess = $true
+                    $state.DetailText = "Using existing decompressed payload in ExtPrograms\MicrosoftOffice..."
                 } else {
-                    try {
-                        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
-                        $handler = New-Object System.Net.Http.HttpClientHandler
-                        $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
-                        $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
-                        $client.Timeout = [System.TimeSpan]::FromMinutes(30)
-                        $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
-                        foreach ($k in $tokenHeaders.Keys) { $client.DefaultRequestHeaders.Add($k, $tokenHeaders[$k]) }
+                    # Check for cached zip
+                    $cachedZip = if (Test-Path $zipPath) { $zipPath } elseif (Test-Path (Join-Path $officeDir $zipName)) { Join-Path $officeDir $zipName } else { $null }
 
-                        $response = $client.GetAsync($cdnUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-                        if (-not $response.IsSuccessStatusCode) { throw "HTTP Error: $($response.StatusCode)" }
+                    if (-not $cachedZip) {
+                        try {
+                            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
+                            [System.Net.ServicePointManager]::DefaultConnectionLimit = 64
+                            [System.Net.ServicePointManager]::Expect100Continue = $false
+                            [System.Net.ServicePointManager]::UseNagleAlgorithm = $false
 
-                        $totalBytes = $response.Content.Headers.ContentLength
-                        $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                            $handler = New-Object System.Net.Http.HttpClientHandler
+                            $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+                            $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
+                            $client.Timeout = [System.TimeSpan]::FromMinutes(30)
+                            $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+                            foreach ($k in $tokenHeaders.Keys) { $client.DefaultRequestHeaders.Add($k, $tokenHeaders[$k]) }
 
-                        $fileStream = [System.IO.File]::Create($zipPath)
-                        $buffer = New-Object byte[] 524288
-                        $bytesRead = 0
-                        $totalBytesRead = 0
-                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                        $lastTick = 0
+                            $response = $client.GetAsync($cdnUrl, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+                            if (-not $response.IsSuccessStatusCode) { throw "HTTP Error: $($response.StatusCode)" }
 
-                        while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                            $fileStream.Write($buffer, 0, $bytesRead)
-                            $totalBytesRead += $bytesRead
+                            $totalBytes = $response.Content.Headers.ContentLength
+                            $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
 
-                            if ($sw.ElapsedMilliseconds - $lastTick -gt 150) {
-                                $lastTick = $sw.ElapsedMilliseconds
-                                $elapsedSec = [math]::Max(0.1, $sw.Elapsed.TotalSeconds)
-                                $speedMbps = (($totalBytesRead * 8) / 1MB) / $elapsedSec
+                            $fileStream = New-Object System.IO.FileStream($zipPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None, 1048576)
+                            $buffer = New-Object byte[] 1048576
+                            $bytesRead = 0
+                            $totalBytesRead = 0
+                            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                            $lastTick = 0
 
-                                if ($totalBytes -gt 0) {
-                                    $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
-                                    $state.ProgressPct = [int]($pct * 0.8)
-                                    $state.StatusText = "Downloading $displayName..."
-                                    $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB at $([math]::Round($speedMbps, 1)) Mbps)"
-                                } else {
-                                    $state.DetailText = "$([math]::Round($totalBytesRead / 1MB, 1)) MB downloaded at $([math]::Round($speedMbps, 1)) Mbps"
+                            while (($bytesRead = $downloadStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                                $fileStream.Write($buffer, 0, $bytesRead)
+                                $totalBytesRead += $bytesRead
+
+                                if ($sw.ElapsedMilliseconds - $lastTick -gt 150) {
+                                    $lastTick = $sw.ElapsedMilliseconds
+                                    $elapsedSec = [math]::Max(0.1, $sw.Elapsed.TotalSeconds)
+                                    $speedMbps = (($totalBytesRead * 8) / 1MB) / $elapsedSec
+
+                                    if ($totalBytes -gt 0) {
+                                        $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
+                                        $state.ProgressPct = [int]($pct * 0.8)
+                                        $state.StatusText = "Downloading $displayName..."
+                                        $state.DetailText = "$pct% ($([math]::Round($totalBytesRead / 1MB, 1)) MB / $([math]::Round($totalBytes / 1MB, 1)) MB at $([math]::Round($speedMbps, 1)) Mbps)"
+                                    } else {
+                                        $state.DetailText = "$([math]::Round($totalBytesRead / 1MB, 1)) MB downloaded at $([math]::Round($speedMbps, 1)) Mbps"
+                                    }
+                                }
+                            }
+                            $fileStream.Close()
+                            $downloadStream.Close()
+                            $client.Dispose()
+                            $cachedZip = $zipPath
+                        } catch {
+                            $state.DetailText = "Local CDN fetch failed ($($_)). Falling back to Microsoft CDN deployment..."
+                        }
+                    }
+
+                    # Decompress archive into its own folder in ExtPrograms (ExtPrograms\MicrosoftOffice)
+                    if ($cachedZip -and (Test-Path $cachedZip)) {
+                        $state.ProgressPct = 85
+                        $state.StatusText = "Extracting $displayName payload..."
+                        $state.DetailText = "Extracting payload into ExtPrograms\MicrosoftOffice..."
+                        $extracted = $false
+                        if (Get-Command "tar.exe" -ErrorAction SilentlyContinue) {
+                            try {
+                                $tarProc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$cachedZip`" -C `"$officeDir`"" -PassThru -WindowStyle Hidden -Wait
+                                if ($tarProc.ExitCode -eq 0) { 
+                                    $extracted = $true 
+                                }
+                            } catch {}
+                        }
+                        if (-not $extracted) {
+                            Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+                            try {
+                                [System.IO.Compression.ZipFile]::ExtractToDirectory($cachedZip, $officeDir)
+                            } catch {
+                                $zip = [System.IO.Compression.ZipFile]::OpenRead($cachedZip)
+                                try {
+                                    foreach ($entry in $zip.Entries) {
+                                        $targetPath = [System.IO.Path]::Combine($officeDir, $entry.FullName)
+                                        $targetParent = [System.IO.Path]::GetDirectoryName($targetPath)
+                                        if (-not (Test-Path $targetParent)) { New-Item -ItemType Directory -Path $targetParent -Force | Out-Null }
+                                        if (-not [string]::IsNullOrEmpty($entry.Name)) {
+                                            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
+                                        }
+                                    }
+                                } finally {
+                                    $zip.Dispose()
                                 }
                             }
                         }
-                        $fileStream.Close()
-                        $downloadStream.Close()
-                        $client.Dispose()
-                        $cdnSuccess = $true
-                    } catch {
-                        $state.DetailText = "Local CDN fetch failed ($($_)). Falling back to Microsoft CDN deployment..."
                     }
                 }
 
-                $state.ProgressPct = 85
-                $state.StatusText = "Installing $displayName..."
-
-                # Decompress archive directly into ExtPrograms if not already unpacked
-                if (-not (Test-Path $officeDataDir) -and (Test-Path $zipPath)) {
-                    $state.DetailText = "Extracting payload into ExtPrograms..."
-                    $extracted = $false
-                    if (Get-Command "tar.exe" -ErrorAction SilentlyContinue) {
-                        try {
-                            $tarProc = Start-Process -FilePath "tar.exe" -ArgumentList "-xf `"$zipPath`" -C `"$installDir`"" -PassThru -WindowStyle Hidden -Wait
-                            if ($tarProc.ExitCode -eq 0 -and (Test-Path $officeDataDir)) { 
-                                $extracted = $true 
-                            }
-                        } catch {}
-                    }
-                    if (-not $extracted) {
-                        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
-                        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $installDir)
+                # Locate setup directory containing Office\Data and setup.exe
+                $setupDir = $officeDir
+                if (Test-Path (Join-Path $officeDir "Office\Data")) {
+                    $setupDir = $officeDir
+                } else {
+                    $nestedOffice = Get-ChildItem -Path $officeDir -Directory -Recurse | Where-Object { Test-Path (Join-Path $_.FullName "Office\Data") } | Select-Object -First 1
+                    if ($null -ne $nestedOffice) {
+                        $setupDir = $nestedOffice.FullName
                     }
                 }
 
-                $setupExe = Join-Path -Path $installDir -ChildPath "setup.exe"
+                $officeDataDir = Join-Path -Path $setupDir -ChildPath "Office\Data"
+                $setupExe = Join-Path -Path $setupDir -ChildPath "setup.exe"
+
                 if (-not (Test-Path $setupExe)) {
-                    # Download official Microsoft ODT if setup.exe is missing
-                    $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
-                    $odtExe = Join-Path -Path $installDir -ChildPath "odt.exe"
-                    (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
-                    Start-Process $odtExe -ArgumentList "/quiet /extract:`"$installDir`"" -Wait -WindowStyle Hidden
+                    $foundSetup = Get-ChildItem -Path $officeDir -Filter "setup.exe" -Recurse -File | Select-Object -First 1
+                    if ($null -ne $foundSetup) {
+                        $setupExe = $foundSetup.FullName
+                    } else {
+                        # Download official Microsoft ODT if setup.exe is missing from payload
+                        $odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe"
+                        $odtExe = Join-Path -Path $setupDir -ChildPath "odt.exe"
+                        (New-Object System.Net.WebClient).DownloadFile($odtUrl, $odtExe)
+                        Start-Process $odtExe -ArgumentList "/quiet /extract:`"$setupDir`"" -Wait -WindowStyle Hidden
+                        $setupExe = Join-Path -Path $setupDir -ChildPath "setup.exe"
+                    }
                 }
 
                 # Dynamically detect offline version directory to guarantee offline install
@@ -607,10 +670,11 @@ $okButton.Add_Click({
 
                 $verAttr = if ($verDir) { "Version=`"$($verDir.Name)`"" } else { "" }
 
-                $xmlPath = Join-Path -Path $installDir -ChildPath "configuration.xml"
+                # Create XML config file in the extracted Office directory
+                $xmlPath = Join-Path -Path $setupDir -ChildPath "configuration.xml"
                 $xmlContent = @"
 <Configuration>
-  <Add SourcePath="$installDir" OfficeClientEdition="64" Channel="Current" $verAttr>
+  <Add SourcePath="$setupDir" OfficeClientEdition="64" Channel="Current" $verAttr>
     <Product ID="$productID">
       <Language ID="en-us" />
     </Product>
@@ -621,12 +685,16 @@ $okButton.Add_Click({
 "@
                 Set-Content -Path $xmlPath -Value $xmlContent -Encoding UTF8 -Force
 
-                $state.DetailText = "Running Office Click-to-Run setup..."
-                $proc = Start-Process -FilePath $setupExe -ArgumentList "/configure `"$xmlPath`"" -WorkingDirectory $installDir -Wait -PassThru
-                
+                $state.ProgressPct = 95
+                $state.StatusText = "Launching $displayName setup..."
+                $state.DetailText = "Starting Office Click-to-Run installer..."
+
+                # Launch ODT executable targeting generated XML config asynchronously with console window hidden
+                Start-Process -FilePath $setupExe -ArgumentList "/configure `"$xmlPath`"" -WorkingDirectory $setupDir -WindowStyle Hidden
+
                 $state.ProgressPct = 100
-                $state.StatusText = "Finished: $displayName"
-                $state.DetailText = "Setup completed with exit code $($proc.ExitCode)."
+                $state.StatusText = "Launched: $displayName"
+                $state.DetailText = "Office Click-to-Run setup is running in the background."
                 $state.Finished = $true
             } catch {
                 $state.Error = $_
@@ -640,98 +708,163 @@ $okButton.Add_Click({
         $msPowerShell.BeginInvoke() | Out-Null
     }
 
-    $failedWinget = @()
-    $currentIndex = 0
+    # Deep verification helper to check if a program is installed via registry or shortcuts
+    $testProgramInstalled = {
+        param($prog)
+        if ($null -eq $prog) { return $false }
+        $pName = $prog.Name
+        $wId = $prog.WingetID
 
-    # Filter out O365 from the WinGet loop as it's running in background
-    $wingetPrograms = $selectedPrograms | Where-Object { $_ -ne "Microsoft Office (64-Bit)" -and $_ -ne "Outlook Classic" }
-    $totalWinget = $wingetPrograms.Count
+        # 1. Check Registry Uninstall keys (HKLM 64-bit, HKLM 32-bit, HKCU)
+        $regPaths = @(
+            "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+            "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+        )
+        foreach ($rp in $regPaths) {
+            if (Test-Path $rp) {
+                $subKeys = Get-ChildItem -Path $rp -ErrorAction SilentlyContinue
+                foreach ($k in $subKeys) {
+                    $dn = (Get-ItemProperty -Path $k.PSPath -Name DisplayName -ErrorAction SilentlyContinue).DisplayName
+                    if ($dn) {
+                        if ($dn -like "*$pName*") { return $true }
+                        if ($wId) {
+                            $tail = $wId.Split('.')[-1]
+                            if ($tail.Length -ge 4 -and $dn -like "*$tail*") { return $true }
+                        }
+                    }
+                }
+            }
+        }
 
-    foreach ($programName in $wingetPrograms) {
-        $program = $programs | Where-Object { $_.Name -eq $programName }
-        if ($null -ne $program) {
-            Log-Message "Installing $($program.Name)..." "Info"
-            &$updateLocalProgress $currentIndex $totalWinget 0 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Initializing WinGet..."
+        # 2. Check Start Menu Shortcuts
+        $startMenuPaths = @(
+            (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs"),
+            (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
+        )
+        foreach ($smp in $startMenuPaths) {
+            if (Test-Path $smp) {
+                $found = Get-ChildItem -Path $smp -Filter "*$pName*" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($found) { return $true }
+            }
+        }
+
+        # 3. Check ProgramFiles / LocalAppData / AppData directories
+        $pfDirs = @(
+            $env:ProgramFiles,
+            ${env:ProgramFiles(x86)},
+            (Join-Path $env:LOCALAPPDATA "Programs"),
+            (Join-Path $env:APPDATA "Programs")
+        )
+        foreach ($pfd in $pfDirs) {
+            if ($pfd -and (Test-Path $pfd)) {
+                $dirFound = Get-ChildItem -Path $pfd -Directory -Filter "*$pName*" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($dirFound) { return $true }
+            }
+        }
+
+        return $false
+    }
+
+    # Universal WinGet package resolution: Checks x64 -> x86 -> neutral/default architectures
+    $getWingetInstallerInfo = {
+        param($wingetId)
         
+        $archAttempts = @("x64", "x86", "") # Try 64-bit first, then 32-bit (x86), then neutral / default
+        $foundUrl = $null
+        $foundSilent = $null
+        $foundType = $null
+
+        foreach ($arch in $archAttempts) {
+            $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $procInfo.FileName = "winget.exe"
+            $archArg = if ($arch) { "--architecture $arch" } else { "" }
+            $procInfo.Arguments = "show --id `"$wingetId`" --exact --accept-source-agreements $archArg --disable-interactivity"
+            $procInfo.RedirectStandardOutput = $true
+            $procInfo.UseShellExecute = $false
+            $procInfo.CreateNoWindow = $true
+
+            $proc = New-Object System.Diagnostics.Process
+            $proc.StartInfo = $procInfo
             try {
-                $script:SkipCurrent = $false
-                $skipButton.Enabled = $true
-            
-                # 1. Scrape WinGet for URL and Silent Switches (try x64 first, then neutral)
-                $procInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $procInfo.FileName = "winget.exe"
-                $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --architecture x64 --disable-interactivity"
-                $procInfo.RedirectStandardOutput = $true
-                $procInfo.UseShellExecute = $false
-                $procInfo.CreateNoWindow = $true
-
-                $proc = New-Object System.Diagnostics.Process
-                $proc.StartInfo = $procInfo
                 $proc.Start() | Out-Null
-
                 $readTask = $proc.StandardOutput.ReadToEndAsync()
                 while (-not $readTask.IsCompleted) {
                     [System.Windows.Forms.Application]::DoEvents()
-                    Start-Sleep -Milliseconds 50
+                    Start-Sleep -Milliseconds 30
                 }
                 $wingetOutput = $readTask.Result
                 $proc.WaitForExit()
 
-                $installerUrl = $null
-                $silentArgs = $null
-                $installerType = $null
-
                 foreach ($line in ($wingetOutput -split '\r?\n')) {
-                    if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
-                    if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
-
-                    if ($line -match '^\s*Silent:\s+(.+)') { 
-                        $silentArgs = $matches[1].Trim() 
-                    }
-                    elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { 
-                        $silentArgs = $matches[1].Trim() 
+                    if ($line -match 'Installer URL:\s+(.+)') { $foundUrl = $matches[1].Trim() }
+                    if ($line -match 'Installer Type:\s+(.+)') { $foundType = $matches[1].Trim() }
+                    if ($line -match '^\s*Silent:\s+(.+)') { $foundSilent = $matches[1].Trim() }
+                    elseif ([string]::IsNullOrWhiteSpace($foundSilent) -and $line -match '^\s*Silent with Progress:\s+(.+)') {
+                        $foundSilent = $matches[1].Trim()
                     }
                 }
 
-                # Fallback without --architecture flag (resolves 32-bit/neutral apps like Steam)
-                if ([string]::IsNullOrWhiteSpace($installerUrl)) {
-                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --disable-interactivity"
-                    $proc = [System.Diagnostics.Process]::Start($procInfo)
-                    $wingetOutput = $proc.StandardOutput.ReadToEnd()
-                    $proc.WaitForExit()
-
-                    foreach ($line in ($wingetOutput -split '\r?\n')) {
-                        if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
-                        if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
-                        if ($line -match '^\s*Silent:\s+(.+)') { $silentArgs = $matches[1].Trim() }
-                        elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { $silentArgs = $matches[1].Trim() }
-                    }
+                if (-not [string]::IsNullOrWhiteSpace($foundUrl)) {
+                    break # Successfully resolved installer URL
                 }
+            } catch {}
+        }
 
-                # Hardcoded App Overrides & Direct Fallbacks
-                if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
-                    $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
-                }
-                elseif ($program.WingetID -eq 'Valve.Steam' -and [string]::IsNullOrWhiteSpace($installerUrl)) {
-                    $installerUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
-                    $silentArgs = "/S"
-                }
+        # App-specific overrides
+        if ($wingetId -eq 'Adobe.Acrobat.Reader.64-bit') {
+            $foundSilent = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
+        }
+        elseif ($wingetId -eq 'Valve.Steam' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
+            $foundSilent = "/S"
+        }
 
-                # Fallback to direct WinGet CLI execution if URL extraction is unavailable
-                if ([string]::IsNullOrWhiteSpace($installerUrl)) {
-                    Log-Message "Direct installer URL not found for $($program.Name). Installing via WinGet CLI..." "Info"
-                    &$updateLocalProgress $currentIndex $totalWinget 50 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Running WinGet CLI install..."
-                    $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
-                    if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010) {
-                        Log-Message "$($program.Name): Installed successfully via WinGet CLI." "Success"
-                        &$updateLocalProgress $currentIndex $totalWinget 100 "Finished: $($program.Name)" ""
-                        $currentIndex++
-                        continue
-                    } else {
-                        throw "WinGet CLI installation exited with code $($wgProc.ExitCode)"
-                    }
-                }
+        return [pscustomobject]@{
+            InstallerUrl = $foundUrl
+            SilentArgs = $foundSilent
+            InstallerType = $foundType
+        }
+    }
 
+    # Consolidated single program installer routine with full architecture fallbacks & deep verification
+    $installSingleProgram = {
+        param(
+            $program,
+            $index,
+            $total,
+            [string]$phasePrefix = "Installing"
+        )
+
+        Log-Message "[$phasePrefix] $($program.Name)..." "Info"
+        &$updateLocalProgress $index $total 0 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Resolving WinGet package..."
+        
+        $script:SkipCurrent = $false
+        $skipButton.Enabled = $true
+        $success = $false
+
+        try {
+            # 1. Resolve installer URL across x64 -> x86 -> neutral
+            $info = &$getWingetInstallerInfo $program.WingetID
+            $installerUrl = $info.InstallerUrl
+            $silentArgs = $info.SilentArgs
+            $installerType = $info.InstallerType
+
+            # Fallback to direct WinGet CLI execution if URL extraction is unavailable
+            if ([string]::IsNullOrWhiteSpace($installerUrl)) {
+                Log-Message "Direct installer URL not advertised in WinGet manifest for $($program.Name). Running WinGet CLI install..." "Info"
+                &$updateLocalProgress $index $total 50 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Running WinGet CLI install..."
+                
+                $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                
+                # Check exit code or verify on system
+                if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010 -or (&$testProgramInstalled $program)) {
+                    Log-Message "$($program.Name): Installed successfully via WinGet CLI." "Success"
+                    $success = $true
+                } else {
+                    throw "WinGet CLI installation failed with exit code $($wgProc.ExitCode)"
+                }
+            } else {
                 if ([string]::IsNullOrWhiteSpace($silentArgs)) {
                     if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
                     elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
@@ -745,21 +878,22 @@ $okButton.Add_Click({
                     $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
                 }
                 $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
-                &$downloadWithProgress $installerUrl $tempPath $currentIndex $totalWinget $program.Name
+                &$downloadWithProgress $installerUrl $tempPath $index $total $program.Name
             
                 if ($script:SkipCurrent) {
                     Log-Message "$($program.Name): Installation skipped by user." "Warning"
                     $skipButton.Enabled = $false
-                    $currentIndex++
-                    Continue
+                    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+                    &$updateLocalProgress $index $total 100 "Skipped: $($program.Name)" ""
+                    return $true
                 }
 
                 if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
                     throw "Downloaded installer is missing or 0 bytes. Check network connection."
                 }
 
-                # 3. Execute
-                Log-Message "Running Installer..." "Info"
+                # 3. Execute Installer
+                Log-Message "Executing installer for $($program.Name)..." "Info"
                 $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
                 if ($tempPath -match '\.msi$') {
                     $installProcInfo.FileName = "msiexec.exe"
@@ -779,13 +913,13 @@ $okButton.Add_Click({
                 $dotCount = 0
                 while (-not $installProc.HasExited) {
                     if ($script:SkipCurrent) {
-                        try { $installProc.Kill() } catch { Log-Message "Process kill ignored: $_" "logonly" }
+                        try { $installProc.Kill() } catch {}
                         break
                     }
                     $dotCount++
                     if ($dotCount -gt 3) { $dotCount = 0 }
                     $dots = "." * $dotCount
-                    &$updateLocalProgress $currentIndex $totalWinget 99 "Installing $($currentIndex + 1) of $($totalWinget): $($program.Name)" "Running Installer$dots"
+                    &$updateLocalProgress $index $total 99 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Running Installer$dots"
                     for ($s = 0; $s -lt 5; $s++) {
                         [System.Windows.Forms.Application]::DoEvents()
                         Start-Sleep -Milliseconds 100
@@ -793,27 +927,60 @@ $okButton.Add_Click({
                     }
                 }
 
-                if (-not $script:SkipCurrent) {
-                    if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
-                        Log-Message "$($program.Name): Installed successfully." "Success"
-                    }
-                    else {
-                        Log-Message "$($program.Name): Installation failed with code $($installProc.ExitCode). Adding to retry queue..." "Warning"
-                        $failedWinget += $program
-                    }
+                Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+
+                if ($script:SkipCurrent) {
+                    Log-Message "$($program.Name): Installation skipped by user." "Warning"
+                    $skipButton.Enabled = $false
+                    &$updateLocalProgress $index $total 100 "Skipped: $($program.Name)" ""
+                    return $true
                 }
 
-                Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 1
-                $skipButton.Enabled = $false
-            }
-            catch {
-                Log-Message "$($program.Name): Installation failed. Error: $_. Adding to retry queue..." "Warning"
-                $failedWinget += $program
-                $skipButton.Enabled = $false
-            }
+                # Verify installation success via exit code OR system registry/shortcuts
+                $exitCode = $installProc.ExitCode
+                $isInstalledOnSys = &$testProgramInstalled $program
 
-            &$updateLocalProgress $currentIndex $totalWinget 100 "Finished: $($program.Name)" ""
+                if ($exitCode -eq 0 -or $exitCode -eq 3010 -or $exitCode -eq 1641 -or $isInstalledOnSys) {
+                    Log-Message "$($program.Name): Installed successfully (ExitCode: $exitCode, SystemVerified: $isInstalledOnSys)." "Success"
+                    $success = $true
+                } else {
+                    Log-Message "$($program.Name): Installation failed with exit code $exitCode (SystemVerified: $isInstalledOnSys)." "Warning"
+                    $success = $false
+                }
+            }
+        }
+        catch {
+            # As a final check before declaring failure, verify if it actually installed
+            $isInstalledOnSys = &$testProgramInstalled $program
+            if ($isInstalledOnSys) {
+                Log-Message "$($program.Name): Installed successfully (Verified on system despite error: $_)." "Success"
+                $success = $true
+            } else {
+                Log-Message "$($program.Name): Installation failed. Error: $_" "Warning"
+                $success = $false
+            }
+        }
+
+        $skipButton.Enabled = $false
+        &$updateLocalProgress $index $total 100 "Finished: $($program.Name)" ""
+        return $success
+    }
+
+    # ==============================================================================
+    # RUN 1: Initial Installation Pass
+    # ==============================================================================
+    $failedRun1 = @()
+    $currentIndex = 0
+    $wingetPrograms = $selectedPrograms | Where-Object { $_ -ne "Microsoft Office (64-Bit)" -and $_ -ne "Outlook Classic" }
+    $totalWinget = $wingetPrograms.Count
+
+    foreach ($programName in $wingetPrograms) {
+        $program = $programs | Where-Object { $_.Name -eq $programName }
+        if ($null -ne $program) {
+            $ok = &$installSingleProgram $program $currentIndex $totalWinget "Installing"
+            if (-not $ok) {
+                $failedRun1 += $program
+            }
             $currentIndex++
         }
     }
@@ -822,10 +989,10 @@ $okButton.Add_Click({
     if ($msProgName -and $null -ne $script:msState -and -not $script:msState.Finished) {
         $progressBar.Value = 100
         $progressBar.ShowShimmer = $false
-        $msWaitText = "Waiting on $displayName to finish downloading..."
+        $msWaitText = "Waiting on $displayName installer to launch..."
         Log-Message "$msWaitText" "Info"
         $statuslabel.Text = $msWaitText
-        $detailLabel.Text = "Background payload streaming in progress..."
+        $detailLabel.Text = "Background payload streaming and preparation in progress..."
         $global:BGRBaseText = $msWaitText
         if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) {
             $global:BGRlabel.Text = $msWaitText
@@ -834,6 +1001,14 @@ $okButton.Add_Click({
             &$updateMSProgress
             [System.Windows.Forms.Application]::DoEvents()
             Start-Sleep -Milliseconds 100
+        }
+    }
+
+    if ($msProgName -and $null -ne $script:msState) {
+        if ($script:msState.Error) {
+            Log-Message "$displayName failed: $($script:msState.Error)" "Error"
+        } else {
+            Log-Message "$displayName installer launched successfully in background." "Success"
         }
     }
 
@@ -853,155 +1028,58 @@ $okButton.Add_Click({
         $form.ClientSize = [System.Drawing.Size]::new($form.ClientSize.Width, ($okButton.Bottom + $p))
     }
 
-    if ($failedWinget.Count -gt 0) {
-        Log-Message "Retrying failed programs..." "Info"
-        try {
-            Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
-        }
-        catch {
-            Log-Message "Failed to stop winget process: $_" "Error"
-        }
-        try {
-            Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Stop
-        }
-        catch {
-            Log-Message "Failed to stop msiexec process: $_" "Error"
-        }
+    # ==============================================================================
+    # RUN 2: Immediate Retry Pass (Re-attempts all failed programs from Run 1)
+    # ==============================================================================
+    $failedRun2 = @()
+    if ($failedRun1.Count -gt 0) {
+        Log-Message "Starting Run 2: Immediately retrying $($failedRun1.Count) failed program(s)..." "Info"
+        try { Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+        try { Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
         Start-Sleep -Seconds 1
-    
-        $retryTotal = $failedWinget.Count
-        $retryIndex = 0
+
+        $r2Total = $failedRun1.Count
+        $r2Index = 0
         $progressBar.Value = 0
 
-        foreach ($programName in $failedWinget) {
-            $program = $programs | Where-Object { $_.Name -eq $programName }
-            if ($program -ne $null) {
-                Log-Message "(Retrying) Installing $($program.Name)..." "Info"
-                &$updateLocalProgress $retryIndex $retryTotal 0 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Initializing WinGet..."
-            
-                try {
-                    $script:SkipCurrent = $false
-                    $skipButton.Enabled = $true
-
-                    $procInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    $procInfo.FileName = "winget.exe"
-                    $procInfo.Arguments = "show --id `"$($program.WingetID)`" --exact --accept-source-agreements --architecture x64 --disable-interactivity"
-                    $procInfo.RedirectStandardOutput = $true
-                    $procInfo.UseShellExecute = $false
-                    $procInfo.CreateNoWindow = $true
-
-                    $proc = New-Object System.Diagnostics.Process
-                    $proc.StartInfo = $procInfo
-                    $proc.Start() | Out-Null
-
-                    $readTask = $proc.StandardOutput.ReadToEndAsync()
-                    while (-not $readTask.IsCompleted) {
-                        [System.Windows.Forms.Application]::DoEvents()
-                        Start-Sleep -Milliseconds 50
-                    }
-                    $wingetOutput = $readTask.Result
-                    $proc.WaitForExit()
-
-                    $installerUrl = $null
-                    $silentArgs = $null
-                    $installerType = $null
-
-                    foreach ($line in ($wingetOutput -split '\r?\n')) {
-                        if ($line -match 'Installer URL:\s+(.+)') { $installerUrl = $matches[1].Trim() }
-                        if ($line -match 'Installer Type:\s+(.+)') { $installerType = $matches[1].Trim() }
-
-                        if ($line -match '^\s*Silent:\s+(.+)') { 
-                            $silentArgs = $matches[1].Trim() 
-                        }
-                        elseif ([string]::IsNullOrWhiteSpace($silentArgs) -and $line -match '^\s*Silent with Progress:\s+(.+)') { 
-                            $silentArgs = $matches[1].Trim() 
-                        }
-                    }
-
-                    if ($program.WingetID -eq 'Adobe.Acrobat.Reader.64-bit') {
-                        $silentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
-                    }
-
-                    if ([string]::IsNullOrWhiteSpace($installerUrl)) { throw "Failed to locate direct download URL from WinGet." }
-
-                    if ([string]::IsNullOrWhiteSpace($silentArgs)) {
-                        if ($installerType -match "msi|wix") { $silentArgs = "/quiet /norestart" }
-                        elseif ($installerType -match "inno") { $silentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" }
-                        else { $silentArgs = "/S" }
-                    }
-
-                    $urlExt = [System.IO.Path]::GetExtension($installerUrl).Split('?')[0]
-                    if ([string]::IsNullOrWhiteSpace($urlExt) -or $urlExt -notmatch "msi|exe|msix") {
-                        $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
-                    }
-                    $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
-                    &$downloadWithProgress $installerUrl $tempPath $retryIndex $retryTotal $program.Name
-                
-                    if ($script:SkipCurrent) {
-                        Log-Message "$($program.Name): Installation skipped by user on retry." "Warning"
-                        $skipButton.Enabled = $false
-                        $retryIndex++
-                        Continue
-                    }
-
-                    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
-                        throw "Downloaded installer is missing or 0 bytes. Check network connection."
-                    }
-
-                    Log-Message "Running Installer..." "Info"
-                    $installProcInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    if ($tempPath -match '\.msi$') {
-                        $installProcInfo.FileName = "msiexec.exe"
-                        $installProcInfo.Arguments = "/i `"$tempPath`" $silentArgs"
-                    }
-                    else {
-                        $installProcInfo.FileName = $tempPath
-                        $installProcInfo.Arguments = $silentArgs
-                    }
-                    $installProcInfo.UseShellExecute = $false
-                    $installProcInfo.CreateNoWindow = $true
-
-                    $installProc = New-Object System.Diagnostics.Process
-                    $installProc.StartInfo = $installProcInfo
-                    $installProc.Start() | Out-Null
-                
-                    $dotCount = 0
-                    while (-not $installProc.HasExited) {
-                        if ($script:SkipCurrent) {
-                            try { $installProc.Kill() } catch { Log-Message "Process kill ignored: $_" "logonly" }
-                            break
-                        }
-                        $dotCount++
-                        if ($dotCount -gt 3) { $dotCount = 0 }
-                        $dots = "." * $dotCount
-                        &$updateLocalProgress $retryIndex $retryTotal 99 "Retrying $($retryIndex + 1) of $($retryTotal): $($program.Name)" "Running Installer$dots"
-                        for ($s = 0; $s -lt 5; $s++) {
-                            [System.Windows.Forms.Application]::DoEvents()
-                            Start-Sleep -Milliseconds 100
-                            if ($installProc.HasExited -or $script:SkipCurrent) { break }
-                        }
-                    }
-                
-                    if (-not $script:SkipCurrent) {
-                        if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
-                            Log-Message "$($program.Name): Installed successfully on retry." "Success"
-                        }
-                        else {
-                            Log-Message "$($program.Name): Installation failed again with code $($installProc.ExitCode)." "Error"
-                        }
-                    }
-                
-                    Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Seconds 1
-                    $skipButton.Enabled = $false
-                }
-                catch {
-                    Log-Message "$($program.Name): Installation failed again. Error: $_" "Error"
-                    $skipButton.Enabled = $false
-                }
+        foreach ($prog in $failedRun1) {
+            $ok = &$installSingleProgram $prog $r2Index $r2Total "Retrying (Run 2)"
+            if (-not $ok) {
+                $failedRun2 += $prog
             }
-            &$updateLocalProgress $retryIndex $retryTotal 100 "Finished: $($program.Name)" ""
-            $retryIndex++
+            $r2Index++
+        }
+    }
+
+    # ==============================================================================
+    # RUN 3: Final Retry Pass (1-Minute Cooldown Delay Before Run 3)
+    # ==============================================================================
+    if ($failedRun2.Count -gt 0) {
+        Log-Message "Run 2 complete with $($failedRun2.Count) remaining failure(s). Waiting 60 seconds before final retry pass (Run 3)..." "Warning"
+        try { Get-Process -Name "winget" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+        try { Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+
+        # 60-Second Cooldown Countdown in UI
+        for ($sec = 60; $sec -gt 0; $sec--) {
+            $pctCooldown = [int](((60 - $sec) / 60) * 100)
+            $progressBar.Value = $pctCooldown
+            $statuslabel.Text = "Cooldown: Waiting before final retry pass ($sec seconds remaining)..."
+            $detailLabel.Text = "Pending final retry for: $(($failedRun2.Name) -join ', ')"
+            [System.Windows.Forms.Application]::DoEvents()
+            Start-Sleep -Seconds 1
+        }
+
+        Log-Message "Starting Run 3: Final retry attempt for $($failedRun2.Count) program(s)..." "Info"
+        $r3Total = $failedRun2.Count
+        $r3Index = 0
+        $progressBar.Value = 0
+
+        foreach ($prog in $failedRun2) {
+            $ok = &$installSingleProgram $prog $r3Index $r3Total "Final Retry (Run 3)"
+            if (-not $ok) {
+                Log-Message "$($prog.Name): Permanent failure after 3 installation attempts." "Error"
+            }
+            $r3Index++
         }
     }
 

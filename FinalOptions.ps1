@@ -54,7 +54,7 @@ $list = @(
     @{ Option = 'NumLock - Default On for Login and New User Sessions'; ID = 'numlock' },
     @{ Option = 'Disable Windows Default Printer Management'; ID = 'defprint' },
     @{ Option = 'Restore Classic Windows 11 Right-Click Context Menu'; ID = 'classicmenu' },
-    @{ Option = 'Prevent Automatic Windows Hello PIN Setup at Azure Login'; ID = 'hellopin' },
+    @{ Option = 'Prevent Automatic Windows Hello PIN Setup on First Login'; ID = 'hellopin' },
     @{ Option = 'Disable Device Power Saving (USB Suspend, PCIe ASPM, & NIC Power Save)'; ID = 'devicepower' },
     @{ Option = 'Disable Windows Fast Startup (Forces True Kernel Shutdown)'; ID = 'disablefaststartup' },
     @{ Option = 'Enable Hibernation & Add Hibernation to Start Power Menu'; ID = 'enablehibernation' },
@@ -177,11 +177,11 @@ $FOOkayButton.Add_Click({
                     
                         if (-not (Test-Path $PassportPath)) { New-Item -Path $PassportPath -Force | Out-Null }
                     
-                        # Set Enabled = 0 to completely disable Windows Hello for Business
-                        Set-ItemProperty -Path $PassportPath -Name "Enabled" -Value 0 -Type DWord -Force
+                        # Enable Windows Hello for Business while suppressing the mandatory PIN setup prompt on first login
+                        Set-ItemProperty -Path $PassportPath -Name "Enabled" -Value 1 -Type DWord -Force
                         Set-ItemProperty -Path $PassportPath -Name "DisablePostLogonProvisioning" -Value 1 -Type DWord -Force
                     
-                        Log-Message "Disabled automatic Windows Hello PIN setup prompt." "Success"
+                        Log-Message "Disabled automatic Windows Hello PIN setup prompt on first login." "Success"
                     }
 
                     'devicepower' {

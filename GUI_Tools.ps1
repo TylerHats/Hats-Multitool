@@ -46,12 +46,12 @@ $diskList = @(
     [pscustomobject]@{ Name = "BleachBit"; Desc = "System and program temporary data cleaner to reclaim drive space." }
     [pscustomobject]@{ Name = "Patch Cleaner"; Desc = "Scans and allows safe removal of orphaned installer/driver store files." }
     [pscustomobject]@{ Name = "Windows Disk Cleanup"; Desc = "Launches the native Windows Disk Cleanup utility." }
-    [pscustomobject]@{ Name = "Storage SMART & Benchmark Dashboard"; Desc = "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark." }
+    [pscustomobject]@{ Name = "SMART Info & Benchmarking"; Desc = "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark." }
     [pscustomobject]@{ Name = "Display Driver Uninstaller"; Desc = "Runs Display Driver Uninstaller (DDU) to clean graphics/audio drivers for fresh installs." }
     [pscustomobject]@{ Name = "HDDScan"; Desc = "Runs HDDScan to verify block health and SMART diagnostics." }
     [pscustomobject]@{ Name = "Crystal Disk Mark"; Desc = "SSD/HDD storage benchmark utility." }
     [pscustomobject]@{ Name = "Crystal Disk Info"; Desc = "Drive health and temperature monitoring utility." }
-    [pscustomobject]@{ Name = "BitLocker Drive Encryption & Recovery"; Desc = "Inspect status, enable/disable encryption, manage recovery keys, and unlock locked drives." }
+    [pscustomobject]@{ Name = "BitLocker Management"; Desc = "Inspect status, enable/disable encryption, manage recovery keys, and unlock locked drives." }
 )
 
 $netList = @(
@@ -70,13 +70,14 @@ $viewerList = @(
     [pscustomobject]@{ Name = "DriverView"; Desc = "Lists all installed device drivers loaded in the operating system." }
     [pscustomobject]@{ Name = "UninstallView"; Desc = "Fast, comprehensive viewer for installed software with batch uninstall options." }
     [pscustomobject]@{ Name = "DISM++"; Desc = "Advanced GUI based around DISM for Windows image management and optimization." }
-    [pscustomobject]@{ Name = "Hat's User Move Tool"; Desc = "Collects user and system data for transferring to new machines." }
+    [pscustomobject]@{ Name = "ProfileShift"; Desc = "Collects and migrates user and system profile data for transferring to new machines." }
     [pscustomobject]@{ Name = "User Profile Wizard"; Desc = "Migrates user profile data between domains or computers (Profwiz)." }
     [pscustomobject]@{ Name = "Generate Battery Report"; Desc = "Generates and opens a detailed HTML report of laptop battery health and cycle history." }
     [pscustomobject]@{ Name = "Startup & Autoruns Manager"; Desc = "Inspect, enable, disable, or remove startup applications and registry autorun entries." }
     [pscustomobject]@{ Name = "Reliability Monitor"; Desc = "Opens Windows Reliability Monitor timeline to view crash and software install history." }
-    [pscustomobject]@{ Name = "Read Motherboard OEM Product Key"; Desc = "Reads OEM Windows product key embedded in BIOS/ACPI MSDM table." }
+    [pscustomobject]@{ Name = "Read OEM OS Key"; Desc = "Reads OEM Windows product key embedded in BIOS/ACPI MSDM table." }
     [pscustomobject]@{ Name = "Enable Safe Boot (w/Network)"; Desc = "Configures BCD to boot into Safe Mode with networking enabled." }
+    [pscustomobject]@{ Name = "Disable Safe Boot (Normal Boot)"; Desc = "Removes Safe Boot configuration from BCD and restores normal Windows startup." }
     [pscustomobject]@{ Name = "Restart Windows Explorer"; Desc = "Forcefully kills and restarts explorer.exe to resolve frozen taskbars or stuck folders." }
     [pscustomobject]@{ Name = "McAfee MCPR Tool"; Desc = "Official McAfee Consumer Product Removal tool." }
     [pscustomobject]@{ Name = "Ninja Removal Script"; Desc = "Launches the NinjaOne Agent removal script." }
@@ -253,18 +254,7 @@ $TLaunchButton.Add_Click({
                 Show-CommandRunnerDialog -Title ".NET 3.5 Installation" -CommandName "powershell.exe" -Arguments "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Description "Installing .NET Framework 3.5/2.0/3.0 feature" -IsPowerShellScript
             }
             "Windows Update Reset" {
-                $confirm = PopupError "Are you sure you want to reset Windows Update components? This will stop update services, clear the cache, and restart services." "Question" "YesNo"
-                if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
-                    Log-Message "Resetting Windows Update components..." "Info"
-                    Stop-Service -Name wuauserv, bits, cryptsvc, msiserver -ErrorAction SilentlyContinue
-                    $sdPath = "$env:WINDIR\SoftwareDistribution"
-                    $crPath = "$env:WINDIR\System32\catroot2"
-                    if (Test-Path $sdPath) { Rename-Item -Path $sdPath -NewName "SoftwareDistribution.old.$((Get-Date).ToString('yyyyMMddHHmmss'))" -ErrorAction SilentlyContinue }
-                    if (Test-Path $crPath) { Rename-Item -Path $crPath -NewName "catroot2.old.$((Get-Date).ToString('yyyyMMddHHmmss'))" -ErrorAction SilentlyContinue }
-                    Start-Service -Name wuauserv, bits, cryptsvc, msiserver -ErrorAction SilentlyContinue
-                    Log-Message "Successfully reset Windows Update services and cleared caches." "Success"
-                    PopupError "Windows Update components have been reset and services restarted." "Information"
-                }
+                Show-WindowsUpdateResetDialog
             }
             "Reset HOSTS File to Default" {
                 $confirm = PopupError "Are you sure you want to reset your HOSTS file to clean default? A backup will be created." "Question" "YesNo"
@@ -305,41 +295,36 @@ $TLaunchButton.Add_Click({
                         $wizTreeUrl = "https://diskanalyzer.com/" + $matches[1]
                     }
                 } catch { Write-Warning "Failed to fetch WizTree download URL." }
-                Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath"
-                if (Test-Path -LiteralPath $WizTreeZipPath) {
-                    Invoke-HMTExtract -Path $WizTreeZipPath -DestinationPath $ExtProgramDir
-                    $WizTreeExePath = Get-ChildItem -Path $ExtProgramDir -Filter "WizTree64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($WizTreeExePath) { Start-Process $WizTreeExePath }
-                }
+                Show-DownloadDialog -DisplayName 'WizTree' -Url $wizTreeUrl -OutputPath "$WizTreeZipPath" -ExtractTo $ExtProgramDir
+                $WizTreeExePath = Get-ChildItem -Path $ExtProgramDir -Filter "WizTree64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($WizTreeExePath) { Start-Process $WizTreeExePath }
             }
             "BleachBit" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $BleachZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BleachBit.zip"
-                $version = "6.0.2"
+                $bbUrl = "https://download.bleachbit.org/BleachBit-4.6.2-portable.zip"
                 try {
                     $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/bleachbit/bleachbit/releases/latest" -ErrorAction Stop
-                    if ($ghJson.tag_name) { $version = $ghJson.tag_name -replace '^v', '' }
+                    $asset = $ghJson.assets | Where-Object { $_.name -like '*portable.zip' } | Select-Object -First 1
+                    if ($asset -and $asset.browser_download_url) { $bbUrl = $asset.browser_download_url }
                 } catch {}
-                $bbUrl = "https://download.bleachbit.org/BleachBit-$version-portable.zip"
-                Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath"
-                if (Test-Path -LiteralPath $BleachZipPath) {
-                    Invoke-HMTExtract -Path $BleachZipPath -DestinationPath $ExtProgramDir
-                    $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($BleachExePath) { Start-Process $BleachExePath }
-                }
+                Show-DownloadDialog -DisplayName 'BleachBit' -Url $bbUrl -OutputPath "$BleachZipPath" -ExtractTo $ExtProgramDir
+                $BleachExePath = Get-ChildItem -Path $ExtProgramDir -Filter "bleachbit.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($BleachExePath) { Start-Process $BleachExePath }
             }
             "Patch Cleaner" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-                Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip' -OutputPath "$PatchCleanerPath"
-                if (Test-Path -LiteralPath $PatchCleanerPath) {
-                    Invoke-HMTExtract -Path $PatchCleanerPath -DestinationPath $ExtProgramDir
-                    $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
-                }
+                $pcUrl = 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip'
+                Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url $pcUrl -OutputPath "$PatchCleanerPath" -ExtractTo $ExtProgramDir
+                $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
             }
             "Windows Disk Cleanup" {
                 Start-Process -FilePath cleanmgr.exe -Verb RunAs
+            }
+            "SMART Info & Benchmarking" {
+                Show-StorageHealthDialog
             }
             "Storage SMART & Benchmark Dashboard" {
                 Show-StorageHealthDialog
@@ -368,34 +353,28 @@ $TLaunchButton.Add_Click({
             "HDDScan" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $HDDSPath = Join-Path -Path $ExtProgramDir -ChildPath "HDDS.zip"
-                Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath"
-                if (Test-Path -LiteralPath $HDDSPath) {
-                    Invoke-HMTExtract -Path $HDDSPath -DestinationPath $ExtProgramDir
-                    $HDDSEPath = Get-ChildItem -Path $ExtProgramDir -Filter "HDDScan.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($HDDSEPath) { Start-Process $HDDSEPath }
-                }
+                Show-DownloadDialog -DisplayName 'HDDScan' -Url 'https://hddscan.com/download/HDDScan.zip' -OutputPath "$HDDSPath" -ExtractTo $ExtProgramDir
+                $HDDSEPath = Get-ChildItem -Path $ExtProgramDir -Filter "HDDScan.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($HDDSEPath) { Start-Process $HDDSEPath }
             }
             "Crystal Disk Mark" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
                 $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip'
-                Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath"
-                if (Test-Path -LiteralPath $CDMPath) {
-                    Invoke-HMTExtract -Path $CDMPath -DestinationPath $ExtProgramDir
-                    $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($CDMEPath) { Start-Process $CDMEPath }
-                }
+                Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath" -ExtractTo $ExtProgramDir
+                $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($CDMEPath) { Start-Process $CDMEPath }
             }
             "Crystal Disk Info" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
                 $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.4.0/CrystalDiskInfo9_4_0.zip'
-                Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath"
-                if (Test-Path -LiteralPath $CDIPath) {
-                    Invoke-HMTExtract -Path $CDIPath -DestinationPath $ExtProgramDir
-                    $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($CDIEPath) { Start-Process $CDIEPath }
-                }
+                Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath" -ExtractTo $ExtProgramDir
+                $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($CDIEPath) { Start-Process $CDIEPath }
+            }
+            "BitLocker Management" {
+                Show-BitLockerManagerDialog
             }
             "BitLocker Drive Encryption & Recovery" {
                 Show-BitLockerManagerDialog
@@ -445,54 +424,39 @@ $TLaunchButton.Add_Click({
             "CurrPorts" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CPZipPath = Join-Path -Path $ExtProgramDir -ChildPath "cports.zip"
-                Show-DownloadDialog -DisplayName 'CurrPorts' -Url 'https://www.nirsoft.net/utils/cports-x64.zip' -OutputPath "$CPZipPath"
-                if (Test-Path -LiteralPath $CPZipPath) {
-                    Invoke-HMTExtract -Path $CPZipPath -DestinationPath $ExtProgramDir
-                    $CPExe = Get-ChildItem -Path $ExtProgramDir -Filter "cports.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($CPExe) { Start-Process $CPExe }
-                }
+                Show-DownloadDialog -DisplayName 'CurrPorts' -Url 'https://www.nirsoft.net/utils/cports-x64.zip' -OutputPath "$CPZipPath" -ExtractTo $ExtProgramDir
+                $CPExe = Get-ChildItem -Path $ExtProgramDir -Filter "cports.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($CPExe) { Start-Process $CPExe }
             }
 
             # --- System Viewers & Admin ---
             "BlueScreenView" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $BSVZipPath = Join-Path -Path $ExtProgramDir -ChildPath "BSV.zip"
-                Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath"
-                if (Test-Path -LiteralPath $BSVZipPath) {
-                    Invoke-HMTExtract -Path $BSVZipPath -DestinationPath $ExtProgramDir
-                    $BSVExePath = Get-ChildItem -Path $ExtProgramDir -Filter "BlueScreenView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($BSVExePath) { Start-Process $BSVExePath }
-                }
+                Show-DownloadDialog -DisplayName 'BlueScreenView' -Url 'https://www.nirsoft.net/utils/bluescreenview-x64.zip' -OutputPath "$BSVZipPath" -ExtractTo $ExtProgramDir
+                $BSVExePath = Get-ChildItem -Path $ExtProgramDir -Filter "BlueScreenView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($BSVExePath) { Start-Process $BSVExePath }
             }
             "USBDeview" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $USBZip = Join-Path -Path $ExtProgramDir -ChildPath "usbdeview.zip"
-                Show-DownloadDialog -DisplayName 'USBDeview' -Url 'https://www.nirsoft.net/utils/usbdeview-x64.zip' -OutputPath "$USBZip"
-                if (Test-Path -LiteralPath $USBZip) {
-                    Invoke-HMTExtract -Path $USBZip -DestinationPath $ExtProgramDir
-                    $USBExe = Get-ChildItem -Path $ExtProgramDir -Filter "USBDeview.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($USBExe) { Start-Process $USBExe }
-                }
+                Show-DownloadDialog -DisplayName 'USBDeview' -Url 'https://www.nirsoft.net/utils/usbdeview-x64.zip' -OutputPath "$USBZip" -ExtractTo $ExtProgramDir
+                $USBExe = Get-ChildItem -Path $ExtProgramDir -Filter "USBDeview.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($USBExe) { Start-Process $USBExe }
             }
             "DriverView" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $DVZip = Join-Path -Path $ExtProgramDir -ChildPath "driverview.zip"
-                Show-DownloadDialog -DisplayName 'DriverView' -Url 'https://www.nirsoft.net/utils/driverview-x64.zip' -OutputPath "$DVZip"
-                if (Test-Path -LiteralPath $DVZip) {
-                    Invoke-HMTExtract -Path $DVZip -DestinationPath $ExtProgramDir
-                    $DVExe = Get-ChildItem -Path $ExtProgramDir -Filter "DriverView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($DVExe) { Start-Process $DVExe }
-                }
+                Show-DownloadDialog -DisplayName 'DriverView' -Url 'https://www.nirsoft.net/utils/driverview-x64.zip' -OutputPath "$DVZip" -ExtractTo $ExtProgramDir
+                $DVExe = Get-ChildItem -Path $ExtProgramDir -Filter "DriverView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($DVExe) { Start-Process $DVExe }
             }
             "UninstallView" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $UVZip = Join-Path -Path $ExtProgramDir -ChildPath "uninstallview.zip"
-                Show-DownloadDialog -DisplayName 'UninstallView' -Url 'https://www.nirsoft.net/utils/uninstallview-x64.zip' -OutputPath "$UVZip"
-                if (Test-Path -LiteralPath $UVZip) {
-                    Invoke-HMTExtract -Path $UVZip -DestinationPath $ExtProgramDir
-                    $UVExe = Get-ChildItem -Path $ExtProgramDir -Filter "UninstallView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($UVExe) { Start-Process $UVExe }
-                }
+                Show-DownloadDialog -DisplayName 'UninstallView' -Url 'https://www.nirsoft.net/utils/uninstallview-x64.zip' -OutputPath "$UVZip" -ExtractTo $ExtProgramDir
+                $UVExe = Get-ChildItem -Path $ExtProgramDir -Filter "UninstallView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($UVExe) { Start-Process $UVExe }
             }
             "DISM++" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
@@ -503,26 +467,50 @@ $TLaunchButton.Add_Click({
                     $ghAsset = $ghJson.assets | Where-Object { $_.name -match 'Dism.*\.zip' } | Select-Object -First 1
                     if ($ghAsset.browser_download_url) { $dismUrl = $ghAsset.browser_download_url }
                 } catch {}
-                Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath"
-                if (Test-Path -LiteralPath $DISMPPPath) {
-                    Invoke-HMTExtract -Path $DISMPPPath -DestinationPath $ExtProgramDir
-                    $DISMPPEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Dism++x64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($DISMPPEPath) { Start-Process $DISMPPEPath }
+                Show-DownloadDialog -DisplayName 'DISM++' -Url $dismUrl -OutputPath "$DISMPPPath" -ExtractTo $ExtProgramDir
+                $DISMPPEPath = Get-ChildItem -Path $ExtProgramDir -Filter "Dism++x64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($DISMPPEPath) { Start-Process $DISMPPEPath }
+            }
+            "ProfileShift" {
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $ProfileShiftPath = Join-Path -Path $ExtProgramDir -ChildPath "ProfileShift.exe"
+                $psUrl = "https://github.com/TylerHats/ProfileShift/releases/latest/download/ProfileShift.exe"
+                try {
+                    $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/TylerHats/ProfileShift/releases/latest" -ErrorAction Stop
+                    $asset = $ghJson.assets | Where-Object { $_.name -eq 'ProfileShift.exe' } | Select-Object -First 1
+                    if ($asset -and $asset.browser_download_url) { $psUrl = $asset.browser_download_url }
+                } catch {}
+                Show-DownloadDialog -DisplayName 'ProfileShift' -Url $psUrl -OutputPath "$ProfileShiftPath"
+                if (Test-Path -LiteralPath $ProfileShiftPath) {
+                    Start-Process $ProfileShiftPath
                 }
             }
             "Hat's User Move Tool" {
-                $MoveToolPath = Join-Path -Path $PSScriptRoot -ChildPath "UserMoveTool.ps1"
-                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$MoveToolPath`""
+                if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
+                $ProfileShiftPath = Join-Path -Path $ExtProgramDir -ChildPath "ProfileShift.exe"
+                $psUrl = "https://github.com/TylerHats/ProfileShift/releases/latest/download/ProfileShift.exe"
+                try {
+                    $ghJson = Invoke-RestMethod -Uri "https://api.github.com/repos/TylerHats/ProfileShift/releases/latest" -ErrorAction Stop
+                    $asset = $ghJson.assets | Where-Object { $_.name -eq 'ProfileShift.exe' } | Select-Object -First 1
+                    if ($asset -and $asset.browser_download_url) { $psUrl = $asset.browser_download_url }
+                } catch {}
+                Show-DownloadDialog -DisplayName 'ProfileShift' -Url $psUrl -OutputPath "$ProfileShiftPath"
+                if (Test-Path -LiteralPath $ProfileShiftPath) {
+                    Start-Process $ProfileShiftPath
+                }
             }
             "User Profile Wizard" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
-                $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "UserProfileWiz.msi"
-                $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
-                try {
+                $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "Profwiz.msi"
+                if (-not (Test-Path -LiteralPath $UPWPath)) {
+                    $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
                     Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
-                } catch {
-                    PopupError "ForensIT direct download is blocked by Cloudflare bot protection.`nOpening the ForensIT downloads page in your browser..." "Warning"
-                    Start-Process "https://www.forensit.com/downloads.html"
+                    if (-not (Test-Path -LiteralPath $UPWPath)) {
+                        $openBrowser = PopupError "ForensIT direct automated download is protected by Cloudflare bot challenge (403).`n`nWould you like to open the official ForensIT download page in your browser?" "Question" "YesNo"
+                        if ($openBrowser -eq [System.Windows.Forms.DialogResult]::Yes) {
+                            Start-Process "https://www.forensit.com/downloads.html"
+                        }
+                    }
                 }
                 if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
             }
@@ -541,6 +529,15 @@ $TLaunchButton.Add_Click({
             "Startup & Autoruns Manager" {
                 Show-StartupManagerDialog
             }
+            "Read OEM OS Key" {
+                $oemKey = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction SilentlyContinue).OA3xOriginalProductKey
+                if (-not [string]::IsNullOrWhiteSpace($oemKey)) {
+                    [Windows.Forms.Clipboard]::SetText($oemKey)
+                    PopupError "OEM Product Key found:`n`n$oemKey`n`n(Key copied to clipboard!)" "Information"
+                } else {
+                    PopupError "No OEM Product Key found embedded in the motherboard/BIOS MSDM table." "Warning"
+                }
+            }
             "Read Motherboard OEM Product Key" {
                 $oemKey = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction SilentlyContinue).OA3xOriginalProductKey
                 if (-not [string]::IsNullOrWhiteSpace($oemKey)) {
@@ -551,10 +548,23 @@ $TLaunchButton.Add_Click({
                 }
             }
             "Enable Safe Boot (w/Network)" {
-                $confirm = PopupError "Are you sure you want to configure this system to boot into Safe Mode with networking?" "Question" "YesNo"
+                $confirm = PopupError "Configure this system to boot into Safe Mode with Networking on next restart?`n`nTo return to normal Windows later, select 'Disable Safe Boot' in this menu." "Question" "YesNo"
                 if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
-                    Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot networking" -Verb RunAs
-                    PopupError "BCD configured for Safe Boot with networking. Restart the PC when ready." "Information"
+                    Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {current} safeboot network" -Verb RunAs -Wait -WindowStyle Hidden
+                    Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/set {default} safeboot network" -Verb RunAs -Wait -WindowStyle Hidden
+                    
+                    $restart = PopupError "Safe Boot with Networking has been successfully configured in BCD!`n`nWould you like to restart the PC now?" "Question" "YesNo"
+                    if ($restart -eq [System.Windows.Forms.DialogResult]::Yes) {
+                        Restart-Computer -Force
+                    }
+                }
+            }
+            "Disable Safe Boot (Normal Boot)" {
+                $confirm = PopupError "Remove Safe Boot configuration and return to normal Windows boot mode?" "Question" "YesNo"
+                if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/deletevalue {current} safeboot" -Verb RunAs -Wait -WindowStyle Hidden
+                    Start-Process "$env:WINDIR\System32\bcdedit.exe" -ArgumentList "/deletevalue {default} safeboot" -Verb RunAs -Wait -WindowStyle Hidden
+                    PopupError "Safe Boot setting removed. Windows will boot normally on next restart." "Information"
                 }
             }
             "Restart Windows Explorer" {
@@ -587,56 +597,41 @@ $TLaunchButton.Add_Click({
                 $recDir = Join-Path $env:TEMP "HMT_PassRecovery"
                 if (-not (Test-Path $recDir)) { New-Item -ItemType Directory -Path $recDir | Out-Null }
                 $zip = Join-Path $recDir "webbrowserpassview.zip"
-                Show-DownloadDialog -DisplayName 'WebBrowserPassView' -Url 'https://www.nirsoft.net/toolsdownload/webbrowserpassview.zip' -OutputPath "$zip"
-                if (Test-Path -LiteralPath $zip) {
-                    Invoke-HMTExtract -Path $zip -DestinationPath $recDir
-                    $exe = Get-ChildItem -Path $recDir -Filter "WebBrowserPassView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($exe) { Start-Process $exe }
-                }
+                Show-DownloadDialog -DisplayName 'WebBrowserPassView' -Url 'https://www.nirsoft.net/toolsdownload/webbrowserpassview.zip' -OutputPath "$zip" -ExtractTo $recDir
+                $exe = Get-ChildItem -Path $recDir -Filter "WebBrowserPassView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($exe) { Start-Process $exe }
             }
             "WirelessKeyView" {
                 $recDir = Join-Path $env:TEMP "HMT_PassRecovery"
                 if (-not (Test-Path $recDir)) { New-Item -ItemType Directory -Path $recDir | Out-Null }
                 $zip = Join-Path $recDir "wirelesskeyview.zip"
-                Show-DownloadDialog -DisplayName 'WirelessKeyView' -Url 'https://www.nirsoft.net/toolsdownload/wirelesskeyview-x64.zip' -OutputPath "$zip"
-                if (Test-Path -LiteralPath $zip) {
-                    Invoke-HMTExtract -Path $zip -DestinationPath $recDir
-                    $exe = Get-ChildItem -Path $recDir -Filter "WirelessKeyView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($exe) { Start-Process $exe }
-                }
+                Show-DownloadDialog -DisplayName 'WirelessKeyView' -Url 'https://www.nirsoft.net/toolsdownload/wirelesskeyview-x64.zip' -OutputPath "$zip" -ExtractTo $recDir
+                $exe = Get-ChildItem -Path $recDir -Filter "WirelessKeyView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($exe) { Start-Process $exe }
             }
             "Dialupass" {
                 $recDir = Join-Path $env:TEMP "HMT_PassRecovery"
                 if (-not (Test-Path $recDir)) { New-Item -ItemType Directory -Path $recDir | Out-Null }
                 $zip = Join-Path $recDir "dialupass.zip"
-                Show-DownloadDialog -DisplayName 'Dialupass' -Url 'https://www.nirsoft.net/toolsdownload/dialupass.zip' -OutputPath "$zip"
-                if (Test-Path -LiteralPath $zip) {
-                    Invoke-HMTExtract -Path $zip -DestinationPath $recDir
-                    $exe = Get-ChildItem -Path $recDir -Filter "dialupass.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($exe) { Start-Process $exe }
-                }
+                Show-DownloadDialog -DisplayName 'Dialupass' -Url 'https://www.nirsoft.net/toolsdownload/dialupass.zip' -OutputPath "$zip" -ExtractTo $recDir
+                $exe = Get-ChildItem -Path $recDir -Filter "dialupass.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($exe) { Start-Process $exe }
             }
             "CredentialFileView" {
                 $recDir = Join-Path $env:TEMP "HMT_PassRecovery"
                 if (-not (Test-Path $recDir)) { New-Item -ItemType Directory -Path $recDir | Out-Null }
                 $zip = Join-Path $recDir "credentialfileview.zip"
-                Show-DownloadDialog -DisplayName 'CredentialFileView' -Url 'https://www.nirsoft.net/toolsdownload/credentialsfileview-x64.zip' -OutputPath "$zip"
-                if (Test-Path -LiteralPath $zip) {
-                    Invoke-HMTExtract -Path $zip -DestinationPath $recDir
-                    $exe = Get-ChildItem -Path $recDir -Filter "CredentialFileView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($exe) { Start-Process $exe }
-                }
+                Show-DownloadDialog -DisplayName 'CredentialFileView' -Url 'https://www.nirsoft.net/toolsdownload/credentialsfileview-x64.zip' -OutputPath "$zip" -ExtractTo $recDir
+                $exe = Get-ChildItem -Path $recDir -Filter "CredentialFileView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($exe) { Start-Process $exe }
             }
             "VaultPasswordView" {
                 $recDir = Join-Path $env:TEMP "HMT_PassRecovery"
                 if (-not (Test-Path $recDir)) { New-Item -ItemType Directory -Path $recDir | Out-Null }
                 $zip = Join-Path $recDir "vaultpasswordview.zip"
-                Show-DownloadDialog -DisplayName 'VaultPasswordView' -Url 'https://www.nirsoft.net/toolsdownload/vaultpasswordview-x64.zip' -OutputPath "$zip"
-                if (Test-Path -LiteralPath $zip) {
-                    Invoke-HMTExtract -Path $zip -DestinationPath $recDir
-                    $exe = Get-ChildItem -Path $recDir -Filter "VaultPasswordView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
-                    if ($exe) { Start-Process $exe }
-                }
+                Show-DownloadDialog -DisplayName 'VaultPasswordView' -Url 'https://www.nirsoft.net/toolsdownload/vaultpasswordview-x64.zip' -OutputPath "$zip" -ExtractTo $recDir
+                $exe = Get-ChildItem -Path $recDir -Filter "VaultPasswordView.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if ($exe) { Start-Process $exe }
             }
             "BitLocker Recovery Keys & Unlock" {
                 Show-BitLockerManagerDialog
@@ -689,7 +684,7 @@ $ToolsGUI.Add_Load({
     foreach ($lv in $allListViews) {
         $minC0 = [int](210 * $global:HMTScaleFactor)
         $lv.Columns[0].Width = $minC0
-        $lv.Columns[1].Width = [math]::Max([int](300 * $global:HMTScaleFactor), ($lv.ClientSize.Width - $minC0 - 20))
+        $lv.Columns[1].Width = [math]::Max([int](300 * $global:HMTScaleFactor), ($lv.ClientSize.Width - $minC0))
     }
 })
 
