@@ -647,16 +647,35 @@ namespace HMT.Tools {
                 true
             );
             DrawMode = TabDrawMode.OwnerDrawFixed;
-            SizeMode = TabSizeMode.Fixed;
-            ItemSize = new Size(135, 34);
-            Padding = new Point(0, 0);
+            SizeMode = TabSizeMode.Normal;
+            Padding = new Point(16, 7);
             Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+        }
+
+        protected override CreateParams CreateParams {
+            get {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle &= ~0x00000200; // Remove WS_EX_CLIENTEDGE
+                return cp;
+            }
+        }
+
+        protected override void WndProc(ref Message m) {
+            if (m.Msg == 0x0085) { // WM_NCPAINT - suppress system non-client border
+                m.Result = IntPtr.Zero;
+                return;
+            }
+            if (m.Msg == 0x0014) { // WM_ERASEBKGND - prevent flicker / default background paint
+                m.Result = (IntPtr)1;
+                return;
+            }
+            base.WndProc(ref m);
         }
 
         public override Rectangle DisplayRectangle {
             get {
                 Rectangle tabRect = TabCount > 0 ? GetTabRect(0) : Rectangle.Empty;
-                int top = tabRect.Bottom;
+                int top = tabRect.Bottom > 0 ? tabRect.Bottom : 34;
                 return new Rectangle(0, top, ClientRectangle.Width, Math.Max(0, ClientRectangle.Height - top));
             }
         }
@@ -674,7 +693,7 @@ namespace HMT.Tools {
             if (TabCount == 0) return;
 
             Rectangle firstTabRect = GetTabRect(0);
-            int headerAreaHeight = firstTabRect.Bottom;
+            int headerAreaHeight = firstTabRect.Bottom > 0 ? firstTabRect.Bottom : 34;
 
             // Fill header strip area behind inactive tabs with #202225
             using (SolidBrush headerStripBrush = new SolidBrush(_tabHeaderBg)) {
@@ -1038,10 +1057,14 @@ namespace HMT.Tools {
                     int maxRedirects = 10;
                     HttpWebResponse response = null;
 
+                    CookieContainer cookieJar = new CookieContainer();
+
                     for (int r = 0; r < maxRedirects; r++) {
                         HttpWebRequest request = (HttpWebRequest)WebRequest.Create(currentUrl);
-                        request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
-                        request.Accept = "*/*";
+                        request.CookieContainer = cookieJar;
+                        request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+                        request.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8";
+                        request.Headers.Add("Accept-Language", "en-US,en;q=0.9");
                         request.AllowAutoRedirect = false; // Manually handle redirects for reliable relative/SourceForge URI resolution
                         request.Timeout = 60000;
                         request.ReadWriteTimeout = 60000;
@@ -1050,6 +1073,8 @@ namespace HMT.Tools {
                             request.Referer = "https://www.forensit.com/downloads.html";
                         } else if (currentUrl.IndexOf("wagnardsoft.com", StringComparison.OrdinalIgnoreCase) >= 0) {
                             request.Referer = "https://www.wagnardsoft.com/";
+                        } else if (currentUrl.IndexOf("sourceforge.net", StringComparison.OrdinalIgnoreCase) >= 0) {
+                            request.Referer = "https://sourceforge.net/";
                         }
 
                         response = (HttpWebResponse)request.GetResponse();
@@ -1068,6 +1093,22 @@ namespace HMT.Tools {
                             }
                             continue;
                         }
+
+                        // If SourceForge returns an intermediate 200 HTML countdown page, scrape the direct link
+                        if (statusCode == 200 && response.ContentType != null && response.ContentType.IndexOf("text/html", StringComparison.OrdinalIgnoreCase) >= 0) {
+                            string html;
+                            using (var sr = new StreamReader(response.GetResponseStream())) {
+                                html = sr.ReadToEnd();
+                            }
+                            response.Close();
+
+                            var m = System.Text.RegularExpressions.Regex.Match(html, @"https://downloads\.sourceforge\.net/project/[^""' \r\n<>]+");
+                            if (m.Success) {
+                                currentUrl = System.Net.WebUtility.HtmlDecode(m.Value);
+                                continue;
+                            }
+                        }
+
                         break;
                     }
 

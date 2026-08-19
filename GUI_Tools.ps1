@@ -315,7 +315,7 @@ $TLaunchButton.Add_Click({
             "Patch Cleaner" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-                $pcUrl = 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip'
+                $pcUrl = 'https://sourceforge.net/projects/patchcleaner/files/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip/download'
                 Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url $pcUrl -OutputPath "$PatchCleanerPath" -ExtractTo $ExtProgramDir
                 $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                 if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
@@ -360,17 +360,29 @@ $TLaunchButton.Add_Click({
             "Crystal Disk Mark" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDMPath = Join-Path -Path $ExtProgramDir -ChildPath "CDM.zip"
-                $cdmUrl = 'https://downloads.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip'
+                $cdmUrl = 'https://crystalmark.info/download/archive/CrystalDiskMark/CrystalDiskMark8_0_6.zip'
                 Show-DownloadDialog -DisplayName 'Crystal Disk Mark' -Url $cdmUrl -OutputPath "$CDMPath" -ExtractTo $ExtProgramDir
                 $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if (-not $CDMEPath) {
+                    # Fallback to direct SourceForge download if archive mirror is unreachable
+                    $cdmSfUrl = 'https://sourceforge.net/projects/crystaldiskmark/files/8.0.6/CrystalDiskMark8_0_6.zip/download'
+                    Show-DownloadDialog -DisplayName 'Crystal Disk Mark (Mirror)' -Url $cdmSfUrl -OutputPath "$CDMPath" -ExtractTo $ExtProgramDir
+                    $CDMEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskMark64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                }
                 if ($CDMEPath) { Start-Process $CDMEPath }
             }
             "Crystal Disk Info" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $CDIPath = Join-Path -Path $ExtProgramDir -ChildPath "CDI.zip"
-                $cdiUrl = 'https://downloads.sourceforge.net/project/crystaldiskinfo/9.4.0/CrystalDiskInfo9_4_0.zip'
+                $cdiUrl = 'https://crystalmark.info/download/archive/CrystalDiskInfo/CrystalDiskInfo8_17_14.zip'
                 Show-DownloadDialog -DisplayName 'Crystal Disk Info' -Url $cdiUrl -OutputPath "$CDIPath" -ExtractTo $ExtProgramDir
                 $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if (-not $CDIEPath) {
+                    # Fallback to direct SourceForge download if archive mirror is unreachable
+                    $cdiSfUrl = 'https://sourceforge.net/projects/crystaldiskinfo/files/8.17.14/CrystalDiskInfo8_17_14.zip/download'
+                    Show-DownloadDialog -DisplayName 'Crystal Disk Info (Mirror)' -Url $cdiSfUrl -OutputPath "$CDIPath" -ExtractTo $ExtProgramDir
+                    $CDIEPath = Get-ChildItem -Path $ExtProgramDir -Filter "DiskInfo64.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                }
                 if ($CDIEPath) { Start-Process $CDIEPath }
             }
             "BitLocker Management" {

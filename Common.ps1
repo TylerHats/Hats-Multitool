@@ -214,6 +214,40 @@ function Show-CustomMessageBox {
         $msgForm.AcceptButton = $btnYes
         $msgForm.CancelButton = $btnNo
     }
+    elseif ($Buttons -eq 'YesNoCancel') {
+        $btnYes = New-Object System.Windows.Forms.Button
+        $btnYes.Text = "Yes"
+        $btnYes.Size = New-Object System.Drawing.Size(85, 34)
+        $btnYes.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnYes.FlatStyle = 'Flat'
+        $btnYes.FlatAppearance.BorderSize = 1
+        $btnYes.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+        $btnPanel.Controls.Add($btnYes)
+        $createdButtons += $btnYes
+
+        $btnNo = New-Object System.Windows.Forms.Button
+        $btnNo.Text = "No"
+        $btnNo.Size = New-Object System.Drawing.Size(85, 34)
+        $btnNo.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnNo.FlatStyle = 'Flat'
+        $btnNo.FlatAppearance.BorderSize = 1
+        $btnNo.DialogResult = [System.Windows.Forms.DialogResult]::No
+        $btnPanel.Controls.Add($btnNo)
+        $createdButtons += $btnNo
+
+        $btnCancel = New-Object System.Windows.Forms.Button
+        $btnCancel.Text = "Cancel"
+        $btnCancel.Size = New-Object System.Drawing.Size(85, 34)
+        $btnCancel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+        $btnCancel.FlatStyle = 'Flat'
+        $btnCancel.FlatAppearance.BorderSize = 1
+        $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $btnPanel.Controls.Add($btnCancel)
+        $createdButtons += $btnCancel
+
+        $msgForm.AcceptButton = $btnYes
+        $msgForm.CancelButton = $btnCancel
+    }
     elseif ($Buttons -eq 'OKCancel') {
         $btnOK = New-Object System.Windows.Forms.Button
         $btnOK.Text = "OK"
@@ -322,7 +356,7 @@ function PopupError {
 	param(
 		[string]$ErrorMessage,
 		[ValidateSet('Information','Warning','Error','None','Question')] [string]$Style = 'Error',
-        [ValidateSet('OK', 'OKCancel', 'YesNo')] [string]$Buttons = 'OK'
+        [ValidateSet('OK', 'OKCancel', 'YesNo', 'YesNoCancel')] [string]$Buttons = 'OK'
 	)
     return Show-CustomMessageBox -Message $ErrorMessage -Style $Style -Buttons $Buttons
 }
