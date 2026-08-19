@@ -37,7 +37,7 @@ if (Test-Path $toolsDll) {
 } else {
     $csTools = Join-Path -Path $PSScriptRoot -ChildPath 'HMTTools.cs'
     if (Test-Path $csTools) { 
-        Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing, System.IO.Compression
+        Add-Type -TypeDefinition (Get-Content $csTools -Raw) -ReferencedAssemblies System.Windows.Forms, System.Drawing
     }
 }
 

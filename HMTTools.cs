@@ -7,6 +7,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
@@ -1132,46 +1133,71 @@ namespace HMT.Tools {
                         Directory.CreateDirectory(destinationDirectory);
                     }
 
-                    using (var fileStream = File.OpenRead(archivePath))
-                    using (var zip = new System.IO.Compression.ZipArchive(fileStream, System.IO.Compression.ZipArchiveMode.Read)) {
-                        state.TotalEntries = zip.Entries.Count;
-                        int count = 0;
-                        string destRoot = Path.GetFullPath(destinationDirectory);
-
-                        foreach (var entry in zip.Entries) {
-                            if (state.IsCancelled) break;
-                            state.CurrentEntry = entry.Name;
-
-                            string fullDest = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName));
-                            if (!fullDest.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) {
-                                continue; // Path traversal protection
-                            }
-
-                            if (string.IsNullOrEmpty(entry.Name)) {
-                                Directory.CreateDirectory(fullDest);
-                            } else {
-                                string parentDir = Path.GetDirectoryName(fullDest);
-                                if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir)) {
-                                    Directory.CreateDirectory(parentDir);
-                                }
-                                using (var entryStream = entry.Open())
-                                using (var outStream = File.Create(fullDest)) {
-                                    entryStream.CopyTo(outStream);
-                                }
-                            }
-
-                            count++;
-                            state.EntriesExtracted = count;
-                            state.Percent = (state.TotalEntries > 0) ? (count * 100.0 / state.TotalEntries) : 100.0;
-                        }
-                    }
-
-                    if (!state.IsCancelled) {
-                        state.IsCompleted = true;
-                    }
-                } catch (Exception ex) {
-                    // Fallback to tar.exe if non-standard zip or format
+                    bool extractedViaDotNet = false;
                     try {
+                        Assembly compAsm = null;
+                        try { compAsm = Assembly.Load("System.IO.Compression"); } catch {}
+
+                        Type zipArchiveType = compAsm != null ? compAsm.GetType("System.IO.Compression.ZipArchive") : Type.GetType("System.IO.Compression.ZipArchive");
+                        Type modeType = compAsm != null ? compAsm.GetType("System.IO.Compression.ZipArchiveMode") : Type.GetType("System.IO.Compression.ZipArchiveMode");
+
+                        if (zipArchiveType != null && modeType != null) {
+                            using (var fileStream = File.OpenRead(archivePath)) {
+                                object modeRead = Enum.Parse(modeType, "Read");
+                                using (var zip = (IDisposable)Activator.CreateInstance(zipArchiveType, fileStream, modeRead)) {
+                                    var entriesProp = zipArchiveType.GetProperty("Entries");
+                                    var entries = (System.Collections.IEnumerable)entriesProp.GetValue(zip, null);
+                                    
+                                    var entryList = new System.Collections.ArrayList();
+                                    foreach (var e in entries) { entryList.Add(e); }
+                                    state.TotalEntries = entryList.Count;
+                                    
+                                    int count = 0;
+                                    string destRoot = Path.GetFullPath(destinationDirectory);
+
+                                    foreach (var entry in entryList) {
+                                        if (state.IsCancelled) break;
+                                        var nameProp = entry.GetType().GetProperty("Name");
+                                        var fullNameProp = entry.GetType().GetProperty("FullName");
+                                        string name = (string)nameProp.GetValue(entry, null);
+                                        string fullName = (string)fullNameProp.GetValue(entry, null);
+                                        state.CurrentEntry = name;
+
+                                        string fullDest = Path.GetFullPath(Path.Combine(destinationDirectory, fullName));
+                                        if (!fullDest.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) {
+                                            continue; // Path traversal protection
+                                        }
+
+                                        if (string.IsNullOrEmpty(name)) {
+                                            Directory.CreateDirectory(fullDest);
+                                        } else {
+                                            string parentDir = Path.GetDirectoryName(fullDest);
+                                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir)) {
+                                                Directory.CreateDirectory(parentDir);
+                                            }
+                                            var openMethod = entry.GetType().GetMethod("Open");
+                                            using (var entryStream = (Stream)openMethod.Invoke(entry, null))
+                                            using (var outStream = File.Create(fullDest)) {
+                                                byte[] buf = new byte[81920];
+                                                int bytes;
+                                                while ((bytes = entryStream.Read(buf, 0, buf.Length)) > 0) {
+                                                    outStream.Write(buf, 0, bytes);
+                                                }
+                                            }
+                                        }
+
+                                        count++;
+                                        state.EntriesExtracted = count;
+                                        state.Percent = (state.TotalEntries > 0) ? (count * 100.0 / state.TotalEntries) : 100.0;
+                                    }
+                                    extractedViaDotNet = true;
+                                }
+                            }
+                        }
+                    } catch {}
+
+                    if (!extractedViaDotNet && !state.IsCancelled) {
+                        // Fallback to built-in tar.exe
                         var psi = new System.Diagnostics.ProcessStartInfo {
                             FileName = "tar.exe",
                             Arguments = string.Format("-xf \"{0}\" -C \"{1}\"", archivePath, destinationDirectory),
@@ -1182,10 +1208,13 @@ namespace HMT.Tools {
                         using (var p = System.Diagnostics.Process.Start(psi)) {
                             p.WaitForExit();
                         }
-                        state.IsCompleted = true;
-                    } catch {
-                        state.Error = ex.Message;
                     }
+
+                    if (!state.IsCancelled) {
+                        state.IsCompleted = true;
+                    }
+                } catch (Exception ex) {
+                    state.Error = ex.Message;
                 }
             }) { IsBackground = true };
             t.Start();
