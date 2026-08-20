@@ -231,64 +231,75 @@ function Show-CommandRunnerDialog {
         $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
 
         # --- 1. SFC Parsing ---
-        if ($lineClean -match '(?:Verification|Verifying|Scan|Phase)?\s*(\d+)%\s*(?:complete|\.|$)' -or $lineClean -match '(\d+)%\s*(?:complete|\.|$)') {
-            $pct = [int]$matches[1]
-            if ($pct -ge 0 -and $pct -le 100) {
-                $state.ProgressPct = $pct
-                $state.Stage = 2
-                $state.StageName = "Verifying Windows system files"
-                $pBar.IsMarquee = $false
-                $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
-                $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
-                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+        if ($state.ToolKind -eq 'SFC') {
+            if ($lineClean -match '(?:Verification|Verifying|Scan|Phase)?\s*(\d+)%\s*(?:complete|\.|$)' -or $lineClean -match '(\d+)%\s*(?:complete|\.|$)') {
+                $pct = [int]$matches[1]
+                if ($pct -ge 0 -and $pct -le 100) {
+                    $state.ProgressPct = $pct
+                    $state.Stage = 2
+                    $state.StageName = "Verifying Windows system files"
+                    $pBar.IsMarquee = $false
+                    $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
+                    $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
+                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 
-                # In-place terminal update: rewrite the "Verification XX% complete." line cleanly
-                $curText = $txtOutput.Text
-                $lastVerif = $curText.LastIndexOf("Verification ")
-                if ($lastVerif -ge 0) {
-                    $txtOutput.Text = $curText.Substring(0, $lastVerif) + "Verification $pct% complete.`r`n"
-                } else {
-                    $txtOutput.AppendText("Verification $pct% complete.`r`n")
+                    # In-place terminal update: rewrite the "Verification XX% complete." line cleanly
+                    $curText = $txtOutput.Text
+                    $lastVerif = $curText.LastIndexOf("Verification ")
+                    if ($lastVerif -ge 0) {
+                        $txtOutput.Text = $curText.Substring(0, $lastVerif) + "Verification $pct% complete.`r`n"
+                    } else {
+                        $txtOutput.AppendText("Verification $pct% complete.`r`n")
+                    }
                 }
-                $txtOutput.SelectionStart = $txtOutput.TextLength
-                $txtOutput.ScrollToCaret()
             }
-        }
-        elseif ($lineClean -match 'Beginning system scan') {
-            $state.Stage = 1
-            $state.StageName = "Initializing system scan"
-            $pBar.IsMarquee = $true
-            $lblStatus.Text = "Stage 1/2: Initializing system file scan..."
-            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $txtOutput.AppendText("$lineClean`r`n`r`n")
-        }
-        elseif ($lineClean -match 'Beginning verification phase') {
-            $state.Stage = 2
-            $state.StageName = "Verifying system files"
-            $pBar.IsMarquee = $false
-            $pBar.Value = 0
-            $lblStatus.Text = "Stage 2/2: Verifying Windows system files..."
-            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $txtOutput.AppendText("$lineClean`r`n")
-        }
-        elseif ($lineClean -match 'did not find any integrity violations') {
-            $state.Verdict = "Verification Complete: No integrity violations found (System files healthy)."
-            $state.VerdictType = "Success"
-            $txtOutput.AppendText("`r`n$lineClean`r`n")
-        }
-        elseif ($lineClean -match 'found corrupt files and successfully repaired them') {
-            $state.Verdict = "Verification Complete: Corrupted files found and successfully repaired."
-            $state.VerdictType = "Repaired"
-            $txtOutput.AppendText("`r`n$lineClean`r`n")
-        }
-        elseif ($lineClean -match 'found corrupt files but was unable to fix some') {
-            $state.Verdict = "Corrupted files found that could not all be repaired (Check CBS.log)."
-            $state.VerdictType = "Warning"
-            $txtOutput.AppendText("`r`n$lineClean`r`n")
+            elseif ($lineClean -match 'Beginning system scan') {
+                $state.Stage = 1
+                $state.StageName = "Initializing system scan"
+                $pBar.IsMarquee = $true
+                $lblStatus.Text = "Stage 1/2: Initializing system file scan..."
+                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+                $txtOutput.AppendText("$lineClean`r`n`r`n")
+            }
+            elseif ($lineClean -match 'Beginning verification phase') {
+                $state.Stage = 2
+                $state.StageName = "Verifying system files"
+                $pBar.IsMarquee = $false
+                $pBar.Value = 0
+                $lblStatus.Text = "Stage 2/2: Verifying Windows system files..."
+                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+                $txtOutput.AppendText("$lineClean`r`n")
+            }
+            elseif ($lineClean -match 'did not find any integrity violations') {
+                $state.Verdict = "Verification Complete: No integrity violations found (System files healthy)."
+                $state.VerdictType = "Success"
+                $txtOutput.AppendText("`r`n$lineClean`r`n")
+            }
+            elseif ($lineClean -match 'found corrupt files and successfully repaired them') {
+                $state.Verdict = "Verification Complete: Corrupted files found and successfully repaired."
+                $state.VerdictType = "Repaired"
+                $txtOutput.AppendText("`r`n$lineClean`r`n")
+            }
+            elseif ($lineClean -match 'found corrupt files but was unable to fix some') {
+                $state.Verdict = "Corrupted files found that could not all be repaired (Check CBS.log)."
+                $state.VerdictType = "Warning"
+                $txtOutput.AppendText("`r`n$lineClean`r`n")
+            }
+            elseif ($lineClean -match 'could not perform the requested operation' -or $lineClean -match 'could not start the repair service') {
+                $state.Verdict = "SFC failed: Windows Resource Protection could not perform operation."
+                $state.VerdictType = "Error"
+                $txtOutput.AppendText("`r`n$lineClean`r`n")
+            }
+            else {
+                $txtOutput.AppendText("$lineClean`r`n")
+            }
+            $txtOutput.SelectionStart = $txtOutput.Text.Length
+            $txtOutput.ScrollToCaret()
+            return
         }
 
         # --- 2. DISM & .NET 3.5 Feature Parsing ---
-        elseif ($lineClean -match 'Enabling feature\(s\)') {
+        if ($lineClean -match 'Enabling feature\(s\)') {
             $state.Stage = 1
             $state.StageName = "Downloading and enabling .NET 3.5 features"
             $pBar.IsMarquee = $false

@@ -2400,7 +2400,7 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
-    // 7. Thread-Safe Diagnostic Process Runner Engine
+    // 7. Thread-Safe Diagnostic Process Runner Engine (with Windows Pseudo Console / ConPTY)
     // ==============================================================================
     public class ProcessRunnerEngine : IDisposable {
         private System.Diagnostics.Process _process;
@@ -2411,44 +2411,176 @@ namespace HMT.Tools {
         private string _errorMessage = null;
         private Thread _outThread;
         private Thread _errThread;
+        private Thread _monitorThread;
+
+        // ConPTY state
+        private bool _isConPty = false;
+        private IntPtr _hProcess = IntPtr.Zero;
+        private IntPtr _hThread = IntPtr.Zero;
+        private IntPtr _hPC = IntPtr.Zero;
+        private IntPtr _hPipeInWrite = IntPtr.Zero;
+        private IntPtr _hPipeOutRead = IntPtr.Zero;
+
+        // P/Invoke & Native Types for ConPTY
+        private const int PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016;
+        private const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
+        private const uint INFINITE = 0xFFFFFFFF;
+        private const uint WAIT_OBJECT_0 = 0x00000000;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct COORD {
+            public short X;
+            public short Y;
+            public COORD(short x, short y) { X = x; Y = y; }
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct STARTUPINFOEX {
+            public STARTUPINFO StartupInfo;
+            public IntPtr lpAttributeList;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct STARTUPINFO {
+            public int cb;
+            public string lpReserved;
+            public string lpDesktop;
+            public string lpTitle;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttribute;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
+            public IntPtr lpReserved2;
+            public IntPtr hStdInput;
+            public IntPtr hStdOutput;
+            public IntPtr hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROCESS_INFORMATION {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public int dwProcessId;
+            public int dwThreadId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SECURITY_ATTRIBUTES {
+            public int nLength;
+            public IntPtr lpSecurityDescriptor;
+            public int bInheritHandle;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern int CreatePseudoConsole(COORD size, IntPtr hInput, IntPtr hOutput, uint flags, out IntPtr phPC);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern void ClosePseudoConsole(IntPtr hPC);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, ref SECURITY_ATTRIBUTES lpPipeAttributes, int nSize);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool InitializeProcThreadAttributeList(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool UpdateProcThreadAttribute(IntPtr lpAttributeList, uint dwFlags, IntPtr Attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool DeleteProcThreadAttributeList(IntPtr lpAttributeList);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool CreateProcess(
+            string lpApplicationName,
+            StringBuilder lpCommandLine,
+            ref SECURITY_ATTRIBUTES lpProcessAttributes,
+            ref SECURITY_ATTRIBUTES lpThreadAttributes,
+            bool bInheritHandles,
+            uint dwCreationFlags,
+            IntPtr lpEnvironment,
+            string lpCurrentDirectory,
+            ref STARTUPINFOEX lpStartupInfo,
+            out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetExitCodeProcess(IntPtr hProcess, out int lpExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
         public bool IsRunning {
             get {
-                if (_process == null) return false;
-                try {
-                    return !_process.HasExited;
-                } catch {
-                    return false;
+                lock (_lock) {
+                    if (_hasExited) return false;
+                    if (_isConPty) {
+                        if (_hProcess == IntPtr.Zero) return false;
+                        uint res = WaitForSingleObject(_hProcess, 0);
+                        if (res == WAIT_OBJECT_0) {
+                            _hasExited = true;
+                            int ec;
+                            if (GetExitCodeProcess(_hProcess, out ec)) {
+                                _exitCode = ec;
+                            }
+                            return false;
+                        }
+                        return true;
+                    }
+                    if (_process == null) return false;
+                    try {
+                        return !_process.HasExited;
+                    } catch {
+                        return false;
+                    }
                 }
             }
         }
 
         public bool HasExited {
             get {
-                if (_hasExited) return true;
-                if (_process == null) return false;
-                try {
-                    if (_process.HasExited) {
-                        _hasExited = true;
-                        _exitCode = _process.ExitCode;
+                lock (_lock) {
+                    if (_hasExited) return true;
+                    if (_isConPty) {
+                        if (_hProcess == IntPtr.Zero) return true;
+                        uint res = WaitForSingleObject(_hProcess, 0);
+                        if (res == WAIT_OBJECT_0) {
+                            _hasExited = true;
+                            int ec;
+                            if (GetExitCodeProcess(_hProcess, out ec)) {
+                                _exitCode = ec;
+                            }
+                            return true;
+                        }
+                        return false;
                     }
-                } catch { }
-                return _hasExited;
+                    if (_process == null) return false;
+                    try {
+                        if (_process.HasExited) {
+                            _hasExited = true;
+                            _exitCode = _process.ExitCode;
+                        }
+                    } catch { }
+                    return _hasExited;
+                }
             }
         }
 
         public int ExitCode {
             get {
-                if (_hasExited) return _exitCode;
-                if (_process != null) {
-                    try {
-                        if (_process.HasExited) {
-                            _exitCode = _process.ExitCode;
-                            _hasExited = true;
-                        }
-                    } catch { }
+                lock (_lock) {
+                    return _exitCode;
                 }
-                return _exitCode;
             }
         }
 
@@ -2463,38 +2595,230 @@ namespace HMT.Tools {
                 _hasExited = false;
                 _exitCode = -1;
                 _errorMessage = null;
+                _isConPty = false;
             }
 
+            string resolvedFileName = fileName;
+            if (!string.IsNullOrEmpty(fileName)) {
+                string lower = fileName.ToLowerInvariant();
+                if (lower == "sfc.exe" || lower == "sfc" || lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
+                    string exeName = Path.GetFileName(fileName);
+                    if (!exeName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) exeName += ".exe";
+                    string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                    string sysNative = Path.Combine(winDir, "Sysnative", exeName);
+                    if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess && File.Exists(sysNative)) {
+                        resolvedFileName = sysNative;
+                    } else {
+                        string system32 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), exeName);
+                        if (File.Exists(system32)) {
+                            resolvedFileName = system32;
+                        }
+                    }
+                }
+            }
+
+            string commandLine;
+            if (isPowerShellScript) {
+                commandLine = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
+            } else {
+                commandLine = "\"" + resolvedFileName + "\" " + (arguments ?? "");
+            }
+
+            // Try Windows Pseudo Console (ConPTY) first for real-time unbuffered character-mode streaming
+            bool conPtySuccess = false;
+            try {
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.OSVersion.Version.Major >= 10) {
+                    conPtySuccess = StartConPty(commandLine);
+                }
+            } catch {
+                conPtySuccess = false;
+            }
+
+            if (conPtySuccess) {
+                return true;
+            }
+
+            // Fallback to standard System.Diagnostics.Process if ConPTY is not available
+            return StartFallbackProcess(resolvedFileName, arguments, isPowerShellScript);
+        }
+
+        private bool StartConPty(string commandLine) {
+            SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
+            sa.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+            sa.bInheritHandle = 0;
+            sa.lpSecurityDescriptor = IntPtr.Zero;
+
+            IntPtr hPipeInRead = IntPtr.Zero;
+            IntPtr hPipeInWrite = IntPtr.Zero;
+            IntPtr hPipeOutRead = IntPtr.Zero;
+            IntPtr hPipeOutWrite = IntPtr.Zero;
+
+            if (!CreatePipe(out hPipeInRead, out hPipeInWrite, ref sa, 0)) {
+                return false;
+            }
+            if (!CreatePipe(out hPipeOutRead, out hPipeOutWrite, ref sa, 0)) {
+                CloseHandle(hPipeInRead);
+                CloseHandle(hPipeInWrite);
+                return false;
+            }
+
+            COORD coord = new COORD(120, 30);
+            IntPtr hPC = IntPtr.Zero;
+            int hr = CreatePseudoConsole(coord, hPipeInRead, hPipeOutWrite, 0, out hPC);
+
+            // Close child side pipe handles as the pseudo console now references them
+            CloseHandle(hPipeInRead);
+            CloseHandle(hPipeOutWrite);
+
+            if (hr != 0 || hPC == IntPtr.Zero) {
+                CloseHandle(hPipeInWrite);
+                CloseHandle(hPipeOutRead);
+                return false;
+            }
+
+            IntPtr lpSize = IntPtr.Zero;
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref lpSize);
+
+            IntPtr lpAttributeList = Marshal.AllocHGlobal(lpSize);
+            if (!InitializeProcThreadAttributeList(lpAttributeList, 1, 0, ref lpSize)) {
+                Marshal.FreeHGlobal(lpAttributeList);
+                ClosePseudoConsole(hPC);
+                CloseHandle(hPipeInWrite);
+                CloseHandle(hPipeOutRead);
+                return false;
+            }
+
+            if (!UpdateProcThreadAttribute(
+                    lpAttributeList,
+                    0,
+                    (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+                    hPC,
+                    (IntPtr)IntPtr.Size,
+                    IntPtr.Zero,
+                    IntPtr.Zero)) {
+                DeleteProcThreadAttributeList(lpAttributeList);
+                Marshal.FreeHGlobal(lpAttributeList);
+                ClosePseudoConsole(hPC);
+                CloseHandle(hPipeInWrite);
+                CloseHandle(hPipeOutRead);
+                return false;
+            }
+
+            STARTUPINFOEX siex = new STARTUPINFOEX();
+            siex.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
+            siex.lpAttributeList = lpAttributeList;
+
+            SECURITY_ATTRIBUTES saProc = new SECURITY_ATTRIBUTES();
+            saProc.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+            SECURITY_ATTRIBUTES saThread = new SECURITY_ATTRIBUTES();
+            saThread.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+
+            PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
+            bool success = CreateProcess(
+                null,
+                new StringBuilder(commandLine),
+                ref saProc,
+                ref saThread,
+                false,
+                EXTENDED_STARTUPINFO_PRESENT,
+                IntPtr.Zero,
+                null,
+                ref siex,
+                out pi);
+
+            DeleteProcThreadAttributeList(lpAttributeList);
+            Marshal.FreeHGlobal(lpAttributeList);
+
+            if (!success) {
+                ClosePseudoConsole(hPC);
+                CloseHandle(hPipeInWrite);
+                CloseHandle(hPipeOutRead);
+                return false;
+            }
+
+            lock (_lock) {
+                _hProcess = pi.hProcess;
+                _hThread = pi.hThread;
+                _hPC = hPC;
+                _hPipeInWrite = hPipeInWrite;
+                _hPipeOutRead = hPipeOutRead;
+                _isConPty = true;
+            }
+
+            var safeHandle = new Microsoft.Win32.SafeHandles.SafeFileHandle(hPipeOutRead, false);
+            var stream = new FileStream(safeHandle, FileAccess.Read, 4096, false);
+
+            _outThread = new Thread(() => ReadStreamWithAnsiFilter(stream, Encoding.UTF8)) {
+                IsBackground = true,
+                Name = "HMT_ProcRunner_ConPtyOut"
+            };
+            _outThread.Start();
+
+            _monitorThread = new Thread(MonitorConPtyProcess) {
+                IsBackground = true,
+                Name = "HMT_ProcRunner_ConPtyMonitor"
+            };
+            _monitorThread.Start();
+
+            return true;
+        }
+
+        private void MonitorConPtyProcess() {
+            IntPtr hProc;
+            lock (_lock) { hProc = _hProcess; }
+            if (hProc == IntPtr.Zero) return;
+
+            try {
+                WaitForSingleObject(hProc, INFINITE);
+                int ec = -1;
+                if (GetExitCodeProcess(hProc, out ec)) {
+                    lock (_lock) {
+                        _exitCode = ec;
+                    }
+                }
+            } catch { }
+            finally {
+                lock (_lock) {
+                    _hasExited = true;
+                }
+                CleanupConPtyResources();
+            }
+        }
+
+        private void CleanupConPtyResources() {
+            lock (_lock) {
+                if (_hPC != IntPtr.Zero) {
+                    try { ClosePseudoConsole(_hPC); } catch { }
+                    _hPC = IntPtr.Zero;
+                }
+                if (_hPipeInWrite != IntPtr.Zero) {
+                    try { CloseHandle(_hPipeInWrite); } catch { }
+                    _hPipeInWrite = IntPtr.Zero;
+                }
+                if (_hPipeOutRead != IntPtr.Zero) {
+                    try { CloseHandle(_hPipeOutRead); } catch { }
+                    _hPipeOutRead = IntPtr.Zero;
+                }
+                if (_hThread != IntPtr.Zero) {
+                    try { CloseHandle(_hThread); } catch { }
+                    _hThread = IntPtr.Zero;
+                }
+                if (_hProcess != IntPtr.Zero) {
+                    try { CloseHandle(_hProcess); } catch { }
+                    _hProcess = IntPtr.Zero;
+                }
+            }
+        }
+
+        private bool StartFallbackProcess(string fileName, string arguments, bool isPowerShellScript) {
             try {
                 var psi = new System.Diagnostics.ProcessStartInfo();
                 if (isPowerShellScript) {
                     psi.FileName = "powershell.exe";
                     psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
                 } else {
-                    string resolvedFileName = fileName;
-                    if (!string.IsNullOrEmpty(fileName)) {
-                        string lower = fileName.ToLowerInvariant();
-                        if (lower == "sfc.exe" || lower == "sfc" || lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
-                            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-                            string sysNative = Path.Combine(winDir, "Sysnative", Path.GetFileName(fileName));
-                            if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess && File.Exists(sysNative)) {
-                                resolvedFileName = sysNative;
-                            } else {
-                                string system32 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), Path.GetFileName(fileName));
-                                if (File.Exists(system32)) {
-                                    resolvedFileName = system32;
-                                }
-                            }
-                            psi.FileName = resolvedFileName;
-                            psi.Arguments = arguments ?? "";
-                        } else {
-                            psi.FileName = resolvedFileName;
-                            psi.Arguments = arguments ?? "";
-                        }
-                    } else {
-                        psi.FileName = resolvedFileName;
-                        psi.Arguments = arguments ?? "";
-                    }
+                    psi.FileName = fileName;
+                    psi.Arguments = arguments ?? "";
                 }
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;
@@ -2526,13 +2850,13 @@ namespace HMT.Tools {
                     Encoding outEnc = psi.StandardOutputEncoding ?? Encoding.Default;
                     Encoding errEnc = psi.StandardErrorEncoding ?? Encoding.Default;
 
-                    _outThread = new Thread(() => ReadRawStream(_process.StandardOutput.BaseStream, outEnc)) {
+                    _outThread = new Thread(() => ReadStreamWithAnsiFilter(_process.StandardOutput.BaseStream, outEnc)) {
                         IsBackground = true,
                         Name = "HMT_ProcRunner_StdOut"
                     };
                     _outThread.Start();
 
-                    _errThread = new Thread(() => ReadRawStream(_process.StandardError.BaseStream, errEnc)) {
+                    _errThread = new Thread(() => ReadStreamWithAnsiFilter(_process.StandardError.BaseStream, errEnc)) {
                         IsBackground = true,
                         Name = "HMT_ProcRunner_StdErr"
                     };
@@ -2547,31 +2871,69 @@ namespace HMT.Tools {
             }
         }
 
-        private void ReadRawStream(Stream stream, Encoding encoding) {
+        private void ReadStreamWithAnsiFilter(Stream stream, Encoding encoding) {
             if (stream == null) return;
             var sb = new StringBuilder();
-            byte[] buffer = new byte[256];
-            char[] chars = new char[256];
+            byte[] buffer = new byte[512];
+            char[] chars = new char[512];
             Decoder decoder = (encoding ?? Encoding.Default).GetDecoder();
             int bytesRead;
+            int ansiState = 0; // 0=normal, 1=ESC, 2=CSI, 3=OSC, 4=Charset/2byte
+            bool wasOsc = false;
 
             try {
-                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) {
-                    int charCount = decoder.GetChars(buffer, 0, bytesRead, chars, 0);
-                    for (int i = 0; i < charCount; i++) {
-                        char c = chars[i];
-                        if (c == '\r' || c == '\n') {
-                            if (sb.Length > 0) {
-                                string line = sb.ToString().Trim();
-                                sb.Length = 0;
-                                if (!string.IsNullOrEmpty(line)) {
-                                    lock (_lock) {
-                                        _outputQueue.Add(line);
+                using (stream) {
+                    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) {
+                        int charCount = decoder.GetChars(buffer, 0, bytesRead, chars, 0);
+                        for (int i = 0; i < charCount; i++) {
+                            char c = chars[i];
+
+                            if (ansiState == 0) {
+                                if (c == '\x1B') {
+                                    ansiState = 1;
+                                } else if (c == '\r' || c == '\n') {
+                                    if (sb.Length > 0) {
+                                        string line = sb.ToString().Trim();
+                                        sb.Length = 0;
+                                        if (!string.IsNullOrEmpty(line)) {
+                                            lock (_lock) {
+                                                _outputQueue.Add(line);
+                                            }
+                                        }
                                     }
+                                } else if (c != '\0' && c != '\b' && c != '\a') {
+                                    sb.Append(c);
                                 }
+                            } else if (ansiState == 1) {
+                                if (c == '[') {
+                                    ansiState = 2; // CSI sequence
+                                } else if (c == ']') {
+                                    ansiState = 3; // OSC sequence
+                                    wasOsc = true;
+                                } else if (c == '(' || c == ')' || c == '*' || c == '+' || c == '#' || c == '%') {
+                                    ansiState = 4; // Charset / 2-byte escape
+                                } else if (c == '\\' && wasOsc) {
+                                    ansiState = 0; // String terminator
+                                    wasOsc = false;
+                                } else {
+                                    ansiState = 0; // Other 2-byte escape
+                                }
+                            } else if (ansiState == 2) {
+                                // In CSI sequence, parameters are 0x20-0x3F, command terminates on 0x40-0x7E
+                                if (c >= 0x40 && c <= 0x7E) {
+                                    ansiState = 0;
+                                }
+                            } else if (ansiState == 3) {
+                                // In OSC sequence, ends on BEL (\a) or ESC
+                                if (c == '\a') {
+                                    ansiState = 0;
+                                    wasOsc = false;
+                                } else if (c == '\x1B') {
+                                    ansiState = 1;
+                                }
+                            } else if (ansiState == 4) {
+                                ansiState = 0;
                             }
-                        } else if (c != '\0' && c != '\b') {
-                            sb.Append(c);
                         }
                     }
                 }
@@ -2596,26 +2958,32 @@ namespace HMT.Tools {
         }
 
         public void Kill() {
-            if (_process != null) {
-                try {
-                    if (!_process.HasExited) {
-                        _process.Kill();
+            lock (_lock) {
+                if (_isConPty) {
+                    if (_hProcess != IntPtr.Zero) {
+                        try { TerminateProcess(_hProcess, 1); } catch { }
                     }
-                } catch { }
-                _hasExited = true;
+                    if (_hPC != IntPtr.Zero) {
+                        try { ClosePseudoConsole(_hPC); } catch { }
+                        _hPC = IntPtr.Zero;
+                    }
+                    _hasExited = true;
+                } else if (_process != null) {
+                    try {
+                        if (!_process.HasExited) {
+                            _process.Kill();
+                        }
+                    } catch { }
+                    _hasExited = true;
+                }
             }
         }
 
         public void Dispose() {
+            Kill();
+            CleanupConPtyResources();
             if (_process != null) {
-                try {
-                    if (!_process.HasExited) {
-                        _process.Kill();
-                    }
-                } catch { }
-                try {
-                    _process.Dispose();
-                } catch { }
+                try { _process.Dispose(); } catch { }
                 _process = null;
             }
         }
