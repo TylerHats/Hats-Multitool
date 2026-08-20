@@ -105,11 +105,14 @@ $MainMenuExitButton.FlatAppearance.BorderSize = 1
 $MainMenu.Controls.Add($MainMenuExitButton)
 
 $MainMenu.Add_Shown({
-    $this.TopMost = $true 
-    [HMT.NativeMethods]::SetForegroundWindow($this.Handle) | Out-Null
-    $this.Activate()
-    $this.BringToFront()
-    $this.TopMost = $false 
+    param($sender, $e)
+    if ($sender -and -not $sender.IsDisposed) {
+        $sender.TopMost = $true 
+        [HMT.NativeMethods]::SetForegroundWindow($sender.Handle) | Out-Null
+        $sender.Activate()
+        $sender.BringToFront()
+        $sender.TopMost = $false 
+    }
 })
 
 $Global:NextAction = 'Main'
@@ -150,7 +153,9 @@ $MainMenu.Add_Load({
     
     $iconW = $HeaderIconBox.Width
     $gap = [int](10 * $global:HMTScaleFactor)
-    $textW = [Math]::Max($HeaderTitle.PreferredWidth, $HeaderSubtitle.PreferredWidth)
+    $titleW = if ($HeaderTitle.PreferredSize.Width -gt 0) { $HeaderTitle.PreferredSize.Width } else { 160 }
+    $subW = if ($HeaderSubtitle.PreferredSize.Width -gt 0) { $HeaderSubtitle.PreferredSize.Width } else { 160 }
+    $textW = [Math]::Max($titleW, $subW)
     $totalHeaderW = $iconW + $gap + $textW
     $startX = [int](($w - $totalHeaderW) / 2)
     if ($startX -lt [int](12 * $global:HMTScaleFactor)) { $startX = [int](12 * $global:HMTScaleFactor) }

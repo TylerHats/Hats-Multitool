@@ -186,10 +186,12 @@ if ($skipUpdate -ne 1) {
             Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing *>&1
         }
         catch {
-            Log-Message "Failed to download update, please update manually." "Error"
-            $ForceExit = $true
+            Log-Message "Failed to download update, proceeding with current version." "Warning"
+            $ForceExit = $false
         }
-        if (-not $ForceExit) {
+        if ($ForceExit -eq $true) {
+            # Intentionally blank - cleanup already triggered
+        } elseif (Test-Path -LiteralPath $outputPath) {
             $env:hatsUpdated = "1"
             Invoke-SelfUpdateCleanup -OutPath $outputPath
             $ForceExit = $true

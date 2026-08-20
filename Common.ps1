@@ -436,7 +436,10 @@ function Set-RoundedControl {
         if ($Control.Tag -ne "RoundedButtonBound") {
             $Control.Tag = "RoundedButtonBound"
 
-            $redrawScript = { if ($this.Width -gt 0 -and $this.Height -gt 0) { $this.Invalidate() } }
+            $redrawScript = {
+                param($sender, $e)
+                if ($sender -and $sender.Width -gt 0 -and $sender.Height -gt 0) { $sender.Invalidate() }
+            }
             $Control.Add_MouseEnter($redrawScript)
             $Control.Add_MouseLeave($redrawScript)
             $Control.Add_MouseDown($redrawScript)

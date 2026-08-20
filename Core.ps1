@@ -5,15 +5,21 @@ $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -
 $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
 
 if (-not $IsElevated -or $IsTrappedIn32Bit) {
-    Write-Host "Elevation: $IsElevated - Is 64bit: #IsTrappedIn32Bit - Relaunching..."
-    $ExePath = if ($IsTrappedIn32Bit) { 
-        "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
-    } else { 
-        "powershell.exe" 
+    Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
+    $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if ($currentProc -and (Test-Path -LiteralPath $currentProc) -and $currentProc -notmatch 'powershell\.exe|pwsh\.exe') {
+        Start-Process -FilePath $currentProc -Verb RunAs
+        exit
+    } else {
+        $ExePath = if ($IsTrappedIn32Bit) { 
+            "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
+        } else { 
+            "powershell.exe" 
+        }
+        $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
+        Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"" -Verb RunAs -WindowStyle Hidden
+        exit
     }
-    # Relaunch with required architecture and elevation
-    Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -WindowStyle Hidden
-    exit
 }
 
 # Initialize WinForms and System assemblies
