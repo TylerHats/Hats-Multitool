@@ -1332,7 +1332,9 @@ namespace HMT.Tools {
 
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
-            DarkThemeHelper.ApplyDarkTheme(this.Handle);
+            try {
+                DarkThemeHelper.SetWindowTheme(Handle, "", "");
+            } catch { }
             ItemHeight = (int)(22 * GetDpiScale());
         }
 
@@ -1363,17 +1365,31 @@ namespace HMT.Tools {
             if (m.Msg == 0x000F) { // WM_PAINT
                 try {
                     using (Graphics g = Graphics.FromHwnd(this.Handle)) {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                        // 1. Completely overwrite native drop-down button area with dark #202225
+                        float dpiScale = GetDpiScale();
+                        int btnWidth = Math.Max(20, (int)(24 * dpiScale));
+                        Rectangle btnRect = new Rectangle(Width - btnWidth, 1, btnWidth - 1, Height - 2);
+                        using (SolidBrush bgBrush = new SolidBrush(_bgColor)) {
+                            g.FillRectangle(bgBrush, btnRect);
+                        }
+
+                        // 2. Draw modern dark border around entire ComboBox
                         using (Pen p = new Pen(_borderColor, 1f)) {
                             g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
                         }
 
-                        // Draw Arrow
-                        int arrowX = Width - 18;
-                        int arrowY = (Height / 2) - 2;
+                        // 3. Draw single crisp down arrow in the center of the dark button area
+                        int arrowWidth = Math.Max(6, (int)(8 * dpiScale));
+                        int arrowHeight = Math.Max(3, (int)(4 * dpiScale));
+                        float arrowX = Width - (btnWidth / 2f) - (arrowWidth / 2f);
+                        float arrowY = (Height / 2f) - (arrowHeight / 2f);
+
                         PointF[] arrow = new PointF[] {
                             new PointF(arrowX, arrowY),
-                            new PointF(arrowX + 8, arrowY),
-                            new PointF(arrowX + 4, arrowY + 5)
+                            new PointF(arrowX + arrowWidth, arrowY),
+                            new PointF(arrowX + (arrowWidth / 2f), arrowY + arrowHeight)
                         };
                         using (SolidBrush arrowBrush = new SolidBrush(_arrowColor)) {
                             g.FillPolygon(arrowBrush, arrow);
