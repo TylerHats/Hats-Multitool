@@ -2714,11 +2714,12 @@ function Show-StartupManagerDialog {
     $lvStartup = New-Object HMT.Tools.DarkListView
     $lvStartup.Location = New-Object System.Drawing.Point(20, 45)
     $lvStartup.Size = New-Object System.Drawing.Size(800, 445)
-    $lvStartup.Columns.Add("Program Name", 180) | Out-Null
-    $lvStartup.Columns.Add("Category", 130) | Out-Null
+    $lvStartup.Columns.Add("Program Name", 160) | Out-Null
+    $lvStartup.Columns.Add("Category", 120) | Out-Null
     $lvStartup.Columns.Add("Command Line / Target", 290) | Out-Null
-    $lvStartup.Columns.Add("Location", 130) | Out-Null
-    $lvStartup.Columns.Add("Status", 70) | Out-Null
+    $lvStartup.Columns.Add("Location", 125) | Out-Null
+    $lvStartup.Columns.Add("Status", 75) | Out-Null
+    $lvStartup.AutoFitColumnIndex = 2
     $suForm.Controls.Add($lvStartup)
 
     # Buttons Row
@@ -2819,6 +2820,7 @@ function Show-StartupManagerDialog {
         } else {
             $lvStartup.SortByColumn(0, [System.Windows.Forms.SortOrder]::Ascending)
         }
+        $lvStartup.AutoResizeColumnsInternal()
 
         $lblSummary.Text = "Total Items: $($state.StartupData.Count) (Enabled: $enabledCount, Disabled: $disabledCount)"
     }.GetNewClosure()
@@ -3147,6 +3149,8 @@ function Show-StartupManagerDialog {
         Set-RoundedControl $btnOpenLoc
         Set-RoundedControl $btnRefresh
         Set-RoundedControl $btnClose
+        try { [HMT.NativeMethods]::SetWindowTheme($lvStartup.Handle, "DarkMode_Explorer", $null) } catch {}
+        $lvStartup.AutoResizeColumnsInternal()
         &$loadStartupItems
     }.GetNewClosure())
 

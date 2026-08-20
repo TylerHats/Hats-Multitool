@@ -953,11 +953,15 @@ namespace HMT.Tools {
         private Color _itemSelectedFg = Color.White;
         private Color _itemFg = Color.FromArgb(217, 217, 217);        // #d9d9d9
         private Color _itemSubFg = Color.FromArgb(160, 160, 160);     // #a0a0a0
+        private int _autoFitColumnIndex = -1;
         private bool _autoFillLastColumn = true;
         private bool _enableColumnSorting = true;
         private int _sortColumn = -1;
         private SortOrder _sortOrder = SortOrder.None;
         private DarkHeaderControl _headerSubclass;
+
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
@@ -1090,6 +1094,9 @@ namespace HMT.Tools {
 
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
+            try {
+                SetWindowTheme(this.Handle, "DarkMode_Explorer", null);
+            } catch { }
             IntPtr hHeader = SendMessage(this.Handle, 0x101F, IntPtr.Zero, IntPtr.Zero);
             if (hHeader != IntPtr.Zero) {
                 if (_headerSubclass == null) {
@@ -1107,6 +1114,11 @@ namespace HMT.Tools {
             base.OnHandleDestroyed(e);
         }
 
+        public int AutoFitColumnIndex {
+            get { return _autoFitColumnIndex; }
+            set { _autoFitColumnIndex = value; AutoResizeColumnsInternal(); }
+        }
+
         public bool AutoFillLastColumn {
             get { return _autoFillLastColumn; }
             set { _autoFillLastColumn = value; AutoResizeColumnsInternal(); }
@@ -1118,14 +1130,22 @@ namespace HMT.Tools {
         }
 
         public void AutoResizeColumnsInternal() {
-            if (!_autoFillLastColumn || Columns.Count < 2 || ClientSize.Width <= 0) return;
-            int totalOther = 0;
-            for (int i = 0; i < Columns.Count - 1; i++) {
-                totalOther += Columns[i].Width;
+            if (Columns.Count < 2 || ClientSize.Width <= 0) return;
+            int fitIndex = _autoFitColumnIndex;
+            if (fitIndex < 0 && _autoFillLastColumn) {
+                fitIndex = Columns.Count - 1;
             }
-            int lastWidth = Math.Max(100, ClientSize.Width - totalOther);
-            if (Columns[Columns.Count - 1].Width != lastWidth) {
-                Columns[Columns.Count - 1].Width = lastWidth;
+            if (fitIndex < 0 || fitIndex >= Columns.Count) return;
+
+            int totalOther = 0;
+            for (int i = 0; i < Columns.Count; i++) {
+                if (i != fitIndex) {
+                    totalOther += Columns[i].Width;
+                }
+            }
+            int fitWidth = Math.Max(40, ClientSize.Width - totalOther);
+            if (Columns[fitIndex].Width != fitWidth) {
+                Columns[fitIndex].Width = fitWidth;
             }
         }
 
