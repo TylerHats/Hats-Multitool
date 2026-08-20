@@ -688,6 +688,45 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
+    // Native UxTheme Dark Mode & Dark Scrollbars Helper (Windows 10 1809+ / Windows 11)
+    // ==============================================================================
+    public static class DarkThemeHelper {
+        private static bool _initialized = false;
+        private static readonly object _initLock = new object();
+
+        [DllImport("uxtheme.dll", EntryPoint = "#135", SetLastError = true)]
+        private static extern int SetPreferredAppMode(int appMode);
+
+        [DllImport("uxtheme.dll", EntryPoint = "#133", SetLastError = true)]
+        private static extern bool AllowDarkModeForWindow(IntPtr hWnd, bool allow);
+
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        public static void InitializeAppDarkMode() {
+            if (_initialized) return;
+            lock (_initLock) {
+                if (_initialized) return;
+                try {
+                    SetPreferredAppMode(2); // 2 = ForceDark
+                } catch { }
+                _initialized = true;
+            }
+        }
+
+        public static void ApplyDarkTheme(IntPtr hWnd) {
+            if (hWnd == IntPtr.Zero) return;
+            InitializeAppDarkMode();
+            try {
+                AllowDarkModeForWindow(hWnd, true);
+            } catch { }
+            try {
+                SetWindowTheme(hWnd, "DarkMode_Explorer", null);
+            } catch { }
+        }
+    }
+
+    // ==============================================================================
     // Modern Dark Tab Control (Eliminates Win9x borders and connects seamlessly to content)
     // ==============================================================================
     public class DarkTabControl : TabControl {
@@ -722,13 +761,10 @@ namespace HMT.Tools {
             Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
         }
 
-        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
-        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
             try {
-                SetWindowTheme(Handle, "", "");
+                DarkThemeHelper.SetWindowTheme(Handle, "", "");
             } catch {}
         }
 
@@ -788,8 +824,9 @@ namespace HMT.Tools {
             }
             if (maxBottom == 0) maxBottom = (int)(34 * GetDpiScale());
 
-            // 1. Fill tab strip header background with dark recessed tone (#202225) to eliminate any light gaps
-            using (SolidBrush headerBrush = new SolidBrush(Color.FromArgb(32, 34, 37))) {
+            // 1. Fill tab strip header background seamlessly matching parent background (#2f3136) to eliminate contrast lines
+            Color headerBg = (Parent != null) ? Parent.BackColor : _pageBg;
+            using (SolidBrush headerBrush = new SolidBrush(headerBg)) {
                 g.FillRectangle(headerBrush, 0, 0, ClientRectangle.Width, maxBottom);
             }
 
@@ -960,9 +997,6 @@ namespace HMT.Tools {
         private SortOrder _sortOrder = SortOrder.None;
         private DarkHeaderControl _headerSubclass;
 
-        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
-        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
@@ -1094,9 +1128,7 @@ namespace HMT.Tools {
 
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
-            try {
-                SetWindowTheme(this.Handle, "DarkMode_Explorer", null);
-            } catch { }
+            DarkThemeHelper.ApplyDarkTheme(this.Handle);
             IntPtr hHeader = SendMessage(this.Handle, 0x101F, IntPtr.Zero, IntPtr.Zero);
             if (hHeader != IntPtr.Zero) {
                 if (_headerSubclass == null) {
@@ -1112,6 +1144,42 @@ namespace HMT.Tools {
                 _headerSubclass.ReleaseHandle();
             }
             base.OnHandleDestroyed(e);
+        }
+
+        protected override void WndProc(ref Message m) {
+            const int WM_PAINT = 0x000F;
+            const int WM_ERASEBKGND = 0x0014;
+
+            if (m.Msg == WM_ERASEBKGND) {
+                RECT rc;
+                GetClientRect(this.Handle, out rc);
+                using (Graphics g = Graphics.FromHdc(m.WParam))
+                using (SolidBrush bgBrush = new SolidBrush(_itemBg)) {
+                    g.FillRectangle(bgBrush, 0, 0, rc.Right - rc.Left, rc.Bottom - rc.Top);
+                }
+                m.Result = (IntPtr)1;
+                return;
+            }
+
+            base.WndProc(ref m);
+
+            if (m.Msg == WM_PAINT) {
+                try {
+                    int itemsBottom = 0;
+                    if (Items.Count > 0) {
+                        Rectangle lastItemRect = Items[Items.Count - 1].Bounds;
+                        itemsBottom = lastItemRect.Bottom;
+                    }
+                    if (itemsBottom < ClientSize.Height && ClientSize.Width > 0 && ClientSize.Height > 0) {
+                        using (Graphics g = Graphics.FromHwnd(this.Handle)) {
+                            Rectangle emptyArea = new Rectangle(0, itemsBottom, ClientSize.Width, ClientSize.Height - itemsBottom);
+                            using (SolidBrush bgBrush = new SolidBrush(_itemBg)) {
+                                g.FillRectangle(bgBrush, emptyArea);
+                            }
+                        }
+                    }
+                } catch { }
+            }
         }
 
         public int AutoFitColumnIndex {
@@ -1264,6 +1332,7 @@ namespace HMT.Tools {
 
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
+            DarkThemeHelper.ApplyDarkTheme(this.Handle);
             ItemHeight = (int)(22 * GetDpiScale());
         }
 
@@ -1272,18 +1341,19 @@ namespace HMT.Tools {
             Graphics g = e.Graphics;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color bg = isSelected ? _hoverColor : _bgColor;
-            Color fg = Color.White;
+            bool isHovered = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color bg = isHovered ? _hoverColor : _bgColor;
+            Color fg = isHovered ? Color.White : _fgColor;
 
-            using (SolidBrush brush = new SolidBrush(bg)) {
-                g.FillRectangle(brush, e.Bounds);
+            using (SolidBrush bgBrush = new SolidBrush(bg)) {
+                g.FillRectangle(bgBrush, e.Bounds);
             }
 
             string text = Items[e.Index].ToString();
             using (SolidBrush textBrush = new SolidBrush(fg))
-            using (StringFormat sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter }) {
-                Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
+            using (StringFormat sf = new StringFormat()) {
+                sf.LineAlignment = StringAlignment.Center;
+                Rectangle textRect = new Rectangle(e.Bounds.Left + 8, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
                 g.DrawString(text, Font, textBrush, textRect, sf);
             }
         }
@@ -1293,36 +1363,23 @@ namespace HMT.Tools {
             if (m.Msg == 0x000F) { // WM_PAINT
                 try {
                     using (Graphics g = Graphics.FromHwnd(this.Handle)) {
-                        g.SmoothingMode = SmoothingMode.AntiAlias;
-
-                        float dpiScale = GetDpiScale();
-                        int btnWidth = Math.Max(20, (int)(24 * dpiScale));
-                        Rectangle btnRect = new Rectangle(Width - btnWidth - 1, 0, btnWidth + 1, Height);
-                        using (SolidBrush bgBrush = new SolidBrush(_bgColor)) {
-                            g.FillRectangle(bgBrush, btnRect);
-                        }
-
-                        // 2. Draw modern dark border around entire ComboBox
                         using (Pen p = new Pen(_borderColor, 1f)) {
                             g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
                         }
 
-                        // 3. Draw single crisp down arrow in the center of the dark button area
-                        int arrowWidth = Math.Max(6, (int)(8 * dpiScale));
-                        int arrowHeight = Math.Max(3, (int)(4 * dpiScale));
-                        float arrowX = Width - (btnWidth / 2f) - (arrowWidth / 2f);
-                        float arrowY = (Height / 2f) - (arrowHeight / 2f);
-
+                        // Draw Arrow
+                        int arrowX = Width - 18;
+                        int arrowY = (Height / 2) - 2;
                         PointF[] arrow = new PointF[] {
                             new PointF(arrowX, arrowY),
-                            new PointF(arrowX + arrowWidth, arrowY),
-                            new PointF(arrowX + (arrowWidth / 2f), arrowY + arrowHeight)
+                            new PointF(arrowX + 8, arrowY),
+                            new PointF(arrowX + 4, arrowY + 5)
                         };
                         using (SolidBrush arrowBrush = new SolidBrush(_arrowColor)) {
                             g.FillPolygon(arrowBrush, arrow);
                         }
                     }
-                } catch {}
+                } catch { }
             }
         }
     }
@@ -1333,9 +1390,6 @@ namespace HMT.Tools {
     public class DarkTextBox : TextBox {
         private Color _borderColor = Color.FromArgb(64, 68, 75); // #40444b
         private Color _bgColor = Color.FromArgb(30, 31, 34);      // #1e1f22
-
-        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
-        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindowDC(IntPtr hWnd);
@@ -1359,9 +1413,7 @@ namespace HMT.Tools {
 
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
-            try {
-                SetWindowTheme(this.Handle, "DarkMode_Explorer", null);
-            } catch { }
+            DarkThemeHelper.ApplyDarkTheme(this.Handle);
         }
 
         protected override void WndProc(ref Message m) {

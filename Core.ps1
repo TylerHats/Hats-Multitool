@@ -52,6 +52,7 @@ if (Test-Path $toolsDll) {
 [System.Windows.Forms.Application]::EnableVisualStyles() # Allows use of current Windows Theme/Style
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) # Allows High-DPI rendering for text and features
 try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}
+try { [HMT.Tools.DarkThemeHelper]::InitializeAppDarkMode() } catch {}
 
 # Splashscreen
 function Show-ImageSplash {

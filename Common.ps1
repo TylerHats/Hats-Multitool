@@ -435,6 +435,7 @@ function global:Set-DarkTitleBar {
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 20, [ref]$darkMode, 4) | Out-Null
     $cornerPref = 2
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 33, [ref]$cornerPref, 4) | Out-Null
+    try { [HMT.Tools.DarkThemeHelper]::ApplyDarkTheme($TargetForm.Handle) } catch {}
 }
 
 function global:Set-RoundedControl {
