@@ -234,10 +234,24 @@ function Show-CommandRunnerDialog {
         if ($lineClean -match '(?:Verification|Verifying|Scan|Phase)?\s*(\d+)%\s*(?:complete|\.|$)' -or $lineClean -match '(\d+)%\s*(?:complete|\.|$)') {
             $pct = [int]$matches[1]
             if ($pct -ge 0 -and $pct -le 100) {
-                $state.TargetProgressPct = $pct
+                $state.ProgressPct = $pct
                 $state.Stage = 2
                 $state.StageName = "Verifying Windows system files"
                 $pBar.IsMarquee = $false
+                $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
+                $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
+                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+
+                # In-place terminal update: rewrite the "Verification XX% complete." line cleanly
+                $curText = $txtOutput.Text
+                $lastVerif = $curText.LastIndexOf("Verification ")
+                if ($lastVerif -ge 0) {
+                    $txtOutput.Text = $curText.Substring(0, $lastVerif) + "Verification $pct% complete.`r`n"
+                } else {
+                    $txtOutput.AppendText("Verification $pct% complete.`r`n")
+                }
+                $txtOutput.SelectionStart = $txtOutput.TextLength
+                $txtOutput.ScrollToCaret()
             }
         }
         elseif ($lineClean -match 'Beginning system scan') {
@@ -246,7 +260,7 @@ function Show-CommandRunnerDialog {
             $pBar.IsMarquee = $true
             $lblStatus.Text = "Stage 1/2: Initializing system file scan..."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
+            $txtOutput.AppendText("$lineClean`r`n`r`n")
         }
         elseif ($lineClean -match 'Beginning verification phase') {
             $state.Stage = 2
@@ -255,22 +269,22 @@ function Show-CommandRunnerDialog {
             $pBar.Value = 0
             $lblStatus.Text = "Stage 2/2: Verifying Windows system files..."
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
+            $txtOutput.AppendText("$lineClean`r`n")
         }
         elseif ($lineClean -match 'did not find any integrity violations') {
             $state.Verdict = "Verification Complete: No integrity violations found (System files healthy)."
             $state.VerdictType = "Success"
-            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
+            $txtOutput.AppendText("`r`n$lineClean`r`n")
         }
         elseif ($lineClean -match 'found corrupt files and successfully repaired them') {
             $state.Verdict = "Verification Complete: Corrupted files found and successfully repaired."
             $state.VerdictType = "Repaired"
-            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
+            $txtOutput.AppendText("`r`n$lineClean`r`n")
         }
         elseif ($lineClean -match 'found corrupt files but was unable to fix some') {
             $state.Verdict = "Corrupted files found that could not all be repaired (Check CBS.log)."
             $state.VerdictType = "Warning"
-            $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $lineClean`r`n")
+            $txtOutput.AppendText("`r`n$lineClean`r`n")
         }
 
         # --- 2. DISM & .NET 3.5 Feature Parsing ---
@@ -513,24 +527,6 @@ function Show-CommandRunnerDialog {
                 foreach ($l in $lines) {
                     if ($null -ne $l) {
                         &$processLine $l
-                    }
-                }
-            }
-
-            # Smooth progressive advancement for SFC & batch reporting tools
-            if ($null -ne $state.TargetProgressPct) {
-                if ($state.ProgressPct -lt $state.TargetProgressPct) {
-                    $diff = $state.TargetProgressPct - $state.ProgressPct
-                    $step = [math]::Max(1, [int][math]::Ceiling($diff / 4.0))
-                    $state.ProgressPct = [math]::Min($state.TargetProgressPct, ($state.ProgressPct + $step))
-                    $pBar.Value = $state.ProgressPct
-                    $lblStatus.Text = "Stage 2/2: Verifying protected system files ($($state.ProgressPct)% complete)..."
-                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-
-                    $milestone = [int][math]::Floor($state.ProgressPct / 10.0) * 10
-                    if ($milestone -gt 0 -and $milestone -ne $state.LastLoggedProgress) {
-                        $state.LastLoggedProgress = $milestone
-                        $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $milestone% complete`r`n")
                     }
                 }
             }
@@ -2561,7 +2557,7 @@ Store this recovery password in a secure, confidential location.
     }.GetNewClosure())
 
     # Add Recovery Password Action
-    $btnAddRecovery.Add_Click({
+    $btnAddProtector.Add_Click({
         if (-not $state.SelectedVolume) { return }
         $mp = $state.SelectedVolume.MountPoint
         try {
