@@ -119,14 +119,14 @@ foreach ($cat in $catalog.Keys) {
     $programs += $catalog[$cat]
 }
 
-$form.ClientSize = New-Object System.Drawing.Size(580, 440)
+$form.ClientSize = New-Object System.Drawing.Size(580, 460)
 
 # Tab Control for Categories
 $tabControl = New-Object HMT.Tools.DarkTabControl
 $tabControl.Location = New-Object System.Drawing.Point(15, 12)
-$tabControl.Size = New-Object System.Drawing.Size(550, 255)
+$tabControl.Size = New-Object System.Drawing.Size(550, 270)
 $tabControl.Font = $progFont
-$tabControl.ItemSize = New-Object System.Drawing.Size(104, 38)
+$tabControl.Padding = New-Object System.Drawing.Point(12, 6)
 $form.Controls.Add($tabControl)
 
 $checkboxes = @{}
@@ -148,7 +148,7 @@ foreach ($tabName in $tabOrder) {
 
     $col1 = New-Object System.Windows.Forms.FlowLayoutPanel
     $col1.Location = New-Object System.Drawing.Point(10, 8)
-    $col1.Size = New-Object System.Drawing.Size(255, 200)
+    $col1.Size = New-Object System.Drawing.Size(255, 190)
     $col1.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
     $col1.WrapContents = $false
     $col1.BackColor = [System.Drawing.Color]::Transparent
@@ -156,7 +156,7 @@ foreach ($tabName in $tabOrder) {
 
     $col2 = New-Object System.Windows.Forms.FlowLayoutPanel
     $col2.Location = New-Object System.Drawing.Point(275, 8)
-    $col2.Size = New-Object System.Drawing.Size(255, 200)
+    $col2.Size = New-Object System.Drawing.Size(255, 190)
     $col2.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
     $col2.WrapContents = $false
     $col2.BackColor = [System.Drawing.Color]::Transparent

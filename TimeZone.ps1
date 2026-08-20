@@ -1,4 +1,4 @@
-﻿# Time Zone Module - Tyler Hatfield - v2.8
+# Time Zone Module - Tyler Hatfield - v2.8
 
 # Create TZ GUI
 # Prepare form
@@ -32,9 +32,10 @@ $TZGUI.Controls.Add($TZlabel)
 
 # Add dropdown list
 $y += 35
-$comboBox = New-Object System.Windows.Forms.ComboBox
+$comboBox = New-Object HMT.Tools.DarkComboBox
 $comboBox.Location = New-Object System.Drawing.Point($padding, $y)
-$comboBox.DropDownStyle = 'DropDownList' # Prevents text input
+$comboBox.Size = New-Object System.Drawing.Size(260, 26)
+$comboBox.Font = $font
 $comboBox.Items.AddRange(@("Eastern Standard Time", "Central Standard Time", "Mountain Standard Time", "Pacific Standard Time"))
 $comboBox.SelectedIndex = 0
 $TZGUI.Controls.Add($comboBox)

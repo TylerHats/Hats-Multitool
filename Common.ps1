@@ -775,8 +775,10 @@ function Show-DownloadDialog {
 
     # Prepare download parameters
     $downloadUrl = $Url
-    if ($downloadUrl -like "*sourceforge.net/project/*" -and $downloadUrl -notlike "*?use_mirror=*" -and $downloadUrl -notlike "*?viasf=*") {
-        $downloadUrl = "$downloadUrl?use_mirror=autoselect"
+    if ($downloadUrl -match 'sourceforge\.net/projects/([^/]+)/files/(.+?)(?:/download)?(?:\?.*)?$') {
+        $proj = $matches[1]
+        $file = $matches[2]
+        $downloadUrl = "https://downloads.sourceforge.net/project/$proj/$file"
     }
 
     $script:dlSuccess = $false

@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -410,7 +411,17 @@ namespace HMT.Tools {
                     float targetPercent = (float)(_value - _minimum) / Math.Max(1, (_maximum - _minimum));
                     targetPercent = Math.Max(0f, Math.Min(1f, targetPercent));
 
-                    if (Math.Abs(_visualPercent - targetPercent) > 0.005f) {
+                    if (targetPercent >= 0.999f || _value >= _maximum) {
+                        if (_visualPercent < 1f) {
+                            _visualPercent = 1f;
+                            needsRedraw = true;
+                        }
+                    } else if (targetPercent <= 0.001f || _value <= _minimum) {
+                        if (_visualPercent > 0f) {
+                            _visualPercent = 0f;
+                            needsRedraw = true;
+                        }
+                    } else if (Math.Abs(_visualPercent - targetPercent) > 0.005f) {
                         _visualPercent += (targetPercent - _visualPercent) * 0.25f;
                         needsRedraw = true;
                     } else {
@@ -448,7 +459,11 @@ namespace HMT.Tools {
             get { return _value; }
             set {
                 _value = Math.Max(_minimum, Math.Min(_maximum, value));
-                if (!IsHandleCreated) {
+                if (_value >= _maximum) {
+                    _visualPercent = 1f;
+                } else if (_value <= _minimum) {
+                    _visualPercent = 0f;
+                } else if (!IsHandleCreated) {
                     _visualPercent = (float)(_value - _minimum) / Math.Max(1, (_maximum - _minimum));
                 }
                 Invalidate();
@@ -556,13 +571,21 @@ namespace HMT.Tools {
                     }
                     g.ResetClip();
                 } else {
-                    int fillWidth = (int)((rect.Width) * _visualPercent);
+                    int fillWidth;
+                    if (_visualPercent >= 0.999f || _value >= _maximum) {
+                        fillWidth = rect.Width + 4;
+                    } else {
+                        fillWidth = (int)(rect.Width * _visualPercent);
+                    }
+
                     if (fillWidth > 2) {
                         Rectangle fillRect = new Rectangle(rect.X, rect.Y, fillWidth, rect.Height);
 
                         // Strictly clip to the intersection of the track's rounded boundary AND the filled region
                         g.SetClip(trackPath);
-                        g.SetClip(fillRect, CombineMode.Intersect);
+                        if (_visualPercent < 0.999f && _value < _maximum) {
+                            g.SetClip(fillRect, CombineMode.Intersect);
+                        }
 
                         using (LinearGradientBrush fillBrush = new LinearGradientBrush(
                             rect, _progressColor, _progressColorEnd, LinearGradientMode.Horizontal)) {
@@ -630,11 +653,11 @@ namespace HMT.Tools {
     // Modern Dark Tab Control (Eliminates Win9x borders and connects seamlessly to content)
     // ==============================================================================
     public class DarkTabControl : TabControl {
-        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225 (Inactive)
+        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225 (Inactive Header Strip)
         private Color _tabSelectedBg = Color.FromArgb(47, 49, 54);    // #2f3136 (Active - matches TabPage)
         private Color _tabTextColor = Color.FromArgb(160, 160, 160);  // #a0a0a0
         private Color _tabSelectedTextColor = Color.White;
-        private Color _accentColor = Color.FromArgb(88, 101, 242);     // #5865F2
+        private Color _accentColor = Color.FromArgb(88, 101, 242);     // #5865F2 (Discord Blurple)
         private Color _borderColor = Color.FromArgb(32, 34, 37);      // #202225
         private Color _pageBg = Color.FromArgb(47, 49, 54);           // #2f3136
 
@@ -648,7 +671,8 @@ namespace HMT.Tools {
             );
             DrawMode = TabDrawMode.OwnerDrawFixed;
             SizeMode = TabSizeMode.Normal;
-            Padding = new Point(16, 7);
+            Multiline = true;
+            Padding = new Point(14, 7);
             Font = new Font("Segoe UI", 9f, FontStyle.Regular);
         }
 
@@ -656,6 +680,8 @@ namespace HMT.Tools {
             get {
                 CreateParams cp = base.CreateParams;
                 cp.ExStyle &= ~0x00000200; // Remove WS_EX_CLIENTEDGE
+                cp.Style &= ~0x00800000;  // Remove WS_BORDER
+                cp.Style |= 0x00000200;   // TCS_MULTILINE (Eliminates white UpDown horizontal scroll arrows)
                 return cp;
             }
         }
@@ -674,8 +700,12 @@ namespace HMT.Tools {
 
         public override Rectangle DisplayRectangle {
             get {
-                Rectangle tabRect = TabCount > 0 ? GetTabRect(0) : Rectangle.Empty;
-                int top = tabRect.Bottom > 0 ? tabRect.Bottom : 34;
+                int maxBottom = 0;
+                for (int i = 0; i < TabCount; i++) {
+                    Rectangle r = GetTabRect(i);
+                    if (r.Bottom > maxBottom) maxBottom = r.Bottom;
+                }
+                int top = maxBottom > 0 ? maxBottom : 34;
                 return new Rectangle(0, top, ClientRectangle.Width, Math.Max(0, ClientRectangle.Height - top));
             }
         }
@@ -685,67 +715,116 @@ namespace HMT.Tools {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            // Fill entire TabControl canvas with Page Background (#2f3136) so there are no outer borders
+            // Fill entire canvas with Page Background (#2f3136)
             using (SolidBrush pageBrush = new SolidBrush(_pageBg)) {
                 g.FillRectangle(pageBrush, ClientRectangle);
             }
 
             if (TabCount == 0) return;
 
-            Rectangle firstTabRect = GetTabRect(0);
-            int headerAreaHeight = firstTabRect.Bottom > 0 ? firstTabRect.Bottom : 34;
+            // Compute maximum bottom of all tab rows
+            int maxBottom = 0;
+            for (int i = 0; i < TabCount; i++) {
+                Rectangle r = GetTabRect(i);
+                if (r.Bottom > maxBottom) maxBottom = r.Bottom;
+            }
+            if (maxBottom == 0) maxBottom = 34;
 
-            // Fill header strip area behind inactive tabs with #202225
+            // Fill entire header strip behind tabs with #202225 (erasing any 2px top/left gaps)
             using (SolidBrush headerStripBrush = new SolidBrush(_tabHeaderBg)) {
-                g.FillRectangle(headerStripBrush, 0, 0, ClientSize.Width, headerAreaHeight);
+                g.FillRectangle(headerStripBrush, 0, 0, ClientSize.Width, maxBottom);
             }
 
             int selectedIndex = SelectedIndex;
+            Rectangle selectedRect = (selectedIndex >= 0 && selectedIndex < TabCount) ? GetTabRect(selectedIndex) : Rectangle.Empty;
 
-            // 1. Draw inactive tabs first
+            // 1. Draw inactive tabs on background/recessed rows (Bookshelf Tier 1)
             for (int i = 0; i < TabCount; i++) {
                 if (i == selectedIndex) continue;
-                DrawTabHeader(g, i, false);
+                Rectangle tr = GetTabRect(i);
+                bool isInSelectedRow = (selectedRect != Rectangle.Empty && Math.Abs(tr.Y - selectedRect.Y) < 6);
+                if (!isInSelectedRow) {
+                    DrawTabHeader(g, i, false, false, maxBottom);
+                }
             }
 
-            // 2. Draw line separating inactive tabs from page content
+            // 2. Draw inactive tabs on the active row (Bookshelf Tier 2)
+            for (int i = 0; i < TabCount; i++) {
+                if (i == selectedIndex) continue;
+                Rectangle tr = GetTabRect(i);
+                bool isInSelectedRow = (selectedRect != Rectangle.Empty && Math.Abs(tr.Y - selectedRect.Y) < 6);
+                if (isInSelectedRow) {
+                    DrawTabHeader(g, i, false, true, maxBottom);
+                }
+            }
+
+            // 3. Draw line separating inactive tabs from page content
             using (Pen borderPen = new Pen(_borderColor, 1f)) {
-                g.DrawLine(borderPen, 0, headerAreaHeight, ClientSize.Width, headerAreaHeight);
+                g.DrawLine(borderPen, 0, maxBottom, ClientSize.Width, maxBottom);
             }
 
-            // 3. Draw active tab (seamlessly merges with page content below)
+            // 4. Draw active tab on top (Commands foreground, overlaps inactive rows, seamlessly merges with content)
             if (selectedIndex >= 0 && selectedIndex < TabCount) {
-                DrawTabHeader(g, selectedIndex, true);
+                DrawTabHeader(g, selectedIndex, true, true, maxBottom);
             }
         }
 
-        private void DrawTabHeader(Graphics g, int index, bool isSelected) {
+        private void DrawTabHeader(Graphics g, int index, bool isSelected, bool isActiveRow, int maxBottom) {
             TabPage tab = TabPages[index];
             Rectangle tabRect = GetTabRect(index);
 
-            // Active tab extends 2px downwards into page to overwrite the separator line seamlessly
-            if (isSelected) {
-                tabRect.Height += 2;
+            // Extend leftmost and top edges to 0 so there is no 2px gray line on the left or top
+            if (tabRect.Left <= 4) {
+                tabRect.Width += tabRect.Left;
+                tabRect.X = 0;
+            }
+            if (tabRect.Top <= 4) {
+                tabRect.Height += tabRect.Top;
+                tabRect.Y = 0;
             }
 
-            Color bg = isSelected ? _tabSelectedBg : _tabHeaderBg;
-            Color fg = isSelected ? _tabSelectedTextColor : _tabTextColor;
+            if (isSelected) {
+                // Active tab extends seamlessly down to maxBottom + 2 to overwrite the separator line
+                if (tabRect.Bottom >= maxBottom - 4) {
+                    tabRect.Height = Math.Max(tabRect.Height, (maxBottom - tabRect.Top) + 2);
+                } else {
+                    tabRect.Height += 2;
+                }
+            }
+
+            Color bg;
+            Color fg;
+
+            if (isSelected) {
+                bg = _tabSelectedBg;              // #2f3136 (Active page match)
+                fg = _tabSelectedTextColor;       // Pure White
+            } else if (isActiveRow) {
+                bg = Color.FromArgb(37, 39, 43);  // #25272b (Foreground inactive row)
+                fg = _tabTextColor;               // #a0a0a0
+            } else {
+                bg = Color.FromArgb(28, 30, 33);  // #1c1e21 (Bookshelf recessed back tier)
+                fg = Color.FromArgb(140, 142, 146);
+            }
 
             using (SolidBrush tabBrush = new SolidBrush(bg)) {
                 g.FillRectangle(tabBrush, tabRect);
             }
 
-            // Accent bar on top of selected tab
-            if (isSelected) {
+            if (!isSelected) {
+                // Subtle bookshelf tile outline
+                using (Pen shelfPen = new Pen(Color.FromArgb(43, 45, 49), 1f)) {
+                    g.DrawRectangle(shelfPen, tabRect.X, tabRect.Y, tabRect.Width, tabRect.Height);
+                }
+            } else {
+                // Active Tab Top Accent Bar (Discord Purple / Blurple #5865F2)
                 using (SolidBrush accentBrush = new SolidBrush(_accentColor)) {
                     g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, 3);
                 }
-            }
 
-            // Draw subtle vertical separator between inactive tabs
-            if (!isSelected && index < TabCount - 1 && index + 1 != SelectedIndex) {
-                using (Pen sepPen = new Pen(Color.FromArgb(47, 49, 54), 1f)) {
-                    g.DrawLine(sepPen, tabRect.Right - 1, tabRect.Top + 6, tabRect.Right - 1, tabRect.Bottom - 6);
+                // Active tab side contrast borders
+                using (Pen activeBorderPen = new Pen(Color.FromArgb(54, 57, 63), 1f)) {
+                    g.DrawLine(activeBorderPen, tabRect.Left, tabRect.Top, tabRect.Left, tabRect.Bottom);
+                    g.DrawLine(activeBorderPen, tabRect.Right - 1, tabRect.Top, tabRect.Right - 1, tabRect.Bottom);
                 }
             }
 
@@ -756,7 +835,12 @@ namespace HMT.Tools {
                 sf.Trimming = StringTrimming.EllipsisCharacter;
                 using (Font tabFont = isSelected ? new Font(Font, FontStyle.Bold) : new Font(Font, FontStyle.Regular))
                 using (SolidBrush textBrush = new SolidBrush(fg)) {
-                    Rectangle textRect = new Rectangle(tabRect.Left + 2, tabRect.Top + (isSelected ? 3 : 0), tabRect.Width - 4, tabRect.Height - (isSelected ? 5 : 0));
+                    Rectangle textRect = new Rectangle(
+                        tabRect.Left + 4,
+                        tabRect.Top + (isSelected ? 3 : 0),
+                        Math.Max(10, tabRect.Width - 8),
+                        Math.Max(10, tabRect.Height - (isSelected ? 4 : 0))
+                    );
                     g.DrawString(tab.Text, tabFont, textBrush, textRect, sf);
                 }
             }
@@ -764,8 +848,40 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
-    // Modern Dark ListView (Custom OwnerDraw Header & Rows, Zero Win9x Gray Borders)
+    // Modern Dark ListView (Custom OwnerDraw Header & Rows, Column Sorting & Zero Win9x Gray Borders)
     // ==============================================================================
+    public class ListViewItemComparer : System.Collections.IComparer {
+        private int _col;
+        private SortOrder _order;
+
+        public ListViewItemComparer(int column, SortOrder order) {
+            _col = column;
+            _order = order;
+        }
+
+        public int Compare(object x, object y) {
+            ListViewItem itemX = x as ListViewItem;
+            ListViewItem itemY = y as ListViewItem;
+            if (itemX == null || itemY == null) return 0;
+
+            string textX = _col < itemX.SubItems.Count ? itemX.SubItems[_col].Text : "";
+            string textY = _col < itemY.SubItems.Count ? itemY.SubItems[_col].Text : "";
+
+            double numX, numY;
+            int returnVal;
+            if (double.TryParse(textX, out numX) && double.TryParse(textY, out numY)) {
+                returnVal = numX.CompareTo(numY);
+            } else {
+                returnVal = string.Compare(textX, textY, StringComparison.CurrentCultureIgnoreCase);
+            }
+
+            if (_order == SortOrder.Descending) {
+                returnVal = -returnVal;
+            }
+            return returnVal;
+        }
+    }
+
     public class DarkListView : ListView {
         private Color _headerBg = Color.FromArgb(32, 34, 37);         // #202225
         private Color _headerFg = Color.FromArgb(217, 217, 217);      // #d9d9d9
@@ -776,6 +892,9 @@ namespace HMT.Tools {
         private Color _itemFg = Color.FromArgb(217, 217, 217);        // #d9d9d9
         private Color _itemSubFg = Color.FromArgb(160, 160, 160);     // #a0a0a0
         private bool _autoFillLastColumn = true;
+        private bool _enableColumnSorting = true;
+        private int _sortColumn = -1;
+        private SortOrder _sortOrder = SortOrder.None;
         private DarkHeaderControl _headerSubclass;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
@@ -860,6 +979,44 @@ namespace HMT.Tools {
             DrawSubItem += OnDrawSubItem;
         }
 
+        public bool EnableColumnSorting {
+            get { return _enableColumnSorting; }
+            set { _enableColumnSorting = value; }
+        }
+
+        public int SortColumn {
+            get { return _sortColumn; }
+        }
+
+        public SortOrder SortOrder {
+            get { return _sortOrder; }
+        }
+
+        public void SortByColumn(int column, SortOrder order) {
+            if (column < 0 || column >= Columns.Count) return;
+            _sortColumn = column;
+            _sortOrder = order;
+            ListViewItemSorter = new ListViewItemComparer(_sortColumn, _sortOrder);
+            Sort();
+            Invalidate();
+        }
+
+        protected override void OnColumnClick(ColumnClickEventArgs e) {
+            base.OnColumnClick(e);
+            if (!_enableColumnSorting) return;
+
+            if (e.Column == _sortColumn) {
+                _sortOrder = (_sortOrder == SortOrder.Ascending) ? SortOrder.Descending : SortOrder.Ascending;
+            } else {
+                _sortColumn = e.Column;
+                _sortOrder = SortOrder.Ascending;
+            }
+
+            ListViewItemSorter = new ListViewItemComparer(_sortColumn, _sortOrder);
+            Sort();
+            Invalidate();
+        }
+
         protected override CreateParams CreateParams {
             get {
                 CreateParams cp = base.CreateParams;
@@ -930,8 +1087,32 @@ namespace HMT.Tools {
             using (SolidBrush textBrush = new SolidBrush(_headerFg))
             using (StringFormat sf = new StringFormat()) {
                 sf.LineAlignment = StringAlignment.Center;
-                Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
+                Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - (_sortColumn == e.ColumnIndex ? 22 : 12), e.Bounds.Height);
                 g.DrawString(e.Header.Text, headerFont, textBrush, textRect, sf);
+
+                // Draw sorting indicator arrow if active
+                if (_sortColumn == e.ColumnIndex && _sortOrder != SortOrder.None) {
+                    int arrowSize = 6;
+                    int arrowX = e.Bounds.Right - 16;
+                    int arrowY = e.Bounds.Top + (e.Bounds.Height / 2) - 3;
+                    PointF[] sortArrow;
+                    if (_sortOrder == SortOrder.Ascending) {
+                        sortArrow = new PointF[] {
+                            new PointF(arrowX, arrowY + arrowSize),
+                            new PointF(arrowX + arrowSize, arrowY + arrowSize),
+                            new PointF(arrowX + (arrowSize / 2f), arrowY)
+                        };
+                    } else {
+                        sortArrow = new PointF[] {
+                            new PointF(arrowX, arrowY),
+                            new PointF(arrowX + arrowSize, arrowY),
+                            new PointF(arrowX + (arrowSize / 2f), arrowY + arrowSize)
+                        };
+                    }
+                    using (SolidBrush arrowBrush = new SolidBrush(Color.FromArgb(88, 101, 242))) {
+                        g.FillPolygon(arrowBrush, sortArrow);
+                    }
+                }
             }
         }
 
@@ -973,11 +1154,11 @@ namespace HMT.Tools {
     // Modern Dark ComboBox (Owner-Drawn DropDownList with Sleek Arrow & Dark Menu)
     // ==============================================================================
     public class DarkComboBox : ComboBox {
-        private Color _bgColor = Color.FromArgb(32, 34, 37);
-        private Color _fgColor = Color.FromArgb(220, 221, 222);
-        private Color _borderColor = Color.FromArgb(64, 68, 75);
-        private Color _hoverColor = Color.FromArgb(88, 101, 242);
-        private Color _arrowColor = Color.FromArgb(160, 160, 160);
+        private Color _bgColor = Color.FromArgb(32, 34, 37);          // #202225
+        private Color _fgColor = Color.FromArgb(220, 221, 222);      // #dcdde0
+        private Color _borderColor = Color.FromArgb(64, 68, 75);      // #40444b
+        private Color _hoverColor = Color.FromArgb(88, 101, 242);     // #5865F2
+        private Color _arrowColor = Color.FromArgb(217, 217, 217);    // #d9d9d9
 
         public DarkComboBox() {
             DrawMode = DrawMode.OwnerDrawFixed;
@@ -1003,7 +1184,7 @@ namespace HMT.Tools {
 
             string text = Items[e.Index].ToString();
             using (SolidBrush textBrush = new SolidBrush(fg))
-            using (StringFormat sf = new StringFormat { LineAlignment = StringAlignment.Center }) {
+            using (StringFormat sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter }) {
                 Rectangle textRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top, e.Bounds.Width - 12, e.Bounds.Height);
                 g.DrawString(text, Font, textBrush, textRect, sf);
             }
@@ -1014,15 +1195,30 @@ namespace HMT.Tools {
             if (m.Msg == 0x000F) { // WM_PAINT
                 try {
                     using (Graphics g = Graphics.FromHwnd(this.Handle)) {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                        // 1. Completely overwrite the native Windows white drop-down button area with dark #202225
+                        int btnWidth = 24;
+                        Rectangle btnRect = new Rectangle(Width - btnWidth, 1, btnWidth - 1, Height - 2);
+                        using (SolidBrush bgBrush = new SolidBrush(_bgColor)) {
+                            g.FillRectangle(bgBrush, btnRect);
+                        }
+
+                        // 2. Draw modern dark border around entire ComboBox
                         using (Pen p = new Pen(_borderColor, 1f)) {
                             g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
                         }
-                        int arrowX = Width - 16;
-                        int arrowY = (Height / 2) - 2;
-                        Point[] arrow = new Point[] {
-                            new Point(arrowX, arrowY),
-                            new Point(arrowX + 8, arrowY),
-                            new Point(arrowX + 4, arrowY + 5)
+
+                        // 3. Draw single crisp down arrow in the center of the dark button area
+                        int arrowWidth = 8;
+                        int arrowHeight = 4;
+                        float arrowX = Width - (btnWidth / 2f) - (arrowWidth / 2f);
+                        float arrowY = (Height / 2f) - (arrowHeight / 2f);
+
+                        PointF[] arrow = new PointF[] {
+                            new PointF(arrowX, arrowY),
+                            new PointF(arrowX + arrowWidth, arrowY),
+                            new PointF(arrowX + (arrowWidth / 2f), arrowY + arrowHeight)
                         };
                         using (SolidBrush arrowBrush = new SolidBrush(_arrowColor)) {
                             g.FillPolygon(arrowBrush, arrow);
@@ -1054,6 +1250,13 @@ namespace HMT.Tools {
                     ServicePointManager.DefaultConnectionLimit = 64;
 
                     string currentUrl = url;
+                    if (currentUrl.IndexOf("sourceforge.net/projects/", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        var sfMatch = System.Text.RegularExpressions.Regex.Match(currentUrl, @"sourceforge\.net/projects/([^/]+)/files/(.+?)(?:/download)?(?:\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (sfMatch.Success) {
+                            currentUrl = "https://downloads.sourceforge.net/project/" + sfMatch.Groups[1].Value + "/" + sfMatch.Groups[2].Value;
+                        }
+                    }
+
                     int maxRedirects = 10;
                     HttpWebResponse response = null;
 
@@ -1142,6 +1345,17 @@ namespace HMT.Tools {
                         if (!state.IsCancelled) {
                             state.IsCompleted = true;
                         }
+                    }
+                } catch (WebException wex) {
+                    if (wex.Response is HttpWebResponse errResp) {
+                        int errCode = (int)errResp.StatusCode;
+                        if (errCode == 403) {
+                            state.Error = "403 Forbidden (Download server is protected by bot verification).";
+                        } else {
+                            state.Error = "HTTP " + errCode + ": " + errResp.StatusDescription;
+                        }
+                    } else {
+                        state.Error = wex.Message;
                     }
                 } catch (Exception ex) {
                     state.Error = ex.Message;
@@ -1326,8 +1540,16 @@ namespace HMT.Tools {
         public void Start(string host, int pingsPerSecond, int packetSize, int durationSeconds = 0) {
             if (_isRunning) Stop();
 
+            try {
+                int minWorker, minIOC;
+                ThreadPool.GetMinThreads(out minWorker, out minIOC);
+                if (minWorker < 1024) {
+                    ThreadPool.SetMinThreads(1024, Math.Max(1024, minIOC));
+                }
+            } catch {}
+
             _targetHost = host ?? "1.1.1.1";
-            _pingsPerSecond = Math.Max(1, Math.Min(5000, pingsPerSecond));
+            _pingsPerSecond = Math.Max(1, Math.Min(10000, pingsPerSecond));
             _packetSize = Math.Max(1, Math.Min(65500, packetSize));
             _durationSeconds = Math.Max(0, durationSeconds);
 
@@ -1448,14 +1670,16 @@ namespace HMT.Tools {
 
                 if (waitTicks > 0) {
                     int sleepMs = (int)(waitTicks * 1000.0 / freq);
-                    if (sleepMs > 2) {
-                        Thread.Sleep(sleepMs - 1);
+                    if (sleepMs > 3) {
+                        Thread.Sleep(sleepMs - 2);
                     }
                     while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks && _isRunning) {
-                        Thread.SpinWait(10);
+                        Thread.SpinWait(5);
                     }
                 } else {
-                    nextDispatchTicks = currentTicks;
+                    if (currentTicks - nextDispatchTicks > (freq / 20)) {
+                        nextDispatchTicks = currentTicks;
+                    }
                 }
             }
 
@@ -2028,6 +2252,8 @@ namespace HMT.Tools {
         private bool _hasExited = false;
         private int _exitCode = -1;
         private string _errorMessage = null;
+        private Thread _outThread;
+        private Thread _errThread;
 
         public bool IsRunning {
             get {
@@ -2100,22 +2326,6 @@ namespace HMT.Tools {
                 _process.StartInfo = psi;
                 _process.EnableRaisingEvents = true;
 
-                _process.OutputDataReceived += (s, e) => {
-                    if (e.Data != null) {
-                        lock (_lock) {
-                            _outputQueue.Add(e.Data);
-                        }
-                    }
-                };
-
-                _process.ErrorDataReceived += (s, e) => {
-                    if (e.Data != null) {
-                        lock (_lock) {
-                            _outputQueue.Add(e.Data);
-                        }
-                    }
-                };
-
                 _process.Exited += (s, e) => {
                     lock (_lock) {
                         _hasExited = true;
@@ -2127,8 +2337,17 @@ namespace HMT.Tools {
 
                 bool started = _process.Start();
                 if (started) {
-                    _process.BeginOutputReadLine();
-                    _process.BeginErrorReadLine();
+                    _outThread = new Thread(() => ReadStream(_process.StandardOutput)) {
+                        IsBackground = true,
+                        Name = "HMT_ProcRunner_StdOut"
+                    };
+                    _outThread.Start();
+
+                    _errThread = new Thread(() => ReadStream(_process.StandardError)) {
+                        IsBackground = true,
+                        Name = "HMT_ProcRunner_StdErr"
+                    };
+                    _errThread.Start();
                 }
                 return started;
             } catch (Exception ex) {
@@ -2137,6 +2356,37 @@ namespace HMT.Tools {
                 _exitCode = -1;
                 return false;
             }
+        }
+
+        private void ReadStream(StreamReader reader) {
+            if (reader == null) return;
+            var sb = new StringBuilder();
+            char[] buffer = new char[1024];
+            int charsRead;
+            try {
+                while ((charsRead = reader.Read(buffer, 0, buffer.Length)) > 0) {
+                    for (int i = 0; i < charsRead; i++) {
+                        char c = buffer[i];
+                        if (c == '\r' || c == '\n') {
+                            if (sb.Length > 0) {
+                                string line = sb.ToString();
+                                sb.Length = 0;
+                                lock (_lock) {
+                                    _outputQueue.Add(line);
+                                }
+                            }
+                        } else {
+                            sb.Append(c);
+                        }
+                    }
+                }
+                if (sb.Length > 0) {
+                    string line = sb.ToString();
+                    lock (_lock) {
+                        _outputQueue.Add(line);
+                    }
+                }
+            } catch { }
         }
 
         public string[] DrainOutput() {

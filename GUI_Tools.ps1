@@ -27,7 +27,7 @@ $ToolsTabControl = New-Object HMT.Tools.DarkTabControl
 $ToolsTabControl.Location = New-Object System.Drawing.Point(20, 15)
 $ToolsTabControl.Size = New-Object System.Drawing.Size(740, 470)
 $ToolsTabControl.Font = $font
-$ToolsTabControl.ItemSize = New-Object System.Drawing.Size(142, 32)
+$ToolsTabControl.Padding = New-Object System.Drawing.Point(14, 6)
 $ToolsGUI.Controls.Add($ToolsTabControl)
 
 # Tool Lists by Category
@@ -251,7 +251,7 @@ $TLaunchButton.Add_Click({
                 Show-CommandRunnerDialog -Title "Check Disk (Read Only)" -CommandName "chkdsk.exe" -Arguments "C:" -Description "Running Check Disk in read-only mode on C:"
             }
             ".NET 3.5 (Includes v2 and v3)" {
-                Show-CommandRunnerDialog -Title ".NET 3.5 Installation" -CommandName "powershell.exe" -Arguments "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart" -Description "Installing .NET Framework 3.5/2.0/3.0 feature" -IsPowerShellScript
+                Show-CommandRunnerDialog -Title ".NET 3.5 Installation" -CommandName "dism.exe" -Arguments "/Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart" -Description "Enabling .NET Framework 3.5 (includes .NET 2.0 & 3.0)"
             }
             "Windows Update Reset" {
                 Show-WindowsUpdateResetDialog
@@ -315,7 +315,7 @@ $TLaunchButton.Add_Click({
             "Patch Cleaner" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-                $pcUrl = 'https://sourceforge.net/projects/patchcleaner/files/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip/download'
+                $pcUrl = 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip'
                 Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url $pcUrl -OutputPath "$PatchCleanerPath" -ExtractTo $ExtProgramDir
                 $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
                 if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
@@ -514,17 +514,49 @@ $TLaunchButton.Add_Click({
             "User Profile Wizard" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $UPWPath = Join-Path -Path $ExtProgramDir -ChildPath "Profwiz.msi"
-                if (-not (Test-Path -LiteralPath $UPWPath)) {
-                    $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
-                    Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
-                    if (-not (Test-Path -LiteralPath $UPWPath)) {
-                        $openBrowser = PopupError "ForensIT direct automated download is protected by Cloudflare bot challenge (403).`n`nWould you like to open the official ForensIT download page in your browser?" "Question" "YesNo"
+                $UPWExe = Join-Path -Path $ExtProgramDir -ChildPath "Profwiz.exe"
+
+                # Check if already installed / extracted or in user Downloads folder
+                $userDownloadsMsi = Join-Path "$env:USERPROFILE\Downloads" "Profwiz.msi"
+                $userDownloadsExe = Join-Path "$env:USERPROFILE\Downloads" "Profwiz.exe"
+
+                if (-not (Test-Path -LiteralPath $UPWPath) -and -not (Test-Path -LiteralPath $UPWExe)) {
+                    if (Test-Path -LiteralPath $userDownloadsMsi) {
+                        Copy-Item -LiteralPath $userDownloadsMsi -Destination $UPWPath -Force -ErrorAction SilentlyContinue
+                    } elseif (Test-Path -LiteralPath $userDownloadsExe) {
+                        Copy-Item -LiteralPath $userDownloadsExe -Destination $UPWExe -Force -ErrorAction SilentlyContinue
+                    }
+                }
+
+                if (-not (Test-Path -LiteralPath $UPWPath) -and -not (Test-Path -LiteralPath $UPWExe)) {
+                    $profWizUrl = "https://hatsthings.com/MultitoolFiles/Profwiz.msi"
+                    $dlOk = $false
+                    try {
+                        $testHead = Invoke-WebRequest -Uri $profWizUrl -Method Head -TimeoutSec 3 -ErrorAction SilentlyContinue
+                        if ($testHead -and $testHead.StatusCode -eq 200) {
+                            Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
+                            if (Test-Path -LiteralPath $UPWPath) { $dlOk = $true }
+                        }
+                    } catch {}
+
+                    if (-not $dlOk) {
+                        $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
+                        Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
+                    }
+
+                    if (-not (Test-Path -LiteralPath $UPWPath) -and -not (Test-Path -LiteralPath $UPWExe)) {
+                        $openBrowser = PopupError "ForensIT direct automated downloads are protected by Cloudflare bot verification (403).`n`nWould you like to open the official ForensIT download page in your browser?`n`n(Once downloaded to your Downloads folder, Multitool will automatically detect and launch it)." "Question" "YesNo"
                         if ($openBrowser -eq [System.Windows.Forms.DialogResult]::Yes) {
                             Start-Process "https://www.forensit.com/downloads.html"
                         }
                     }
                 }
-                if (Test-Path -LiteralPath $UPWPath) { Start-Process $UPWPath }
+
+                if (Test-Path -LiteralPath $UPWExe) {
+                    Start-Process $UPWExe
+                } elseif (Test-Path -LiteralPath $UPWPath) {
+                    Start-Process $UPWPath
+                }
             }
             "Generate Battery Report" {
                 $ReportPath = Join-Path $env:TEMP "battery-report.html"
