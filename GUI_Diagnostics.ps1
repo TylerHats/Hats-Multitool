@@ -1108,7 +1108,6 @@ function Show-StorageHealthDialog {
     $shForm.MaximizeBox = $false
     $shForm.MinimizeBox = $true
     $shForm.ShowInTaskbar = $true
-    $shForm.Font = $font
     $shForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
     $shForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
     Set-DarkTitleBar -TargetForm $shForm
@@ -1158,7 +1157,7 @@ function Show-StorageHealthDialog {
     $lblCardModel = New-Object System.Windows.Forms.Label
     $lblCardModel.Text = "Drive: Selecting..."
     $lblCardModel.UseMnemonic = $false
-    $lblCardModel.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
+    $lblCardModel.Font = New-Object System.Drawing.Font("Segoe UI", 10.5, [System.Drawing.FontStyle]::Bold)
     $lblCardModel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $lblCardModel.Location = New-Object System.Drawing.Point(15, 10)
     $lblCardModel.Size = New-Object System.Drawing.Size(460, 22)
@@ -1184,7 +1183,7 @@ function Show-StorageHealthDialog {
     $lblCardWrites.Text = "Total Writes: --"
     $lblCardWrites.UseMnemonic = $false
     $lblCardWrites.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $lblCardWrites.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
+    $lblCardWrites.Font = New-Object System.Drawing.Font("Segoe UI", 10.5, [System.Drawing.FontStyle]::Bold)
     $lblCardWrites.Location = New-Object System.Drawing.Point(490, 10)
     $lblCardWrites.Size = New-Object System.Drawing.Size(260, 22)
     $cardPanel.Controls.Add($lblCardWrites)
@@ -2353,15 +2352,18 @@ function Show-BitLockerManagerDialog {
             }
 
             # Progress Bar & Actions
-            $isInProgress = ($v.VolumeStatus -eq 'EncryptionInProgress' -or $v.VolumeStatus -eq 'DecryptionInProgress' -or ($v.VolumeStatus.ToString() -match 'Paused'))
+            $isPaused = ($v.VolumeStatus.ToString() -match 'Paused' -or ($convRes -and $convRes.ConversionStatus -in @(4,5)) -or $bdeText -match '(?i)conversion status.*paused|encryption paused|decryption paused')
+            $isInProgress = ($v.VolumeStatus -eq 'EncryptionInProgress' -or $v.VolumeStatus -eq 'DecryptionInProgress' -or ($convRes -and $convRes.ConversionStatus -in @(2,3)) -or $isPaused)
+
             if ($isInProgress) {
-                $lblProgStatus.Text = "$statusText on $mp ($pct% Complete)..."
+                $statusMsg = if ($isPaused) { "Conversion Paused" } else { $statusText }
+                $lblProgStatus.Text = "$statusMsg on $mp ($pct% Complete)..."
                 $pBar.Value = [math]::Max(0, [math]::Min(100, [int]$pct))
-                $pBar.ShowShimmer = $true
+                $pBar.ShowShimmer = (-not $isPaused)
                 $btnContinueBg.Enabled = $true
                 $btnPauseResume.Enabled = $true
-                $btnPauseResume.Text = if ($v.VolumeStatus.ToString() -match 'Paused') { "Resume Conversion" } else { "Pause Conversion" }
-                if ($pollTimer) { $pollTimer.Start() }
+                $btnPauseResume.Text = if ($isPaused) { "Resume Conversion" } else { "Pause Conversion" }
+                if ($pollTimer -and (-not $isPaused)) { $pollTimer.Start() }
             } else {
                 $lblProgStatus.Text = "Operation Status: Idle ($statusText)"
                 $pBar.Value = 0
@@ -2379,7 +2381,7 @@ function Show-BitLockerManagerDialog {
 
             # Button states
             $btnEnable.Enabled = ($v.VolumeStatus -eq 'FullyDecrypted' -and $v.LockStatus -ne 'Locked')
-            $btnDisable.Enabled = ($v.VolumeStatus -eq 'FullyEncrypted' -or $v.VolumeStatus -eq 'EncryptionInProgress')
+            $btnDisable.Enabled = ($v.VolumeStatus -eq 'FullyEncrypted' -or $isInProgress)
         }
     }.GetNewClosure()
 
@@ -2397,8 +2399,8 @@ function Show-BitLockerManagerDialog {
                     $lblVolPct.Text = "$pct %"
                     $lblVolStatus.Text = "Status: $liveStatus on $mp"
                     
-                    if ($latest.VolumeStatus -ne 'EncryptionInProgress' -and $latest.VolumeStatus -ne 'DecryptionInProgress') {
-                        if ($pollTimer) { $pollTimer.Stop() }
+                    $isStillActive = ($latest.VolumeStatus -eq 'EncryptionInProgress' -or $latest.VolumeStatus -eq 'DecryptionInProgress')
+                    if (-not $isStillActive) {
                         &$updateSelectedDriveUI
                     }
                 }
@@ -2486,11 +2488,22 @@ Store this recovery password in a secure, confidential location.
         try {
             $isOs = ($state.SelectedVolume.VolumeType -eq 'OperatingSystem')
             if ($isOs) {
-                if ($usedOnly) {
-                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector -RecoveryPasswordProtector -ErrorAction Stop
-                } else {
-                    Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -TpmProtector -RecoveryPasswordProtector -ErrorAction Stop
+                # Enable OS volume with TPM, fallback to RecoveryPassword if TPM is not ready
+                try {
+                    if ($usedOnly) {
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector -ErrorAction Stop
+                    } else {
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -TpmProtector -ErrorAction Stop
+                    }
+                } catch {
+                    if ($usedOnly) {
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -RecoveryPasswordProtector -ErrorAction Stop
+                    } else {
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -ErrorAction Stop
+                    }
                 }
+                # Always ensure a numerical recovery password protector is added for disaster recovery
+                Add-BitLockerKeyProtector -MountPoint $mp -RecoveryPasswordProtector -ErrorAction SilentlyContinue | Out-Null
             } else {
                 if ($usedOnly) {
                     Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -RecoveryPasswordProtector -ErrorAction Stop

@@ -2474,10 +2474,7 @@ namespace HMT.Tools {
                     string resolvedFileName = fileName;
                     if (!string.IsNullOrEmpty(fileName)) {
                         string lower = fileName.ToLowerInvariant();
-                        if (lower == "sfc.exe" || lower == "sfc") {
-                            psi.FileName = "cmd.exe";
-                            psi.Arguments = "/c sfc.exe " + (arguments ?? "");
-                        } else if (lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
+                        if (lower == "sfc.exe" || lower == "sfc" || lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
                             string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
                             string sysNative = Path.Combine(winDir, "Sysnative", Path.GetFileName(fileName));
                             if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess && File.Exists(sysNative)) {
