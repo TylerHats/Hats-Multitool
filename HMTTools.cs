@@ -48,7 +48,7 @@ namespace HMT.Tools {
         private double _fixedMax = 0;
         private bool _showMinMaxAvg = true;
         private bool _enableSmoothing = false;
-        private double _smoothWeight = 0.35;
+        private double _smoothWeight = 0.18;
         private double _lastSmoothedValue = double.NaN;
 
         public SmoothGraphControl() {
@@ -90,7 +90,12 @@ namespace HMT.Tools {
 
         public bool EnableSmoothing {
             get { return _enableSmoothing; }
-            set { _enableSmoothing = value; }
+            set { _enableSmoothing = value; Invalidate(); }
+        }
+
+        public double SmoothWeight {
+            get { return _smoothWeight; }
+            set { _smoothWeight = Math.Max(0.05, Math.Min(1.0, value)); }
         }
 
         public double CurrentValue { get; private set; }
@@ -312,8 +317,12 @@ namespace HMT.Tools {
                     // Fill gradient under the curve
                     using (GraphicsPath fillPath = new GraphicsPath()) {
                         fillPath.AddLine(linePoints[0].X, topMargin + plotH, linePoints[0].X, linePoints[0].Y);
-                        for (int i = 1; i < linePoints.Length; i++) {
-                            fillPath.AddLine(linePoints[i - 1], linePoints[i]);
+                        if (_enableSmoothing && linePoints.Length >= 3) {
+                            fillPath.AddCurve(linePoints, 0.35f);
+                        } else {
+                            for (int i = 1; i < linePoints.Length; i++) {
+                                fillPath.AddLine(linePoints[i - 1], linePoints[i]);
+                            }
                         }
                         fillPath.AddLine(linePoints[linePoints.Length - 1].X, linePoints[linePoints.Length - 1].Y, linePoints[linePoints.Length - 1].X, topMargin + plotH);
                         fillPath.CloseFigure();
@@ -346,14 +355,24 @@ namespace HMT.Tools {
                         }
                     }
 
-                    // Draw line segments and glow
-                    for (int i = 1; i < linePoints.Length; i++) {
-                        Color segCol = pointColors[i];
-                        using (Pen glowPen = new Pen(Color.FromArgb(45, segCol), 4f)) {
-                            g.DrawLine(glowPen, linePoints[i - 1], linePoints[i]);
+                    // Draw line segments / spline curves and glow
+                    Color primaryCol = (pointColors.Length > 0) ? pointColors[pointColors.Length - 1] : _lineColor;
+                    if (_enableSmoothing && linePoints.Length >= 3 && !_useDynamicLatencyColors) {
+                        using (Pen glowPen = new Pen(Color.FromArgb(45, primaryCol), 4f)) {
+                            g.DrawCurve(glowPen, linePoints, 0.35f);
                         }
-                        using (Pen linePen = new Pen(segCol, 2f)) {
-                            g.DrawLine(linePen, linePoints[i - 1], linePoints[i]);
+                        using (Pen linePen = new Pen(primaryCol, 2f)) {
+                            g.DrawCurve(linePen, linePoints, 0.35f);
+                        }
+                    } else {
+                        for (int i = 1; i < linePoints.Length; i++) {
+                            Color segCol = pointColors[i];
+                            using (Pen glowPen = new Pen(Color.FromArgb(45, segCol), 4f)) {
+                                g.DrawLine(glowPen, linePoints[i - 1], linePoints[i]);
+                            }
+                            using (Pen linePen = new Pen(segCol, 2f)) {
+                                g.DrawLine(linePen, linePoints[i - 1], linePoints[i]);
+                            }
                         }
                     }
 
@@ -672,12 +691,10 @@ namespace HMT.Tools {
     // Modern Dark Tab Control (Eliminates Win9x borders and connects seamlessly to content)
     // ==============================================================================
     public class DarkTabControl : TabControl {
-        private Color _tabHeaderBg = Color.FromArgb(32, 34, 37);      // #202225 (Inactive Header Strip)
         private Color _tabSelectedBg = Color.FromArgb(47, 49, 54);    // #2f3136 (Active - matches TabPage)
         private Color _tabTextColor = Color.FromArgb(160, 160, 160);  // #a0a0a0
         private Color _tabSelectedTextColor = Color.White;
         private Color _accentColor = Color.FromArgb(88, 101, 242);     // #5865F2 (Discord Blurple)
-        private Color _borderColor = Color.FromArgb(32, 34, 37);      // #202225
         private Color _pageBg = Color.FromArgb(47, 49, 54);           // #2f3136
 
         private float GetDpiScale() {
@@ -762,28 +779,20 @@ namespace HMT.Tools {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            // Fill entire canvas with Page Background (#2f3136)
+            // Fill entire canvas with Page Background (#2f3136) so unused tab header area blends seamlessly
             using (SolidBrush pageBrush = new SolidBrush(_pageBg)) {
                 g.FillRectangle(pageBrush, ClientRectangle);
             }
 
             if (TabCount == 0) return;
 
-            // Compute maximum bottom and maximum right of all tab headers
+            // Compute maximum bottom of all tab headers
             int maxBottom = 0;
-            int maxRight = 0;
             for (int i = 0; i < TabCount; i++) {
                 Rectangle r = GetTabRect(i);
                 if (r.Bottom > maxBottom) maxBottom = r.Bottom;
-                if (r.Right > maxRight) maxRight = r.Right;
             }
             if (maxBottom == 0) maxBottom = (int)(34 * GetDpiScale());
-
-            // Fill header strip under tab headers with _tabHeaderBg (#202225)
-            // Space past maxRight remains _pageBg (#2f3136) so it cleanly blends into the form/page
-            using (SolidBrush headerStripBrush = new SolidBrush(_tabHeaderBg)) {
-                g.FillRectangle(headerStripBrush, 0, 0, Math.Min(ClientSize.Width, maxRight + 2), maxBottom);
-            }
 
             int selectedIndex = SelectedIndex;
             Rectangle selectedRect = (selectedIndex >= 0 && selectedIndex < TabCount) ? GetTabRect(selectedIndex) : Rectangle.Empty;
@@ -808,12 +817,7 @@ namespace HMT.Tools {
                 }
             }
 
-            // 3. Draw line separating inactive tabs from page content (only under the tab strip, not past maxRight)
-            using (Pen borderPen = new Pen(_borderColor, 1f)) {
-                g.DrawLine(borderPen, 0, maxBottom, Math.Min(ClientSize.Width, maxRight + 2), maxBottom);
-            }
-
-            // 4. Draw active tab on top (Commands foreground, overlaps inactive rows, seamlessly merges with content)
+            // 3. Draw active tab on top (Commands foreground, overlaps inactive rows, seamlessly merges with content)
             if (selectedIndex >= 0 && selectedIndex < TabCount) {
                 DrawTabHeader(g, selectedIndex, true, true, maxBottom);
             }
@@ -1364,6 +1368,10 @@ namespace HMT.Tools {
 
     public class FileDownloader {
         public static FileDownloadState StartDownload(string url, string outputPath) {
+            return StartDownload(url, outputPath, null);
+        }
+
+        public static FileDownloadState StartDownload(string url, string outputPath, System.Collections.IDictionary customHeaders) {
             FileDownloadState state = new FileDownloadState();
             Thread t = new Thread(() => {
                 try {
@@ -1393,12 +1401,32 @@ namespace HMT.Tools {
                         request.Timeout = 60000;
                         request.ReadWriteTimeout = 60000;
 
-                        if (currentUrl.IndexOf("forensit.com", StringComparison.OrdinalIgnoreCase) >= 0) {
-                            request.Referer = "https://www.forensit.com/downloads.html";
-                        } else if (currentUrl.IndexOf("wagnardsoft.com", StringComparison.OrdinalIgnoreCase) >= 0) {
-                            request.Referer = "https://www.wagnardsoft.com/";
-                        } else if (currentUrl.IndexOf("sourceforge.net", StringComparison.OrdinalIgnoreCase) >= 0) {
-                            request.Referer = "https://sourceforge.net/";
+                        if (customHeaders != null) {
+                            foreach (var key in customHeaders.Keys) {
+                                if (key != null) {
+                                    string kStr = key.ToString();
+                                    string vStr = customHeaders[key] != null ? customHeaders[key].ToString() : "";
+                                    if (kStr.Equals("Referer", StringComparison.OrdinalIgnoreCase)) {
+                                        request.Referer = vStr;
+                                    } else if (kStr.Equals("User-Agent", StringComparison.OrdinalIgnoreCase)) {
+                                        request.UserAgent = vStr;
+                                    } else {
+                                        request.Headers[kStr] = vStr;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(request.Referer)) {
+                            if (currentUrl.IndexOf("forensit.com", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                request.Referer = "https://www.forensit.com/downloads.html";
+                            } else if (currentUrl.IndexOf("wagnardsoft.com", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                request.Referer = "https://www.wagnardsoft.com/";
+                            } else if (currentUrl.IndexOf("sourceforge.net", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                request.Referer = "https://sourceforge.net/";
+                            } else if (currentUrl.IndexOf("blender.org", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                request.Referer = "https://www.blender.org/download/";
+                            }
                         }
 
                         response = (HttpWebResponse)request.GetResponse();
@@ -1450,7 +1478,7 @@ namespace HMT.Tools {
                     using (response)
                     using (Stream responseStream = response.GetResponseStream())
                     using (FileStream fileStream = File.Create(outputPath)) {
-                        byte[] buffer = new byte[65536];
+                        byte[] buffer = new byte[262144]; // 256 KB buffer for high-throughput downloads
                         int bytesRead = 0;
                         var sw = System.Diagnostics.Stopwatch.StartNew();
                         long total = 0;
@@ -2438,7 +2466,10 @@ namespace HMT.Tools {
                     string resolvedFileName = fileName;
                     if (!string.IsNullOrEmpty(fileName)) {
                         string lower = fileName.ToLowerInvariant();
-                        if (lower == "sfc.exe" || lower == "sfc" || lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
+                        if (lower == "sfc.exe" || lower == "sfc") {
+                            psi.FileName = "cmd.exe";
+                            psi.Arguments = "/c sfc.exe " + (arguments ?? "");
+                        } else if (lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
                             string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
                             string sysNative = Path.Combine(winDir, "Sysnative", Path.GetFileName(fileName));
                             if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess && File.Exists(sysNative)) {
@@ -2449,16 +2480,27 @@ namespace HMT.Tools {
                                     resolvedFileName = system32;
                                 }
                             }
+                            psi.FileName = resolvedFileName;
+                            psi.Arguments = arguments ?? "";
+                        } else {
+                            psi.FileName = resolvedFileName;
+                            psi.Arguments = arguments ?? "";
                         }
+                    } else {
+                        psi.FileName = resolvedFileName;
+                        psi.Arguments = arguments ?? "";
                     }
-                    psi.FileName = resolvedFileName;
-                    psi.Arguments = arguments ?? "";
                 }
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
-                psi.StandardOutputEncoding = Encoding.Default;
-                psi.StandardErrorEncoding = Encoding.Default;
+                try {
+                    psi.StandardOutputEncoding = Console.OutputEncoding ?? Encoding.Default;
+                    psi.StandardErrorEncoding = Console.OutputEncoding ?? Encoding.Default;
+                } catch {
+                    psi.StandardOutputEncoding = Encoding.Default;
+                    psi.StandardErrorEncoding = Encoding.Default;
+                }
                 psi.CreateNoWindow = true;
 
                 _process = new System.Diagnostics.Process();

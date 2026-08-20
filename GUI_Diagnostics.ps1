@@ -231,19 +231,21 @@ function Show-CommandRunnerDialog {
         $elapsedStr = "{0:D2}:{1:D2}" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
 
         # --- 1. SFC Parsing ---
-        if ($lineClean -match 'Verification\s+(\d+)%\s+complete') {
+        if ($lineClean -match '(?:Verification|Verifying|Scan|Phase)?\s*(\d+)%\s*(?:complete|\.|$)' -or $lineClean -match '(\d+)%\s*(?:complete|\.|$)') {
             $pct = [int]$matches[1]
-            $state.ProgressPct = $pct
-            $state.Stage = 2
-            $state.StageName = "Verifying Windows system files"
-            $pBar.IsMarquee = $false
-            $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
-            $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
-            $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+            if ($pct -ge 0 -and $pct -le 100) {
+                $state.ProgressPct = $pct
+                $state.Stage = 2
+                $state.StageName = "Verifying Windows system files"
+                $pBar.IsMarquee = $false
+                $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
+                $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
+                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 
-            if ($pct -eq 100 -or ($pct % 20 -eq 0 -and $pct -ne $state.LastLoggedProgress)) {
-                $state.LastLoggedProgress = $pct
-                $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $pct% complete`r`n")
+                if ($pct -eq 100 -or ($pct % 10 -eq 0 -and $pct -ne $state.LastLoggedProgress)) {
+                    $state.LastLoggedProgress = $pct
+                    $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $pct% complete`r`n")
+                }
             }
         }
         elseif ($lineClean -match 'Beginning system scan') {
@@ -723,6 +725,7 @@ function Show-SpeedTestDialog {
     $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#00A8FC")
     $smoothChart.MaxPoints = 250
     $smoothChart.EnableSmoothing = $true
+    $smoothChart.SmoothWeight = 0.15
     $stForm.Controls.Add($smoothChart)
 
     # Settings Row
@@ -2301,17 +2304,18 @@ function Show-BitLockerManagerDialog {
             if (-not $convStatus) { $convStatus = "Full Volume" }
 
             $statusText = &$formatStatus $v.VolumeStatus
-            $lblCardVol.Text = "Volume: $mp ($($v.VolumeType))"
-            $lblCardStatus.Text = "Status: $statusText"
-            $lblCardLock.Text = "Lock: $($v.LockStatus)"
-            $lblCardLock.ForeColor = if ($v.LockStatus -eq 'Locked') { [System.Drawing.ColorTranslator]::FromHtml("#ED4245") } else { [System.Drawing.ColorTranslator]::FromHtml("#57F287") }
-            $lblCardProt.Text = "Protection: $($v.ProtectionStatus)"
-            $lblCardMethod.Text = "Algorithm: $($v.EncryptionMethod)"
+            $lblVolStatus.Text = "Status: $statusText on $mp"
+            $lblVolType.Text = "Volume: $mp ($($v.VolumeType)) | Method: $($v.EncryptionMethod)"
+            $lblLockStatus.Text = "Lock Status: $($v.LockStatus) | Protection: $($v.ProtectionStatus)"
             $pct = if ($null -ne $v.EncryptionPercentage) { $v.EncryptionPercentage } else { 0 }
             if ($v.VolumeStatus -eq 'FullyDecrypted' -or ($pct -eq 0 -and $v.ProtectionStatus -ne 'On')) {
-                $lblCardPct.Text = "Encrypted: 0% (Decrypted)"
+                $lblVolPct.Text = "0 %"
+                $lblVolPctSub.Text = "Decrypted"
+                $lblVolPct.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
             } else {
-                $lblCardPct.Text = "Encrypted: $pct% ($convStatus)"
+                $lblVolPct.Text = "$pct %"
+                $lblVolPctSub.Text = "$convStatus"
+                $lblVolPct.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
             }
 
             # Key Protectors & Recovery Key Extraction
@@ -2384,8 +2388,8 @@ function Show-BitLockerManagerDialog {
                     $liveStatus = &$formatStatus $latest.VolumeStatus
                     $lblProgStatus.Text = "$liveStatus on $mp ($pct% Complete)..."
                     $pBar.Value = [math]::Max(0, [math]::Min(100, [int]$pct))
-                    $lblCardPct.Text = "Encrypted: $pct%"
-                    $lblCardStatus.Text = "Status: $liveStatus"
+                    $lblVolPct.Text = "$pct %"
+                    $lblVolStatus.Text = "Status: $liveStatus on $mp"
                     
                     if ($latest.VolumeStatus -ne 'EncryptionInProgress' -and $latest.VolumeStatus -ne 'DecryptionInProgress') {
                         if ($pollTimer) { $pollTimer.Stop() }

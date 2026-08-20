@@ -55,7 +55,7 @@ $catalog = @{
         @{ Name = 'Discord'; WingetID = 'Discord.Discord'; Type = 'Winget' },
         @{ Name = 'Microsoft Teams'; WingetID = 'Microsoft.Teams'; Type = 'Winget' },
         @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
-        @{ Name = 'Slack'; WingetID = 'Slack.Slack'; Type = 'Winget' },
+        @{ Name = 'Slack'; WingetID = 'SlackTechnologies.Slack'; Type = 'Winget' },
         @{ Name = 'Telegram Desktop'; WingetID = 'Telegram.TelegramDesktop'; Type = 'Winget' },
         @{ Name = 'WhatsApp'; WingetID = 'WhatsApp.WhatsApp'; Type = 'Winget' },
         @{ Name = 'Mozilla Thunderbird'; WingetID = 'Mozilla.Thunderbird'; Type = 'Winget' }
@@ -350,7 +350,7 @@ $updateLocalProgress = {
     &$updateMSProgress
 }
 
-# Async-Safe Streamed Download Helper
+# High-Performance Asynchronous Streamed Download Helper
 $downloadWithProgress = {
     param(
         [string]$Url, 
@@ -364,93 +364,44 @@ $downloadWithProgress = {
     $global:DlDone = $false
     $script:SkipCurrent = $false
 
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 12288
-    [System.Net.ServicePointManager]::DefaultConnectionLimit = 64
-    [System.Net.ServicePointManager]::Expect100Continue = $false
-    [System.Net.ServicePointManager]::UseNagleAlgorithm = $false
+    $outDir = Split-Path -Parent $OutFile
+    if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
+    if (Test-Path $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
 
-    $handler = New-Object System.Net.Http.HttpClientHandler
-    $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
-    $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
-    $client.Timeout = [System.TimeSpan]::FromMinutes(30)
-    $client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    # Launch multi-threaded C# streaming download engine
+    $state = [HMT.Tools.FileDownloader]::StartDownload($Url, $OutFile, $Headers)
 
-    if ($null -ne $Headers) {
-        foreach ($key in $Headers.Keys) {
-            $client.DefaultRequestHeaders.Add($key, $Headers[$key])
+    while (-not $state.IsCompleted -and [string]::IsNullOrEmpty($state.Error)) {
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 40
+
+        if ($script:SkipCurrent) {
+            $state.IsCancelled = $true
+            break
+        }
+
+        $readBytes = $state.BytesRead
+        $totBytes = $state.TotalBytes
+        $speed = $state.SpeedMbps
+        $dlMB = [math]::Round($readBytes / 1MB, 1)
+
+        if ($totBytes -and $totBytes -gt 0) {
+            $totMB = [math]::Round($totBytes / 1MB, 1)
+            $pct = [math]::Floor(($readBytes / $totBytes) * 100)
+            &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $pct% ($dlMB MB / $totMB MB @ $([math]::Round($speed, 1)) Mbps)"
+        } else {
+            &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $dlMB MB @ $([math]::Round($speed, 1)) Mbps"
         }
     }
 
-    $downloadStream = $null
-    $fileStream = $null
+    if ($script:SkipCurrent) { return }
 
-    try {
-        $responseTask = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
-        while (-not $responseTask.IsCompleted) {
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 25
-            if ($script:SkipCurrent) { break }
-        }
-        if ($script:SkipCurrent) { return }
-
-        $response = $responseTask.GetAwaiter().GetResult()
-        if (-not $response.IsSuccessStatusCode) {
-            throw "HTTP Error: $($response.StatusCode)"
-        }
-
-        $totalBytes = $response.Content.Headers.ContentLength
-        $downloadStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-        $fileStream = New-Object System.IO.FileStream($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None, 524288)
-
-        $buffer = New-Object byte[] 524288
-        $totalBytesRead = 0
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $lastUiTick = [System.Diagnostics.Stopwatch]::StartNew()
-
-        while ($true) {
-            if ($script:SkipCurrent) { break }
-
-            # Decoupled non-blocking read to keep GUI animations, lerp, and shimmer responsive on slow networks
-            $readTask = $downloadStream.ReadAsync($buffer, 0, $buffer.Length)
-            while (-not $readTask.IsCompleted) {
-                [System.Windows.Forms.Application]::DoEvents()
-                Start-Sleep -Milliseconds 25
-                if ($script:SkipCurrent) { break }
-            }
-            if ($script:SkipCurrent) { break }
-
-            $bytesRead = $readTask.GetAwaiter().GetResult()
-            if ($bytesRead -le 0) { break }
-
-            $fileStream.Write($buffer, 0, $bytesRead)
-            $totalBytesRead += $bytesRead
-
-            if ($lastUiTick.ElapsedMilliseconds -ge 100) {
-                $lastUiTick.Restart()
-                $elapsedSec = [math]::Max(0.001, $stopwatch.Elapsed.TotalSeconds)
-                $speedMbps = (($totalBytesRead * 8) / 1MB) / $elapsedSec
-                $dlMB = [math]::Round($totalBytesRead / 1MB, 1)
-
-                if ($totalBytes -and $totalBytes -gt 0) {
-                    $totMB = [math]::Round($totalBytes / 1MB, 1)
-                    $pct = [math]::Floor(($totalBytesRead / $totalBytes) * 100)
-                    &$updateLocalProgress $ProgIndex $TotPrograms ($pct * 0.8) "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $pct% ($dlMB MB / $totMB MB @ $([math]::Round($speedMbps, 1)) Mbps)"
-                } else {
-                    &$updateLocalProgress $ProgIndex $TotPrograms 40 "Installing $($ProgIndex + 1) of $($TotPrograms): $AppName" "Downloading... $dlMB MB @ $([math]::Round($speedMbps, 1)) Mbps"
-                }
-            }
-        }
-        $global:DlDone = $true
+    if (-not [string]::IsNullOrEmpty($state.Error)) {
+        Log-Message "Download error on $AppName : $($state.Error)" "Error"
+        throw $state.Error
     }
-    catch {
-        Log-Message "Download error on $AppName : $_" "Error"
-        throw $_
-    }
-    finally {
-        if ($null -ne $fileStream) { $fileStream.Close(); $fileStream.Dispose() }
-        if ($null -ne $downloadStream) { $downloadStream.Close(); $downloadStream.Dispose() }
-        if ($null -ne $client) { $client.Dispose() }
-    }
+
+    $global:DlDone = $true
 }
 
 $okButton.Add_Click({
@@ -766,11 +717,11 @@ $okButton.Add_Click({
         return $false
     }
 
-    # Universal WinGet package resolution: Checks x64 -> x86 -> neutral/default architectures
+    # Universal WinGet package resolution: Checks neutral/default -> x64 -> x86 architectures
     $getWingetInstallerInfo = {
         param($wingetId)
         
-        $archAttempts = @("x64", "x86", "") # Try 64-bit first, then 32-bit (x86), then neutral / default
+        $archAttempts = @("", "x64", "x86") # Try default/neutral first, then x64, then x86
         $foundUrl = $null
         $foundSilent = $null
         $foundType = $null
@@ -811,13 +762,34 @@ $okButton.Add_Click({
             } catch {}
         }
 
-        # App-specific overrides
+        # App-specific overrides and verified direct CDN fallbacks
         if ($wingetId -eq 'Adobe.Acrobat.Reader.64-bit') {
             $foundSilent = "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
         }
         elseif ($wingetId -eq 'Valve.Steam' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
             $foundUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
             $foundSilent = "/S"
+        }
+        elseif (($wingetId -eq 'SlackTechnologies.Slack' -or $wingetId -eq 'Slack.Slack') -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://slack.com/ssb/download-win64"
+            $foundSilent = "/silent"
+        }
+        elseif ($wingetId -eq 'WhatsApp.WhatsApp' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://web.whatsapp.com/desktop/windows/release/x64/WhatsAppSetup.exe"
+            $foundSilent = "/silent"
+        }
+        elseif ($wingetId -eq 'RustDesk.RustDesk' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://github.com/rustdesk/rustdesk/releases/latest/download/rustdesk-1.3.7-x86_64.exe"
+            $foundSilent = "--silent-install"
+        }
+        elseif ($wingetId -eq 'AnyDeskSoftwareGmbH.AnyDesk' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://download.anydesk.com/AnyDesk.exe"
+            $foundSilent = "--install `"$env:ProgramFiles (x86)\AnyDesk`" --start-with-win --silent"
+        }
+        elseif ($wingetId -eq 'BlenderFoundation.Blender' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
+            $foundUrl = "https://mirrors.dotsrc.org/blender/release/Blender4.2/blender-4.2.0-windows-x64.msi"
+            $foundSilent = "/quiet /norestart"
+            $foundType = "msi"
         }
 
         return [pscustomobject]@{
@@ -837,14 +809,14 @@ $okButton.Add_Click({
         )
 
         Log-Message "[$phasePrefix] $($program.Name)..." "Info"
-        &$updateLocalProgress $index $total 0 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Resolving WinGet package..."
+        &$updateLocalProgress $index $total 0 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Resolving package..."
         
         $script:SkipCurrent = $false
         $skipButton.Enabled = $true
         $success = $false
 
         try {
-            # 1. Resolve installer URL across x64 -> x86 -> neutral
+            # 1. Resolve installer URL across default -> x64 -> x86
             $info = &$getWingetInstallerInfo $program.WingetID
             $installerUrl = $info.InstallerUrl
             $silentArgs = $info.SilentArgs
@@ -852,7 +824,7 @@ $okButton.Add_Click({
 
             # Fallback to direct WinGet CLI execution if URL extraction is unavailable
             if ([string]::IsNullOrWhiteSpace($installerUrl)) {
-                Log-Message "Direct installer URL not advertised in WinGet manifest for $($program.Name). Running WinGet CLI install..." "Info"
+                Log-Message "Direct installer URL not advertised in manifest for $($program.Name). Running WinGet CLI install..." "Info"
                 &$updateLocalProgress $index $total 50 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Running WinGet CLI install..."
                 
                 $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
@@ -878,7 +850,26 @@ $okButton.Add_Click({
                     $urlExt = if ($installerType -match "msi|wix") { ".msi" } else { ".exe" }
                 }
                 $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
-                &$downloadWithProgress $installerUrl $tempPath $index $total $program.Name
+
+                $dlHeaders = @{}
+                if ($installerUrl -match 'blender\.org') {
+                    $dlHeaders["Referer"] = "https://www.blender.org/download/"
+                }
+
+                try {
+                    &$downloadWithProgress $installerUrl $tempPath $index $total $program.Name $dlHeaders
+                } catch {
+                    Log-Message "Direct download failed for $($program.Name) ($($_)). Attempting WinGet CLI fallback..." "Warning"
+                    $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                    if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010 -or (&$testProgramInstalled $program)) {
+                        Log-Message "$($program.Name): Installed successfully via WinGet CLI fallback." "Success"
+                        $success = $true
+                        &$updateLocalProgress $index $total 100 "Completed: $($program.Name)" ""
+                        return $true
+                    } else {
+                        throw $_
+                    }
+                }
             
                 if ($script:SkipCurrent) {
                     Log-Message "$($program.Name): Installation skipped by user." "Warning"
