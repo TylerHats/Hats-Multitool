@@ -27,7 +27,6 @@ $ToolsTabControl = New-Object HMT.Tools.DarkTabControl
 $ToolsTabControl.Location = New-Object System.Drawing.Point(20, 15)
 $ToolsTabControl.Size = New-Object System.Drawing.Size(740, 470)
 $ToolsTabControl.Font = $font
-$ToolsTabControl.Padding = New-Object System.Drawing.Point(14, 6)
 $ToolsGUI.Controls.Add($ToolsTabControl)
 
 # Tool Lists by Category

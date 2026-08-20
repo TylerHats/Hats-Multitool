@@ -42,7 +42,7 @@ $global:HasErrors = $false
 $ProgramExiting = $false
 
 # Log-Message formats and writes structured, color-coded output to the console
-function Log-Message {
+function global:Log-Message {
     param(
         [string]$message,
         [string]$level = "Info"  # Options: Info, Success, Error, Warning, Prompt, Skip, Debug, LogOnly
@@ -107,7 +107,7 @@ try {
     $global:HMTScaleFactor = 1.0
 }
 
-function Get-HMTFont {
+function global:Get-HMTFont {
     param(
         [string]$Family = "Segoe UI",
         [float]$Size = 12,
@@ -144,7 +144,7 @@ try {
 
 # Common Functions:
 
-function Invoke-HMTScale {
+function global:Invoke-HMTScale {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm
@@ -156,7 +156,7 @@ function Invoke-HMTScale {
     Set-DarkTitleBar -TargetForm $TargetForm
 }
 
-function Show-CustomMessageBox {
+function global:Show-CustomMessageBox {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -376,7 +376,7 @@ function Format-HMTError {
     return $cleanMsg
 }
 
-function PopupError {
+function global:PopupError {
 	param(
 		[string]$ErrorMessage,
 		[ValidateSet('Information','Warning','Error','None','Question')] [string]$Style = 'Error',
@@ -391,27 +391,29 @@ $ICON_SMALL = 0
 $ICON_BIG   = 1
 
 # grab our icon handle
-$hIcon = $HMTIcon.Handle
+$hIcon = if ($HMTIcon) { $HMTIcon.Handle } else { [IntPtr]::Zero }
 
 # Apply icon to console window
-$wParamSmall = New-Object System.IntPtr($ICON_SMALL)
-$wParamBig   = New-Object System.IntPtr($ICON_BIG)
-$hwnd = [HMT.NativeMethods]::GetConsoleWindow()
-[HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
-[HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+if ($hIcon -ne [IntPtr]::Zero) {
+    $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
+    $wParamBig   = New-Object System.IntPtr($ICON_BIG)
+    $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
+    [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+    [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+}
 
 # Set a unique ID for Hat's Multitool
 [HMT.NativeMethods]::SetCurrentProcessExplicitAppUserModelID("Hat.Multitool.App") | Out-Null
 
 # Function to hide the console window
-function Hide-ConsoleWindow {
+function global:Hide-ConsoleWindow {
     $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
     # 0 = Hide
     [HMT.NativeMethods]::ShowWindow($consolePtr, 0)
 }
 
 # Function to show the console window
-function Show-ConsoleWindow {
+function global:Show-ConsoleWindow {
     $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
     # 5 = Show normally
     [HMT.NativeMethods]::ShowWindow($consolePtr, 5)
@@ -423,7 +425,7 @@ function Show-ConsoleWindow {
 }
 
 # Function to force a WinForms title bar into Dark Mode and rounded corners
-function Set-DarkTitleBar {
+function global:Set-DarkTitleBar {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm
@@ -435,7 +437,7 @@ function Set-DarkTitleBar {
     [HMT.NativeMethods]::DwmSetWindowAttribute($TargetForm.Handle, 33, [ref]$cornerPref, 4) | Out-Null
 }
 
-function Set-RoundedControl {
+function global:Set-RoundedControl {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Control]$Control,
@@ -559,7 +561,7 @@ function Set-RoundedControl {
     }
 }
 
-function Show-HMTDialog {
+function global:Show-HMTDialog {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm
@@ -573,7 +575,7 @@ function Show-HMTDialog {
     return $TargetForm.ShowDialog()
 }
 
-function Show-HMTWindow {
+function global:Show-HMTWindow {
     param(
         [Parameter(Mandatory=$true)]
         [System.Windows.Forms.Form]$TargetForm,
@@ -597,7 +599,7 @@ function Show-HMTWindow {
 }
 
 # Common function for user requested exits
-function User-Exit {
+function global:User-Exit {
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
@@ -623,7 +625,7 @@ function User-Exit {
 }
 
 # Non-blocking async extraction helper to keep WinForms UI responsive
-function Invoke-HMTExtract {
+function global:Invoke-HMTExtract {
     param(
         [Parameter(Mandatory=$true)]
         [string]$Path,
@@ -644,7 +646,7 @@ function Invoke-HMTExtract {
 . (Join-Path -Path $PSScriptRoot -ChildPath 'GUI_Main.ps1')
 
 #GUI Functions
-function Show-MainMenu {
+function global:Show-MainMenu {
     Hide-ConsoleWindow | Out-Null
     
     while ($Global:NextAction -ne 'Exit') {
@@ -733,7 +735,7 @@ try {
     })
 } catch {}
 
-function Show-DownloadDialog {
+function global:Show-DownloadDialog {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]

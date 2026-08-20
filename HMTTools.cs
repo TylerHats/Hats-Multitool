@@ -707,11 +707,13 @@ namespace HMT.Tools {
             }
         }
 
-        private void ApplyDpiScaling() {
+        public void ApplyDpiScaling() {
             float dpiScale = GetDpiScale();
-            if (dpiScale > 1.05f) {
-                Padding = new Point((int)(14 * dpiScale), (int)(7 * dpiScale));
+            float targetFontSize = 9.5f * dpiScale;
+            if (Font == null || Math.Abs(Font.Size - targetFontSize) > 0.5f) {
+                Font = new Font("Segoe UI", targetFontSize, FontStyle.Regular, GraphicsUnit.Point);
             }
+            Padding = new Point(Math.Max(16, (int)Math.Round(18 * dpiScale)), Math.Max(7, (int)Math.Round(9 * dpiScale)));
         }
 
         public DarkTabControl() {
@@ -725,19 +727,29 @@ namespace HMT.Tools {
             DrawMode = TabDrawMode.OwnerDrawFixed;
             SizeMode = TabSizeMode.Normal;
             Multiline = true;
-            Padding = new Point(14, 7);
-            Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            Padding = new Point(16, 8);
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             ApplyDpiScaling();
         }
 
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
+            try {
+                SetWindowTheme(Handle, "", "");
+            } catch {}
             ApplyDpiScaling();
         }
 
         protected override void OnFontChanged(EventArgs e) {
             base.OnFontChanged(e);
-            ApplyDpiScaling();
+            float dpiScale = GetDpiScale();
+            Padding = new Point(Math.Max(16, (int)Math.Round(18 * dpiScale)), Math.Max(7, (int)Math.Round(9 * dpiScale)));
+            if (IsHandleCreated) {
+                RecreateHandle();
+            }
         }
 
         protected override CreateParams CreateParams {
@@ -779,13 +791,6 @@ namespace HMT.Tools {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            // Fill entire canvas with Page Background (#2f3136) so unused tab header area blends seamlessly
-            using (SolidBrush pageBrush = new SolidBrush(_pageBg)) {
-                g.FillRectangle(pageBrush, ClientRectangle);
-            }
-
-            if (TabCount == 0) return;
-
             // Compute maximum bottom of all tab headers
             int maxBottom = 0;
             for (int i = 0; i < TabCount; i++) {
@@ -793,6 +798,18 @@ namespace HMT.Tools {
                 if (r.Bottom > maxBottom) maxBottom = r.Bottom;
             }
             if (maxBottom == 0) maxBottom = (int)(34 * GetDpiScale());
+
+            // 1. Fill tab strip header background with dark recessed tone (#202225) to eliminate any light gaps
+            using (SolidBrush headerBrush = new SolidBrush(Color.FromArgb(32, 34, 37))) {
+                g.FillRectangle(headerBrush, 0, 0, ClientRectangle.Width, maxBottom);
+            }
+
+            // 2. Fill tab page content area with Page Background (#2f3136)
+            using (SolidBrush pageBrush = new SolidBrush(_pageBg)) {
+                g.FillRectangle(pageBrush, 0, maxBottom, ClientRectangle.Width, Math.Max(0, ClientRectangle.Height - maxBottom));
+            }
+
+            if (TabCount == 0) return;
 
             int selectedIndex = SelectedIndex;
             Rectangle selectedRect = (selectedIndex >= 0 && selectedIndex < TabCount) ? GetTabRect(selectedIndex) : Rectangle.Empty;
@@ -883,18 +900,19 @@ namespace HMT.Tools {
                 }
             }
 
-            // Tab Text (with multi-line centering support)
+            // Tab Text (centered, crisp single-line with ellipsis trimming)
             using (StringFormat sf = new StringFormat()) {
                 sf.Alignment = StringAlignment.Center;
                 sf.LineAlignment = StringAlignment.Center;
                 sf.Trimming = StringTrimming.EllipsisCharacter;
+                sf.FormatFlags = StringFormatFlags.NoWrap;
                 using (Font tabFont = isSelected ? new Font(Font, FontStyle.Bold) : new Font(Font, FontStyle.Regular))
                 using (SolidBrush textBrush = new SolidBrush(fg)) {
                     Rectangle textRect = new Rectangle(
-                        tabRect.Left + 4,
-                        tabRect.Top + (isSelected ? 3 : 0),
-                        Math.Max(10, tabRect.Width - 8),
-                        Math.Max(10, tabRect.Height - (isSelected ? 4 : 0))
+                        tabRect.Left + 2,
+                        tabRect.Top + (isSelected ? 2 : 0),
+                        Math.Max(10, tabRect.Width - 4),
+                        Math.Max(10, tabRect.Height - (isSelected ? 3 : 0))
                     );
                     g.DrawString(tab.Text, tabFont, textBrush, textRect, sf);
                 }
@@ -1368,10 +1386,10 @@ namespace HMT.Tools {
 
     public class FileDownloader {
         public static FileDownloadState StartDownload(string url, string outputPath) {
-            return StartDownload(url, outputPath, null);
+            return StartDownload(url, outputPath, (object)null);
         }
 
-        public static FileDownloadState StartDownload(string url, string outputPath, System.Collections.IDictionary customHeaders) {
+        public static FileDownloadState StartDownload(string url, string outputPath, object customHeaders) {
             FileDownloadState state = new FileDownloadState();
             Thread t = new Thread(() => {
                 try {
@@ -1401,11 +1419,11 @@ namespace HMT.Tools {
                         request.Timeout = 60000;
                         request.ReadWriteTimeout = 60000;
 
-                        if (customHeaders != null) {
-                            foreach (var key in customHeaders.Keys) {
+                        if (customHeaders is System.Collections.IDictionary dict) {
+                            foreach (var key in dict.Keys) {
                                 if (key != null) {
                                     string kStr = key.ToString();
-                                    string vStr = customHeaders[key] != null ? customHeaders[key].ToString() : "";
+                                    string vStr = dict[key] != null ? dict[key].ToString() : "";
                                     if (kStr.Equals("Referer", StringComparison.OrdinalIgnoreCase)) {
                                         request.Referer = vStr;
                                     } else if (kStr.Equals("User-Agent", StringComparison.OrdinalIgnoreCase)) {

@@ -126,7 +126,6 @@ $tabControl = New-Object HMT.Tools.DarkTabControl
 $tabControl.Location = New-Object System.Drawing.Point(15, 12)
 $tabControl.Size = New-Object System.Drawing.Size(550, 270)
 $tabControl.Font = $progFont
-$tabControl.Padding = New-Object System.Drawing.Point(12, 6)
 $form.Controls.Add($tabControl)
 
 $checkboxes = @{}
@@ -369,7 +368,11 @@ $downloadWithProgress = {
     if (Test-Path $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
 
     # Launch multi-threaded C# streaming download engine
-    $state = [HMT.Tools.FileDownloader]::StartDownload($Url, $OutFile, $Headers)
+    $state = if ($Headers) {
+        [HMT.Tools.FileDownloader]::StartDownload($Url, $OutFile, $Headers)
+    } else {
+        [HMT.Tools.FileDownloader]::StartDownload($Url, $OutFile)
+    }
 
     while (-not $state.IsCompleted -and [string]::IsNullOrEmpty($state.Error)) {
         [System.Windows.Forms.Application]::DoEvents()
