@@ -39,52 +39,7 @@ $global:ExeDir = if ($Global:IRMExeTarget -and (Test-Path -LiteralPath (Split-Pa
     [System.AppDomain]::CurrentDomain.BaseDirectory
 }
 $global:HasErrors = $false
-
 $ProgramExiting = $false
-$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
-#$HMTIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($HMTIconPath)
-$HMTIcon = New-Object System.Drawing.Icon($HMTIconPath)
-$g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
-$global:HMTScaleFactor = $g.DpiX / 96.0
-$g.Dispose()
-
-function Get-HMTFont {
-    param(
-        [string]$Family = "Segoe UI",
-        [float]$Size = 12,
-        [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Regular
-    )
-    $scaled = [math]::Max(8, [int][math]::Round($Size * $global:HMTScaleFactor))
-    return New-Object System.Drawing.Font($Family, $scaled, $Style, [System.Drawing.GraphicsUnit]::Pixel)
-}
-
-$font = Get-HMTFont "Segoe UI" 12 [System.Drawing.FontStyle]::Regular
-
-try {
-    $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
-} catch {
-    $WindowsEdition = "Unknown Edition"
-}
-
-try {
-	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
-} catch {
-	$serialNumber = "Unknown"
-}
-
-# Common Functions:
-
-function Invoke-HMTScale {
-    param(
-        [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.Form]$TargetForm
-    )
-    if ($global:HMTScaleFactor -ne 1.0 -and $TargetForm.Tag -ne "Scaled") {
-        $TargetForm.Scale((New-Object System.Drawing.SizeF($global:HMTScaleFactor, $global:HMTScaleFactor)))
-        $TargetForm.Tag = "Scaled"
-    }
-    Set-DarkTitleBar -TargetForm $TargetForm
-}
 
 # Log-Message formats and writes structured, color-coded output to the console
 function Log-Message {
@@ -139,6 +94,66 @@ trap {
     }
     Log-Message "Unhandled Script Exception: $errMsg$invInfo" "Error"
     continue
+}
+
+$HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
+$HMTIcon = if (Test-Path -LiteralPath $HMTIconPath) { New-Object System.Drawing.Icon($HMTIconPath) } else { $null }
+
+try {
+    $g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
+    $global:HMTScaleFactor = $g.DpiX / 96.0
+    $g.Dispose()
+} catch {
+    $global:HMTScaleFactor = 1.0
+}
+
+function Get-HMTFont {
+    param(
+        [string]$Family = "Segoe UI",
+        [float]$Size = 12,
+        $Style = [System.Drawing.FontStyle]::Regular
+    )
+    $fontStyle = [System.Drawing.FontStyle]::Regular
+    if ($Style -is [System.Drawing.FontStyle]) {
+        $fontStyle = $Style
+    } elseif ($Style -is [string] -and -not [string]::IsNullOrWhiteSpace($Style)) {
+        $cleanStyle = $Style.Trim() -replace '^\[.*?\]::', ''
+        try {
+            $fontStyle = [System.Drawing.FontStyle]$cleanStyle
+        } catch {
+            $fontStyle = [System.Drawing.FontStyle]::Regular
+        }
+    }
+    $scaled = [math]::Max(8, [int][math]::Round($Size * $global:HMTScaleFactor))
+    return New-Object System.Drawing.Font($Family, $scaled, $fontStyle, [System.Drawing.GraphicsUnit]::Pixel)
+}
+
+$font = Get-HMTFont "Segoe UI" 12
+
+try {
+    $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
+} catch {
+    $WindowsEdition = "Unknown Edition"
+}
+
+try {
+	$serialNumber = (Get-CimInstance -ClassName Win32_BIOS).SerialNumber
+} catch {
+	$serialNumber = "Unknown"
+}
+
+# Common Functions:
+
+function Invoke-HMTScale {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    if ($global:HMTScaleFactor -ne 1.0 -and $TargetForm.Tag -ne "Scaled") {
+        $TargetForm.Scale((New-Object System.Drawing.SizeF($global:HMTScaleFactor, $global:HMTScaleFactor)))
+        $TargetForm.Tag = "Scaled"
+    }
+    Set-DarkTitleBar -TargetForm $TargetForm
 }
 
 function Show-CustomMessageBox {
