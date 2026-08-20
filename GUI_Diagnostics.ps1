@@ -234,18 +234,10 @@ function Show-CommandRunnerDialog {
         if ($lineClean -match '(?:Verification|Verifying|Scan|Phase)?\s*(\d+)%\s*(?:complete|\.|$)' -or $lineClean -match '(\d+)%\s*(?:complete|\.|$)') {
             $pct = [int]$matches[1]
             if ($pct -ge 0 -and $pct -le 100) {
-                $state.ProgressPct = $pct
+                $state.TargetProgressPct = $pct
                 $state.Stage = 2
                 $state.StageName = "Verifying Windows system files"
                 $pBar.IsMarquee = $false
-                $pBar.Value = [math]::Max(0, [math]::Min(100, $pct))
-                $lblStatus.Text = "Stage 2/2: Verifying protected system files ($pct% complete)..."
-                $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-
-                if ($pct -eq 100 -or ($pct % 10 -eq 0 -and $pct -ne $state.LastLoggedProgress)) {
-                    $state.LastLoggedProgress = $pct
-                    $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $pct% complete`r`n")
-                }
             }
         }
         elseif ($lineClean -match 'Beginning system scan') {
@@ -521,6 +513,24 @@ function Show-CommandRunnerDialog {
                 foreach ($l in $lines) {
                     if ($null -ne $l) {
                         &$processLine $l
+                    }
+                }
+            }
+
+            # Smooth progressive advancement for SFC & batch reporting tools
+            if ($null -ne $state.TargetProgressPct) {
+                if ($state.ProgressPct -lt $state.TargetProgressPct) {
+                    $diff = $state.TargetProgressPct - $state.ProgressPct
+                    $step = [math]::Max(1, [int][math]::Ceiling($diff / 4.0))
+                    $state.ProgressPct = [math]::Min($state.TargetProgressPct, ($state.ProgressPct + $step))
+                    $pBar.Value = $state.ProgressPct
+                    $lblStatus.Text = "Stage 2/2: Verifying protected system files ($($state.ProgressPct)% complete)..."
+                    $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+
+                    $milestone = [int][math]::Floor($state.ProgressPct / 10.0) * 10
+                    if ($milestone -gt 0 -and $milestone -ne $state.LastLoggedProgress) {
+                        $state.LastLoggedProgress = $milestone
+                        $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Verification $milestone% complete`r`n")
                     }
                 }
             }
@@ -1581,6 +1591,12 @@ function Show-StorageHealthDialog {
         Set-RoundedControl $btnBenchStart
         Set-RoundedControl $btnBenchCancel
         Set-RoundedControl $btnClose
+
+        if ($global:HMTScaleFactor -ne 1.0) {
+            foreach ($col in $shLV.Columns) {
+                $col.Width = [int]($col.Width * $global:HMTScaleFactor)
+            }
+        }
         &$populateDisks
     }.GetNewClosure())
 
@@ -2316,6 +2332,14 @@ function Show-BitLockerManagerDialog {
                 $lblVolPct.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
             }
 
+            $isRebootPending = ($bdeText -match '(?i)waiting for restart|restart required|hardware test|protection off \(restart')
+            if ($isRebootPending) {
+                $lblVolStatus.Text = "Status: Restart Required (Hardware Test Pending)"
+                $lblVolStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#FEE75C")
+                $lblProgStatus.Text = "System restart required before encryption starts."
+                $lblVolPctSub.Text = "Reboot Needed"
+            }
+
             # Key Protectors & Recovery Key Extraction
             $lvProtectors.Items.Clear()
             $txtRecoveryKey.Text = "No Recovery Password found"
@@ -2365,7 +2389,9 @@ function Show-BitLockerManagerDialog {
                 $btnPauseResume.Text = if ($isPaused) { "Resume Conversion" } else { "Pause Conversion" }
                 if ($pollTimer -and (-not $isPaused)) { $pollTimer.Start() }
             } else {
-                $lblProgStatus.Text = "Operation Status: Idle ($statusText)"
+                if (-not $isRebootPending) {
+                    $lblProgStatus.Text = "Operation Status: Idle ($statusText)"
+                }
                 $pBar.Value = 0
                 $pBar.ShowShimmer = $false
                 $btnContinueBg.Enabled = $false
@@ -2488,18 +2514,18 @@ Store this recovery password in a secure, confidential location.
         try {
             $isOs = ($state.SelectedVolume.VolumeType -eq 'OperatingSystem')
             if ($isOs) {
-                # Enable OS volume with TPM, fallback to RecoveryPassword if TPM is not ready
+                # Enable OS volume with TPM and SkipHardwareTest so encryption begins immediately
                 try {
                     if ($usedOnly) {
-                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector -ErrorAction Stop
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector -SkipHardwareTest -ErrorAction Stop
                     } else {
-                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -TpmProtector -ErrorAction Stop
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -TpmProtector -SkipHardwareTest -ErrorAction Stop
                     }
                 } catch {
                     if ($usedOnly) {
-                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -RecoveryPasswordProtector -ErrorAction Stop
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -UsedSpaceOnly -RecoveryPasswordProtector -SkipHardwareTest -ErrorAction Stop
                     } else {
-                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -ErrorAction Stop
+                        Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -ErrorAction Stop
                     }
                 }
                 # Always ensure a numerical recovery password protector is added for disaster recovery
@@ -2511,7 +2537,7 @@ Store this recovery password in a secure, confidential location.
                     Enable-BitLocker -MountPoint $mp -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -ErrorAction Stop
                 }
             }
-            PopupError "BitLocker encryption initiated on $mp!`n`nPlease view and save your Recovery Key." "Information"
+            PopupError "BitLocker encryption initiated on $mp!`n`nIf a system reboot is required for TPM validation, encryption will proceed automatically on next startup.`nPlease view and save your Recovery Key." "Information"
             &$refreshVolumes
         } catch {
             PopupError "Failed to enable BitLocker on $($mp):`n$_" "Error"
@@ -2534,8 +2560,8 @@ Store this recovery password in a secure, confidential location.
         }
     }.GetNewClosure())
 
-    # Add Recovery Password Protector
-    $btnAddProtector.Add_Click({
+    # Add Recovery Password Action
+    $btnAddRecovery.Add_Click({
         if (-not $state.SelectedVolume) { return }
         $mp = $state.SelectedVolume.MountPoint
         try {
@@ -2553,21 +2579,28 @@ Store this recovery password in a secure, confidential location.
         $mp = $state.SelectedVolume.MountPoint
         $driveLetter = $mp.TrimEnd('\')
         try {
-            $v = Get-BitLockerVolume -MountPoint $mp -ErrorAction SilentlyContinue
-            $volStatus = $v.VolumeStatus.ToString()
-
-            if ($volStatus -match 'EncryptionInProgress|DecryptionInProgress') {
-                $res = & manage-bde.exe -pause $driveLetter 2>&1
-                PopupError "BitLocker encryption/decryption conversion paused on $mp.`n`n$res" "Information"
-            } elseif ($volStatus -match 'Paused') {
-                $res = & manage-bde.exe -resume $driveLetter 2>&1
+            $btnText = $btnPauseResume.Text
+            if ($btnText -match 'Resume Conversion') {
+                $res = (& "$env:WINDIR\System32\manage-bde.exe" -resume $driveLetter 2>&1 | Out-String)
                 PopupError "BitLocker encryption/decryption conversion resumed on $mp.`n`n$res" "Information"
-            } elseif ($v.ProtectionStatus -eq 'On') {
+            } elseif ($btnText -match 'Pause Conversion') {
+                $res = (& "$env:WINDIR\System32\manage-bde.exe" -pause $driveLetter 2>&1 | Out-String)
+                PopupError "BitLocker encryption/decryption conversion paused on $mp.`n`n$res" "Information"
+            } elseif ($btnText -match 'Suspend Protection') {
                 Suspend-BitLocker -MountPoint $mp -RebootCount 0 -ErrorAction Stop
                 PopupError "BitLocker key protection suspended on $mp." "Information"
-            } else {
+            } elseif ($btnText -match 'Resume Protection') {
                 Resume-BitLocker -MountPoint $mp -ErrorAction Stop
                 PopupError "BitLocker key protection resumed on $mp." "Information"
+            } else {
+                $bdeText = (& "$env:WINDIR\System32\manage-bde.exe" -status $mp 2>&1 | Out-String)
+                if ($bdeText -match '(?i)paused') {
+                    $res = (& "$env:WINDIR\System32\manage-bde.exe" -resume $driveLetter 2>&1 | Out-String)
+                    PopupError "BitLocker encryption/decryption conversion resumed on $mp.`n`n$res" "Information"
+                } else {
+                    $res = (& "$env:WINDIR\System32\manage-bde.exe" -pause $driveLetter 2>&1 | Out-String)
+                    PopupError "BitLocker encryption/decryption conversion paused on $mp.`n`n$res" "Information"
+                }
             }
             &$refreshVolumes
         } catch {
