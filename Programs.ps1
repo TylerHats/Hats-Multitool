@@ -57,7 +57,6 @@ $catalog = @{
         @{ Name = 'Zoom'; WingetID = 'Zoom.Zoom'; Type = 'Winget' },
         @{ Name = 'Slack'; WingetID = 'SlackTechnologies.Slack'; Type = 'Winget' },
         @{ Name = 'Telegram Desktop'; WingetID = 'Telegram.TelegramDesktop'; Type = 'Winget' },
-        @{ Name = 'WhatsApp'; WingetID = 'WhatsApp.WhatsApp'; Type = 'Winget' },
         @{ Name = 'Mozilla Thunderbird'; WingetID = 'Mozilla.Thunderbird'; Type = 'Winget' }
     )
     "Productivity" = @(
@@ -85,7 +84,6 @@ $catalog = @{
         @{ Name = 'Wireshark'; WingetID = 'WiresharkFoundation.Wireshark'; Type = 'Winget' },
         @{ Name = 'Twingate Client'; WingetID = 'Twingate.Client'; Type = 'Winget' },
         @{ Name = 'Tailscale'; WingetID = 'Tailscale.Tailscale'; Type = 'Winget' },
-        @{ Name = 'RustDesk'; WingetID = 'RustDesk.RustDesk'; Type = 'Winget' },
         @{ Name = 'AnyDesk'; WingetID = 'AnyDeskSoftwareGmbH.AnyDesk'; Type = 'Winget' },
         @{ Name = 'TeamViewer'; WingetID = 'TeamViewer.TeamViewer'; Type = 'Winget' }
     )
@@ -97,7 +95,6 @@ $catalog = @{
         @{ Name = 'HandBrake'; WingetID = 'HandBrake.HandBrake'; Type = 'Winget' },
         @{ Name = 'GIMP'; WingetID = 'GIMP.GIMP'; Type = 'Winget' },
         @{ Name = 'Inkscape'; WingetID = 'Inkscape.Inkscape'; Type = 'Winget' },
-        @{ Name = 'Blender'; WingetID = 'BlenderFoundation.Blender'; Type = 'Winget' },
         @{ Name = 'K-Lite Codec Pack Mega'; WingetID = 'CodecGuide.K-LiteCodecPack.Mega'; Type = 'Winget' }
     )
     "Cloud & Gaming" = @(
@@ -777,22 +774,9 @@ $okButton.Add_Click({
             $foundUrl = "https://slack.com/ssb/download-win64"
             $foundSilent = "/silent"
         }
-        elseif ($wingetId -eq 'WhatsApp.WhatsApp' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
-            $foundUrl = "https://web.whatsapp.com/desktop/windows/release/x64/WhatsAppSetup.exe"
-            $foundSilent = "/silent"
-        }
-        elseif ($wingetId -eq 'RustDesk.RustDesk' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
-            $foundUrl = "https://github.com/rustdesk/rustdesk/releases/latest/download/rustdesk-1.3.7-x86_64.exe"
-            $foundSilent = "--silent-install"
-        }
         elseif ($wingetId -eq 'AnyDeskSoftwareGmbH.AnyDesk' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
             $foundUrl = "https://download.anydesk.com/AnyDesk.exe"
             $foundSilent = "--install `"$env:ProgramFiles (x86)\AnyDesk`" --start-with-win --silent"
-        }
-        elseif ($wingetId -eq 'BlenderFoundation.Blender' -and [string]::IsNullOrWhiteSpace($foundUrl)) {
-            $foundUrl = "https://mirrors.dotsrc.org/blender/release/Blender4.2/blender-4.2.0-windows-x64.msi"
-            $foundSilent = "/quiet /norestart"
-            $foundType = "msi"
         }
 
         return [pscustomobject]@{
@@ -855,9 +839,6 @@ $okButton.Add_Click({
                 $tempPath = Join-Path $env:TEMP "$($program.WingetID)_installer$urlExt"
 
                 $dlHeaders = @{}
-                if ($installerUrl -match 'blender\.org') {
-                    $dlHeaders["Referer"] = "https://www.blender.org/download/"
-                }
 
                 try {
                     &$downloadWithProgress $installerUrl $tempPath $index $total $program.Name $dlHeaders
