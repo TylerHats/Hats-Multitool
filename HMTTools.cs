@@ -707,15 +707,6 @@ namespace HMT.Tools {
             }
         }
 
-        public void ApplyDpiScaling() {
-            float dpiScale = GetDpiScale();
-            float targetFontSize = 9.5f * dpiScale;
-            if (Font == null || Math.Abs(Font.Size - targetFontSize) > 0.5f) {
-                Font = new Font("Segoe UI", targetFontSize, FontStyle.Regular, GraphicsUnit.Point);
-            }
-            Padding = new Point(Math.Max(16, (int)Math.Round(18 * dpiScale)), Math.Max(7, (int)Math.Round(9 * dpiScale)));
-        }
-
         public DarkTabControl() {
             SetStyle(
                 ControlStyles.AllPaintingInWmPaint |
@@ -729,7 +720,6 @@ namespace HMT.Tools {
             Multiline = true;
             Padding = new Point(16, 8);
             Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
-            ApplyDpiScaling();
         }
 
         [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
@@ -740,16 +730,15 @@ namespace HMT.Tools {
             try {
                 SetWindowTheme(Handle, "", "");
             } catch {}
-            ApplyDpiScaling();
         }
 
         protected override void OnFontChanged(EventArgs e) {
             base.OnFontChanged(e);
-            float dpiScale = GetDpiScale();
-            Padding = new Point(Math.Max(16, (int)Math.Round(18 * dpiScale)), Math.Max(7, (int)Math.Round(9 * dpiScale)));
-            if (IsHandleCreated) {
-                RecreateHandle();
-            }
+            try {
+                float dpiScale = GetDpiScale();
+                Padding = new Point(Math.Max(16, (int)Math.Round(18 * dpiScale)), Math.Max(7, (int)Math.Round(9 * dpiScale)));
+            } catch {}
+            Invalidate();
         }
 
         protected override CreateParams CreateParams {
