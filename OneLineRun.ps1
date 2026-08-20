@@ -1,4 +1,4 @@
-﻿# One Line Runner Script - Tyler Hatfield - v1.9
+# One Line Runner Script - Tyler Hatfield - v1.9
 
 # Script setup
 $host.UI.RawUI.BackgroundColor = "Black"
@@ -34,7 +34,7 @@ Try {
     Write-Host "Failed to download Hat's Multitool via BITS, falling back..."
     # You can keep Invoke-WebRequest here as a fallback in case BITS is disabled
     Try {
-        Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -ErrorAction Stop
+        Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing -ErrorAction Stop
     } catch {
         Write-Host "Download completely failed. Please download manually."
         Pause

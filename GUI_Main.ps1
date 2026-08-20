@@ -47,7 +47,7 @@ $HeaderPanel.Controls.Add($HeaderIconBox)
 
 $HeaderTitle = New-Object System.Windows.Forms.Label
 $HeaderTitle.Text = "Hat's Multitool"
-$HeaderTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+$HeaderTitle.Font = Get-HMTFont $font.FontFamily 16 ([System.Drawing.FontStyle]::Bold)
 $HeaderTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $HeaderTitle.Location = New-Object System.Drawing.Point(74, 22)
 $HeaderTitle.Size = New-Object System.Drawing.Size(235, 24)
@@ -56,7 +56,7 @@ $HeaderPanel.Controls.Add($HeaderTitle)
 $HeaderSubtitle = New-Object System.Windows.Forms.Label
 $HeaderSubtitle.Text = "v$CurVerAbout | System Setup & Utilities"
 $HeaderSubtitle.UseMnemonic = $false
-$HeaderSubtitle.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+$HeaderSubtitle.Font = Get-HMTFont $font.FontFamily 11
 $HeaderSubtitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
 $HeaderSubtitle.Location = New-Object System.Drawing.Point(74, 48)
 $HeaderSubtitle.Size = New-Object System.Drawing.Size(235, 20)
@@ -203,7 +203,7 @@ $AboutGUI.Controls.Add($IconBox)
 $y = 135
 $AboutTitle = New-Object System.Windows.Forms.Label
 $AboutTitle.Text = "Hat's Multitool"
-$AboutTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 22, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+$AboutTitle.Font = Get-HMTFont $font.FontFamily 22 ([System.Drawing.FontStyle]::Bold)
 $AboutTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
 $AboutTitle.AutoSize = $false
 $AboutTitle.Size = New-Object System.Drawing.Size(320, 30)

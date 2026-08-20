@@ -47,6 +47,9 @@ namespace HMT.Tools {
         private Color _subTextColor = Color.FromArgb(160, 160, 160);
         private double _fixedMax = 0;
         private bool _showMinMaxAvg = true;
+        private bool _enableSmoothing = false;
+        private double _smoothWeight = 0.35;
+        private double _lastSmoothedValue = double.NaN;
 
         public SmoothGraphControl() {
             SetStyle(
@@ -85,6 +88,11 @@ namespace HMT.Tools {
             set { _showMinMaxAvg = value; Invalidate(); }
         }
 
+        public bool EnableSmoothing {
+            get { return _enableSmoothing; }
+            set { _enableSmoothing = value; }
+        }
+
         public double CurrentValue { get; private set; }
         public double MinValue { get; private set; }
         public double MaxValue { get; private set; }
@@ -95,11 +103,21 @@ namespace HMT.Tools {
         }
 
         public void AddPoint(double value, Color customColor) {
+            double valToRecord = value;
+            if (_enableSmoothing) {
+                if (double.IsNaN(_lastSmoothedValue) || _points.Count == 0) {
+                    _lastSmoothedValue = value;
+                } else {
+                    _lastSmoothedValue = (_smoothWeight * value) + ((1.0 - _smoothWeight) * _lastSmoothedValue);
+                }
+                valToRecord = _lastSmoothedValue;
+            }
+
             lock (_lock) {
                 if (customColor.IsEmpty) {
-                    _points.Add(new GraphPoint(value));
+                    _points.Add(new GraphPoint(valToRecord));
                 } else {
-                    _points.Add(new GraphPoint(value, customColor));
+                    _points.Add(new GraphPoint(valToRecord, customColor));
                 }
 
                 if (_points.Count > _maxPoints) {
@@ -135,6 +153,7 @@ namespace HMT.Tools {
         public void Clear() {
             lock (_lock) {
                 _points.Clear();
+                _lastSmoothedValue = double.NaN;
                 CurrentValue = 0;
                 MinValue = 0;
                 MaxValue = 0;
@@ -661,6 +680,23 @@ namespace HMT.Tools {
         private Color _borderColor = Color.FromArgb(32, 34, 37);      // #202225
         private Color _pageBg = Color.FromArgb(47, 49, 54);           // #2f3136
 
+        private float GetDpiScale() {
+            try {
+                using (Graphics g = CreateGraphics()) {
+                    return g.DpiX / 96f;
+                }
+            } catch {
+                return 1.0f;
+            }
+        }
+
+        private void ApplyDpiScaling() {
+            float dpiScale = GetDpiScale();
+            if (dpiScale > 1.05f) {
+                Padding = new Point((int)(14 * dpiScale), (int)(7 * dpiScale));
+            }
+        }
+
         public DarkTabControl() {
             SetStyle(
                 ControlStyles.AllPaintingInWmPaint |
@@ -674,6 +710,17 @@ namespace HMT.Tools {
             Multiline = true;
             Padding = new Point(14, 7);
             Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            ApplyDpiScaling();
+        }
+
+        protected override void OnHandleCreated(EventArgs e) {
+            base.OnHandleCreated(e);
+            ApplyDpiScaling();
+        }
+
+        protected override void OnFontChanged(EventArgs e) {
+            base.OnFontChanged(e);
+            ApplyDpiScaling();
         }
 
         protected override CreateParams CreateParams {
@@ -705,7 +752,7 @@ namespace HMT.Tools {
                     Rectangle r = GetTabRect(i);
                     if (r.Bottom > maxBottom) maxBottom = r.Bottom;
                 }
-                int top = maxBottom > 0 ? maxBottom : 34;
+                int top = maxBottom > 0 ? maxBottom : (int)(34 * GetDpiScale());
                 return new Rectangle(0, top, ClientRectangle.Width, Math.Max(0, ClientRectangle.Height - top));
             }
         }
@@ -722,17 +769,20 @@ namespace HMT.Tools {
 
             if (TabCount == 0) return;
 
-            // Compute maximum bottom of all tab rows
+            // Compute maximum bottom and maximum right of all tab headers
             int maxBottom = 0;
+            int maxRight = 0;
             for (int i = 0; i < TabCount; i++) {
                 Rectangle r = GetTabRect(i);
                 if (r.Bottom > maxBottom) maxBottom = r.Bottom;
+                if (r.Right > maxRight) maxRight = r.Right;
             }
-            if (maxBottom == 0) maxBottom = 34;
+            if (maxBottom == 0) maxBottom = (int)(34 * GetDpiScale());
 
-            // Fill entire header strip behind tabs with #202225 (erasing any 2px top/left gaps)
+            // Fill header strip under tab headers with _tabHeaderBg (#202225)
+            // Space past maxRight remains _pageBg (#2f3136) so it cleanly blends into the form/page
             using (SolidBrush headerStripBrush = new SolidBrush(_tabHeaderBg)) {
-                g.FillRectangle(headerStripBrush, 0, 0, ClientSize.Width, maxBottom);
+                g.FillRectangle(headerStripBrush, 0, 0, Math.Min(ClientSize.Width, maxRight + 2), maxBottom);
             }
 
             int selectedIndex = SelectedIndex;
@@ -758,9 +808,9 @@ namespace HMT.Tools {
                 }
             }
 
-            // 3. Draw line separating inactive tabs from page content
+            // 3. Draw line separating inactive tabs from page content (only under the tab strip, not past maxRight)
             using (Pen borderPen = new Pen(_borderColor, 1f)) {
-                g.DrawLine(borderPen, 0, maxBottom, ClientSize.Width, maxBottom);
+                g.DrawLine(borderPen, 0, maxBottom, Math.Min(ClientSize.Width, maxRight + 2), maxBottom);
             }
 
             // 4. Draw active tab on top (Commands foreground, overlaps inactive rows, seamlessly merges with content)
@@ -817,8 +867,9 @@ namespace HMT.Tools {
                 }
             } else {
                 // Active Tab Top Accent Bar (Discord Purple / Blurple #5865F2)
+                int accentHeight = Math.Max(2, (int)(3 * GetDpiScale()));
                 using (SolidBrush accentBrush = new SolidBrush(_accentColor)) {
-                    g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, 3);
+                    g.FillRectangle(accentBrush, tabRect.Left, tabRect.Top, tabRect.Width, accentHeight);
                 }
 
                 // Active tab side contrast borders
@@ -1160,13 +1211,28 @@ namespace HMT.Tools {
         private Color _hoverColor = Color.FromArgb(88, 101, 242);     // #5865F2
         private Color _arrowColor = Color.FromArgb(217, 217, 217);    // #d9d9d9
 
+        private float GetDpiScale() {
+            try {
+                using (Graphics g = CreateGraphics()) {
+                    return g.DpiX / 96f;
+                }
+            } catch {
+                return 1.0f;
+            }
+        }
+
         public DarkComboBox() {
             DrawMode = DrawMode.OwnerDrawFixed;
             DropDownStyle = ComboBoxStyle.DropDownList;
             BackColor = _bgColor;
             ForeColor = _fgColor;
             FlatStyle = FlatStyle.Flat;
-            ItemHeight = 22;
+            ItemHeight = (int)(22 * GetDpiScale());
+        }
+
+        protected override void OnHandleCreated(EventArgs e) {
+            base.OnHandleCreated(e);
+            ItemHeight = (int)(22 * GetDpiScale());
         }
 
         protected override void OnDrawItem(DrawItemEventArgs e) {
@@ -1197,9 +1263,9 @@ namespace HMT.Tools {
                     using (Graphics g = Graphics.FromHwnd(this.Handle)) {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                        // 1. Completely overwrite the native Windows white drop-down button area with dark #202225
-                        int btnWidth = 24;
-                        Rectangle btnRect = new Rectangle(Width - btnWidth, 1, btnWidth - 1, Height - 2);
+                        float dpiScale = GetDpiScale();
+                        int btnWidth = Math.Max(20, (int)(24 * dpiScale));
+                        Rectangle btnRect = new Rectangle(Width - btnWidth - 1, 0, btnWidth + 1, Height);
                         using (SolidBrush bgBrush = new SolidBrush(_bgColor)) {
                             g.FillRectangle(bgBrush, btnRect);
                         }
@@ -1210,8 +1276,8 @@ namespace HMT.Tools {
                         }
 
                         // 3. Draw single crisp down arrow in the center of the dark button area
-                        int arrowWidth = 8;
-                        int arrowHeight = 4;
+                        int arrowWidth = Math.Max(6, (int)(8 * dpiScale));
+                        int arrowHeight = Math.Max(3, (int)(4 * dpiScale));
                         float arrowX = Width - (btnWidth / 2f) - (arrowWidth / 2f);
                         float arrowY = (Height / 2f) - (arrowHeight / 2f);
 
@@ -1225,6 +1291,61 @@ namespace HMT.Tools {
                         }
                     }
                 } catch {}
+            }
+        }
+    }
+
+    // ==============================================================================
+    // Dark TextBox (Discord Slate Dark Mode with 1px border and dark scrollbars)
+    // ==============================================================================
+    public class DarkTextBox : TextBox {
+        private Color _borderColor = Color.FromArgb(64, 68, 75); // #40444b
+        private Color _bgColor = Color.FromArgb(30, 31, 34);      // #1e1f22
+
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindowDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        public DarkTextBox() {
+            BorderStyle = BorderStyle.FixedSingle;
+            BackColor = _bgColor;
+            ForeColor = Color.FromArgb(217, 217, 217);
+        }
+
+        protected override CreateParams CreateParams {
+            get {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle &= ~0x00000200; // WS_EX_CLIENTEDGE (removes 3D white highlight)
+                return cp;
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e) {
+            base.OnHandleCreated(e);
+            try {
+                SetWindowTheme(this.Handle, "DarkMode_Explorer", null);
+            } catch { }
+        }
+
+        protected override void WndProc(ref Message m) {
+            base.WndProc(ref m);
+            if (m.Msg == 0x0085 || m.Msg == 0x000F) { // WM_NCPAINT or WM_PAINT
+                try {
+                    IntPtr hdc = GetWindowDC(this.Handle);
+                    if (hdc != IntPtr.Zero) {
+                        using (Graphics g = Graphics.FromHdc(hdc)) {
+                            using (Pen p = new Pen(_borderColor, 1f)) {
+                                g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
+                            }
+                        }
+                        ReleaseDC(this.Handle, hdc);
+                    }
+                } catch { }
             }
         }
     }
@@ -2314,12 +2435,30 @@ namespace HMT.Tools {
                     psi.FileName = "powershell.exe";
                     psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
                 } else {
-                    psi.FileName = fileName;
+                    string resolvedFileName = fileName;
+                    if (!string.IsNullOrEmpty(fileName)) {
+                        string lower = fileName.ToLowerInvariant();
+                        if (lower == "sfc.exe" || lower == "sfc" || lower == "chkdsk.exe" || lower == "chkdsk" || lower == "dism.exe" || lower == "dism") {
+                            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                            string sysNative = Path.Combine(winDir, "Sysnative", Path.GetFileName(fileName));
+                            if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess && File.Exists(sysNative)) {
+                                resolvedFileName = sysNative;
+                            } else {
+                                string system32 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), Path.GetFileName(fileName));
+                                if (File.Exists(system32)) {
+                                    resolvedFileName = system32;
+                                }
+                            }
+                        }
+                    }
+                    psi.FileName = resolvedFileName;
                     psi.Arguments = arguments ?? "";
                 }
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
+                psi.StandardOutputEncoding = Encoding.Default;
+                psi.StandardErrorEncoding = Encoding.Default;
                 psi.CreateNoWindow = true;
 
                 _process = new System.Diagnostics.Process();
@@ -2361,7 +2500,7 @@ namespace HMT.Tools {
         private void ReadStream(StreamReader reader) {
             if (reader == null) return;
             var sb = new StringBuilder();
-            char[] buffer = new char[1024];
+            char[] buffer = new char[512];
             int charsRead;
             try {
                 while ((charsRead = reader.Read(buffer, 0, buffer.Length)) > 0) {
@@ -2369,21 +2508,25 @@ namespace HMT.Tools {
                         char c = buffer[i];
                         if (c == '\r' || c == '\n') {
                             if (sb.Length > 0) {
-                                string line = sb.ToString();
+                                string line = sb.ToString().Trim();
                                 sb.Length = 0;
-                                lock (_lock) {
-                                    _outputQueue.Add(line);
+                                if (!string.IsNullOrEmpty(line)) {
+                                    lock (_lock) {
+                                        _outputQueue.Add(line);
+                                    }
                                 }
                             }
-                        } else {
+                        } else if (c != '\0' && c != '\b') {
                             sb.Append(c);
                         }
                     }
                 }
                 if (sb.Length > 0) {
-                    string line = sb.ToString();
-                    lock (_lock) {
-                        _outputQueue.Add(line);
+                    string line = sb.ToString().Trim();
+                    if (!string.IsNullOrEmpty(line)) {
+                        lock (_lock) {
+                            _outputQueue.Add(line);
+                        }
                     }
                 }
             } catch { }

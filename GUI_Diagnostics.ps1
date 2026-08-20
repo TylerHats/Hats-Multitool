@@ -32,9 +32,9 @@ function Show-CommandRunnerDialog {
     $lblTitle = New-Object System.Windows.Forms.Label
     $lblTitle.Text = $Title
     $lblTitle.UseMnemonic = $false
-    $lblTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 14, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblTitle.Font = Get-HMTFont $font.FontFamily 14 ([System.Drawing.FontStyle]::Bold)
     $lblTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblTitle.Location = New-Object System.Drawing.Point(20, 12)
+    $lblTitle.Location = New-Object System.Drawing.Point(20, 10)
     $lblTitle.AutoSize = $true
     $runnerForm.Controls.Add($lblTitle)
 
@@ -42,8 +42,9 @@ function Show-CommandRunnerDialog {
     $lblStatus.Text = if ($Description) { "$Description (Starting...)" } elseif ($Title -match '\.NET|NetFx') { "Installing .NET Framework 3.5 (Starting...)" } else { "Executing command..." }
     $lblStatus.UseMnemonic = $false
     $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $lblStatus.Location = New-Object System.Drawing.Point(20, 36)
-    $lblStatus.Size = New-Object System.Drawing.Size(700, 20)
+    $lblStatus.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
+    $lblStatus.Location = New-Object System.Drawing.Point(20, 34)
+    $lblStatus.Size = New-Object System.Drawing.Size(700, 22)
     $lblStatus.AutoEllipsis = $true
     $runnerForm.Controls.Add($lblStatus)
 
@@ -51,7 +52,7 @@ function Show-CommandRunnerDialog {
     $lblDetail.Text = if ($Title -match '\.NET|NetFx') { "Initializing .NET Framework 3.5 installation..." } else { "Initializing diagnostic process..." }
     $lblDetail.UseMnemonic = $false
     $lblDetail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblDetail.Font = New-Object System.Drawing.Font($font.FontFamily, 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblDetail.Font = Get-HMTFont $font.FontFamily 10
     $lblDetail.Location = New-Object System.Drawing.Point(20, 58)
     $lblDetail.Size = New-Object System.Drawing.Size(700, 18)
     $lblDetail.AutoEllipsis = $true
@@ -69,7 +70,7 @@ function Show-CommandRunnerDialog {
     $pBar.Maximum = 100
     $runnerForm.Controls.Add($pBar)
 
-    $txtOutput = New-Object System.Windows.Forms.TextBox
+    $txtOutput = New-Object HMT.Tools.DarkTextBox
     $txtOutput.Location = New-Object System.Drawing.Point(20, 100)
     $txtOutput.Size = New-Object System.Drawing.Size(700, 338)
     $txtOutput.Multiline = $true
@@ -77,7 +78,7 @@ function Show-CommandRunnerDialog {
     $txtOutput.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
     $txtOutput.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1f22")
     $txtOutput.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $txtOutput.Font = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $txtOutput.Font = Get-HMTFont "Consolas" 12
     $runnerForm.Controls.Add($txtOutput)
 
     $yBtn = 455
@@ -136,6 +137,7 @@ function Show-CommandRunnerDialog {
         LastLoggedProgress = -1
         Stage1Sec = 0
         Stage2Sec = 0
+        ReportedEta = ""
         Verdict = ""
         VerdictType = "None" # Success, Repaired, Warning, Error
         DetailInfo = ""
@@ -192,7 +194,10 @@ function Show-CommandRunnerDialog {
             return "Estimating (~2-5m)..."
         }
         elseif ($state.ToolKind -eq 'CHKDSK') {
-            if ($pct -ge 10.0) {
+            if ($state.ReportedEta) {
+                return "~$($state.ReportedEta)"
+            }
+            if ($pct -ge 5.0) {
                 $rate = $pct / $elapsedSec
                 if ($rate -gt 0) {
                     $remSec = [int]((100.0 - $pct) / $rate)
@@ -375,7 +380,10 @@ function Show-CommandRunnerDialog {
             $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
             $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Stage $stg of $($stgTot): $stgDesc`r`n")
         }
-        elseif ($lineClean -match '(\d+)\s*(?:percent|%)\s*complete') {
+        elseif ($lineClean -match 'Estimated remaining time:\s*([0-9:]+)' -or $lineClean -match 'ETA:\s*([0-9:]+)') {
+            $state.ReportedEta = $matches[1].Trim()
+        }
+        elseif ($lineClean -match '(\d+)\s*(?:percent|%)\s*complete' -or $lineClean -match '\(\s*(\d+)%\s*\)') {
             $stgPct = [int]$matches[1]
             $stg = if ($state.Stage) { $state.Stage } else { 1 }
             $stgTot = if ($state.StageTotal) { $state.StageTotal } else { 3 }
@@ -383,6 +391,7 @@ function Show-CommandRunnerDialog {
             $state.ProgressPct = $overallPct
             $pBar.IsMarquee = $false
             $pBar.Value = [math]::Max(0, [math]::Min(100, $overallPct))
+            $lblStatus.Text = "Stage $stg of $($stgTot): $($state.StageName) ($stgPct%)..."
 
             if ($stgPct % 25 -eq 0 -and $stgPct -ne $state.LastLoggedProgress) {
                 $state.LastLoggedProgress = $stgPct
@@ -586,6 +595,15 @@ function Show-CommandRunnerDialog {
         $lblStatus.Text = "Running diagnostic process..."
         $lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
 
+        if ($state.ToolKind -in @('CHKDSK', 'DISM', 'SFC')) {
+            $procName = switch ($state.ToolKind) { 'CHKDSK' { 'chkdsk' } 'DISM' { 'dism' } 'SFC' { 'sfc' } }
+            $existing = Get-Process -Name $procName -ErrorAction SilentlyContinue
+            if ($existing) {
+                $p = $existing | Select-Object -First 1
+                $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Note: Detected active $procName task (PID: $($p.Id)) currently running on system.`r`n")
+            }
+        }
+
         $started = $state.Runner.Start($CommandName, $Arguments, [bool]$IsPowerShellScript)
         if ($started) {
             if ($pollTimer) { $pollTimer.Start() }
@@ -621,7 +639,7 @@ function Show-SpeedTestDialog {
     $stForm = New-Object System.Windows.Forms.Form
     $stForm.Text = "Internet Speed Test"
     $stForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $stForm.ClientSize = New-Object System.Drawing.Size(680, 500)
+    $stForm.ClientSize = New-Object System.Drawing.Size(680, 442)
     $stForm.StartPosition = 'CenterScreen'
     if ($HMTIcon) { $stForm.Icon = $HMTIcon }
     $stForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -671,7 +689,7 @@ function Show-SpeedTestDialog {
         $lVal.Text = $initialVal
         $lVal.UseMnemonic = $false
         $lVal.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-        $lVal.Font = New-Object System.Drawing.Font($font.FontFamily, 16, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $lVal.Font = Get-HMTFont $font.FontFamily 16 ([System.Drawing.FontStyle]::Bold)
         $lVal.Location = New-Object System.Drawing.Point(0, 30)
         $lVal.Size = New-Object System.Drawing.Size($width, 30)
         $lVal.TextAlign = 'MiddleCenter'
@@ -691,7 +709,7 @@ function Show-SpeedTestDialog {
     $lblCurrentPhase = New-Object System.Windows.Forms.Label
     $lblCurrentPhase.Text = "Ready to test"
     $lblCurrentPhase.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblCurrentPhase.Font = New-Object System.Drawing.Font($font.FontFamily, 12, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblCurrentPhase.Font = Get-HMTFont $font.FontFamily 12 ([System.Drawing.FontStyle]::Bold)
     $lblCurrentPhase.Location = New-Object System.Drawing.Point(20, 130)
     $lblCurrentPhase.Size = New-Object System.Drawing.Size(640, 20)
     $lblCurrentPhase.TextAlign = 'MiddleCenter'
@@ -704,6 +722,7 @@ function Show-SpeedTestDialog {
     $smoothChart.UnitLabel = "Mbps"
     $smoothChart.LineColor = [System.Drawing.ColorTranslator]::FromHtml("#00A8FC")
     $smoothChart.MaxPoints = 250
+    $smoothChart.EnableSmoothing = $true
     $stForm.Controls.Add($smoothChart)
 
     # Settings Row
@@ -932,7 +951,7 @@ function Show-TcpCheckerDialog {
     $tcpForm = New-Object System.Windows.Forms.Form
     $tcpForm.Text = "TCP Port & Connection Checker"
     $tcpForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $tcpForm.ClientSize = New-Object System.Drawing.Size(650, 420)
+    $tcpForm.ClientSize = New-Object System.Drawing.Size(650, 388)
     $tcpForm.StartPosition = 'CenterScreen'
     if ($HMTIcon) { $tcpForm.Icon = $HMTIcon }
     $tcpForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -952,7 +971,7 @@ function Show-TcpCheckerDialog {
     $lblHost.AutoSize = $true
     $tcpForm.Controls.Add($lblHost)
 
-    $txtHost = New-Object System.Windows.Forms.TextBox
+    $txtHost = New-Object HMT.Tools.DarkTextBox
     $txtHost.Location = New-Object System.Drawing.Point(140, ($y - 3))
     $txtHost.Size = New-Object System.Drawing.Size(220, 25)
     $txtHost.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -967,7 +986,7 @@ function Show-TcpCheckerDialog {
     $lblPort.AutoSize = $true
     $tcpForm.Controls.Add($lblPort)
 
-    $txtPort = New-Object System.Windows.Forms.TextBox
+    $txtPort = New-Object HMT.Tools.DarkTextBox
     $txtPort.Location = New-Object System.Drawing.Point(420, ($y - 3))
     $txtPort.Size = New-Object System.Drawing.Size(75, 25)
     $txtPort.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -994,7 +1013,7 @@ function Show-TcpCheckerDialog {
     $tcpForm.Controls.Add($lblRes)
 
     $y += 24
-    $txtLog = New-Object System.Windows.Forms.TextBox
+    $txtLog = New-Object HMT.Tools.DarkTextBox
     $txtLog.Location = New-Object System.Drawing.Point(20, $y)
     $txtLog.Size = New-Object System.Drawing.Size(610, 240)
     $txtLog.Multiline = $true
@@ -1002,7 +1021,7 @@ function Show-TcpCheckerDialog {
     $txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
     $txtLog.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1f22")
     $txtLog.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $txtLog.Font = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $txtLog.Font = Get-HMTFont "Consolas" 12
     $tcpForm.Controls.Add($txtLog)
 
     $y += 255
@@ -1137,7 +1156,7 @@ function Show-StorageHealthDialog {
     $lblCardModel = New-Object System.Windows.Forms.Label
     $lblCardModel.Text = "Drive: Selecting..."
     $lblCardModel.UseMnemonic = $false
-    $lblCardModel.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblCardModel.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
     $lblCardModel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $lblCardModel.Location = New-Object System.Drawing.Point(15, 10)
     $lblCardModel.Size = New-Object System.Drawing.Size(460, 22)
@@ -1163,7 +1182,7 @@ function Show-StorageHealthDialog {
     $lblCardWrites.Text = "Total Writes: --"
     $lblCardWrites.UseMnemonic = $false
     $lblCardWrites.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $lblCardWrites.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblCardWrites.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
     $lblCardWrites.Location = New-Object System.Drawing.Point(490, 10)
     $lblCardWrites.Size = New-Object System.Drawing.Size(260, 22)
     $cardPanel.Controls.Add($lblCardWrites)
@@ -1272,7 +1291,7 @@ function Show-StorageHealthDialog {
         $lVal.Text = $initialVal
         $lVal.UseMnemonic = $false
         $lVal.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-        $lVal.Font = New-Object System.Drawing.Font($font.FontFamily, 14, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $lVal.Font = Get-HMTFont $font.FontFamily 14 ([System.Drawing.FontStyle]::Bold)
         $lVal.Location = New-Object System.Drawing.Point(0, 26)
         $lVal.Size = New-Object System.Drawing.Size($width, 26)
         $lVal.TextAlign = 'MiddleCenter'
@@ -1595,7 +1614,7 @@ function Show-PacketLossTestDialog {
     $lblHost.AutoSize = $true
     $pltForm.Controls.Add($lblHost)
 
-    $txtHost = New-Object System.Windows.Forms.TextBox
+    $txtHost = New-Object HMT.Tools.DarkTextBox
     $txtHost.Location = New-Object System.Drawing.Point(125, ($y - 3))
     $txtHost.Size = New-Object System.Drawing.Size(140, 25)
     $txtHost.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -1610,7 +1629,7 @@ function Show-PacketLossTestDialog {
     $lblPps.AutoSize = $true
     $pltForm.Controls.Add($lblPps)
 
-    $txtPps = New-Object System.Windows.Forms.TextBox
+    $txtPps = New-Object HMT.Tools.DarkTextBox
     $txtPps.Location = New-Object System.Drawing.Point(345, ($y - 3))
     $txtPps.Size = New-Object System.Drawing.Size(45, 25)
     $txtPps.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -1625,7 +1644,7 @@ function Show-PacketLossTestDialog {
     $lblSize.AutoSize = $true
     $pltForm.Controls.Add($lblSize)
 
-    $txtSize = New-Object System.Windows.Forms.TextBox
+    $txtSize = New-Object HMT.Tools.DarkTextBox
     $txtSize.Location = New-Object System.Drawing.Point(445, ($y - 3))
     $txtSize.Size = New-Object System.Drawing.Size(45, 25)
     $txtSize.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -1640,7 +1659,7 @@ function Show-PacketLossTestDialog {
     $lblDuration.AutoSize = $true
     $pltForm.Controls.Add($lblDuration)
 
-    $txtDuration = New-Object System.Windows.Forms.TextBox
+    $txtDuration = New-Object HMT.Tools.DarkTextBox
     $txtDuration.Location = New-Object System.Drawing.Point(580, ($y - 3))
     $txtDuration.Size = New-Object System.Drawing.Size(45, 25)
     $txtDuration.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -1734,7 +1753,7 @@ function Show-PacketLossTestDialog {
         $lVal.Text = $initialVal
         $lVal.UseMnemonic = $false
         $lVal.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-        $lVal.Font = New-Object System.Drawing.Font($font.FontFamily, 14, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $lVal.Font = Get-HMTFont $font.FontFamily 14 ([System.Drawing.FontStyle]::Bold)
         $lVal.Location = New-Object System.Drawing.Point(0, 26)
         $lVal.Size = New-Object System.Drawing.Size($width, 28)
         $lVal.TextAlign = 'MiddleCenter'
@@ -1888,7 +1907,7 @@ function Show-BitLockerManagerDialog {
     $blForm = New-Object System.Windows.Forms.Form
     $blForm.Text = "BitLocker Drive Encryption & Recovery Manager"
     $blForm.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
-    $blForm.ClientSize = New-Object System.Drawing.Size(760, 560)
+    $blForm.ClientSize = New-Object System.Drawing.Size(760, 518)
     $blForm.StartPosition = 'CenterScreen'
     if ($HMTIcon) { $blForm.Icon = $HMTIcon }
     $blForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1905,97 +1924,92 @@ function Show-BitLockerManagerDialog {
     $lblSelectDrive.Text = "Target Drive / Volume:"
     $lblSelectDrive.UseMnemonic = $false
     $lblSelectDrive.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblSelectDrive.Location = New-Object System.Drawing.Point(20, 18)
+    $lblSelectDrive.Location = New-Object System.Drawing.Point(20, 15)
     $lblSelectDrive.AutoSize = $true
     $blForm.Controls.Add($lblSelectDrive)
 
     $cmbDrives = New-Object HMT.Tools.DarkComboBox
-    $cmbDrives.Location = New-Object System.Drawing.Point(170, 14)
-    $cmbDrives.Size = New-Object System.Drawing.Size(430, 26)
+    $cmbDrives.Location = New-Object System.Drawing.Point(170, 11)
+    $cmbDrives.Size = New-Object System.Drawing.Size(460, 26)
     $blForm.Controls.Add($cmbDrives)
 
     $btnRefresh = New-Object System.Windows.Forms.Button
     $btnRefresh.Text = "Refresh"
-    $btnRefresh.Location = New-Object System.Drawing.Point(615, 12)
-    $btnRefresh.Size = New-Object System.Drawing.Size(125, 30)
+    $btnRefresh.Location = New-Object System.Drawing.Point(640, 9)
+    $btnRefresh.Size = New-Object System.Drawing.Size(100, 30)
     $btnRefresh.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
     $btnRefresh.FlatStyle = 'Flat'
     $btnRefresh.FlatAppearance.BorderSize = 1
     $blForm.Controls.Add($btnRefresh)
 
-    # Drive Status Card Panel
-    $statusCard = New-Object System.Windows.Forms.Panel
-    $statusCard.Location = New-Object System.Drawing.Point(20, 52)
-    $statusCard.Size = New-Object System.Drawing.Size(720, 75)
-    $statusCard.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
-    $statusCard.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $blForm.Controls.Add($statusCard)
+    # Drive Status Summary Panel
+    $summaryPanel = New-Object System.Windows.Forms.Panel
+    $summaryPanel.Location = New-Object System.Drawing.Point(20, 48)
+    $summaryPanel.Size = New-Object System.Drawing.Size(720, 75)
+    $summaryPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
+    $summaryPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $blForm.Controls.Add($summaryPanel)
 
-    $lblCardVol = New-Object System.Windows.Forms.Label
-    $lblCardVol.Text = "Volume: --"
-    $lblCardVol.UseMnemonic = $false
-    $lblCardVol.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblCardVol.Location = New-Object System.Drawing.Point(15, 10)
-    $lblCardVol.Size = New-Object System.Drawing.Size(220, 20)
-    $statusCard.Controls.Add($lblCardVol)
+    $lblVolStatus = New-Object System.Windows.Forms.Label
+    $lblVolStatus.Text = "Status: Detecting..."
+    $lblVolStatus.UseMnemonic = $false
+    $lblVolStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+    $lblVolStatus.Location = New-Object System.Drawing.Point(15, 10)
+    $lblVolStatus.Size = New-Object System.Drawing.Size(450, 20)
+    $summaryPanel.Controls.Add($lblVolStatus)
 
-    $lblCardStatus = New-Object System.Windows.Forms.Label
-    $lblCardStatus.Text = "Status: --"
-    $lblCardStatus.UseMnemonic = $false
-    $lblCardStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblCardStatus.Location = New-Object System.Drawing.Point(245, 10)
-    $lblCardStatus.Size = New-Object System.Drawing.Size(230, 20)
-    $statusCard.Controls.Add($lblCardStatus)
+    $lblVolType = New-Object System.Windows.Forms.Label
+    $lblVolType.Text = "Volume Type: -- | Encryption Method: --"
+    $lblVolType.UseMnemonic = $false
+    $lblVolType.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+    $lblVolType.Location = New-Object System.Drawing.Point(15, 32)
+    $lblVolType.Size = New-Object System.Drawing.Size(450, 18)
+    $summaryPanel.Controls.Add($lblVolType)
 
-    $lblCardLock = New-Object System.Windows.Forms.Label
-    $lblCardLock.Text = "Lock: --"
-    $lblCardLock.UseMnemonic = $false
-    $lblCardLock.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblCardLock.Location = New-Object System.Drawing.Point(485, 10)
-    $lblCardLock.Size = New-Object System.Drawing.Size(220, 20)
-    $statusCard.Controls.Add($lblCardLock)
+    $lblLockStatus = New-Object System.Windows.Forms.Label
+    $lblLockStatus.Text = "Lock Status: -- | Protection: --"
+    $lblLockStatus.UseMnemonic = $false
+    $lblLockStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+    $lblLockStatus.Location = New-Object System.Drawing.Point(15, 52)
+    $lblLockStatus.Size = New-Object System.Drawing.Size(450, 18)
+    $summaryPanel.Controls.Add($lblLockStatus)
 
-    $lblCardProt = New-Object System.Windows.Forms.Label
-    $lblCardProt.Text = "Protection: --"
-    $lblCardProt.UseMnemonic = $false
-    $lblCardProt.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblCardProt.Location = New-Object System.Drawing.Point(15, 38)
-    $lblCardProt.Size = New-Object System.Drawing.Size(220, 20)
-    $statusCard.Controls.Add($lblCardProt)
+    $lblVolPct = New-Object System.Windows.Forms.Label
+    $lblVolPct.Text = "-- %"
+    $lblVolPct.UseMnemonic = $false
+    $lblVolPct.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
+    $lblVolPct.Font = Get-HMTFont $font.FontFamily 18 ([System.Drawing.FontStyle]::Bold)
+    $lblVolPct.Location = New-Object System.Drawing.Point(480, 10)
+    $lblVolPct.Size = New-Object System.Drawing.Size(225, 30)
+    $lblVolPct.TextAlign = 'MiddleRight'
+    $summaryPanel.Controls.Add($lblVolPct)
 
-    $lblCardMethod = New-Object System.Windows.Forms.Label
-    $lblCardMethod.Text = "Algorithm: --"
-    $lblCardMethod.UseMnemonic = $false
-    $lblCardMethod.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblCardMethod.Location = New-Object System.Drawing.Point(245, 38)
-    $lblCardMethod.Size = New-Object System.Drawing.Size(230, 20)
-    $statusCard.Controls.Add($lblCardMethod)
-
-    $lblCardPct = New-Object System.Windows.Forms.Label
-    $lblCardPct.Text = "Encrypted: --"
-    $lblCardPct.UseMnemonic = $false
-    $lblCardPct.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
-    $lblCardPct.Location = New-Object System.Drawing.Point(485, 38)
-    $lblCardPct.Size = New-Object System.Drawing.Size(220, 20)
-    $statusCard.Controls.Add($lblCardPct)
+    $lblVolPctSub = New-Object System.Windows.Forms.Label
+    $lblVolPctSub.Text = "Encrypted"
+    $lblVolPctSub.UseMnemonic = $false
+    $lblVolPctSub.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+    $lblVolPctSub.Location = New-Object System.Drawing.Point(480, 42)
+    $lblVolPctSub.Size = New-Object System.Drawing.Size(225, 20)
+    $lblVolPctSub.TextAlign = 'MiddleRight'
+    $summaryPanel.Controls.Add($lblVolPctSub)
 
     # Section 1: Protectors & Recovery Password Inspector
     $lblProtTitle = New-Object System.Windows.Forms.Label
     $lblProtTitle.Text = "Key Protectors & Recovery Password:"
     $lblProtTitle.UseMnemonic = $false
     $lblProtTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblProtTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblProtTitle.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
     $lblProtTitle.Location = New-Object System.Drawing.Point(20, 136)
     $lblProtTitle.AutoSize = $true
     $blForm.Controls.Add($lblProtTitle)
 
-    $txtRecoveryKey = New-Object System.Windows.Forms.TextBox
+    $txtRecoveryKey = New-Object HMT.Tools.DarkTextBox
     $txtRecoveryKey.Location = New-Object System.Drawing.Point(20, 158)
     $txtRecoveryKey.Size = New-Object System.Drawing.Size(490, 26)
     $txtRecoveryKey.ReadOnly = $true
     $txtRecoveryKey.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1f22")
     $txtRecoveryKey.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#57F287")
-    $txtRecoveryKey.Font = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $txtRecoveryKey.Font = Get-HMTFont "Consolas" 12 ([System.Drawing.FontStyle]::Bold)
     $txtRecoveryKey.Text = "No active Recovery Password selected"
     $blForm.Controls.Add($txtRecoveryKey)
 
@@ -2056,7 +2070,7 @@ function Show-BitLockerManagerDialog {
     $lblUnlockInput.Size = New-Object System.Drawing.Size(200, 18)
     $unlockPanel.Controls.Add($lblUnlockInput)
 
-    $txtUnlockSecret = New-Object System.Windows.Forms.TextBox
+    $txtUnlockSecret = New-Object HMT.Tools.DarkTextBox
     $txtUnlockSecret.Location = New-Object System.Drawing.Point(235, 28)
     $txtUnlockSecret.Size = New-Object System.Drawing.Size(350, 25)
     $txtUnlockSecret.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -2228,7 +2242,22 @@ function Show-BitLockerManagerDialog {
             $cmbDrives.Items.Add($display) | Out-Null
         }
 
-        if ($cmbDrives.Items.Count -gt 0) {
+        # Auto-select active in-progress volume if any exists, otherwise select first item
+        $inProgressIndex = -1
+        for ($i = 0; $i -lt $cmbDrives.Items.Count; $i++) {
+            $itemStr = $cmbDrives.Items[$i].ToString()
+            if ($state.Volumes.ContainsKey($itemStr)) {
+                $volObj = $state.Volumes[$itemStr]
+                if ($volObj.VolumeStatus -eq 'EncryptionInProgress' -or $volObj.VolumeStatus -eq 'DecryptionInProgress') {
+                    $inProgressIndex = $i
+                    break
+                }
+            }
+        }
+
+        if ($inProgressIndex -ge 0) {
+            $cmbDrives.SelectedIndex = $inProgressIndex
+        } elseif ($cmbDrives.Items.Count -gt 0) {
             $cmbDrives.SelectedIndex = 0
         }
     }.GetNewClosure()
@@ -2593,7 +2622,7 @@ function Show-StartupManagerDialog {
     $lblSearch.AutoSize = $true
     $suForm.Controls.Add($lblSearch)
 
-    $txtSearch = New-Object System.Windows.Forms.TextBox
+    $txtSearch = New-Object HMT.Tools.DarkTextBox
     $txtSearch.Location = New-Object System.Drawing.Point(340, 12)
     $txtSearch.Size = New-Object System.Drawing.Size(180, 25)
     $txtSearch.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#202225")
@@ -3065,7 +3094,7 @@ function Show-WindowsUpdateResetDialog {
     $lblTitle.Text = "Reset Windows Update Components"
     $lblTitle.UseMnemonic = $false
     $lblTitle.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
-    $lblTitle.Font = New-Object System.Drawing.Font($font.FontFamily, 13, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblTitle.Font = Get-HMTFont $font.FontFamily 13 ([System.Drawing.FontStyle]::Bold)
     $lblTitle.Location = New-Object System.Drawing.Point(20, 14)
     $lblTitle.Size = New-Object System.Drawing.Size(520, 20)
     $wuForm.Controls.Add($lblTitle)
@@ -3090,7 +3119,7 @@ function Show-WindowsUpdateResetDialog {
     $lblStepNum.Text = "Status: Ready"
     $lblStepNum.UseMnemonic = $false
     $lblStepNum.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
-    $lblStepNum.Font = New-Object System.Drawing.Font($font.FontFamily, 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblStepNum.Font = Get-HMTFont $font.FontFamily 11 ([System.Drawing.FontStyle]::Bold)
     $lblStepNum.Location = New-Object System.Drawing.Point(15, 10)
     $lblStepNum.Size = New-Object System.Drawing.Size(490, 18)
     $cardPanel.Controls.Add($lblStepNum)
@@ -3099,7 +3128,7 @@ function Show-WindowsUpdateResetDialog {
     $lblStepDetail.Text = "Click 'Start Reset' to begin resetting Windows Update components."
     $lblStepDetail.UseMnemonic = $false
     $lblStepDetail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-    $lblStepDetail.Font = New-Object System.Drawing.Font($font.FontFamily, 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    $lblStepDetail.Font = Get-HMTFont $font.FontFamily 12
     $lblStepDetail.Location = New-Object System.Drawing.Point(15, 30)
     $lblStepDetail.Size = New-Object System.Drawing.Size(490, 26)
     $cardPanel.Controls.Add($lblStepDetail)

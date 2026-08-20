@@ -56,7 +56,7 @@ $A1GUI.Controls.Add($PolicyLabel)
 
 # Add username input 
 $y += 35
-$UsernameInput = New-Object System.Windows.Forms.TextBox
+$UsernameInput = New-Object HMT.Tools.DarkTextBox
 $UsernameInput.location = New-Object System.Drawing.Point(17, $y)
 $UsernameInput.Width = 280
 $A1GUI.Controls.Add($UsernameInput)
@@ -64,7 +64,7 @@ $A1GUI.Controls.Add($UsernameInput)
 
 # Add password input 
 $y += 40
-$PasswordInput = New-Object System.Windows.Forms.TextBox
+$PasswordInput = New-Object HMT.Tools.DarkTextBox
 $PasswordInput.location = New-Object System.Drawing.Point(17, $y)
 $PasswordInput.Width = 230
 $A1GUI.Controls.Add($PasswordInput)
@@ -84,7 +84,7 @@ $A1GUI.Controls.Add($ShowPWButton)
 
 # Add password confirm input 
 $y += 40
-$PasswordConfirmInput = New-Object System.Windows.Forms.TextBox
+$PasswordConfirmInput = New-Object HMT.Tools.DarkTextBox
 $PasswordConfirmInput.location = New-Object System.Drawing.Point(17, $y)
 $PasswordConfirmInput.Width = 280
 $A1GUI.Controls.Add($PasswordConfirmInput)

@@ -163,7 +163,7 @@ if ($skipUpdate -ne 1) {
             $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
             $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
             Try {
-                Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+                Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing *>&1
             }
             catch {
                 PopupError "Failed to download update, please update manually." "Error"
@@ -183,7 +183,7 @@ if ($skipUpdate -ne 1) {
         $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
         $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
         Try {
-            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath *>&1
+            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing *>&1
         }
         catch {
             Log-Message "Failed to download update, please update manually." "Error"

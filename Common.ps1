@@ -48,8 +48,17 @@ $g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
 $global:HMTScaleFactor = $g.DpiX / 96.0
 $g.Dispose()
 
-$scaledFontSize = [int](12 * $global:HMTScaleFactor)
-$font = New-Object System.Drawing.Font("Segoe UI", $scaledFontSize, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+function Get-HMTFont {
+    param(
+        [string]$Family = "Segoe UI",
+        [float]$Size = 12,
+        [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Regular
+    )
+    $scaled = [math]::Max(8, [int][math]::Round($Size * $global:HMTScaleFactor))
+    return New-Object System.Drawing.Font($Family, $scaled, $Style, [System.Drawing.GraphicsUnit]::Pixel)
+}
+
+$font = Get-HMTFont "Segoe UI" 12 [System.Drawing.FontStyle]::Regular
 
 try {
     $WindowsEdition = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -140,7 +149,7 @@ function Show-CustomMessageBox {
         [string]$Title = "Hat's Multitool",
         [ValidateSet('Information', 'Warning', 'Error', 'Question', 'None')]
         [string]$Style = 'Information',
-        [ValidateSet('OK', 'OKCancel', 'YesNo')]
+        [ValidateSet('OK', 'OKCancel', 'YesNo', 'YesNoCancel')]
         [string]$Buttons = 'OK'
     )
 
@@ -549,7 +558,8 @@ function Show-HMTDialog {
 function Show-HMTWindow {
     param(
         [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.Form]$TargetForm
+        [System.Windows.Forms.Form]$TargetForm,
+        [System.Windows.Forms.IWin32Window]$Owner = $null
     )
     try {
         $prop = $TargetForm.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance, NonPublic")
@@ -557,7 +567,15 @@ function Show-HMTWindow {
     } catch {}
 
     Invoke-HMTScale $TargetForm
-    $TargetForm.Show()
+    if ($Owner) {
+        $TargetForm.Show($Owner)
+    } elseif ($script:MainForm -and -not $script:MainForm.IsDisposed) {
+        $TargetForm.Show($script:MainForm)
+    } else {
+        $TargetForm.Show()
+    }
+    $TargetForm.BringToFront()
+    $TargetForm.Activate()
 }
 
 # Common function for user requested exits

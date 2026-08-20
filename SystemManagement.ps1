@@ -62,7 +62,7 @@ $SMGUI.Controls.Add($SerialLabel)
 
 # Add PC name input
 $y += 30
-$PCNameInput = New-Object System.Windows.Forms.TextBox
+$PCNameInput = New-Object HMT.Tools.DarkTextBox
 $PCNameInput.location = New-Object System.Drawing.Point(17, $y)
 $PCNameInput.Width = 280
 $PCNameInput.MaxLength = 15
@@ -108,7 +108,7 @@ $SMGUI.Controls.Add($EntraCheckbox)
 
 # Add domain name input
 $y += 30
-$DomainNameInput = New-Object System.Windows.Forms.TextBox
+$DomainNameInput = New-Object HMT.Tools.DarkTextBox
 $DomainNameInput.location = New-Object System.Drawing.Point(17, $y)
 $DomainNameInput.Width = 280
 if ($IsAlreadyJoined) {
@@ -141,7 +141,7 @@ $SMGUI.Controls.Add($EditionCheckbox)
 
 # Add product key input
 $y += 25
-$ProductKeyInput = New-Object System.Windows.Forms.TextBox
+$ProductKeyInput = New-Object HMT.Tools.DarkTextBox
 $ProductKeyInput.location = New-Object System.Drawing.Point(17, $y)
 $ProductKeyInput.Width = 280
 $ProductKeyInput.Enabled = $false

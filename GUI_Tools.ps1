@@ -315,9 +315,14 @@ $TLaunchButton.Add_Click({
             "Patch Cleaner" {
                 if (-Not (Test-Path $ExtProgramDir)) { New-Item -ItemType Directory -Path $ExtProgramDir | Out-Null }
                 $PatchCleanerPath = Join-Path -Path $ExtProgramDir -ChildPath "PatchCleanerPortable.zip"
-                $pcUrl = 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip'
+                $pcUrl = 'https://hatsthings.com/MultitoolFiles/PatchCleanerPortable-1-4-2-0.zip'
                 Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url $pcUrl -OutputPath "$PatchCleanerPath" -ExtractTo $ExtProgramDir
                 $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                if (-not $PatchCleanerExePath) {
+                    $pcFallback = 'https://downloads.sourceforge.net/project/patchcleaner/PatchCleaner_Portable/v1.4.2.0/PatchCleanerPortable_1_4_2_0.zip'
+                    Show-DownloadDialog -DisplayName 'Patch Cleaner' -Url $pcFallback -OutputPath "$PatchCleanerPath" -ExtractTo $ExtProgramDir
+                    $PatchCleanerExePath = Get-ChildItem -Path $ExtProgramDir -Filter "PatchCleaner.exe" -Recurse | Select-Object -ExpandProperty FullName -First 1
+                }
                 if ($PatchCleanerExePath) { Start-Process $PatchCleanerExePath }
             }
             "Windows Disk Cleanup" {
@@ -530,16 +535,9 @@ $TLaunchButton.Add_Click({
 
                 if (-not (Test-Path -LiteralPath $UPWPath) -and -not (Test-Path -LiteralPath $UPWExe)) {
                     $profWizUrl = "https://hatsthings.com/MultitoolFiles/Profwiz.msi"
-                    $dlOk = $false
-                    try {
-                        $testHead = Invoke-WebRequest -Uri $profWizUrl -Method Head -TimeoutSec 3 -ErrorAction SilentlyContinue
-                        if ($testHead -and $testHead.StatusCode -eq 200) {
-                            Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
-                            if (Test-Path -LiteralPath $UPWPath) { $dlOk = $true }
-                        }
-                    } catch {}
+                    Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
 
-                    if (-not $dlOk) {
+                    if (-not (Test-Path -LiteralPath $UPWPath) -and -not (Test-Path -LiteralPath $UPWExe)) {
                         $profWizUrl = "https://www.forensit.com/Downloads/Profwiz.msi"
                         Show-DownloadDialog -DisplayName 'User Profile Wizard' -Url $profWizUrl -OutputPath "$UPWPath"
                     }
