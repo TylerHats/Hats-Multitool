@@ -1140,7 +1140,6 @@ function Show-StorageHealthDialog {
     $shTabs = New-Object HMT.Tools.DarkTabControl
     $shTabs.Location = New-Object System.Drawing.Point(20, 48)
     $shTabs.Size = New-Object System.Drawing.Size(800, 455)
-    $shTabs.Font = $font
     $shForm.Controls.Add($shTabs)
 
     # ---------------- TAB 1: Health & SMART Telemetry ----------------
@@ -2354,20 +2353,27 @@ function Show-BitLockerManagerDialog {
             }
 
             # Progress Bar & Actions
-            $isInProgress = ($v.VolumeStatus -eq 'EncryptionInProgress' -or $v.VolumeStatus -eq 'DecryptionInProgress')
+            $isInProgress = ($v.VolumeStatus -eq 'EncryptionInProgress' -or $v.VolumeStatus -eq 'DecryptionInProgress' -or ($v.VolumeStatus.ToString() -match 'Paused'))
             if ($isInProgress) {
                 $lblProgStatus.Text = "$statusText on $mp ($pct% Complete)..."
                 $pBar.Value = [math]::Max(0, [math]::Min(100, [int]$pct))
                 $pBar.ShowShimmer = $true
                 $btnContinueBg.Enabled = $true
                 $btnPauseResume.Enabled = $true
+                $btnPauseResume.Text = if ($v.VolumeStatus.ToString() -match 'Paused') { "Resume Conversion" } else { "Pause Conversion" }
                 if ($pollTimer) { $pollTimer.Start() }
             } else {
                 $lblProgStatus.Text = "Operation Status: Idle ($statusText)"
                 $pBar.Value = 0
                 $pBar.ShowShimmer = $false
                 $btnContinueBg.Enabled = $false
-                $btnPauseResume.Enabled = $false
+                if ($v.VolumeStatus -eq 'FullyEncrypted') {
+                    $btnPauseResume.Enabled = $true
+                    $btnPauseResume.Text = if ($v.ProtectionStatus -eq 'On') { "Suspend Protection" } else { "Resume Protection" }
+                } else {
+                    $btnPauseResume.Enabled = $false
+                    $btnPauseResume.Text = "Pause / Resume"
+                }
                 if ($pollTimer) { $pollTimer.Stop() }
             }
 
@@ -2532,14 +2538,23 @@ Store this recovery password in a secure, confidential location.
     $btnPauseResume.Add_Click({
         if (-not $state.SelectedVolume) { return }
         $mp = $state.SelectedVolume.MountPoint
+        $driveLetter = $mp.TrimEnd('\')
         try {
             $v = Get-BitLockerVolume -MountPoint $mp -ErrorAction SilentlyContinue
-            if ($v.ProtectionStatus -eq 'On') {
+            $volStatus = $v.VolumeStatus.ToString()
+
+            if ($volStatus -match 'EncryptionInProgress|DecryptionInProgress') {
+                $res = & manage-bde.exe -pause $driveLetter 2>&1
+                PopupError "BitLocker encryption/decryption conversion paused on $mp.`n`n$res" "Information"
+            } elseif ($volStatus -match 'Paused') {
+                $res = & manage-bde.exe -resume $driveLetter 2>&1
+                PopupError "BitLocker encryption/decryption conversion resumed on $mp.`n`n$res" "Information"
+            } elseif ($v.ProtectionStatus -eq 'On') {
                 Suspend-BitLocker -MountPoint $mp -RebootCount 0 -ErrorAction Stop
-                PopupError "BitLocker protection suspended / paused on $mp." "Information"
+                PopupError "BitLocker key protection suspended on $mp." "Information"
             } else {
                 Resume-BitLocker -MountPoint $mp -ErrorAction Stop
-                PopupError "BitLocker protection resumed on $mp." "Information"
+                PopupError "BitLocker key protection resumed on $mp." "Information"
             }
             &$refreshVolumes
         } catch {
@@ -2885,22 +2900,30 @@ function Show-StartupManagerDialog {
             }
         }
 
-        # 6. Scheduled Tasks (Logon Triggers)
+        # 6. Scheduled Tasks (Root & Non-Microsoft Logon Triggers)
         try {
-            $tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
-                $_.Triggers.CimClass.CimClassName -match 'Logon|Boot|Startup' -and $_.TaskPath -notlike '\Microsoft\Windows\*'
-            }
-            foreach ($t in $tasks) {
-                $actionExec = ($t.Actions | Select-Object -First 1).Execute
-                $state.StartupData += [pscustomobject]@{
-                    Name = $t.TaskName
-                    Category = "Scheduled Task"
-                    Command = [string]$actionExec
-                    Location = $t.TaskPath
-                    Type = "Task"
-                    TaskName = $t.TaskName
-                    TaskPath = $t.TaskPath
-                    Status = if ($t.State -eq 'Disabled') { "Disabled" } else { "Enabled" }
+            $rootTasks = Get-ScheduledTask -TaskPath '\' -ErrorAction SilentlyContinue
+            if ($rootTasks) {
+                foreach ($t in $rootTasks) {
+                    if ($t.TaskName -and $t.TaskPath -notlike '\Microsoft\*') {
+                        $hasLogon = $false
+                        foreach ($trig in $t.Triggers) {
+                            if ($trig.CimClass.CimClassName -match 'Logon|Boot|Startup') { $hasLogon = $true; break }
+                        }
+                        if ($hasLogon) {
+                            $actionExec = ($t.Actions | Select-Object -First 1).Execute
+                            $state.StartupData += [pscustomobject]@{
+                                Name = $t.TaskName
+                                Category = "Scheduled Task"
+                                Command = [string]$actionExec
+                                Location = $t.TaskPath
+                                Type = "Task"
+                                TaskName = $t.TaskName
+                                TaskPath = $t.TaskPath
+                                Status = if ($t.State -eq 'Disabled') { "Disabled" } else { "Enabled" }
+                            }
+                        }
+                    }
                 }
             }
         } catch {}
@@ -2933,20 +2956,23 @@ function Show-StartupManagerDialog {
             }
         } catch {}
 
-        # 8. Startup Services (Auto-start 3rd party services)
+        # 8. Startup Services (Auto-start 3rd party services via fast WMI filter)
         try {
-            $services = Get-CimInstance -ClassName Win32_Service -Filter "StartMode = 'Auto'" -ErrorAction SilentlyContinue | Where-Object {
-                $_.PathName -and $_.PathName -notlike "*Windows\System32\svchost.exe*" -and $_.PathName -notlike "*Windows\System32\*"
-            }
-            foreach ($svc in $services) {
-                $state.StartupData += [pscustomobject]@{
-                    Name = $svc.DisplayName
-                    Category = "Startup Service"
-                    Command = [string]$svc.PathName
-                    Location = "Services ($($svc.Name))"
-                    Type = "Service"
-                    ServiceName = $svc.Name
-                    Status = if ($svc.State -eq 'Running') { "Enabled" } else { "Disabled" }
+            $services = Get-CimInstance -ClassName Win32_Service -Filter "StartMode = 'Auto'" -Property Name, DisplayName, PathName, State -ErrorAction SilentlyContinue
+            if ($services) {
+                foreach ($svc in $services) {
+                    $pn = $svc.PathName
+                    if ($pn -and $pn -notmatch '(?i)system32\\svchost\.exe|system32\\lsass\.exe|system32\\services\.exe') {
+                        $state.StartupData += [pscustomobject]@{
+                            Name = $svc.DisplayName
+                            Category = "Startup Service"
+                            Command = [string]$pn
+                            Location = "Services ($($svc.Name))"
+                            Type = "Service"
+                            ServiceName = $svc.Name
+                            Status = if ($svc.State -eq 'Running') { "Enabled" } else { "Disabled" }
+                        }
+                    }
                 }
             }
         } catch {}

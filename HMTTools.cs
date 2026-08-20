@@ -1145,7 +1145,8 @@ namespace HMT.Tools {
                 }
             }
 
-            using (Font headerFont = new Font(Font.FontFamily, 9f, FontStyle.Bold))
+            float headerSize = (Font != null && Font.SizeInPoints > 0) ? Math.Min(9.5f, Font.SizeInPoints) : 9.0f;
+            using (Font headerFont = new Font(Font.FontFamily, headerSize, FontStyle.Bold))
             using (SolidBrush textBrush = new SolidBrush(_headerFg))
             using (StringFormat sf = new StringFormat()) {
                 sf.LineAlignment = StringAlignment.Center;
@@ -2525,13 +2526,16 @@ namespace HMT.Tools {
 
                 bool started = _process.Start();
                 if (started) {
-                    _outThread = new Thread(() => ReadStream(_process.StandardOutput)) {
+                    Encoding outEnc = psi.StandardOutputEncoding ?? Encoding.Default;
+                    Encoding errEnc = psi.StandardErrorEncoding ?? Encoding.Default;
+
+                    _outThread = new Thread(() => ReadRawStream(_process.StandardOutput.BaseStream, outEnc)) {
                         IsBackground = true,
                         Name = "HMT_ProcRunner_StdOut"
                     };
                     _outThread.Start();
 
-                    _errThread = new Thread(() => ReadStream(_process.StandardError)) {
+                    _errThread = new Thread(() => ReadRawStream(_process.StandardError.BaseStream, errEnc)) {
                         IsBackground = true,
                         Name = "HMT_ProcRunner_StdErr"
                     };
@@ -2546,15 +2550,19 @@ namespace HMT.Tools {
             }
         }
 
-        private void ReadStream(StreamReader reader) {
-            if (reader == null) return;
+        private void ReadRawStream(Stream stream, Encoding encoding) {
+            if (stream == null) return;
             var sb = new StringBuilder();
-            char[] buffer = new char[512];
-            int charsRead;
+            byte[] buffer = new byte[256];
+            char[] chars = new char[256];
+            Decoder decoder = (encoding ?? Encoding.Default).GetDecoder();
+            int bytesRead;
+
             try {
-                while ((charsRead = reader.Read(buffer, 0, buffer.Length)) > 0) {
-                    for (int i = 0; i < charsRead; i++) {
-                        char c = buffer[i];
+                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) {
+                    int charCount = decoder.GetChars(buffer, 0, bytesRead, chars, 0);
+                    for (int i = 0; i < charCount; i++) {
+                        char c = chars[i];
                         if (c == '\r' || c == '\n') {
                             if (sb.Length > 0) {
                                 string line = sb.ToString().Trim();
