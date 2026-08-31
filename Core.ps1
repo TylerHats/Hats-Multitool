@@ -1,5 +1,11 @@
 # Core Script - Tyler Hatfield - v2.0
 
+param(
+    [switch]$Debug
+)
+
+$global:HMTDebug = $Debug.IsPresent -or ($args -match '(?i)^[-/]{1,2}debug$')
+
 # Validate process architecture and elevation
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
@@ -7,7 +13,8 @@ $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environmen
 if (-not $IsElevated -or $IsTrappedIn32Bit) {
     Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
     if ($env:HMT_LAUNCHER_EXE -and (Test-Path -LiteralPath $env:HMT_LAUNCHER_EXE)) {
-        Start-Process -FilePath $env:HMT_LAUNCHER_EXE -Verb RunAs
+        $dbgArg = if ($global:HMTDebug) { " -debug" } else { "" }
+        Start-Process -FilePath $env:HMT_LAUNCHER_EXE -ArgumentList $dbgArg.Trim() -Verb RunAs
         exit
     }
     $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
@@ -21,7 +28,9 @@ if (-not $IsElevated -or $IsTrappedIn32Bit) {
             "powershell.exe" 
         }
         $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
-        Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"" -Verb RunAs -WindowStyle Hidden
+        $winStyle = if ($global:HMTDebug) { "Normal" } else { "Hidden" }
+        $dbgFlag = if ($global:HMTDebug) { " -Debug" } else { "" }
+        Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"$dbgFlag" -Verb RunAs -WindowStyle $winStyle
         exit
     }
 }
@@ -150,7 +159,9 @@ $commonPath = Join-Path -Path $PSScriptRoot -ChildPath 'Common.ps1'
 if ($failedResize -eq 1) {Log-Message "Failed to resize window." "Error"}
 if ($failedColor -eq 1) {Log-Message "Failed to change background color." "Error"}
 Log-Message "Initialized environment (OS: $WindowsEdition, Scale: $global:HMTScaleFactor)" "Info"
-Hide-ConsoleWindow
+if (-not $global:HMTDebug) {
+    Hide-ConsoleWindow
+}
 
 # Execute Self Update module
 $hwnd = [HMT.NativeMethods]::GetConsoleWindow()

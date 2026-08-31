@@ -409,38 +409,12 @@ if ($hIcon -ne [IntPtr]::Zero) {
 
 # Function to hide the console window
 function global:Hide-ConsoleWindow {
-    $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
-    if ($consolePtr -ne [IntPtr]::Zero) {
-        # 0 = Hide
-        [HMT.NativeMethods]::ShowWindow($consolePtr, 0) | Out-Null
-    }
-}
-
-# Function to show the console window
-function global:Show-ConsoleWindow {
-    $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
-    if ($consolePtr -eq [IntPtr]::Zero) {
-        try {
-            [HMT.NativeMethods]::AllocConsole() | Out-Null
-            $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
-            if ($consolePtr -ne [IntPtr]::Zero) {
-                if ($hIcon -ne [IntPtr]::Zero) {
-                    $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
-                    $wParamBig   = New-Object System.IntPtr($ICON_BIG)
-                    [HMT.NativeMethods]::SendMessage($consolePtr, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
-                    [HMT.NativeMethods]::SendMessage($consolePtr, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
-                }
-                $Host.UI.RawUI.WindowTitle = "Hat's Multitool"
-            }
-        } catch {}
-    }
-    if ($consolePtr -ne [IntPtr]::Zero) {
-        # 5 = Show normally
-        [HMT.NativeMethods]::ShowWindow($consolePtr, 5) | Out-Null
-        Start-Sleep -Milliseconds 50
-        # Pull console window to focus
-        [HMT.NativeMethods]::ShowWindow($consolePtr, 9) | Out-Null
-        [HMT.NativeMethods]::SetForegroundWindow($consolePtr) | Out-Null
+    if (-not $global:HMTDebug) {
+        $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
+        if ($consolePtr -ne [IntPtr]::Zero) {
+            # 0 = Hide
+            [HMT.NativeMethods]::ShowWindow($consolePtr, 0) | Out-Null
+        }
     }
 }
 

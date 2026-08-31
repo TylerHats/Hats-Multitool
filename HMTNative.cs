@@ -45,12 +45,6 @@ namespace HMT {
         }
 
         // --- Console & Window Visibility ---
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool AllocConsole();
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool FreeConsole();
-
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
 

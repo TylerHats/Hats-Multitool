@@ -197,15 +197,6 @@ $TLaunchButton.FlatStyle = 'Flat'
 $TLaunchButton.FlatAppearance.BorderSize = 1
 $ToolsGUI.Controls.Add($TLaunchButton)
 
-$ConsoleButton = New-Object System.Windows.Forms.Button
-$ConsoleButton.Location = New-Object System.Drawing.Point(510, $yBtn)
-$ConsoleButton.Size = New-Object System.Drawing.Size(120, 42)
-$ConsoleButton.Text = "Show Console"
-$ConsoleButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
-$ConsoleButton.FlatStyle = 'Flat'
-$ConsoleButton.FlatAppearance.BorderSize = 1
-$ToolsGUI.Controls.Add($ConsoleButton)
-$script:ConsoleClicked = 0
 
 $TBackButton = New-Object System.Windows.Forms.Button
 $TBackButton.Location = New-Object System.Drawing.Point(640, $yBtn)
@@ -683,17 +674,6 @@ $TLaunchButton.Add_Click({
     }
 })
 
-$ConsoleButton.Add_Click({
-	if ($script:ConsoleClicked -eq 0) {
-		Show-ConsoleWindow
-		$ConsoleButton.Text = "Hide Console"
-		$script:ConsoleClicked = 1
-	} else {
-		Hide-ConsoleWindow
-		$ConsoleButton.Text = "Show Console"
-		$script:ConsoleClicked = 0
-	}
-})
 
 $TBackButton.Add_Click({
     $ToolsGUI.Hide()
@@ -702,7 +682,6 @@ $TBackButton.Add_Click({
 $ToolsGUI.Add_Load({
     Invoke-HMTScale $ToolsGUI
     Set-RoundedControl $TLaunchButton
-    Set-RoundedControl $ConsoleButton
     Set-RoundedControl $TBackButton
     Set-RoundedControl $btnDefender
     
@@ -715,11 +694,9 @@ $ToolsGUI.Add_Load({
     
     $btnY = $ToolsTabControl.Bottom + [int](15 * $global:HMTScaleFactor)
     $TLaunchButton.Top = $btnY
-    $ConsoleButton.Top = $btnY
     $TBackButton.Top = $btnY
     
     $TBackButton.Left = $scaledW - $TBackButton.Width - [int](20 * $global:HMTScaleFactor)
-    $ConsoleButton.Left = $TBackButton.Left - $ConsoleButton.Width - [int](10 * $global:HMTScaleFactor)
     
     # Auto-resize ListView columns
     foreach ($lv in $allListViews) {

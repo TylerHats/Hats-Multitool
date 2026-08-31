@@ -34,6 +34,18 @@ namespace HMT {
 
         [STAThread]
         public static int Main(string[] args) {
+            bool isDebug = false;
+            if (args != null) {
+                foreach (var arg in args) {
+                    if (string.Equals(arg, "-debug", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "/debug", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "--debug", StringComparison.OrdinalIgnoreCase)) {
+                        isDebug = true;
+                        break;
+                    }
+                }
+            }
+
             // Ensure process is running with administrative privileges
             if (!IsAdministrator()) {
                 try {
@@ -86,7 +98,8 @@ namespace HMT {
                     Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + coreScript + "\"" + forwardArgs,
                     WorkingDirectory = extractDir,
                     UseShellExecute = false,
-                    CreateNoWindow = true
+                    CreateNoWindow = !isDebug,
+                    WindowStyle = isDebug ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden
                 };
 
                 try {
