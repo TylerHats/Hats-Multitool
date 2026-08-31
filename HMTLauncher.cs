@@ -83,11 +83,10 @@ namespace HMT {
                 string forwardArgs = FormatArguments(args);
                 var psi = new ProcessStartInfo {
                     FileName = psExe,
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + coreScript + "\"" + forwardArgs,
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + coreScript + "\"" + forwardArgs,
                     WorkingDirectory = extractDir,
                     UseShellExecute = false,
-                    CreateNoWindow = false,
-                    WindowStyle = ProcessWindowStyle.Hidden
+                    CreateNoWindow = true
                 };
 
                 try {

@@ -1,4 +1,4 @@
-﻿// C# Methods Pre-Comp File - Tyler Hatfield - v2.0
+// C# Methods Pre-Comp File - Tyler Hatfield - v2.0
 
 using System;
 using System.Drawing;
@@ -45,6 +45,12 @@ namespace HMT {
         }
 
         // --- Console & Window Visibility ---
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool AllocConsole();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool FreeConsole();
+
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
 

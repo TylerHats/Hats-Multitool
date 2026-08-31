@@ -395,11 +395,13 @@ $hIcon = if ($HMTIcon) { $HMTIcon.Handle } else { [IntPtr]::Zero }
 
 # Apply icon to console window
 if ($hIcon -ne [IntPtr]::Zero) {
-    $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
-    $wParamBig   = New-Object System.IntPtr($ICON_BIG)
     $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
-    [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
-    [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+    if ($hwnd -ne [IntPtr]::Zero) {
+        $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
+        $wParamBig   = New-Object System.IntPtr($ICON_BIG)
+        [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+        [HMT.NativeMethods]::SendMessage($hwnd, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+    }
 }
 
 # Set a unique ID for Hat's Multitool
@@ -408,20 +410,38 @@ if ($hIcon -ne [IntPtr]::Zero) {
 # Function to hide the console window
 function global:Hide-ConsoleWindow {
     $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
-    # 0 = Hide
-    [HMT.NativeMethods]::ShowWindow($consolePtr, 0)
+    if ($consolePtr -ne [IntPtr]::Zero) {
+        # 0 = Hide
+        [HMT.NativeMethods]::ShowWindow($consolePtr, 0) | Out-Null
+    }
 }
 
 # Function to show the console window
 function global:Show-ConsoleWindow {
     $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
-    # 5 = Show normally
-    [HMT.NativeMethods]::ShowWindow($consolePtr, 5)
-    Start-Sleep -Milliseconds 50
-    # Pull console window to focus
-    $hwnd = [HMT.NativeMethods]::GetConsoleWindow()
-	[HMT.NativeMethods]::ShowWindow($consolePtr, 9) | Out-Null
-    [HMT.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null
+    if ($consolePtr -eq [IntPtr]::Zero) {
+        try {
+            [HMT.NativeMethods]::AllocConsole() | Out-Null
+            $consolePtr = [HMT.NativeMethods]::GetConsoleWindow()
+            if ($consolePtr -ne [IntPtr]::Zero) {
+                if ($hIcon -ne [IntPtr]::Zero) {
+                    $wParamSmall = New-Object System.IntPtr($ICON_SMALL)
+                    $wParamBig   = New-Object System.IntPtr($ICON_BIG)
+                    [HMT.NativeMethods]::SendMessage($consolePtr, [uint32]$WM_SETICON, $wParamSmall, $hIcon) | Out-Null
+                    [HMT.NativeMethods]::SendMessage($consolePtr, [uint32]$WM_SETICON, $wParamBig,   $hIcon) | Out-Null
+                }
+                $Host.UI.RawUI.WindowTitle = "Hat's Multitool"
+            }
+        } catch {}
+    }
+    if ($consolePtr -ne [IntPtr]::Zero) {
+        # 5 = Show normally
+        [HMT.NativeMethods]::ShowWindow($consolePtr, 5) | Out-Null
+        Start-Sleep -Milliseconds 50
+        # Pull console window to focus
+        [HMT.NativeMethods]::ShowWindow($consolePtr, 9) | Out-Null
+        [HMT.NativeMethods]::SetForegroundWindow($consolePtr) | Out-Null
+    }
 }
 
 # Function to force a WinForms title bar into Dark Mode and rounded corners
