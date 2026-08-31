@@ -6,6 +6,10 @@ $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environmen
 
 if (-not $IsElevated -or $IsTrappedIn32Bit) {
     Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
+    if ($env:HMT_LAUNCHER_EXE -and (Test-Path -LiteralPath $env:HMT_LAUNCHER_EXE)) {
+        Start-Process -FilePath $env:HMT_LAUNCHER_EXE -Verb RunAs
+        exit
+    }
     $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
     if ($currentProc -and (Test-Path -LiteralPath $currentProc) -and $currentProc -notmatch 'powershell\.exe|pwsh\.exe') {
         Start-Process -FilePath $currentProc -Verb RunAs

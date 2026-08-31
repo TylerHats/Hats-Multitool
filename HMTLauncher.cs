@@ -3,11 +3,55 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Security.Principal;
 
 namespace HMT {
     public static class Launcher {
+        private static bool IsAdministrator() {
+            try {
+                using (WindowsIdentity identity = WindowsIdentity.GetCurrent()) {
+                    WindowsPrincipal principal = new WindowsPrincipal(identity);
+                    return principal.IsInRole(WindowsBuiltInRole.Administrator);
+                }
+            } catch {
+                return false;
+            }
+        }
+
+        private static string FormatArguments(string[] args) {
+            if (args == null || args.Length == 0) return "";
+            string forwardArgs = "";
+            for (int i = 0; i < args.Length; i++) {
+                string arg = args[i];
+                if (arg.Contains(" ") || arg.Contains("\t")) {
+                    forwardArgs += " \"" + arg.Replace("\"", "\\\"") + "\"";
+                } else {
+                    forwardArgs += " " + arg;
+                }
+            }
+            return forwardArgs;
+        }
+
         [STAThread]
         public static int Main(string[] args) {
+            // Ensure process is running with administrative privileges
+            if (!IsAdministrator()) {
+                try {
+                    string exePath = Process.GetCurrentProcess().MainModule.FileName;
+                    var psiAdmin = new ProcessStartInfo {
+                        FileName = exePath,
+                        Arguments = FormatArguments(args).Trim(),
+                        UseShellExecute = true,
+                        Verb = "runas"
+                    };
+                    Process.Start(psiAdmin);
+                    return 0;
+                } catch {
+                    // User dismissed or rejected UAC prompt
+                    return 1;
+                }
+            }
+
             string extractDir = null;
             try {
                 int pid = Process.GetCurrentProcess().Id;
@@ -37,24 +81,13 @@ namespace HMT {
                 string system32 = Path.Combine(winDir, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
                 string psExe = File.Exists(sysNative) ? sysNative : (File.Exists(system32) ? system32 : "powershell.exe");
 
-                string forwardArgs = "";
-                if (args != null && args.Length > 0) {
-                    for (int i = 0; i < args.Length; i++) {
-                        string arg = args[i];
-                        if (arg.Contains(" ") || arg.Contains("\t")) {
-                            forwardArgs += " \"" + arg.Replace("\"", "\\\"") + "\"";
-                        } else {
-                            forwardArgs += " " + arg;
-                        }
-                    }
-                }
-
+                string forwardArgs = FormatArguments(args);
                 var psi = new ProcessStartInfo {
                     FileName = psExe,
                     Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + coreScript + "\"" + forwardArgs,
                     WorkingDirectory = extractDir,
                     UseShellExecute = false,
-                    CreateNoWindow = true,
+                    CreateNoWindow = false,
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
 
