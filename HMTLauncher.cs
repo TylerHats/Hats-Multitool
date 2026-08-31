@@ -52,10 +52,9 @@ namespace HMT {
                 }
             }
 
-            string extractDir = null;
             try {
                 int pid = Process.GetCurrentProcess().Id;
-                extractDir = Path.Combine(Path.GetTempPath(), "HMT_" + pid.ToString());
+                string extractDir = Path.Combine(Path.GetTempPath(), "HMT_" + pid.ToString());
                 if (Directory.Exists(extractDir)) {
                     try { Directory.Delete(extractDir, true); } catch { }
                 }
@@ -84,7 +83,7 @@ namespace HMT {
                 string forwardArgs = FormatArguments(args);
                 var psi = new ProcessStartInfo {
                     FileName = psExe,
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + coreScript + "\"" + forwardArgs,
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + coreScript + "\"" + forwardArgs,
                     WorkingDirectory = extractDir,
                     UseShellExecute = false,
                     CreateNoWindow = false,
@@ -95,18 +94,10 @@ namespace HMT {
                     psi.EnvironmentVariables["HMT_LAUNCHER_EXE"] = currentAssembly.Location;
                 } catch { }
 
-                using (Process proc = Process.Start(psi)) {
-                    proc.WaitForExit();
-                    return proc.ExitCode;
-                }
+                Process.Start(psi);
+                return 0;
             } catch (Exception) {
                 return 3;
-            } finally {
-                if (extractDir != null && Directory.Exists(extractDir)) {
-                    try {
-                        Directory.Delete(extractDir, true);
-                    } catch { }
-                }
             }
         }
     }
