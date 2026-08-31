@@ -1,0 +1,14 @@
+# Build and packaging artifacts
+build.sh
+*.dll
+*.exe
+*.signed
+*.zip
+HatsMultitoolVersion.txt
+signing_stream.log
+release_notes.txt
+AssemblyInfo_temp.cs
+
+# IDE and temporary files
+.vscode/
+*.log

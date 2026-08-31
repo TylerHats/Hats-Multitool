@@ -75,9 +75,9 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 
 ## 📦 Packaging & Building
 
-***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged executables based on the codebase at the time of creation.
+***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged standalone executables.
 
-These executables are currently built using **NSIS** as simple, silent, self-extracting archives that launch the main `Core.ps1` file. C# methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
+The project is packaged as a native Windows GUI subsystem executable (`HMTLauncher.cs`) containing an embedded application manifest (`app.manifest`), Per-Monitor V2 DPI awareness, and an embedded signed payload archive. Helper methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
 
 **To package the project yourself:**
 1. Compile `HMTNative.cs` into `HMTNative.dll` and `HMTTools.cs` into `HMTTools.dll`:
@@ -85,10 +85,13 @@ These executables are currently built using **NSIS** as simple, silent, self-ext
    mcs -target:library -out:HMTNative.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTNative.cs
    mcs -target:library -out:HMTTools.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTTools.cs
    ```
-2. Using your preferred archiving software (like NSIS or 7-Zip SFX), pack the repository files into a self-extracting archive.
-3. Set the archive to extract silently and execute the following command upon extraction:
-   ```cmd
-   PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "Core.ps1" -WindowStyle Hidden
+2. Archive the repository files into a payload zip:
+   ```bash
+   zip -q -r payload.zip . -x "*.git*" "app.manifest" "HMTLauncher.cs" "payload.zip" "*.exe"
+   ```
+3. Compile the native C# launcher executable:
+   ```bash
+   mcs -target:winexe -win32manifest:app.manifest -win32icon:HMTIcon.ico -r:System.IO.Compression -r:System.IO.Compression.FileSystem -resource:payload.zip,payload.zip -out:Hats-Multitool.exe HMTLauncher.cs
    ```
 *The multitool can also be opened simply by running* ***Core.ps1*** *directly; if the DLLs are not precompiled, it will automatically compile the CS files on first run.*
 
