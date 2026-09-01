@@ -2906,7 +2906,6 @@ function Show-StartupManagerDialog {
         $btnDelete.Enabled = $hasSel
         $btnOpenLoc.Enabled = $hasSel
     }.GetNewClosure())
-    }.GetNewClosure()
 
     $txtSearch.Add_TextChanged({ &$renderStartupList }.GetNewClosure())
     $cmbCategory.Add_SelectedIndexChanged({ &$renderStartupList }.GetNewClosure())

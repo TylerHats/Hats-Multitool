@@ -10,28 +10,26 @@ $global:HMTDebug = $Debug.IsPresent -or ($args -match '(?i)^[-/]{1,2}debug$')
 $IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
 $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
 
-if (-not $IsElevated -or $IsTrappedIn32Bit) {
-    Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
-    if ($env:HMT_LAUNCHER_EXE -and (Test-Path -LiteralPath $env:HMT_LAUNCHER_EXE)) {
-        $dbgArg = if ($global:HMTDebug) { " -debug" } else { "" }
-        Start-Process -FilePath $env:HMT_LAUNCHER_EXE -ArgumentList $dbgArg.Trim() -Verb RunAs
-        exit
-    }
-    $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-    if ($currentProc -and (Test-Path -LiteralPath $currentProc) -and $currentProc -notmatch 'powershell\.exe|pwsh\.exe') {
-        Start-Process -FilePath $currentProc -Verb RunAs
-        exit
-    } else {
-        $ExePath = if ($IsTrappedIn32Bit) { 
-            "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
-        } else { 
-            "powershell.exe" 
+# When hosted inside HMTLauncher.exe, elevation and architecture are already enforced by the launcher
+if (-not ($env:HMT_LAUNCHER_EXE -or $global:HMT_LAUNCHER_EXE)) {
+    if (-not $IsElevated -or $IsTrappedIn32Bit) {
+        Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
+        $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+        if ($currentProc -and (Test-Path -LiteralPath $currentProc) -and $currentProc -notmatch 'powershell\.exe|pwsh\.exe') {
+            Start-Process -FilePath $currentProc -Verb RunAs
+            exit
+        } else {
+            $ExePath = if ($IsTrappedIn32Bit) { 
+                "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
+            } else { 
+                "powershell.exe" 
+            }
+            $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
+            $winStyle = if ($global:HMTDebug) { "Normal" } else { "Hidden" }
+            $dbgFlag = if ($global:HMTDebug) { " -Debug" } else { "" }
+            Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"$dbgFlag" -Verb RunAs -WindowStyle $winStyle
+            exit
         }
-        $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
-        $winStyle = if ($global:HMTDebug) { "Normal" } else { "Hidden" }
-        $dbgFlag = if ($global:HMTDebug) { " -Debug" } else { "" }
-        Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"$dbgFlag" -Verb RunAs -WindowStyle $winStyle
-        exit
     }
 }
 
