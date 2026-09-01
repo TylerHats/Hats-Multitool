@@ -1821,7 +1821,7 @@ namespace HMT.Tools {
         public void Stop() {
             _isRunning = false;
             if (_workerThread != null && _workerThread.IsAlive) {
-                _workerThread.Join(500);
+                _workerThread.Join(2500);
             }
         }
 
@@ -1834,21 +1834,22 @@ namespace HMT.Tools {
             int sequence = 0;
             long freq = System.Diagnostics.Stopwatch.Frequency;
             long nextDispatchTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            var activePings = new CountdownEvent(1);
 
             while (_isRunning) {
                 sequence++;
                 int seq = sequence;
-                Interlocked.Increment(ref _sentCount);
+                activePings.AddCount();
 
-                // Asynchronously dispatch ICMP ping without blocking the dispatch timer loop
+                // Asynchronously dispatch ICMP ping
                 ThreadPool.QueueUserWorkItem(_ => {
-                    if (!_isRunning) return;
                     var sample = new PingSample {
                         Sequence = seq,
                         Timestamp = DateTime.Now
                     };
 
                     try {
+                        Interlocked.Increment(ref _sentCount);
                         using (var pingSender = new Ping()) {
                             var sw = System.Diagnostics.Stopwatch.StartNew();
                             var reply = pingSender.Send(_targetHost, 1500, buffer, pingOptions);
@@ -1894,6 +1895,8 @@ namespace HMT.Tools {
                             sample.JitterMs = _jitter;
                             _samples.Add(sample);
                         }
+                    } finally {
+                        try { activePings.Signal(); } catch { }
                     }
 
                     if (OnPingSample != null) {
@@ -1930,6 +1933,16 @@ namespace HMT.Tools {
             }
 
             _isRunning = false;
+
+            // Signal initial count and wait up to 2000ms for in-flight packets to complete
+            try {
+                activePings.Signal();
+                activePings.Wait(2000);
+            } catch { }
+
+            if (OnSummaryUpdate != null) {
+                try { OnSummaryUpdate(GetSummary()); } catch { }
+            }
             if (OnCompleted != null) {
                 try { OnCompleted(GetSummary()); } catch { }
             }

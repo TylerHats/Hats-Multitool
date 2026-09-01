@@ -33,9 +33,9 @@ namespace HMT.Forms {
         public static readonly Color TextMuted = Color.FromArgb(160, 160, 160);
         public static readonly Color AccentPrimary = Color.FromArgb(88, 101, 242);
         public static readonly Color AccentPurple = Color.FromArgb(111, 31, 222);
-        public static readonly Color AccentSuccess = Color.FromArgb(87, 242, 135);
-        public static readonly Color AccentDanger = Color.FromArgb(237, 66, 69);
-        public static readonly Color AccentWarning = Color.FromArgb(254, 231, 92);
+        public static readonly Color AccentSuccess = Color.FromArgb(43, 138, 78);
+        public static readonly Color AccentDanger = Color.FromArgb(175, 52, 52);
+        public static readonly Color AccentWarning = Color.FromArgb(217, 160, 30);
 
         public static float ScaleFactor { get; private set; }
         public static Icon AppIcon { get; private set; }
@@ -1965,7 +1965,7 @@ namespace HMT.Forms {
                 var sample = speedEngine.CurrentSample;
                 if (sample != null) {
                     this.BeginInvoke((Action)(() => {
-                        lblDownload.Text = string.Format("{0:F1} Mbps", sample.CurrentMbps);
+                        lblDownload.Text = string.Format("{0:F1} Mbps", sample.AverageMbps);
                         chart.AddPoint((float)sample.CurrentMbps);
                     }));
                 }
@@ -1990,7 +1990,7 @@ namespace HMT.Forms {
                 var sample = speedEngine.CurrentSample;
                 if (sample != null) {
                     this.BeginInvoke((Action)(() => {
-                        lblUpload.Text = string.Format("{0:F1} Mbps", sample.CurrentMbps);
+                        lblUpload.Text = string.Format("{0:F1} Mbps", sample.AverageMbps);
                         chart.AddPoint((float)sample.CurrentMbps);
                     }));
                 }
@@ -2102,7 +2102,8 @@ namespace HMT.Forms {
                 Location = DarkTheme.Scale(new Point(20, 85)),
                 Size = DarkTheme.Scale(new Size(740, 275)),
                 UnitLabel = "ms",
-                LineColor = DarkTheme.AccentPrimary,
+                LineColor = DarkTheme.AccentSuccess,
+                UseDynamicLatencyColors = true,
                 MaxPoints = 300
             };
             this.Controls.Add(graphControl);
@@ -2122,10 +2123,17 @@ namespace HMT.Forms {
 
         private void TogglePing() {
             if (isRunning) {
-                pingEngine?.Stop();
-                isRunning = false;
-                btnToggle.Text = "Start Test";
-                DarkTheme.StyleButton(btnToggle, DarkTheme.AccentSuccess);
+                btnToggle.Text = "Stopping (Draining in-flight packets)...";
+                btnToggle.Enabled = false;
+                Task.Run(() => {
+                    pingEngine?.Stop();
+                    this.BeginInvoke((Action)(() => {
+                        isRunning = false;
+                        btnToggle.Text = "Start Test";
+                        btnToggle.Enabled = true;
+                        DarkTheme.StyleButton(btnToggle, DarkTheme.AccentSuccess);
+                    }));
+                });
             } else {
                 graphControl.Clear();
                 int pps = 5;
@@ -2139,7 +2147,9 @@ namespace HMT.Forms {
                 pingEngine.OnPingSample += (sample) => {
                     this.BeginInvoke((Action)(() => {
                         if (sample.Success) {
-                            graphControl.AddPoint((float)sample.RttMs);
+                            graphControl.AddPoint(sample.RttMs, SmoothGraphControl.GetLatencyColor(sample.RttMs));
+                        } else {
+                            graphControl.AddPoint(0, DarkTheme.AccentDanger);
                         }
                     }));
                 };
@@ -2147,6 +2157,16 @@ namespace HMT.Forms {
                     this.BeginInvoke((Action)(() => {
                         lblStats.Text = string.Format("Sent: {0} | Recv: {1} | Loss: {2:F1}% | Min: {3:F1}ms | Avg: {4:F1}ms | Max: {5:F1}ms | Jitter: {6:F1}ms",
                             summary.TotalSent, summary.TotalReceived, summary.LossPercent, summary.MinRttMs, summary.AvgRttMs, summary.MaxRttMs, summary.CurrentJitterMs);
+                    }));
+                };
+                pingEngine.OnCompleted += (summary) => {
+                    this.BeginInvoke((Action)(() => {
+                        lblStats.Text = string.Format("Sent: {0} | Recv: {1} | Loss: {2:F1}% | Min: {3:F1}ms | Avg: {4:F1}ms | Max: {5:F1}ms | Jitter: {6:F1}ms",
+                            summary.TotalSent, summary.TotalReceived, summary.LossPercent, summary.MinRttMs, summary.AvgRttMs, summary.MaxRttMs, summary.CurrentJitterMs);
+                        isRunning = false;
+                        btnToggle.Text = "Start Test";
+                        btnToggle.Enabled = true;
+                        DarkTheme.StyleButton(btnToggle, DarkTheme.AccentSuccess);
                     }));
                 };
 
@@ -2274,9 +2294,13 @@ namespace HMT.Forms {
             tabBench.Controls.Add(lblBenchTarget);
 
             cmbBenchTarget = new ComboBox { Location = DarkTheme.Scale(new Point(125, 11)), Size = DarkTheme.Scale(new Size(150, 28)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Surface, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10.5f) };
-            foreach (var d in DriveInfo.GetDrives()) {
-                if (d.IsReady && d.DriveType == DriveType.Fixed) cmbBenchTarget.Items.Add(d.Name);
-            }
+            try {
+                foreach (var d in DriveInfo.GetDrives()) {
+                    try {
+                        if (d.IsReady && d.DriveType == DriveType.Fixed) cmbBenchTarget.Items.Add(d.Name);
+                    } catch { }
+                }
+            } catch { }
             if (cmbBenchTarget.Items.Count > 0) cmbBenchTarget.SelectedIndex = 0;
             tabBench.Controls.Add(cmbBenchTarget);
 
@@ -2313,21 +2337,23 @@ namespace HMT.Forms {
             shLV.Items.Clear();
 
             for (int i = 0; i < 8; i++) {
-                var info = DriveInterop.QueryPhysicalDriveInfo(i);
-                if (info.Success) {
-                    string name = string.Format("Drive {0}: {1} {2} ({3})", i, info.VendorId, info.ProductId, info.BusTypeName);
-                    cmbDrives.Items.Add(name);
+                try {
+                    var info = DriveInterop.QueryPhysicalDriveInfo(i);
+                    if (info.Success) {
+                        string name = string.Format("Drive {0}: {1} {2} ({3})", i, info.VendorId, info.ProductId, info.BusTypeName);
+                        cmbDrives.Items.Add(name);
 
-                    var lvi = new ListViewItem(i.ToString());
-                    lvi.SubItems.Add((info.VendorId + " " + info.ProductId).Trim());
-                    lvi.SubItems.Add(info.BusTypeName);
-                    lvi.SubItems.Add(info.IsSSD ? "SSD" : "HDD");
-                    lvi.SubItems.Add("~512 GB");
-                    lvi.SubItems.Add("99%");
-                    lvi.SubItems.Add("12.4 TB");
-                    lvi.SubItems.Add("Good (OK)");
-                    shLV.Items.Add(lvi);
-                }
+                        var lvi = new ListViewItem(i.ToString());
+                        lvi.SubItems.Add((info.VendorId + " " + info.ProductId).Trim());
+                        lvi.SubItems.Add(info.BusTypeName);
+                        lvi.SubItems.Add(info.IsSSD ? "SSD" : "HDD");
+                        lvi.SubItems.Add("~512 GB");
+                        lvi.SubItems.Add("99%");
+                        lvi.SubItems.Add("12.4 TB");
+                        lvi.SubItems.Add("Good (OK)");
+                        shLV.Items.Add(lvi);
+                    }
+                } catch { }
             }
 
             if (cmbDrives.Items.Count > 0) {
@@ -2595,13 +2621,54 @@ namespace HMT.Forms {
 
         private void LoadVolumes() {
             cmbDrives.Items.Clear();
-            foreach (var d in DriveInfo.GetDrives()) {
-                if (d.IsReady && d.DriveType == DriveType.Fixed) {
-                    string label = string.Format("{0} ({1}) [{2:F1} GB free of {3:F1} GB]", d.Name.TrimEnd('\\'), string.IsNullOrEmpty(d.VolumeLabel) ? "Local Disk" : d.VolumeLabel, d.AvailableFreeSpace / 1073741824.0, d.TotalSize / 1073741824.0);
-                    cmbDrives.Items.Add(label);
+            var driveLetters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            try {
+                foreach (var d in DriveInfo.GetDrives()) {
+                    try {
+                        string letter = d.Name.Substring(0, 2);
+                        driveLetters.Add(letter);
+                        string label = "Local Disk";
+                        string sizeInfo = "";
+                        try {
+                            if (d.IsReady) {
+                                if (!string.IsNullOrEmpty(d.VolumeLabel)) label = d.VolumeLabel;
+                                sizeInfo = string.Format(" [{0:F1} GB free of {1:F1} GB]", d.AvailableFreeSpace / 1073741824.0, d.TotalSize / 1073741824.0);
+                            }
+                        } catch { }
+                        cmbDrives.Items.Add(string.Format("{0} ({1}){2}", letter, label, sizeInfo));
+                    } catch { }
                 }
+            } catch { }
+
+            try {
+                var psi = new ProcessStartInfo {
+                    FileName = "manage-bde.exe",
+                    Arguments = "-status",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                };
+                using (var proc = Process.Start(psi)) {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit();
+                    var matches = Regex.Matches(output, @"Volume ([A-Za-z]:)");
+                    foreach (Match m in matches) {
+                        string v = m.Groups[1].Value.ToUpper();
+                        if (!driveLetters.Contains(v)) {
+                            driveLetters.Add(v);
+                            cmbDrives.Items.Add(string.Format("{0} (BitLocker Volume)", v));
+                        }
+                    }
+                }
+            } catch { }
+
+            if (cmbDrives.Items.Count > 0) {
+                cmbDrives.SelectedIndex = 0;
+            } else {
+                cmbDrives.Items.Add("C: (System Drive)");
+                cmbDrives.SelectedIndex = 0;
             }
-            if (cmbDrives.Items.Count > 0) cmbDrives.SelectedIndex = 0;
         }
 
         private void RefreshBitLockerStatus() {
@@ -2640,16 +2707,43 @@ namespace HMT.Forms {
                         lvProtectors.Items.Add(lvi);
                     }
 
+                    // Mutually exclusive button enable/disable logic based on encryption status
                     if (output.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 || output.IndexOf("Protection On", StringComparison.OrdinalIgnoreCase) >= 0) {
                         lblVolStatus.Text = "Status: Fully Encrypted (Protection Active)";
                         lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
                         lblVolPct.Text = "100%";
                         lblVolPct.ForeColor = DarkTheme.AccentSuccess;
+                        btnEnable.Enabled = false;
+                        btnDisable.Enabled = true;
                     } else if (output.IndexOf("Fully Decrypted", StringComparison.OrdinalIgnoreCase) >= 0 || output.IndexOf("Protection Off", StringComparison.OrdinalIgnoreCase) >= 0) {
                         lblVolStatus.Text = "Status: Fully Decrypted (BitLocker Off)";
                         lblVolStatus.ForeColor = DarkTheme.TextMuted;
                         lblVolPct.Text = "0%";
                         lblVolPct.ForeColor = DarkTheme.TextMuted;
+                        btnEnable.Enabled = true;
+                        btnDisable.Enabled = false;
+                    } else if (output.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        lblVolStatus.Text = "Status: Encryption in Progress...";
+                        lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
+                        btnEnable.Enabled = false;
+                        btnDisable.Enabled = false;
+                    } else if (output.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        lblVolStatus.Text = "Status: Decryption in Progress...";
+                        lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
+                        btnEnable.Enabled = false;
+                        btnDisable.Enabled = false;
+                    } else {
+                        lblVolStatus.Text = "Status: Drive Accessible";
+                        btnEnable.Enabled = true;
+                        btnDisable.Enabled = true;
+                    }
+
+                    if (output.IndexOf("Locked", StringComparison.OrdinalIgnoreCase) >= 0 && output.IndexOf("Unlocked", StringComparison.OrdinalIgnoreCase) < 0) {
+                        lblLockStatus.Text = "Lock Status: LOCKED | Protection: On";
+                        btnEnable.Enabled = false;
+                        btnDisable.Enabled = false;
+                    } else {
+                        lblLockStatus.Text = "Lock Status: Unlocked";
                     }
                 }
             } catch (Exception ex) {
