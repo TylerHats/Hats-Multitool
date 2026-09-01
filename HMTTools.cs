@@ -3462,5 +3462,83 @@ namespace HMT.Tools {
 
             return items;
         }
+
+        public static bool ToggleItem(StartupItem item) {
+            if (item == null) return false;
+            bool currentlyEnabled = item.Status.Equals("Enabled", StringComparison.OrdinalIgnoreCase);
+            string newStatus = currentlyEnabled ? "Disabled" : "Enabled";
+
+            try {
+                if (item.Type == "Registry" && !string.IsNullOrEmpty(item.ApprPath)) {
+                    bool isHkcu = item.ApprPath.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase);
+                    string subKeyPath = item.ApprPath.Substring(item.ApprPath.IndexOf(@"\") + 1);
+                    RegistryKey root = isHkcu ? Registry.CurrentUser : Registry.LocalMachine;
+                    using (var key = root.CreateSubKey(subKeyPath, RegistryKeyPermissionCheck.ReadWriteSubTree)) {
+                        if (key != null) {
+                            byte[] val = currentlyEnabled
+                                ? new byte[] { 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+                                : new byte[] { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                            key.SetValue(item.Name, val, RegistryValueKind.Binary);
+                            item.Status = newStatus;
+                            return true;
+                        }
+                    }
+                } else if (item.Type == "File" && !string.IsNullOrEmpty(item.FilePath)) {
+                    if (File.Exists(item.FilePath)) {
+                        string newPath = currentlyEnabled
+                            ? item.FilePath + ".disabled"
+                            : (item.FilePath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? item.FilePath.Substring(0, item.FilePath.Length - 9) : item.FilePath);
+                        if (newPath != item.FilePath) {
+                            File.Move(item.FilePath, newPath);
+                            item.FilePath = newPath;
+                            item.Name = Path.GetFileName(newPath);
+                            item.Status = newStatus;
+                            return true;
+                        }
+                    }
+                } else if (item.Type == "Service" && !string.IsNullOrEmpty(item.ServiceName)) {
+                    using (var scKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + item.ServiceName, true)) {
+                        if (scKey != null) {
+                            int startVal = currentlyEnabled ? 4 : 2; // 2 = Auto, 4 = Disabled
+                            scKey.SetValue("Start", startVal, RegistryValueKind.DWord);
+                            item.Status = newStatus;
+                            return true;
+                        }
+                    }
+                }
+            } catch { }
+            return false;
+        }
+
+        public static bool DeleteItem(StartupItem item) {
+            if (item == null) return false;
+            try {
+                if (item.Type == "Registry" && !string.IsNullOrEmpty(item.RegPath)) {
+                    bool isHkcu = item.RegPath.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase);
+                    string subKeyPath = item.RegPath.Substring(item.RegPath.IndexOf(@"\") + 1);
+                    RegistryKey root = isHkcu ? Registry.CurrentUser : Registry.LocalMachine;
+                    using (var key = root.OpenSubKey(subKeyPath, true)) {
+                        if (key != null) {
+                            key.DeleteValue(item.Name, false);
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(item.ApprPath)) {
+                        string apprSubKey = item.ApprPath.Substring(item.ApprPath.IndexOf(@"\") + 1);
+                        using (var apprKey = root.OpenSubKey(apprSubKey, true)) {
+                            if (apprKey != null) {
+                                apprKey.DeleteValue(item.Name, false);
+                            }
+                        }
+                    }
+                    return true;
+                } else if (item.Type == "File" && !string.IsNullOrEmpty(item.FilePath)) {
+                    if (File.Exists(item.FilePath)) {
+                        File.Delete(item.FilePath);
+                        return true;
+                    }
+                }
+            } catch { }
+            return false;
+        }
     }
 }

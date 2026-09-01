@@ -562,7 +562,7 @@ namespace HMT.Forms {
 
     // --- Time Zone Form ---
     public class TimeZoneForm : Form {
-        private ComboBox cbTimeZones;
+        private DarkComboBox cbTimeZones;
         private CheckBox chkNtp;
 
         public TimeZoneForm(string stepTitle) {
@@ -586,13 +586,9 @@ namespace HMT.Forms {
             };
             this.Controls.Add(lblHeader);
 
-            cbTimeZones = new ComboBox {
+            cbTimeZones = new DarkComboBox {
                 Location = DarkTheme.Scale(new Point(20, 48)),
                 Size = DarkTheme.Scale(new Size(380, 28)),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                FlatStyle = FlatStyle.Flat,
                 Font = DarkTheme.GetScaledFont(10.5f)
             };
             var zones = TimeZoneEngine.GetAvailableTimeZones();
@@ -1554,16 +1550,21 @@ namespace HMT.Forms {
         private Label lblTitle;
         private Label lblDesc;
         private SmoothProgressBar progressBar;
-        private TextBox txtOutput;
+        private DarkTextBox txtOutput;
+        private Button btnAbort;
         private Button btnClose;
         private Process process;
         private readonly DateTime startTime = DateTime.Now;
         private int currentPercent = 0;
         private string currentStage = "";
         private readonly string cmdName;
+        private readonly string cmdArgs;
+        private bool isDetached = false;
+        private bool hasDiskErrors = false;
 
         public CommandRunnerForm(string title, string description, string commandName, string arguments) {
             this.cmdName = commandName ?? "";
+            this.cmdArgs = arguments ?? "";
             this.Text = title;
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
@@ -1606,12 +1607,9 @@ namespace HMT.Forms {
             };
             this.Controls.Add(progressBar);
 
-            txtOutput = new TextBox {
+            txtOutput = new DarkTextBox {
                 Location = DarkTheme.Scale(new Point(18, 92)),
                 Size = DarkTheme.Scale(new Size(644, 330)),
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                BorderStyle = BorderStyle.FixedSingle,
                 Multiline = true,
                 ReadOnly = true,
                 ScrollBars = ScrollBars.Vertical,
@@ -1619,22 +1617,44 @@ namespace HMT.Forms {
             };
             this.Controls.Add(txtOutput);
 
+            btnAbort = new Button {
+                Text = "Cancel Task",
+                Location = DarkTheme.Scale(new Point(330, 432)),
+                Size = DarkTheme.Scale(new Size(125, 36)),
+                UseMnemonic = false
+            };
+            DarkTheme.StyleButton(btnAbort, DarkTheme.SurfaceHighlight);
+            btnAbort.Click += (s, e) => {
+                if (MessageBox.Show("Are you sure you want to abort the running operation?", "Abort Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
+                    try {
+                        isDetached = false;
+                        if (process != null && !process.HasExited) process.Kill();
+                    } catch { }
+                    this.Close();
+                }
+            };
+            this.Controls.Add(btnAbort);
+
             btnClose = new Button {
-                Text = "Cancel / Close",
-                Location = DarkTheme.Scale(new Point(542, 432)),
-                Size = DarkTheme.Scale(new Size(120, 36)),
+                Text = "Close (Run in Background)",
+                Location = DarkTheme.Scale(new Point(465, 432)),
+                Size = DarkTheme.Scale(new Size(197, 36)),
                 DialogResult = DialogResult.OK,
                 UseMnemonic = false
             };
             DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
             btnClose.Click += (s, e) => {
-                try { if (process != null && !process.HasExited) process.Kill(); } catch { }
+                isDetached = true;
                 this.Close();
             };
             this.Controls.Add(btnClose);
 
+            this.FormClosing += (s, e) => {
+                isDetached = true;
+            };
+
             this.Shown += async (s, e) => {
-                await Task.Run(() => {
+                await Task.Run(async () => {
                     try {
                         var psi = new ProcessStartInfo {
                             FileName = commandName,
@@ -1646,41 +1666,122 @@ namespace HMT.Forms {
                         };
 
                         process = new Process { StartInfo = psi };
-                        process.OutputDataReceived += (sender, args) => {
-                            if (args.Data != null) {
-                                this.BeginInvoke((Action)(() => {
-                                    txtOutput.AppendText(args.Data + Environment.NewLine);
-                                    ParseProgress(args.Data);
-                                }));
-                            }
-                        };
-                        process.ErrorDataReceived += (sender, args) => {
-                            if (args.Data != null) {
-                                this.BeginInvoke((Action)(() => {
-                                    txtOutput.AppendText("[ERR] " + args.Data + Environment.NewLine);
-                                }));
-                            }
-                        };
-
                         process.Start();
-                        process.BeginOutputReadLine();
-                        process.BeginErrorReadLine();
+
+                        var outTask = Task.Run(async () => {
+                            try {
+                                var stream = process.StandardOutput;
+                                char[] buffer = new char[256];
+                                var lineBuilder = new StringBuilder();
+                                int read;
+                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0) {
+                                    string textChunk = new string(buffer, 0, read);
+                                    for (int i = 0; i < read; i++) {
+                                        char ch = buffer[i];
+                                        if (ch == '\r' || ch == '\n') {
+                                            if (lineBuilder.Length > 0) {
+                                                string completedLine = lineBuilder.ToString();
+                                                lineBuilder.Clear();
+                                                if (!isDetached && !this.IsDisposed) {
+                                                    try { this.BeginInvoke((Action)(() => ParseProgress(completedLine))); } catch { }
+                                                }
+                                            }
+                                        } else {
+                                            lineBuilder.Append(ch);
+                                        }
+                                    }
+                                    if (!isDetached && !this.IsDisposed) {
+                                        try {
+                                            this.BeginInvoke((Action)(() => {
+                                                txtOutput.AppendText(textChunk);
+                                            }));
+                                        } catch { }
+                                    }
+                                }
+                                if (lineBuilder.Length > 0 && !isDetached && !this.IsDisposed) {
+                                    string finalLine = lineBuilder.ToString();
+                                    try { this.BeginInvoke((Action)(() => ParseProgress(finalLine))); } catch { }
+                                }
+                            } catch { }
+                        });
+
+                        var errTask = Task.Run(async () => {
+                            try {
+                                var stream = process.StandardError;
+                                char[] buffer = new char[256];
+                                int read;
+                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0) {
+                                    string errChunk = new string(buffer, 0, read);
+                                    if (!isDetached && !this.IsDisposed) {
+                                        try {
+                                            this.BeginInvoke((Action)(() => {
+                                                txtOutput.AppendText(errChunk);
+                                            }));
+                                        } catch { }
+                                    }
+                                }
+                            } catch { }
+                        });
+
+                        await Task.WhenAll(outTask, errTask);
                         process.WaitForExit();
 
-                        this.BeginInvoke((Action)(() => {
-                            progressBar.ShowShimmer = false;
-                            progressBar.Value = 100;
-                            lblDesc.Text = (process.ExitCode == 0)
-                                ? "Operation completed successfully! (Exit Code: 0)"
-                                : "Command completed with Exit Code: " + process.ExitCode;
-                            lblDesc.ForeColor = (process.ExitCode == 0) ? DarkTheme.AccentSuccess : DarkTheme.AccentDanger;
-                            btnClose.Text = "Close";
-                            DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
-                        }));
+                        if (!isDetached && !this.IsDisposed) {
+                            this.BeginInvoke((Action)(() => {
+                                progressBar.ShowShimmer = false;
+                                progressBar.Value = 100;
+                                btnAbort.Visible = false;
+                                btnClose.Text = "Close";
+                                DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
+
+                                if (process.ExitCode == 0) {
+                                    lblDesc.Text = "Operation completed successfully! (Exit Code: 0)";
+                                    lblDesc.ForeColor = DarkTheme.AccentSuccess;
+                                } else {
+                                    lblDesc.Text = "Command completed with Exit Code: " + process.ExitCode;
+                                    lblDesc.ForeColor = DarkTheme.AccentDanger;
+                                }
+
+                                if (hasDiskErrors) {
+                                    string driveLetter = "C:";
+                                    var mDrive = Regex.Match(cmdArgs ?? "", @"([A-Za-z]:)");
+                                    if (mDrive.Success) driveLetter = mDrive.Groups[1].Value.ToUpper();
+
+                                    if (MessageBox.Show(string.Format("ChkDsk detected file system errors on drive {0}.\n\nWould you like Hat's Multitool to schedule a disk repair check (chkdsk /f) on the next system restart?", driveLetter), "File System Errors Detected", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
+                                        try {
+                                            var psiFix = new ProcessStartInfo {
+                                                FileName = "fsutil.exe",
+                                                Arguments = "dirty set " + driveLetter,
+                                                CreateNoWindow = true,
+                                                UseShellExecute = false
+                                            };
+                                            using (var pFix = Process.Start(psiFix)) {
+                                                pFix.WaitForExit();
+                                            }
+                                            DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Drive {0} has been marked dirty. Windows will automatically scan and repair file system errors upon the next system restart.", driveLetter), true);
+                                        } catch {
+                                            try {
+                                                Process.Start(new ProcessStartInfo {
+                                                    FileName = "cmd.exe",
+                                                    Arguments = string.Format("/c echo y | chkdsk {0} /f", driveLetter),
+                                                    CreateNoWindow = true,
+                                                    UseShellExecute = false
+                                                });
+                                                DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Offline repair has been scheduled for drive {0} on next reboot.", driveLetter), true);
+                                            } catch { }
+                                        }
+                                    }
+                                }
+                            }));
+                        }
                     } catch (Exception ex) {
-                        this.BeginInvoke((Action)(() => {
-                            txtOutput.AppendText("\nExecution Error: " + ex.Message + Environment.NewLine);
-                        }));
+                        if (!isDetached && !this.IsDisposed) {
+                            try {
+                                this.BeginInvoke((Action)(() => {
+                                    txtOutput.AppendText("\nExecution Error: " + ex.Message + Environment.NewLine);
+                                }));
+                            } catch { }
+                        }
                     }
                 });
             };
@@ -1693,16 +1794,22 @@ namespace HMT.Forms {
             string l = line.Trim();
             bool updated = false;
 
-            // 1. DISM Progress & Phase Tracking
-            if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Deployment Image", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (l.IndexOf("Image Version", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Initializing", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Initializing Image Store";
+            // 1. DISM & Feature Enablement Progress & Phase Tracking
+            if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Deployment Image", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/online", StringComparison.OrdinalIgnoreCase) >= 0) {
+                if (cmdArgs.IndexOf("Enable-Feature", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Enabling feature", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Enabling Feature Components & Downloading Packages";
                     updated = true;
-                } else if (l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
+                } else if (cmdArgs.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Restoring Component Store & Downloading Source Files";
+                    updated = true;
+                } else if (cmdArgs.IndexOf("ScanHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "DISM: Scanning Component Store Corruption";
                     updated = true;
-                } else if (l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Restoring Component Store & Downloading Repairs";
+                } else if (cmdArgs.IndexOf("CheckHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Verifying Image Store Health";
+                    updated = true;
+                } else if (l.IndexOf("Image Version", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Initializing", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Initializing Image Servicing Engine";
                     updated = true;
                 } else if (l.IndexOf("completed successfully", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "DISM: Operation Completed Successfully";
@@ -1710,13 +1817,21 @@ namespace HMT.Forms {
                     updated = true;
                 }
 
-                var mDism = Regex.Match(l, @"([\d\.]+)%\s*\]");
+                var mDism = Regex.Match(l, @"\[\s*=*\s*([\d\.]+)%\s*=*\]");
                 if (mDism.Success) {
                     double p;
                     if (double.TryParse(mDism.Groups[1].Value, out p)) {
                         currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
-                        if (string.IsNullOrEmpty(currentStage)) currentStage = "DISM: Processing Image Components";
                         updated = true;
+                    }
+                } else {
+                    var mDism2 = Regex.Match(l, @"([\d\.]+)%\s*\]");
+                    if (mDism2.Success) {
+                        double p;
+                        if (double.TryParse(mDism2.Groups[1].Value, out p)) {
+                            currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
+                            updated = true;
+                        }
                     }
                 }
             }
@@ -1750,38 +1865,53 @@ namespace HMT.Forms {
             }
             // 3. ChkDsk Stage & Progress Tracking
             else if (cmdName.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage ", StringComparison.OrdinalIgnoreCase) >= 0) {
-                int currentStageNum = 1;
+                if (l.IndexOf("found problems", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    l.IndexOf("Errors found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    l.IndexOf("Corruption was found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    l.IndexOf("is dirty", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    l.IndexOf("cannot continue in read-only mode", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    hasDiskErrors = true;
+                }
+
+                int totalStages = 3;
+                if (cmdArgs.IndexOf("/r", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/scan", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    totalStages = 5;
+                }
+
+                int stageNum = 1;
                 if (l.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "ChkDsk: Stage 1/5 - Examining Basic File Structure";
-                    currentStageNum = 1;
+                    currentStage = string.Format("ChkDsk: Stage 1/{0} - Examining Basic File System Structure", totalStages);
+                    stageNum = 1;
                     updated = true;
                 } else if (l.IndexOf("Stage 2", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "ChkDsk: Stage 2/5 - Examining File Name Linkage";
-                    currentStageNum = 2;
+                    currentStage = string.Format("ChkDsk: Stage 2/{0} - Examining File Name Linkage", totalStages);
+                    stageNum = 2;
                     updated = true;
                 } else if (l.IndexOf("Stage 3", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "ChkDsk: Stage 3/5 - Examining Security Descriptors";
-                    currentStageNum = 3;
+                    currentStage = string.Format("ChkDsk: Stage 3/{0} - Examining Security Descriptors", totalStages);
+                    stageNum = 3;
                     updated = true;
                 } else if (l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "ChkDsk: Stage 4/5 - Scanning User File Data";
-                    currentStageNum = 4;
+                    stageNum = 4;
                     updated = true;
                 } else if (l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "ChkDsk: Stage 5/5 - Scanning Free Space & Clusters";
-                    currentStageNum = 5;
+                    stageNum = 5;
                     updated = true;
-                } else if (l.IndexOf("found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("made corrections", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "ChkDsk: File System Check Completed";
-                    currentPercent = 100;
-                    updated = true;
+                } else if (l.IndexOf("found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("made corrections", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    if (stageNum >= totalStages) {
+                        currentStage = "ChkDsk: File System Check Completed";
+                        currentPercent = 100;
+                        updated = true;
+                    }
                 }
 
                 var mChkPct = Regex.Match(l, @"\((\d+)%\)");
                 if (mChkPct.Success) {
                     int stagePct;
                     if (int.TryParse(mChkPct.Groups[1].Value, out stagePct)) {
-                        int overall = ((currentStageNum - 1) * 20) + (int)(stagePct * 0.20);
+                        int overall = ((stageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
                         currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
                         updated = true;
                     }
@@ -1790,14 +1920,13 @@ namespace HMT.Forms {
                     if (mChkPct2.Success) {
                         int stagePct;
                         if (int.TryParse(mChkPct2.Groups[1].Value, out stagePct)) {
-                            int overall = ((currentStageNum - 1) * 20) + (int)(stagePct * 0.20);
+                            int overall = ((stageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
                             currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
                             updated = true;
                         }
                     }
                 }
             }
-
             // 4. Generic percentage fallback
             if (!updated) {
                 var mGen = Regex.Match(l, @"\b(\d{1,3})%");
@@ -1966,7 +2095,7 @@ namespace HMT.Forms {
         private Label lblUpload;
         private Label lblPhase;
         private SmoothGraphControl chart;
-        private ComboBox cbStreams;
+        private DarkComboBox cbStreams;
         private Button btnStart;
         private Button btnClose;
         private FastSpeedTestEngine speedEngine = new FastSpeedTestEngine();
@@ -2032,13 +2161,9 @@ namespace HMT.Forms {
             var lblStr = new Label { Text = "Streams:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, yBot + 6)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblStr);
 
-            cbStreams = new ComboBox {
+            cbStreams = new DarkComboBox {
                 Location = DarkTheme.Scale(new Point(85, yBot)),
                 Size = DarkTheme.Scale(new Size(200, 28)),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                FlatStyle = FlatStyle.Flat,
                 Font = DarkTheme.GetScaledFont(10.5f)
             };
             cbStreams.Items.AddRange(new object[] { "2 Streams", "4 Streams (Recommended)", "8 Streams", "16 Streams (Gigabit+)" });
@@ -2442,7 +2567,7 @@ namespace HMT.Forms {
 
     // --- Storage Health & Benchmark Dashboard Form ---
     public class StorageHealthForm : Form {
-        private ComboBox cmbDrives;
+        private DarkComboBox cmbDrives;
         private DarkTabControl shTabs;
         private Label lblCardModel;
         private Label lblCardBus;
@@ -2450,8 +2575,8 @@ namespace HMT.Forms {
         private Label lblCardWrites;
         private Label lblCardWear;
         private DarkListView shLV;
-        private ComboBox cmbBenchTarget;
-        private ComboBox cmbBenchSize;
+        private DarkComboBox cmbBenchTarget;
+        private DarkComboBox cmbBenchSize;
         private Button btnSeqBench;
         private Button btnRandBench;
         private Label lblBenchStatus;
@@ -2484,13 +2609,9 @@ namespace HMT.Forms {
             };
             this.Controls.Add(lblSelDrive);
 
-            cmbDrives = new ComboBox {
+            cmbDrives = new DarkComboBox {
                 Location = DarkTheme.Scale(new Point(160, 11)),
                 Size = DarkTheme.Scale(new Size(530, 28)),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                FlatStyle = FlatStyle.Flat,
                 Font = DarkTheme.GetScaledFont(10.5f)
             };
             this.Controls.Add(cmbDrives);
@@ -2560,7 +2681,7 @@ namespace HMT.Forms {
             var lblBenchTarget = new Label { Text = "Target Partition:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(12, 15)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
             tabBench.Controls.Add(lblBenchTarget);
 
-            cmbBenchTarget = new ComboBox { Location = DarkTheme.Scale(new Point(125, 11)), Size = DarkTheme.Scale(new Size(150, 28)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Surface, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10.5f) };
+            cmbBenchTarget = new DarkComboBox { Location = DarkTheme.Scale(new Point(125, 11)), Size = DarkTheme.Scale(new Size(150, 28)), Font = DarkTheme.GetScaledFont(10.5f) };
             try {
                 foreach (var d in DriveInfo.GetDrives()) {
                     try {
@@ -2574,7 +2695,7 @@ namespace HMT.Forms {
             var lblBenchSize = new Label { Text = "Test Size:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(290, 15)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
             tabBench.Controls.Add(lblBenchSize);
 
-            cmbBenchSize = new ComboBox { Location = DarkTheme.Scale(new Point(360, 11)), Size = DarkTheme.Scale(new Size(160, 28)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Surface, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10.5f) };
+            cmbBenchSize = new DarkComboBox { Location = DarkTheme.Scale(new Point(360, 11)), Size = DarkTheme.Scale(new Size(160, 28)), Font = DarkTheme.GetScaledFont(10.5f) };
             cmbBenchSize.Items.AddRange(new object[] { "100 MB (Quick)", "250 MB (Standard)", "500 MB (Thorough)", "1 GB (Extended)", "5 GB (Deep)", "10 GB (Longest)" });
             cmbBenchSize.SelectedIndex = 1;
             tabBench.Controls.Add(cmbBenchSize);
@@ -2749,9 +2870,144 @@ namespace HMT.Forms {
         }
     }
 
+    // --- BitLocker Encryption Options Modal Dialog ---
+    public class BitLockerEncryptOptionsForm : Form {
+        public bool UsedSpaceOnly { get; private set; }
+        public bool SkipHardwareTest { get; private set; }
+        public bool AddRecoveryPassword { get; private set; }
+
+        public BitLockerEncryptOptionsForm(string driveLetter) {
+            this.Text = "Configure BitLocker Encryption - " + driveLetter;
+            this.BackColor = DarkTheme.Background;
+            this.AutoScaleDimensions = new SizeF(96F, 96F);
+            this.AutoScaleMode = AutoScaleMode.None;
+            this.ClientSize = DarkTheme.Scale(new Size(540, 320));
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Icon = DarkTheme.AppIcon;
+            this.Font = DarkTheme.GetScaledFont(11f);
+
+            var lblHeader = new Label {
+                Text = "Choose Encryption Settings for " + driveLetter,
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(20, 16)),
+                AutoSize = true,
+                Font = DarkTheme.GetScaledFont(12f, FontStyle.Bold),
+                UseMnemonic = false
+            };
+            this.Controls.Add(lblHeader);
+
+            // Encryption Mode Panel
+            var pnlMode = new Panel {
+                Location = DarkTheme.Scale(new Point(20, 48)),
+                Size = DarkTheme.Scale(new Size(500, 95)),
+                BackColor = DarkTheme.Surface,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            this.Controls.Add(pnlMode);
+
+            var lblMode = new Label {
+                Text = "How much of your drive to encrypt:",
+                ForeColor = DarkTheme.AccentPrimary,
+                Location = DarkTheme.Scale(new Point(12, 10)),
+                AutoSize = true,
+                Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold),
+                UseMnemonic = false
+            };
+            pnlMode.Controls.Add(lblMode);
+
+            var rbUsed = new RadioButton {
+                Text = "Encrypt used disk space only (Faster, recommended for newer drives)",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(14, 34)),
+                Size = DarkTheme.Scale(new Size(470, 24)),
+                Checked = true,
+                Font = DarkTheme.GetScaledFont(9.5f),
+                UseMnemonic = false
+            };
+            pnlMode.Controls.Add(rbUsed);
+
+            var rbFull = new RadioButton {
+                Text = "Encrypt entire drive (Slower, encrypts all existing free space)",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(14, 60)),
+                Size = DarkTheme.Scale(new Size(470, 24)),
+                Font = DarkTheme.GetScaledFont(9.5f),
+                UseMnemonic = false
+            };
+            pnlMode.Controls.Add(rbFull);
+
+            // Options Panel
+            var pnlOptions = new Panel {
+                Location = DarkTheme.Scale(new Point(20, 150)),
+                Size = DarkTheme.Scale(new Size(500, 95)),
+                BackColor = DarkTheme.Surface,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            this.Controls.Add(pnlOptions);
+
+            var chkSkipTest = new CheckBox {
+                Text = "Bypass BitLocker hardware test (Starts encryption immediately without reboot)",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(14, 14)),
+                Size = DarkTheme.Scale(new Size(470, 28)),
+                Checked = true,
+                Font = DarkTheme.GetScaledFont(9.5f),
+                UseMnemonic = false
+            };
+            pnlOptions.Controls.Add(chkSkipTest);
+
+            var chkPassword = new CheckBox {
+                Text = "Automatically generate & attach a 48-digit numerical recovery password",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(14, 48)),
+                Size = DarkTheme.Scale(new Size(470, 28)),
+                Checked = true,
+                Font = DarkTheme.GetScaledFont(9.5f),
+                UseMnemonic = false
+            };
+            pnlOptions.Controls.Add(chkPassword);
+
+            // Buttons
+            var btnStart = new Button {
+                Text = "Start Encryption",
+                Location = DarkTheme.Scale(new Point(210, 260)),
+                Size = DarkTheme.Scale(new Size(165, 38)),
+                UseMnemonic = false
+            };
+            DarkTheme.StyleButton(btnStart, DarkTheme.AccentSuccess);
+            btnStart.Click += (s, e) => {
+                UsedSpaceOnly = rbUsed.Checked;
+                SkipHardwareTest = chkSkipTest.Checked;
+                AddRecoveryPassword = chkPassword.Checked;
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            };
+            this.Controls.Add(btnStart);
+
+            var btnCancel = new Button {
+                Text = "Cancel",
+                Location = DarkTheme.Scale(new Point(390, 260)),
+                Size = DarkTheme.Scale(new Size(130, 38)),
+                DialogResult = DialogResult.Cancel,
+                UseMnemonic = false
+            };
+            DarkTheme.StyleButton(btnCancel, DarkTheme.SurfaceHighlight);
+            btnCancel.Click += (s, e) => {
+                this.DialogResult = DialogResult.Cancel;
+                this.Close();
+            };
+            this.Controls.Add(btnCancel);
+
+            this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+    }
+
     // --- BitLocker Manager Form (Full Fidelity Advanced Edition) ---
     public class BitLockerManagerForm : Form {
-        private ComboBox cmbDrives;
+        private DarkComboBox cmbDrives;
         private Label lblVolStatus;
         private Label lblVolType;
         private Label lblLockStatus;
@@ -2762,7 +3018,7 @@ namespace HMT.Forms {
         private Button btnAddProtector;
         private Button btnDeleteProtector;
         private DarkListView lvProtectors;
-        private ComboBox cmbUnlockMethod;
+        private DarkComboBox cmbUnlockMethod;
         private DarkTextBox txtUnlockSecret;
         private Button btnUnlock;
         private Label lblProgStatus;
@@ -2795,13 +3051,9 @@ namespace HMT.Forms {
             };
             this.Controls.Add(lblSelectDrive);
 
-            cmbDrives = new ComboBox {
+            cmbDrives = new DarkComboBox {
                 Location = DarkTheme.Scale(new Point(170, 11)),
                 Size = DarkTheme.Scale(new Size(460, 28)),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                FlatStyle = FlatStyle.Flat,
                 Font = DarkTheme.GetScaledFont(10.5f)
             };
             cmbDrives.SelectedIndexChanged += (s, e) => RefreshBitLockerStatus();
@@ -2919,7 +3171,7 @@ namespace HMT.Forms {
             var lblUnlockMethod = new Label { Text = "Unlock Method:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(10, 8)), Size = DarkTheme.Scale(new Size(120, 18)), Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             unlockPanel.Controls.Add(lblUnlockMethod);
 
-            cmbUnlockMethod = new ComboBox { Location = DarkTheme.Scale(new Point(10, 28)), Size = DarkTheme.Scale(new Size(210, 26)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Background, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10f) };
+            cmbUnlockMethod = new DarkComboBox { Location = DarkTheme.Scale(new Point(10, 28)), Size = DarkTheme.Scale(new Size(210, 26)), Font = DarkTheme.GetScaledFont(10f) };
             cmbUnlockMethod.Items.AddRange(new object[] { "Recovery Password (48-digit)", "Password / Passphrase" });
             cmbUnlockMethod.SelectedIndex = 0;
             unlockPanel.Controls.Add(cmbUnlockMethod);
@@ -3378,6 +3630,22 @@ namespace HMT.Forms {
             if (cmbDrives.SelectedItem == null) return;
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
 
+            string args = "";
+            if (action == "-on") {
+                using (var optForm = new BitLockerEncryptOptionsForm(drive)) {
+                    if (optForm.ShowDialog(this) != DialogResult.OK) {
+                        return;
+                    }
+                    args = string.Format("-on {0}{1}{2}{3}",
+                        drive,
+                        optForm.UsedSpaceOnly ? " -UsedSpaceOnly" : "",
+                        optForm.SkipHardwareTest ? " -SkipHardwareTest" : "",
+                        optForm.AddRecoveryPassword ? " -RecoveryPassword" : "");
+                }
+            } else {
+                args = string.Format("-off {0}", drive);
+            }
+
             lblProgStatus.Text = (action == "-on") ? "Starting BitLocker Encryption..." : "Starting BitLocker Decryption...";
             lblProgStatus.ForeColor = DarkTheme.AccentPrimary;
             pBar.ShowShimmer = true;
@@ -3387,10 +3655,6 @@ namespace HMT.Forms {
 
             Task.Run(() => {
                 try {
-                    string args = (action == "-on")
-                        ? string.Format("-on {0} -RecoveryPassword -SkipHardwareTest", drive)
-                        : string.Format("-off {0}", drive);
-
                     var psi = new ProcessStartInfo {
                         FileName = "manage-bde.exe",
                         Arguments = args,
@@ -3633,17 +3897,9 @@ namespace HMT.Forms {
     }
 
     // --- Startup Manager Form ---
-    public class StartupItem {
-        public string Name { get; set; }
-        public string Command { get; set; }
-        public string LocationType { get; set; } // "HKCU", "HKLM", "Startup Folder"
-        public string RegistryPath { get; set; }
-        public bool Enabled { get; set; }
-    }
-
     public class StartupManagerForm : Form {
         private DarkListView lvStartup;
-        private ComboBox cbFilter;
+        private DarkComboBox cbFilter;
         private DarkTextBox txtSearch;
         private Button btnToggle;
         private Button btnDelete;
@@ -3654,7 +3910,7 @@ namespace HMT.Forms {
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.None;
-            this.ClientSize = DarkTheme.Scale(new Size(780, 500));
+            this.ClientSize = DarkTheme.Scale(new Size(800, 510));
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -3662,37 +3918,34 @@ namespace HMT.Forms {
             this.Font = DarkTheme.GetScaledFont(12f);
 
             int y = 14;
-            var lblFilter = new Label { Text = "Filter Location:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(20, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
+            var lblFilter = new Label { Text = "Category:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(20, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold), UseMnemonic = false };
             this.Controls.Add(lblFilter);
 
-            cbFilter = new ComboBox {
-                Location = DarkTheme.Scale(new Point(125, y - 3)),
-                Size = DarkTheme.Scale(new Size(180, 26)),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = DarkTheme.Surface,
-                ForeColor = DarkTheme.TextMain,
-                FlatStyle = FlatStyle.Flat,
-                Font = DarkTheme.GetScaledFont(10.5f)
+            cbFilter = new DarkComboBox {
+                Location = DarkTheme.Scale(new Point(95, y - 3)),
+                Size = DarkTheme.Scale(new Size(205, 26)),
+                Font = DarkTheme.GetScaledFont(10f)
             };
-            cbFilter.Items.AddRange(new object[] { "All Locations", "HKLM (System-Wide)", "HKCU (Current User)", "Startup Folder" });
+            cbFilter.Items.AddRange(new object[] { "All Categories", "Registry Run (HKCU & HKLM)", "Startup Folders", "Startup Services", "Shell / Winlogon", "Enabled Only", "Disabled Only" });
             cbFilter.SelectedIndex = 0;
             cbFilter.SelectedIndexChanged += (s, e) => ApplyFilter();
             this.Controls.Add(cbFilter);
 
-            var lblSearch = new Label { Text = "Search:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(330, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
+            var lblSearch = new Label { Text = "Search:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(320, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold), UseMnemonic = false };
             this.Controls.Add(lblSearch);
 
             txtSearch = new DarkTextBox {
-                Location = DarkTheme.Scale(new Point(390, y - 3)),
-                Size = DarkTheme.Scale(new Size(230, 25))
+                Location = DarkTheme.Scale(new Point(375, y - 3)),
+                Size = DarkTheme.Scale(new Size(255, 25))
             };
             txtSearch.TextChanged += (s, e) => ApplyFilter();
             this.Controls.Add(txtSearch);
 
             var btnRefresh = new Button {
                 Text = "Refresh",
-                Location = DarkTheme.Scale(new Point(640, y - 5)),
-                Size = DarkTheme.Scale(new Size(115, 30))
+                Location = DarkTheme.Scale(new Point(650, y - 5)),
+                Size = DarkTheme.Scale(new Size(130, 30)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnRefresh, DarkTheme.SurfaceHighlight);
             btnRefresh.Click += (s, e) => RefreshEntries();
@@ -3700,49 +3953,47 @@ namespace HMT.Forms {
 
             lvStartup = new DarkListView {
                 Location = DarkTheme.Scale(new Point(20, 52)),
-                Size = DarkTheme.Scale(new Size(735, 380)),
+                Size = DarkTheme.Scale(new Size(760, 390)),
                 Font = DarkTheme.GetScaledFont(10.5f)
             };
-            lvStartup.Columns.Add("Program Name", DarkTheme.Scale(190));
-            lvStartup.Columns.Add("Command / Binary Path", DarkTheme.Scale(360));
-            lvStartup.Columns.Add("Location", DarkTheme.Scale(160));
+            lvStartup.Columns.Add("Program / Service Name", DarkTheme.Scale(200));
+            lvStartup.Columns.Add("Status", DarkTheme.Scale(80));
+            lvStartup.Columns.Add("Category & Location", DarkTheme.Scale(170));
+            lvStartup.Columns.Add("Command / Binary Path", DarkTheme.Scale(300));
             this.Controls.Add(lvStartup);
 
             btnToggle = new Button {
                 Text = "Enable / Disable",
-                Location = DarkTheme.Scale(new Point(490, 444)),
-                Size = DarkTheme.Scale(new Size(135, 38))
+                Location = DarkTheme.Scale(new Point(500, 456)),
+                Size = DarkTheme.Scale(new Size(145, 38)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnToggle, DarkTheme.AccentPrimary);
             btnToggle.Click += (s, e) => {
-                if (lvStartup.SelectedItems.Count > 0 && lvStartup.SelectedItems[0].Tag is StartupItem) {
-                    RefreshEntries();
+                if (lvStartup.SelectedItems.Count > 0 && lvStartup.SelectedItems[0].Tag is StartupItem item) {
+                    if (StartupScanner.ToggleItem(item)) {
+                        RefreshEntries();
+                    } else {
+                        DarkTheme.ShowStyledMessageBox("Toggle Failed", "Unable to modify startup state for '" + item.Name + "'. Administrator privileges may be required.", false);
+                    }
                 }
             };
             this.Controls.Add(btnToggle);
 
             btnDelete = new Button {
-                Text = "Delete",
-                Location = DarkTheme.Scale(new Point(635, 444)),
-                Size = DarkTheme.Scale(new Size(120, 38))
+                Text = "Delete Item",
+                Location = DarkTheme.Scale(new Point(655, 456)),
+                Size = DarkTheme.Scale(new Size(125, 38)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnDelete, DarkTheme.AccentDanger);
             btnDelete.Click += (s, e) => {
                 if (lvStartup.SelectedItems.Count > 0 && lvStartup.SelectedItems[0].Tag is StartupItem item) {
-                    if (MessageBox.Show("Delete startup entry: " + item.Name + "?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
-                        try {
-                            if (item.LocationType.StartsWith("HKCU")) {
-                                using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true)) {
-                                    if (key != null) key.DeleteValue(item.Name, false);
-                                }
-                            } else if (item.LocationType.StartsWith("HKLM")) {
-                                using (var key = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true)) {
-                                    if (key != null) key.DeleteValue(item.Name, false);
-                                }
-                            }
+                    if (MessageBox.Show("Are you sure you want to permanently delete startup entry '" + item.Name + "'?", "Confirm Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
+                        if (StartupScanner.DeleteItem(item)) {
                             RefreshEntries();
-                        } catch (Exception ex) {
-                            MessageBox.Show("Failed to delete entry: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        } else {
+                            DarkTheme.ShowStyledMessageBox("Delete Failed", "Unable to delete startup item. Access might be restricted.", false);
                         }
                     }
                 }
@@ -3754,49 +4005,35 @@ namespace HMT.Forms {
         }
 
         private void RefreshEntries() {
-            allItems.Clear();
-            try {
-                using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) {
-                    if (key != null) {
-                        foreach (var name in key.GetValueNames()) {
-                            allItems.Add(new StartupItem { Name = name, Command = key.GetValue(name)?.ToString(), LocationType = "HKCU (Current User)", Enabled = true });
-                        }
-                    }
-                }
-            } catch { }
-
-            try {
-                using (var key = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) {
-                    if (key != null) {
-                        foreach (var name in key.GetValueNames()) {
-                            allItems.Add(new StartupItem { Name = name, Command = key.GetValue(name)?.ToString(), LocationType = "HKLM (System-Wide)", Enabled = true });
-                        }
-                    }
-                }
-            } catch { }
-
-            string startupFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup));
-            if (Directory.Exists(startupFolder)) {
-                foreach (var file in Directory.GetFiles(startupFolder)) {
-                    allItems.Add(new StartupItem { Name = Path.GetFileNameWithoutExtension(file), Command = file, LocationType = "Startup Folder", Enabled = true });
-                }
-            }
-
+            allItems = StartupScanner.ScanAll();
             ApplyFilter();
         }
 
         private void ApplyFilter() {
             lvStartup.Items.Clear();
             string search = txtSearch.Text.Trim();
-            string filter = cbFilter.SelectedItem?.ToString() ?? "All Locations";
+            string filter = cbFilter.SelectedItem?.ToString() ?? "All Categories";
 
             foreach (var item in allItems) {
-                if (filter != "All Locations" && !item.LocationType.StartsWith(filter.Substring(0, 4))) continue;
-                if (!string.IsNullOrEmpty(search) && item.Name.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0 && item.Command.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (filter == "Enabled Only" && !item.Status.Equals("Enabled", StringComparison.OrdinalIgnoreCase)) continue;
+                if (filter == "Disabled Only" && !item.Status.Equals("Disabled", StringComparison.OrdinalIgnoreCase)) continue;
+                if (filter == "Registry Run (HKCU & HKLM)" && !item.Category.StartsWith("Registry", StringComparison.OrdinalIgnoreCase)) continue;
+                if (filter == "Startup Folders" && !item.Category.StartsWith("Startup Folder", StringComparison.OrdinalIgnoreCase)) continue;
+                if (filter == "Startup Services" && !item.Category.StartsWith("Startup Service", StringComparison.OrdinalIgnoreCase)) continue;
+                if (filter == "Shell / Winlogon" && !item.Category.StartsWith("Shell", StringComparison.OrdinalIgnoreCase)) continue;
 
-                var lvi = new ListViewItem(item.Name);
-                lvi.SubItems.Add(item.Command);
-                lvi.SubItems.Add(item.LocationType);
+                if (!string.IsNullOrEmpty(search)) {
+                    if ((item.Name ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0 &&
+                        (item.Command ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0 &&
+                        (item.Location ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0) {
+                        continue;
+                    }
+                }
+
+                var lvi = new ListViewItem(item.Name ?? "Unknown");
+                lvi.SubItems.Add(item.Status ?? "Enabled");
+                lvi.SubItems.Add((item.Category ?? "") + " (" + (item.Location ?? "") + ")");
+                lvi.SubItems.Add(item.Command ?? "");
                 lvi.Tag = item;
                 lvStartup.Items.Add(lvi);
             }
