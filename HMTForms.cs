@@ -121,14 +121,13 @@ namespace HMT.Forms {
             }
         }
 
-        public static void StyleButton(Button btn, Color? accentColor = null) {
-            if (btn == null) return;
-            Color baseColor = accentColor ?? AccentPurple;
+        public static void StyleButton(Button btn, Color baseColor) {
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
             btn.BackColor = baseColor;
             btn.ForeColor = Color.White;
             btn.Cursor = Cursors.Hand;
+            btn.UseMnemonic = false;
             btn.Font = GetScaledFont(11f, FontStyle.Bold);
 
             btn.MouseEnter += (s, e) => {
@@ -137,6 +136,17 @@ namespace HMT.Forms {
             btn.MouseLeave += (s, e) => {
                 btn.BackColor = baseColor;
             };
+        }
+
+        public static void LaunchModelessForm(Func<Form> formFactory) {
+            var thread = new Thread(() => {
+                try {
+                    var form = formFactory();
+                    Application.Run(form);
+                } catch { }
+            }) { IsBackground = true };
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
         }
 
         public static string ShowPromptDialog(string prompt, string title, string defaultText = "") {
@@ -247,15 +257,17 @@ namespace HMT.Forms {
                 Font = DarkTheme.GetScaledFont(10f),
                 ForeColor = DarkTheme.TextMuted,
                 Location = DarkTheme.Scale(new Point(90, 42)),
-                Size = DarkTheme.Scale(new Size(195, 20))
+                Size = DarkTheme.Scale(new Size(195, 20)),
+                UseMnemonic = false
             };
             pnlHeader.Controls.Add(lblSubtitle);
 
             int y = 92;
             var btnSetup = new Button {
-                Text = "PC Setup and Config",
+                Text = "PC Setup & Config",
                 Location = DarkTheme.Scale(new Point(40, y)),
-                Size = DarkTheme.Scale(new Size(240, 48))
+                Size = DarkTheme.Scale(new Size(240, 48)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnSetup, DarkTheme.AccentPurple);
             btnSetup.Click += (s, e) => {
@@ -269,7 +281,8 @@ namespace HMT.Forms {
             var btnTools = new Button {
                 Text = "Tools & Troubleshooting",
                 Location = DarkTheme.Scale(new Point(40, y)),
-                Size = DarkTheme.Scale(new Size(240, 48))
+                Size = DarkTheme.Scale(new Size(240, 48)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnTools, DarkTheme.AccentPrimary);
             btnTools.Click += (s, e) => {
@@ -286,11 +299,7 @@ namespace HMT.Forms {
                 Size = DarkTheme.Scale(new Size(115, 42))
             };
             DarkTheme.StyleButton(btnAbout, DarkTheme.SurfaceHighlight);
-            btnAbout.Click += (s, e) => {
-                using (var about = new AboutForm(appVersion)) {
-                    about.ShowDialog();
-                }
-            };
+            btnAbout.Click += (s, e) => DarkTheme.LaunchModelessForm(() => new AboutForm(appVersion));
             this.Controls.Add(btnAbout);
 
             var btnExit = new Button {
@@ -318,8 +327,8 @@ namespace HMT.Forms {
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.None;
-            this.ClientSize = DarkTheme.Scale(new Size(320, 380));
-            this.StartPosition = FormStartPosition.CenterParent;
+            this.ClientSize = DarkTheme.Scale(new Size(320, 390));
+            this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -358,24 +367,27 @@ namespace HMT.Forms {
 
             y += 28;
             var lblAuthor = new Label {
-                Text = "Created by Tyler Hatfield\nReleased under the GNU General Public License v3.0 (GPLv3)",
-                Font = DarkTheme.GetScaledFont(10.5f),
+                Text = "Created by Tyler Hatfield\nReleased under the GNU General Public\nLicense v3.0 (GPLv3)",
+                Font = DarkTheme.GetScaledFont(10f),
                 ForeColor = DarkTheme.TextMain,
-                Location = DarkTheme.Scale(new Point(0, y)),
-                Size = DarkTheme.Scale(new Size(320, 42)),
-                TextAlign = ContentAlignment.MiddleCenter
+                Location = DarkTheme.Scale(new Point(10, y)),
+                Size = DarkTheme.Scale(new Size(300, 52)),
+                TextAlign = ContentAlignment.MiddleCenter,
+                UseMnemonic = false
             };
             this.Controls.Add(lblAuthor);
 
-            y += 62;
+            y += 56;
             var linkGithub = new LinkLabel {
-                Text = "View Source on GitHub",
+                Text = "GitHub Repository & Updates",
+                Font = DarkTheme.GetScaledFont(10f),
                 LinkColor = DarkTheme.AccentPrimary,
-                ActiveLinkColor = Color.FromArgb(114, 137, 218),
-                Font = DarkTheme.GetScaledFont(11f),
+                ActiveLinkColor = DarkTheme.AccentPurple,
+                VisitedLinkColor = DarkTheme.AccentPrimary,
                 Location = DarkTheme.Scale(new Point(0, y)),
                 Size = DarkTheme.Scale(new Size(320, 22)),
-                TextAlign = ContentAlignment.MiddleCenter
+                TextAlign = ContentAlignment.MiddleCenter,
+                UseMnemonic = false
             };
             linkGithub.LinkClicked += (s, e) => {
                 try { Process.Start("https://github.com/TylerHats/Hats-Multitool"); } catch { }
@@ -538,7 +550,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(20, 92)),
                 Size = DarkTheme.Scale(new Size(380, 26)),
-                Font = DarkTheme.GetScaledFont(10.5f)
+                Font = DarkTheme.GetScaledFont(10.5f),
+                UseMnemonic = false
             };
             this.Controls.Add(chkNtp);
 
@@ -1350,44 +1363,34 @@ namespace HMT.Forms {
         private void ExecuteTool(ExternalToolItem tool) {
             try {
                 if (tool.ActionType == "Command") {
-                    var runner = new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments);
-                    runner.Show();
+                    DarkTheme.LaunchModelessForm(() => new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments));
                 } else if (tool.ActionType == "Download") {
-                    var dl = new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive);
-                    dl.Show();
+                    DarkTheme.LaunchModelessForm(() => new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive));
                 } else if (tool.ActionType == "InternalDialog") {
                     switch (tool.Target) {
                         case "storage_health":
-                            var sh = new StorageHealthForm();
-                            sh.Show();
+                            DarkTheme.LaunchModelessForm(() => new StorageHealthForm());
                             break;
                         case "speed_test":
-                            var st = new SpeedTestForm();
-                            st.Show();
+                            DarkTheme.LaunchModelessForm(() => new SpeedTestForm());
                             break;
                         case "packet_loss":
-                            var pl = new PacketLossForm();
-                            pl.Show();
+                            DarkTheme.LaunchModelessForm(() => new PacketLossForm());
                             break;
                         case "tcp_checker":
-                            var tc = new TcpCheckerForm();
-                            tc.Show();
+                            DarkTheme.LaunchModelessForm(() => new TcpCheckerForm());
                             break;
                         case "bitlocker_manager":
-                            var bl = new BitLockerManagerForm();
-                            bl.Show();
+                            DarkTheme.LaunchModelessForm(() => new BitLockerManagerForm());
                             break;
                         case "startup_manager":
-                            var sm = new StartupManagerForm();
-                            sm.Show();
+                            DarkTheme.LaunchModelessForm(() => new StartupManagerForm());
                             break;
                         case "winupdate_reset":
-                            var wu = new WindowsUpdateResetForm();
-                            wu.Show();
+                            DarkTheme.LaunchModelessForm(() => new WindowsUpdateResetForm());
                             break;
                         case "oem_key":
-                            var ok = new OEMKeyReaderForm();
-                            ok.Show();
+                            DarkTheme.LaunchModelessForm(() => new OEMKeyReaderForm());
                             break;
                     }
                 } else if (tool.ActionType == "Special") {
@@ -2798,14 +2801,20 @@ namespace HMT.Forms {
                     proc.WaitForExit();
 
                     lvProtectors.Items.Clear();
-                    var matchKey = Regex.Match(output, @"Numerical Password:\s*(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})");
-                    var matchKeyId = Regex.Match(output, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
-                    if (matchKey.Success) {
-                        txtRecoveryKey.Text = matchKey.Groups[1].Value;
+                    var keyMatches = Regex.Matches(output, @"Numerical Password:\s*(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})");
+                    var idMatches = Regex.Matches(output, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
+
+                    for (int i = 0; i < keyMatches.Count; i++) {
+                        string keyVal = keyMatches[i].Groups[1].Value;
+                        string keyId = (i < idMatches.Count) ? idMatches[i].Groups[1].Value : string.Format("Key-{0}", i + 1);
                         var lvi = new ListViewItem("Numerical Password");
-                        lvi.SubItems.Add(matchKey.Groups[1].Value);
-                        lvi.SubItems.Add(matchKeyId.Success ? matchKeyId.Groups[1].Value : "Key-1");
+                        lvi.SubItems.Add(keyVal);
+                        lvi.SubItems.Add(keyId);
                         lvProtectors.Items.Add(lvi);
+                    }
+
+                    if (lvProtectors.Items.Count > 0) {
+                        txtRecoveryKey.Text = lvProtectors.Items[0].SubItems[1].Text;
                     } else {
                         txtRecoveryKey.Text = "No 48-digit numerical password found.";
                     }
@@ -2826,8 +2835,14 @@ namespace HMT.Forms {
                         }
                     }
 
+                    bool isEncrypted = output.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                       output.IndexOf("Protection On", StringComparison.OrdinalIgnoreCase) >= 0;
+                    bool isEncrypting = output.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    btnAddProtector.Enabled = (isEncrypted || isEncrypting);
+
                     // Mutually exclusive button enable/disable logic based on encryption status
-                    if (output.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 || output.IndexOf("Protection On", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    if (isEncrypted) {
                         lblVolStatus.Text = "Status: Fully Encrypted (Protection Active)";
                         lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
                         lblVolPct.Text = "100%";
@@ -2845,7 +2860,7 @@ namespace HMT.Forms {
                         btnEnable.Enabled = true;
                         btnDisable.Enabled = false;
                         pollTimer.Stop();
-                    } else if (output.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    } else if (isEncrypting) {
                         lblVolStatus.Text = "Status: Encryption in Progress...";
                         lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
                         btnEnable.Enabled = false;

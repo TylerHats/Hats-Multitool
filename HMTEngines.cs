@@ -970,8 +970,7 @@ namespace HMT.Engines {
                 new ExternalToolItem("WirelessKeyView", "Recovers all wireless network keys (WEP/WPA/WPA2/WPA3) stored in Windows.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/wirelesskeyview-x64.zip", "WirelessKeyView.exe"),
                 new ExternalToolItem("Dialupass", "Recovers passwords for VPN, Dialup, and RAS connections.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/dialupass.zip", "Dialupass.exe"),
                 new ExternalToolItem("CredentialFileView", "Decrypts and displays credentials stored inside Windows Credentials files.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/credentialfileview.zip", "CredentialFileView.exe"),
-                new ExternalToolItem("VaultPasswordView", "Decrypts and displays passwords stored in Windows Vault and Windows Credentials Manager.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/vaultpasswordview.zip", "VaultPasswordView.exe"),
-                new ExternalToolItem("BitLocker Recovery Keys & Unlock", "Retrieve 48-digit numerical recovery passwords, export keys, and unlock BitLocker volumes.", "Password & Keys", "InternalDialog", "bitlocker_manager")
+                new ExternalToolItem("VaultPasswordView", "Decrypts and displays passwords stored in Windows Vault and Windows Credentials Manager.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/vaultpasswordview.zip", "VaultPasswordView.exe")
             };
         }
 

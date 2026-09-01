@@ -222,10 +222,10 @@ namespace HMT.Tools {
                 g.FillRectangle(brush, 0, 0, w, h);
             }
 
-            // Margins
+            // Margins - Expanded left margin for full axis readability
             int topMargin = 22;
             int bottomMargin = 22;
-            int leftMargin = 45;
+            int leftMargin = 72;
             int rightMargin = 15;
 
             int plotW = w - leftMargin - rightMargin;
@@ -247,7 +247,12 @@ namespace HMT.Tools {
                     g.DrawLine(gridPen, leftMargin, y, leftMargin + plotW, y);
 
                     double val = scaleMax * (1.0 - ((double)i / gridLines));
-                    string lbl = (val >= 100) ? val.ToString("F0") : (val >= 10 ? val.ToString("F1") : val.ToString("F2"));
+                    string lbl;
+                    if (!string.IsNullOrEmpty(_unitLabel)) {
+                        lbl = (val >= 100) ? string.Format("{0:F0} {1}", val, _unitLabel) : (val >= 10 ? string.Format("{0:F1} {1}", val, _unitLabel) : string.Format("{0:F2} {1}", val, _unitLabel));
+                    } else {
+                        lbl = (val >= 100) ? val.ToString("F0") : (val >= 10 ? val.ToString("F1") : val.ToString("F2"));
+                    }
                     g.DrawString(lbl, Font, labelBrush, 4, y - 7);
                 }
             }
@@ -267,6 +272,18 @@ namespace HMT.Tools {
                 int totalPoints = pts.Length;
                 PointF[] linePoints;
                 Color[] pointColors;
+
+                lock (_lock) {
+                    linePoints = new PointF[totalPoints];
+                    pointColors = new Color[totalPoints];
+                    for (int i = 0; i < totalPoints; i++) {
+                        float x = leftMargin + (plotW * (float)i / (totalPoints - 1));
+                        double v = Math.Max(0.0, Math.Min(scaleMax, pts[i].Value));
+                        float y = topMargin + plotH - (float)((v / scaleMax) * plotH);
+                        linePoints[i] = new PointF(x, y);
+                        pointColors[i] = pts[i].HasCustomColor ? pts[i].PointColor : _lineColor;
+                    }
+                }
 
                 // For very high point counts (e.g. 60,000 at 1000 pps), downsample into plotW pixel columns for max 60fps performance
                 if (totalPoints > plotW * 2) {
@@ -1762,6 +1779,7 @@ namespace HMT.Tools {
         private int _sentCount;
         private int _recvCount;
         private int _lostCount;
+        private int _inFlightCount;
         private double _minRtt = double.MaxValue;
         private double _maxRtt = 0;
         private double _sumRtt = 0;
@@ -1776,6 +1794,7 @@ namespace HMT.Tools {
         public event Action<PingSummary> OnCompleted;
 
         public bool IsRunning { get { return _isRunning; } }
+        public int InFlightCount { get { return Thread.VolatileRead(ref _inFlightCount); } }
 
         public PingSample[] DrainSamples() {
             lock (_sampleLock) {
@@ -1804,6 +1823,7 @@ namespace HMT.Tools {
             _sentCount = 0;
             _recvCount = 0;
             _lostCount = 0;
+            _inFlightCount = 0;
             _minRtt = double.MaxValue;
             _maxRtt = 0;
             _sumRtt = 0;
@@ -1823,9 +1843,28 @@ namespace HMT.Tools {
 
         public void Stop() {
             _isRunning = false;
+            // Drain in-flight packets up to 2.5s timeout to capture trailing responses
+            int waitedMs = 0;
+            while (Thread.VolatileRead(ref _inFlightCount) > 0 && waitedMs < 2500) {
+                Thread.Sleep(25);
+                waitedMs += 25;
+            }
+
+            // Any in-flight packet that has not returned after drain timeout is definitively accounted as lost
+            int remaining = Interlocked.Exchange(ref _inFlightCount, 0);
+            if (remaining > 0) {
+                lock (_sampleLock) {
+                    _lostCount += remaining;
+                }
+            }
+
             try { _cts?.Cancel(); } catch { }
             if (_workerThread != null && _workerThread.IsAlive) {
-                _workerThread.Join(1000);
+                _workerThread.Join(500);
+            }
+
+            if (OnSummaryUpdate != null) {
+                try { OnSummaryUpdate(GetSummary()); } catch { }
             }
         }
 
@@ -1844,23 +1883,23 @@ namespace HMT.Tools {
                 sequence++;
                 int seq = sequence;
 
+                Interlocked.Increment(ref _sentCount);
+                Interlocked.Increment(ref _inFlightCount);
+
                 // Dispatch truly asynchronous non-blocking ICMP ping
                 Task.Run(async () => {
-                    if (token.IsCancellationRequested) return;
-
                     var sample = new PingSample {
                         Sequence = seq,
                         Timestamp = DateTime.Now
                     };
 
                     try {
-                        Interlocked.Increment(ref _sentCount);
                         using (var pingSender = new Ping()) {
                             var sw = System.Diagnostics.Stopwatch.StartNew();
                             var reply = await pingSender.SendPingAsync(_targetHost, 1500, buffer, pingOptions);
                             sw.Stop();
 
-                            if (token.IsCancellationRequested) return;
+                            Interlocked.Decrement(ref _inFlightCount);
 
                             if (reply != null && reply.Status == IPStatus.Success) {
                                 sample.Success = true;
@@ -1894,7 +1933,7 @@ namespace HMT.Tools {
                             }
                         }
                     } catch (Exception ex) {
-                        if (token.IsCancellationRequested) return;
+                        Interlocked.Decrement(ref _inFlightCount);
                         sample.Success = false;
                         sample.Status = IPStatus.Unknown;
                         sample.ErrorMessage = ex.Message;
@@ -1905,7 +1944,7 @@ namespace HMT.Tools {
                         }
                     }
 
-                    if (_isRunning && !token.IsCancellationRequested && OnPingSample != null) {
+                    if (OnPingSample != null) {
                         try { OnPingSample(sample); } catch { }
                     }
                 });
@@ -1921,19 +1960,14 @@ namespace HMT.Tools {
                 // High precision sleep to next scheduled dispatch
                 nextDispatchTicks += (long)(intervalMs * freq / 1000.0);
                 long currentTicks = System.Diagnostics.Stopwatch.GetTimestamp();
-                long waitTicks = nextDispatchTicks - currentTicks;
-
-                if (waitTicks > 0) {
-                    int sleepMs = (int)(waitTicks * 1000.0 / freq);
-                    if (sleepMs > 3) {
-                        Thread.Sleep(sleepMs - 2);
+                if (currentTicks < nextDispatchTicks) {
+                    long ticksToWait = nextDispatchTicks - currentTicks;
+                    double waitMs = (double)ticksToWait * 1000.0 / freq;
+                    if (waitMs > 1.5) {
+                        Thread.Sleep((int)(waitMs - 0.5));
                     }
-                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks && _isRunning && !token.IsCancellationRequested) {
-                        Thread.SpinWait(5);
-                    }
-                } else {
-                    if (currentTicks - nextDispatchTicks > (freq / 20)) {
-                        nextDispatchTicks = currentTicks;
+                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks) {
+                        Thread.SpinWait(10);
                     }
                 }
             }
@@ -1949,20 +1983,22 @@ namespace HMT.Tools {
         }
 
         public PingSummary GetSummary() {
-            double lossPct = (_sentCount > 0) ? ((double)_lostCount / _sentCount * 100.0) : 0;
-            double avg = (_recvCount > 0) ? (_sumRtt / _recvCount) : 0;
-            return new PingSummary {
-                Host = _targetHost,
-                TotalSent = _sentCount,
-                TotalReceived = _recvCount,
-                TotalLost = _lostCount,
-                LossPercent = lossPct,
-                MinRttMs = (_minRtt == double.MaxValue) ? 0 : _minRtt,
-                MaxRttMs = _maxRtt,
-                AvgRttMs = avg,
-                CurrentJitterMs = _jitter,
-                Elapsed = (_stopwatch != null) ? _stopwatch.Elapsed : TimeSpan.Zero
-            };
+            lock (_sampleLock) {
+                double lossPct = (_sentCount > 0) ? ((double)_lostCount / _sentCount * 100.0) : 0;
+                double avg = (_recvCount > 0) ? (_sumRtt / _recvCount) : 0;
+                return new PingSummary {
+                    Host = _targetHost,
+                    TotalSent = _sentCount,
+                    TotalReceived = _recvCount,
+                    TotalLost = _lostCount,
+                    LossPercent = lossPct,
+                    MinRttMs = (_minRtt == double.MaxValue) ? 0 : _minRtt,
+                    MaxRttMs = _maxRtt,
+                    AvgRttMs = avg,
+                    CurrentJitterMs = _jitter,
+                    Elapsed = (_stopwatch != null) ? _stopwatch.Elapsed : TimeSpan.Zero
+                };
+            }
         }
     }
 
@@ -2307,26 +2343,26 @@ namespace HMT.Tools {
     }
 
     // ==============================================================================
-    // 4. Disk Benchmark Performance Engine (Sequential & Random 4K)
+    // 6. Non-Blocking High-Precision Storage SMART & Disk Benchmark Engine
     // ==============================================================================
     public class BenchmarkProgress {
-        public string CurrentTest { get; set; }
-        public double ProgressPercent { get; set; }
-        public double CurrentSpeedMBs { get; set; }
-        public double CurrentIops { get; set; }
+        public string CurrentTest;
+        public double ProgressPercent;
+        public double CurrentSpeedMBs;
+        public double CurrentIops;
     }
 
     public class BenchmarkResult {
-        public string TargetPath { get; set; }
-        public long FileSizeBytes { get; set; }
-        public double SeqReadMBs { get; set; }
-        public double SeqWriteMBs { get; set; }
-        public double Rand4KReadMBs { get; set; }
-        public double Rand4KReadIops { get; set; }
-        public double Rand4KWriteMBs { get; set; }
-        public double Rand4KWriteIops { get; set; }
-        public bool Success { get; set; }
-        public string ErrorMessage { get; set; }
+        public string TargetPath;
+        public long FileSizeBytes;
+        public double SeqReadMBs;
+        public double SeqWriteMBs;
+        public double Rand4KReadMBs;
+        public double Rand4KReadIops;
+        public double Rand4KWriteMBs;
+        public double Rand4KWriteIops;
+        public bool Success;
+        public string ErrorMessage;
     }
 
     public class DiskBenchmarkEngine {
@@ -2431,7 +2467,7 @@ namespace HMT.Tools {
                         fs.Seek(offset, SeekOrigin.Begin);
                         fs.Read(r4kBuf, 0, 4096);
 
-                        if (i % 200 == 0) {
+                        if (i % 100 == 0 && i > 0) {
                             double sec = sw.Elapsed.TotalSeconds;
                             if (sec > 0.05) {
                                 double iops = i / sec;
@@ -2457,7 +2493,7 @@ namespace HMT.Tools {
                         fs.Seek(offset, SeekOrigin.Begin);
                         fs.Write(block4k, 0, 4096);
 
-                        if (i % 200 == 0) {
+                        if (i % 100 == 0 && i > 0) {
                             double sec = sw.Elapsed.TotalSeconds;
                             if (sec > 0.05) {
                                 double iops = i / sec;
@@ -2474,7 +2510,7 @@ namespace HMT.Tools {
                 result.Rand4KWriteMBs = (randomOps * 4096.0 / (1024.0 * 1024.0)) / Math.Max(0.001, sw.Elapsed.TotalSeconds);
 
                 result.Success = true;
-                ReportProgress("Benchmark Complete", 100, result.SeqReadMBs, 0);
+                ReportProgress("Benchmark Complete", 100, result.Rand4KWriteMBs, 0);
 
             } catch (Exception ex) {
                 result.ErrorMessage = ex.Message;
