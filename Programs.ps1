@@ -9,8 +9,8 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Net.Http
 
 $form = New-Object System.Windows.Forms.Form
-$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Programs" } else { "Software & Program Installation Suite" }
-$form.Text = "Hat's Multitool - $titlePrefix"
+$stepSuffix = if ($global:HMTSetupTotalSteps -gt 1) { " ($($global:HMTSetupCurrentStepIndex)/$($global:HMTSetupTotalSteps))" } else { "" }
+$form.Text = "Programs$stepSuffix"
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
@@ -1066,7 +1066,6 @@ $okButton.Add_Click({
 
     $global:RunUserExitOnComplete = $userExitCheckbox.Checked
     $form.Close()
-    $global:BGRBaseText = "Hat's Multitool is running"
 })
 
-Show-HMTDialog $form | Out-Null
+Show-HMTSetupWindow $form | Out-Null

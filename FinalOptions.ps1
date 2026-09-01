@@ -3,8 +3,8 @@
 # Create Options GUI
 # Prepare form
 $FOGUI = New-Object System.Windows.Forms.Form
-$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Setup Options" } else { "Setup Options" }
-$FOGUI.Text = "Hat's Multitool - $titlePrefix"
+$stepSuffix = if ($global:HMTSetupTotalSteps -gt 1) { " ($($global:HMTSetupCurrentStepIndex)/$($global:HMTSetupTotalSteps))" } else { "" }
+$FOGUI.Text = "Setup Options$stepSuffix"
 $FOGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $FOGUI.ClientSize = New-Object System.Drawing.Size(640, 380)
 $FOGUI.StartPosition = 'CenterScreen'
@@ -266,4 +266,4 @@ $FOOkayButton.Add_Click({
     })
 
 # Display GUI
-Show-HMTDialog $FOGUI | Out-Null
+Show-HMTSetupWindow $FOGUI | Out-Null

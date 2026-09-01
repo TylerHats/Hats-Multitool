@@ -570,6 +570,32 @@ function global:Show-HMTDialog {
     return $TargetForm.ShowDialog()
 }
 
+function global:Show-HMTSetupWindow {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Forms.Form]$TargetForm
+    )
+    try {
+        $prop = $TargetForm.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance, NonPublic")
+        if ($null -ne $prop) { $prop.SetValue($TargetForm, $true, $null) }
+    } catch {}
+
+    Invoke-HMTScale $TargetForm
+    $script:SetupFormDone = $false
+    $closeHandler = {
+        $script:SetupFormDone = $true
+    }
+    $TargetForm.Add_FormClosed($closeHandler)
+    $TargetForm.Show()
+    $TargetForm.BringToFront()
+    $TargetForm.Activate()
+
+    while (-not $script:SetupFormDone -and -not $TargetForm.IsDisposed) {
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 25
+    }
+}
+
 function global:Show-HMTWindow {
     param(
         [Parameter(Mandatory=$true)]
@@ -584,8 +610,6 @@ function global:Show-HMTWindow {
     Invoke-HMTScale $TargetForm
     if ($Owner) {
         $TargetForm.Show($Owner)
-    } elseif ($script:MainForm -and -not $script:MainForm.IsDisposed) {
-        $TargetForm.Show($script:MainForm)
     } else {
         $TargetForm.Show()
     }

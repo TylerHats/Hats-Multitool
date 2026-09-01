@@ -7,8 +7,8 @@ $EM_SETCUEBANNER = 0x1501
 
 # Initialize GUI form
 $A1GUI = New-Object System.Windows.Forms.Form
-$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Local Accounts" } else { "Local Accounts Setup" }
-$A1GUI.Text = "Hat's Multitool - $titlePrefix"
+$stepSuffix = if ($global:HMTSetupTotalSteps -gt 1) { " ($($global:HMTSetupCurrentStepIndex)/$($global:HMTSetupTotalSteps))" } else { "" }
+$A1GUI.Text = "Local Accounts$stepSuffix"
 $A1GUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $A1GUI.StartPosition = 'CenterScreen'
 $A1GUI.Icon = $HMTIcon
@@ -295,4 +295,4 @@ $A1GUI.Add_Load({
 })
 
 # Display First GUI
-Show-HMTDialog $A1GUI | Out-Null
+Show-HMTSetupWindow $A1GUI | Out-Null

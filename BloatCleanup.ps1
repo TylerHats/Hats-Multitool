@@ -5,8 +5,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $BloatGUI = New-Object System.Windows.Forms.Form
-$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Bloat Cleanup" } else { "Bloat Cleanup & System Debloat" }
-$BloatGUI.Text = "Hat's Multitool - $titlePrefix"
+$stepSuffix = if ($global:HMTSetupTotalSteps -gt 1) { " ($($global:HMTSetupCurrentStepIndex)/$($global:HMTSetupTotalSteps))" } else { "" }
+$BloatGUI.Text = "Bloat Cleanup$stepSuffix"
 $BloatGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $BloatGUI.ClientSize = New-Object System.Drawing.Size(480, 160)
 $BloatGUI.StartPosition = 'CenterScreen'

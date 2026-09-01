@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Threading;
 
 namespace HMT {
     public static class Launcher {
@@ -73,6 +74,88 @@ namespace HMT {
                     } catch { }
                 }
 
+                // 1. Create InitialSessionState with Bypass ExecutionPolicy and STA Threading
+                Type issType = sma.GetType("System.Management.Automation.Runspaces.InitialSessionState");
+                object iss = null;
+                if (issType != null) {
+                    MethodInfo createDefault = issType.GetMethod("CreateDefault", Type.EmptyTypes);
+                    if (createDefault != null) {
+                        iss = createDefault.Invoke(null, null);
+                    }
+                }
+
+                if (iss != null) {
+                    // Set ExecutionPolicy = Bypass
+                    try {
+                        Type epType = sma.GetType("Microsoft.PowerShell.ExecutionPolicy");
+                        if (epType != null) {
+                            PropertyInfo epProp = issType.GetProperty("ExecutionPolicy");
+                            if (epProp != null) {
+                                object bypassVal = Enum.Parse(epType, "Bypass");
+                                epProp.SetValue(iss, bypassVal, null);
+                            }
+                        }
+                    } catch { }
+
+                    // Set ApartmentState = STA
+                    try {
+                        PropertyInfo aptProp = issType.GetProperty("ApartmentState");
+                        if (aptProp != null) {
+                            aptProp.SetValue(iss, ApartmentState.STA, null);
+                        }
+                    } catch { }
+
+                    // Set ThreadOptions = UseCurrentThread
+                    try {
+                        Type toType = sma.GetType("System.Management.Automation.Runspaces.PSThreadOptions");
+                        if (toType != null) {
+                            PropertyInfo toProp = issType.GetProperty("ThreadOptions");
+                            if (toProp != null) {
+                                object useCurrentThreadVal = Enum.Parse(toType, "UseCurrentThread");
+                                toProp.SetValue(iss, useCurrentThreadVal, null);
+                            }
+                        }
+                    } catch { }
+
+                    // Set LanguageMode = FullLanguage
+                    try {
+                        Type lmType = sma.GetType("System.Management.Automation.PSLanguageMode");
+                        if (lmType != null) {
+                            PropertyInfo lmProp = issType.GetProperty("LanguageMode");
+                            if (lmProp != null) {
+                                object fullLangVal = Enum.Parse(lmType, "FullLanguage");
+                                lmProp.SetValue(iss, fullLangVal, null);
+                            }
+                        }
+                    } catch { }
+                }
+
+                // 2. Create Runspace with InitialSessionState
+                Type rfType = sma.GetType("System.Management.Automation.Runspaces.RunspaceFactory");
+                object runspace = null;
+                if (rfType != null) {
+                    if (iss != null) {
+                        MethodInfo createRunspaceMethod = rfType.GetMethod("CreateRunspace", new Type[] { issType });
+                        if (createRunspaceMethod != null) {
+                            runspace = createRunspaceMethod.Invoke(null, new object[] { iss });
+                        }
+                    }
+                    if (runspace == null) {
+                        MethodInfo createRunspaceMethod = rfType.GetMethod("CreateRunspace", Type.EmptyTypes);
+                        if (createRunspaceMethod != null) {
+                            runspace = createRunspaceMethod.Invoke(null, null);
+                        }
+                    }
+                }
+
+                if (runspace == null) return false;
+
+                MethodInfo openMethod = runspace.GetType().GetMethod("Open", Type.EmptyTypes);
+                if (openMethod != null) {
+                    openMethod.Invoke(runspace, null);
+                }
+
+                // 3. Create PowerShell instance
                 Type psType = sma.GetType("System.Management.Automation.PowerShell");
                 if (psType == null) return false;
 
@@ -81,6 +164,11 @@ namespace HMT {
 
                 object ps = createMethod.Invoke(null, null);
                 if (ps == null) return false;
+
+                PropertyInfo runspaceProp = psType.GetProperty("Runspace");
+                if (runspaceProp != null) {
+                    runspaceProp.SetValue(ps, runspace, null);
+                }
 
                 MethodInfo addScript = psType.GetMethod("AddScript", new Type[] { typeof(string) });
                 if (addScript == null) return false;
@@ -104,8 +192,7 @@ namespace HMT {
 
                 invokeMethod.Invoke(ps, null);
                 return true;
-            } catch (Exception ex) {
-                Console.WriteLine("In-process runspace exception: " + ex);
+            } catch (Exception) {
                 return false;
             }
         }
