@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace HMT {
     public static class Launcher {
@@ -199,7 +200,13 @@ namespace HMT {
 
                 addScript.Invoke(ps, new object[] { bootstrap });
 
-                MethodInfo invokeMethod = psType.GetMethod("Invoke", Type.EmptyTypes);
+                MethodInfo invokeMethod = null;
+                foreach (MethodInfo m in psType.GetMethods(BindingFlags.Public | BindingFlags.Instance)) {
+                    if (m.Name == "Invoke" && !m.IsGenericMethod && m.GetParameters().Length == 0) {
+                        invokeMethod = m;
+                        break;
+                    }
+                }
                 if (invokeMethod == null) return false;
 
                 try {
@@ -279,9 +286,13 @@ namespace HMT {
                 string forwardArgs = FormatArguments(args);
 
                 // Execute 100% in-process inside Hats-Multitool.exe
-                RunPowerShellInProcess(appDir, coreScript, forwardArgs, isDebug, currentAssembly.Location);
+                bool ok = RunPowerShellInProcess(appDir, coreScript, forwardArgs, isDebug, currentAssembly.Location);
+                if (!ok) {
+                    MessageBox.Show("Unable to initialize in-process PowerShell runspace. Please verify Windows Management Framework is installed.", "Hat's Multitool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 return 0;
-            } catch (Exception) {
+            } catch (Exception ex) {
+                MessageBox.Show("Fatal launcher error:\n\n" + ex.Message, "Hat's Multitool", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 3;
             }
         }
