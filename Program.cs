@@ -31,12 +31,12 @@ namespace HMT {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Configure TLS 1.2 / TLS 1.3
+            // Configure Standard Reliable TLS 1.2 / TLS 1.1 / TLS
             try {
-                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
-            } catch {
-                try { ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; } catch { }
-            }
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+                ServicePointManager.DefaultConnectionLimit = 64;
+                ServicePointManager.Expect100Continue = false;
+            } catch { }
 
             // Ensure Single Instance / Admin Elevation is active
             if (!NativeMethods.IsAdministrator()) {
@@ -81,21 +81,26 @@ namespace HMT {
 
             // Main Application Loop
             while (true) {
-                using (var mainMenu = new MainMenuForm(version)) {
-                    var result = mainMenu.ShowDialog();
-                    if (result != DialogResult.OK) {
-                        break;
-                    }
-
-                    if (mainMenu.NextAction == "Setup") {
-                        RunSetupWorkflow();
-                    } else if (mainMenu.NextAction == "Tools") {
-                        using (var toolsMenu = new ToolsForm()) {
-                            toolsMenu.ShowDialog();
+                try {
+                    using (var mainMenu = new MainMenuForm(version)) {
+                        var result = mainMenu.ShowDialog();
+                        if (result != DialogResult.OK) {
+                            break;
                         }
-                    } else {
-                        break;
+
+                        if (mainMenu.NextAction == "Setup") {
+                            RunSetupWorkflow();
+                        } else if (mainMenu.NextAction == "Tools") {
+                            using (var toolsMenu = new ToolsForm()) {
+                                toolsMenu.ShowDialog();
+                            }
+                        } else {
+                            break;
+                        }
                     }
+                } catch (Exception ex) {
+                    MessageBox.Show("An unexpected error occurred in Hat's Multitool:\n\n" + ex.Message + "\n\n" + ex.StackTrace, "Hat's Multitool Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    break;
                 }
             }
 
@@ -115,37 +120,41 @@ namespace HMT {
                     string stepName = steps[i];
                     string stepTitle = totalSteps > 1 ? string.Format("{0} ({1}/{2})", stepName, i + 1, totalSteps) : stepName;
 
-                    switch (stepName) {
-                        case "Time Zone":
-                            using (var tz = new TimeZoneForm(stepTitle)) {
-                                tz.ShowDialog();
-                            }
-                            break;
-                        case "Local Accounts":
-                            using (var acc = new LocalAccountsForm(stepTitle)) {
-                                acc.ShowDialog();
-                            }
-                            break;
-                        case "System Properties":
-                            using (var sp = new SystemPropertiesForm(stepTitle)) {
-                                sp.ShowDialog();
-                            }
-                            break;
-                        case "Setup Options":
-                            using (var so = new SetupOptionsForm(stepTitle)) {
-                                so.ShowDialog();
-                            }
-                            break;
-                        case "Bloat Cleanup":
-                            using (var bc = new BloatCleanupForm(stepTitle)) {
-                                bc.ShowDialog();
-                            }
-                            break;
-                        case "Programs":
-                            using (var prog = new ProgramsForm(stepTitle)) {
-                                prog.ShowDialog();
-                            }
-                            break;
+                    try {
+                        switch (stepName) {
+                            case "Time Zone":
+                                using (var tz = new TimeZoneForm(stepTitle)) {
+                                    tz.ShowDialog();
+                                }
+                                break;
+                            case "Local Accounts":
+                                using (var acc = new LocalAccountsForm(stepTitle)) {
+                                    acc.ShowDialog();
+                                }
+                                break;
+                            case "System Properties":
+                                using (var sp = new SystemPropertiesForm(stepTitle)) {
+                                    sp.ShowDialog();
+                                }
+                                break;
+                            case "Setup Options":
+                                using (var so = new SetupOptionsForm(stepTitle)) {
+                                    so.ShowDialog();
+                                }
+                                break;
+                            case "Bloat Cleanup":
+                                using (var bc = new BloatCleanupForm(stepTitle)) {
+                                    bc.ShowDialog();
+                                }
+                                break;
+                            case "Programs":
+                                using (var prog = new ProgramsForm(stepTitle)) {
+                                    prog.ShowDialog();
+                                }
+                                break;
+                        }
+                    } catch (Exception ex) {
+                        MessageBox.Show(string.Format("Error running module '{0}':\n\n{1}", stepName, ex.Message), "Module Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }
