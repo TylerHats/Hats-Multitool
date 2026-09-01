@@ -207,6 +207,64 @@ namespace HMT.Forms {
                 return string.Empty;
             }
         }
+
+        public static void ShowStyledMessageBox(string title, string message, bool isSuccess = true) {
+            using (var form = new Form()) {
+                form.Text = title;
+                form.BackColor = Background;
+                form.AutoScaleDimensions = new SizeF(96F, 96F);
+                form.AutoScaleMode = AutoScaleMode.None;
+                form.ClientSize = Scale(new Size(460, 185));
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MaximizeBox = false;
+                form.MinimizeBox = false;
+                form.Icon = AppIcon;
+                form.Font = GetScaledFont(11f);
+
+                var pic = new PictureBox {
+                    Size = Scale(new Size(38, 38)),
+                    Location = Scale(new Point(18, 18)),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    Image = AppLogoImage
+                };
+                form.Controls.Add(pic);
+
+                var lblTitle = new Label {
+                    Text = title,
+                    Font = GetScaledFont(12f, FontStyle.Bold),
+                    ForeColor = isSuccess ? AccentSuccess : AccentDanger,
+                    Location = Scale(new Point(68, 16)),
+                    Size = Scale(new Size(372, 24)),
+                    UseMnemonic = false
+                };
+                form.Controls.Add(lblTitle);
+
+                var lblMsg = new Label {
+                    Text = message,
+                    Font = GetScaledFont(10f),
+                    ForeColor = TextMain,
+                    Location = Scale(new Point(68, 44)),
+                    Size = Scale(new Size(372, 75)),
+                    UseMnemonic = false
+                };
+                form.Controls.Add(lblMsg);
+
+                var btnOk = new Button {
+                    Text = "OK",
+                    Location = Scale(new Point(330, 130)),
+                    Size = Scale(new Size(110, 36)),
+                    DialogResult = DialogResult.OK,
+                    UseMnemonic = false
+                };
+                StyleButton(btnOk, isSuccess ? AccentSuccess : AccentPrimary);
+                form.Controls.Add(btnOk);
+                form.AcceptButton = btnOk;
+
+                ApplyDarkTitleBar(form);
+                form.ShowDialog();
+            }
+        }
     }
 
     // --- Main Menu Form ---
@@ -1411,9 +1469,9 @@ namespace HMT.Forms {
                             File.Copy(hostsPath, hostsPath + ".bak", true);
                         }
                         File.WriteAllText(hostsPath, defaultHosts);
-                        MessageBox.Show("HOSTS file reset to Microsoft default. (Backup saved to hosts.bak)", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        DarkTheme.ShowStyledMessageBox("HOSTS File Reset", "HOSTS file has been reset to clean Microsoft default.\n(Backup saved to hosts.bak)", true);
                     } catch (Exception ex) {
-                        MessageBox.Show("Failed to reset HOSTS file: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Failed to reset HOSTS file: " + ex.Message, false);
                     }
                     break;
                 case "settings_visibility":
@@ -1421,21 +1479,13 @@ namespace HMT.Forms {
                         using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer", true)) {
                             if (key != null) key.DeleteValue("SettingsPageVisibility", false);
                         }
-                        MessageBox.Show("Settings page visibility policy cleared.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        DarkTheme.ShowStyledMessageBox("Settings Policy Cleared", "Settings page visibility restrictions have been cleared. All Windows Settings pages are now visible.", true);
                     } catch (Exception ex) {
-                        MessageBox.Show("Failed to clear policy: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Failed to clear policy: " + ex.Message, false);
                     }
                     break;
                 case "flush_dns":
-                    try {
-                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/flushdns") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/release") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/renew") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        Process.Start(new ProcessStartInfo("arp.exe", "-d *") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        MessageBox.Show("DNS cache flushed, ARP cleared, and IP lease renewed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    } catch (Exception ex) {
-                        MessageBox.Show("Failed to flush DNS: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
+                    DarkTheme.LaunchModelessForm(() => new NetworkResetForm());
                     break;
                 case "battery_report":
                     try {
@@ -1444,23 +1494,31 @@ namespace HMT.Forms {
                         proc?.WaitForExit();
                         if (File.Exists(outHtml)) Process.Start(outHtml);
                     } catch (Exception ex) {
-                        MessageBox.Show("Failed to generate battery report: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Failed to generate battery report: " + ex.Message, false);
+                    }
+                    break;
+                case "safeboot_min":
+                    try {
+                        Process.Start(new ProcessStartInfo("bcdedit.exe", "/set {current} safeboot minimal") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        DarkTheme.ShowStyledMessageBox("Safe Boot Configured", "Safe Boot (Minimal Mode) has been enabled for the next system restart.", true);
+                    } catch (Exception ex) {
+                        DarkTheme.ShowStyledMessageBox("Error", "Error configuring Safe Boot: " + ex.Message, false);
                     }
                     break;
                 case "safeboot_net":
                     try {
                         Process.Start(new ProcessStartInfo("bcdedit.exe", "/set {current} safeboot network") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        MessageBox.Show("Safe Boot with Networking enabled for next restart.", "Safe Boot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        DarkTheme.ShowStyledMessageBox("Safe Boot Configured", "Safe Boot with Networking has been enabled for the next system restart.", true);
                     } catch (Exception ex) {
-                        MessageBox.Show("Error configuring Safe Boot: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Error configuring Safe Boot: " + ex.Message, false);
                     }
                     break;
                 case "safeboot_disable":
                     try {
                         Process.Start(new ProcessStartInfo("bcdedit.exe", "/deletevalue {current} safeboot") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
-                        MessageBox.Show("Safe Boot disabled. Normal Windows startup restored.", "Safe Boot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        DarkTheme.ShowStyledMessageBox("Safe Boot Disabled", "Safe Boot has been disabled. Normal Windows startup restored.", true);
                     } catch (Exception ex) {
-                        MessageBox.Show("Error disabling Safe Boot: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Error disabling Safe Boot: " + ex.Message, false);
                     }
                     break;
                 case "restart_explorer":
@@ -1469,7 +1527,10 @@ namespace HMT.Forms {
                             try { p.Kill(); } catch { }
                         }
                         Process.Start("explorer.exe");
-                    } catch { }
+                        DarkTheme.ShowStyledMessageBox("Explorer Restarted", "Windows Explorer has been restarted successfully.", true);
+                    } catch (Exception ex) {
+                        DarkTheme.ShowStyledMessageBox("Error", "Failed to restart Explorer: " + ex.Message, false);
+                    }
                     break;
                 case "ninja_removal":
                     try {
@@ -1481,14 +1542,14 @@ namespace HMT.Forms {
                         };
                         Process.Start(psi);
                     } catch (Exception ex) {
-                        MessageBox.Show("Failed to run Ninja removal: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Error", "Failed to run Ninja removal: " + ex.Message, false);
                     }
                     break;
             }
         }
     }
 
-    // --- Command Runner Form ---
+    // --- Command Runner Form with Stage Tracking, Progress Parsing & Smart ETA ---
     public class CommandRunnerForm : Form {
         private Label lblTitle;
         private Label lblDesc;
@@ -1496,8 +1557,13 @@ namespace HMT.Forms {
         private TextBox txtOutput;
         private Button btnClose;
         private Process process;
+        private readonly DateTime startTime = DateTime.Now;
+        private int currentPercent = 0;
+        private string currentStage = "";
+        private readonly string cmdName;
 
         public CommandRunnerForm(string title, string description, string commandName, string arguments) {
+            this.cmdName = commandName ?? "";
             this.Text = title;
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
@@ -1514,7 +1580,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(18, 14)),
                 Size = DarkTheme.Scale(new Size(644, 24)),
-                Font = DarkTheme.GetScaledFont(13f, FontStyle.Bold)
+                Font = DarkTheme.GetScaledFont(13f, FontStyle.Bold),
+                UseMnemonic = false
             };
             this.Controls.Add(lblTitle);
 
@@ -1523,7 +1590,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMuted,
                 Location = DarkTheme.Scale(new Point(18, 40)),
                 Size = DarkTheme.Scale(new Size(644, 20)),
-                Font = DarkTheme.GetScaledFont(10f)
+                Font = DarkTheme.GetScaledFont(10f),
+                UseMnemonic = false
             };
             this.Controls.Add(lblDesc);
 
@@ -1534,7 +1602,7 @@ namespace HMT.Forms {
                 ProgressColor = DarkTheme.AccentPrimary,
                 ProgressColorEnd = DarkTheme.AccentSuccess,
                 ShowShimmer = true,
-                Value = 100
+                Value = 0
             };
             this.Controls.Add(progressBar);
 
@@ -1555,7 +1623,8 @@ namespace HMT.Forms {
                 Text = "Cancel / Close",
                 Location = DarkTheme.Scale(new Point(542, 432)),
                 Size = DarkTheme.Scale(new Size(120, 36)),
-                DialogResult = DialogResult.OK
+                DialogResult = DialogResult.OK,
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
             btnClose.Click += (s, e) => {
@@ -1581,6 +1650,7 @@ namespace HMT.Forms {
                             if (args.Data != null) {
                                 this.BeginInvoke((Action)(() => {
                                     txtOutput.AppendText(args.Data + Environment.NewLine);
+                                    ParseProgress(args.Data);
                                 }));
                             }
                         };
@@ -1600,7 +1670,10 @@ namespace HMT.Forms {
                         this.BeginInvoke((Action)(() => {
                             progressBar.ShowShimmer = false;
                             progressBar.Value = 100;
-                            lblDesc.Text = "Command execution completed (Exit Code: " + process.ExitCode + ")";
+                            lblDesc.Text = (process.ExitCode == 0)
+                                ? "Operation completed successfully! (Exit Code: 0)"
+                                : "Command completed with Exit Code: " + process.ExitCode;
+                            lblDesc.ForeColor = (process.ExitCode == 0) ? DarkTheme.AccentSuccess : DarkTheme.AccentDanger;
                             btnClose.Text = "Close";
                             DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
                         }));
@@ -1613,6 +1686,151 @@ namespace HMT.Forms {
             };
 
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+
+        private void ParseProgress(string line) {
+            if (string.IsNullOrEmpty(line)) return;
+            string l = line.Trim();
+            bool updated = false;
+
+            // 1. DISM Progress & Phase Tracking
+            if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Deployment Image", StringComparison.OrdinalIgnoreCase) >= 0) {
+                if (l.IndexOf("Image Version", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Initializing", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Initializing Image Store";
+                    updated = true;
+                } else if (l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Scanning Component Store Corruption";
+                    updated = true;
+                } else if (l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Restoring Component Store & Downloading Repairs";
+                    updated = true;
+                } else if (l.IndexOf("completed successfully", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Operation Completed Successfully";
+                    currentPercent = 100;
+                    updated = true;
+                }
+
+                var mDism = Regex.Match(l, @"([\d\.]+)%\s*\]");
+                if (mDism.Success) {
+                    double p;
+                    if (double.TryParse(mDism.Groups[1].Value, out p)) {
+                        currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
+                        if (string.IsNullOrEmpty(currentStage)) currentStage = "DISM: Processing Image Components";
+                        updated = true;
+                    }
+                }
+            }
+            // 2. SFC Progress & Phase Tracking
+            else if (cmdName.IndexOf("sfc", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Windows Resource Protection", StringComparison.OrdinalIgnoreCase) >= 0) {
+                if (l.IndexOf("Beginning system scan", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "SFC: Initializing System Scan";
+                    updated = true;
+                } else if (l.IndexOf("verification phase", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "SFC: Verifying System Protected Files";
+                    updated = true;
+                } else if (l.IndexOf("did not find any integrity violations", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "SFC: Scan Complete (No Violations Found)";
+                    currentPercent = 100;
+                    updated = true;
+                } else if (l.IndexOf("found corrupt files and successfully repaired them", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "SFC: Scan Complete (Corrupt Files Repaired)";
+                    currentPercent = 100;
+                    updated = true;
+                }
+
+                var mSfc = Regex.Match(l, @"Verification\s+([\d\.]+)%\s+complete", RegexOptions.IgnoreCase);
+                if (mSfc.Success) {
+                    double p;
+                    if (double.TryParse(mSfc.Groups[1].Value, out p)) {
+                        currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
+                        currentStage = "SFC: Verifying System Protected Files";
+                        updated = true;
+                    }
+                }
+            }
+            // 3. ChkDsk Stage & Progress Tracking
+            else if (cmdName.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage ", StringComparison.OrdinalIgnoreCase) >= 0) {
+                int currentStageNum = 1;
+                if (l.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: Stage 1/5 - Examining Basic File Structure";
+                    currentStageNum = 1;
+                    updated = true;
+                } else if (l.IndexOf("Stage 2", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: Stage 2/5 - Examining File Name Linkage";
+                    currentStageNum = 2;
+                    updated = true;
+                } else if (l.IndexOf("Stage 3", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: Stage 3/5 - Examining Security Descriptors";
+                    currentStageNum = 3;
+                    updated = true;
+                } else if (l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: Stage 4/5 - Scanning User File Data";
+                    currentStageNum = 4;
+                    updated = true;
+                } else if (l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: Stage 5/5 - Scanning Free Space & Clusters";
+                    currentStageNum = 5;
+                    updated = true;
+                } else if (l.IndexOf("found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("made corrections", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "ChkDsk: File System Check Completed";
+                    currentPercent = 100;
+                    updated = true;
+                }
+
+                var mChkPct = Regex.Match(l, @"\((\d+)%\)");
+                if (mChkPct.Success) {
+                    int stagePct;
+                    if (int.TryParse(mChkPct.Groups[1].Value, out stagePct)) {
+                        int overall = ((currentStageNum - 1) * 20) + (int)(stagePct * 0.20);
+                        currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
+                        updated = true;
+                    }
+                } else {
+                    var mChkPct2 = Regex.Match(l, @"(\d+)\s+percent completed", RegexOptions.IgnoreCase);
+                    if (mChkPct2.Success) {
+                        int stagePct;
+                        if (int.TryParse(mChkPct2.Groups[1].Value, out stagePct)) {
+                            int overall = ((currentStageNum - 1) * 20) + (int)(stagePct * 0.20);
+                            currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
+                            updated = true;
+                        }
+                    }
+                }
+            }
+
+            // 4. Generic percentage fallback
+            if (!updated) {
+                var mGen = Regex.Match(l, @"\b(\d{1,3})%");
+                if (mGen.Success) {
+                    int p;
+                    if (int.TryParse(mGen.Groups[1].Value, out p) && p >= 0 && p <= 100) {
+                        currentPercent = Math.Max(currentPercent, p);
+                        updated = true;
+                    }
+                }
+            }
+
+            if (updated || currentPercent > 0) {
+                progressBar.Value = Math.Max(0, Math.Min(100, currentPercent));
+                progressBar.ShowShimmer = (currentPercent < 100);
+
+                string etaStr = "Calculating...";
+                if (currentPercent >= 3 && currentPercent < 100) {
+                    double elapsed = (DateTime.Now - startTime).TotalSeconds;
+                    double totalEst = (elapsed / currentPercent) * 100.0;
+                    double rem = Math.Max(0, totalEst - elapsed);
+                    if (rem < 60) {
+                        etaStr = string.Format("{0:F0}s remaining", rem);
+                    } else {
+                        etaStr = string.Format("{0}m {1:F0}s remaining", (int)(rem / 60), rem % 60);
+                    }
+                } else if (currentPercent >= 100) {
+                    etaStr = "Complete";
+                }
+
+                string displayStage = string.IsNullOrEmpty(currentStage) ? "Running Diagnostic Tool..." : currentStage;
+                lblDesc.Text = string.Format("{0}  •  {1}%  •  {2}", displayStage, currentPercent, etaStr);
+            }
         }
     }
 
@@ -2030,6 +2248,9 @@ namespace HMT.Forms {
         private SmoothGraphControl graphControl;
         private Label lblStats;
         private HighPrecisionPingEngine pingEngine;
+        private System.Windows.Forms.Timer uiRenderTimer;
+        private readonly List<GraphPoint> pendingSamples = new List<GraphPoint>();
+        private readonly object sampleQueueLock = new object();
         private bool isRunning = false;
 
         public PacketLossForm() {
@@ -2045,25 +2266,25 @@ namespace HMT.Forms {
             this.Font = DarkTheme.GetScaledFont(12f);
 
             int y = 12;
-            var lblHost = new Label { Text = "Target Host / IP:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(20, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f) };
+            var lblHost = new Label { Text = "Target Host / IP:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(20, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f), UseMnemonic = false };
             this.Controls.Add(lblHost);
 
             txtHost = new DarkTextBox { Location = DarkTheme.Scale(new Point(125, y - 3)), Size = DarkTheme.Scale(new Size(140, 25)), Text = "1.1.1.1" };
             this.Controls.Add(txtHost);
 
-            var lblPps = new Label { Text = "Pings/Sec:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(275, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f) };
+            var lblPps = new Label { Text = "Pings/Sec:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(275, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f), UseMnemonic = false };
             this.Controls.Add(lblPps);
 
             txtPps = new DarkTextBox { Location = DarkTheme.Scale(new Point(345, y - 3)), Size = DarkTheme.Scale(new Size(45, 25)), Text = "5" };
             this.Controls.Add(txtPps);
 
-            var lblSize = new Label { Text = "Bytes:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(400, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f) };
+            var lblSize = new Label { Text = "Bytes:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(400, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f), UseMnemonic = false };
             this.Controls.Add(lblSize);
 
             txtSize = new DarkTextBox { Location = DarkTheme.Scale(new Point(445, y - 3)), Size = DarkTheme.Scale(new Size(45, 25)), Text = "32" };
             this.Controls.Add(txtSize);
 
-            var lblDur = new Label { Text = "Duration (s):", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(500, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f) };
+            var lblDur = new Label { Text = "Duration (s):", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(500, y)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f), UseMnemonic = false };
             this.Controls.Add(lblDur);
 
             txtDuration = new DarkTextBox { Location = DarkTheme.Scale(new Point(580, y - 3)), Size = DarkTheme.Scale(new Size(45, 25)), Text = "0" };
@@ -2072,7 +2293,8 @@ namespace HMT.Forms {
             btnToggle = new Button {
                 Text = "Start Test",
                 Location = DarkTheme.Scale(new Point(645, y - 5)),
-                Size = DarkTheme.Scale(new Size(115, 32))
+                Size = DarkTheme.Scale(new Size(115, 32)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnToggle, DarkTheme.AccentSuccess);
             btnToggle.Click += (s, e) => TogglePing();
@@ -2080,17 +2302,17 @@ namespace HMT.Forms {
 
             // Preset Target Buttons Row
             y += 38;
-            var btnP1 = new Button { Text = "Cloudflare (1.1.1.1)", Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(175, 26)) };
+            var btnP1 = new Button { Text = "Cloudflare (1.1.1.1)", Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(175, 26)), UseMnemonic = false };
             DarkTheme.StyleButton(btnP1, DarkTheme.SurfaceHighlight);
             btnP1.Click += (s, e) => txtHost.Text = "1.1.1.1";
             this.Controls.Add(btnP1);
 
-            var btnP2 = new Button { Text = "Google (8.8.8.8)", Location = DarkTheme.Scale(new Point(205, y)), Size = DarkTheme.Scale(new Size(175, 26)) };
+            var btnP2 = new Button { Text = "Google (8.8.8.8)", Location = DarkTheme.Scale(new Point(205, y)), Size = DarkTheme.Scale(new Size(175, 26)), UseMnemonic = false };
             DarkTheme.StyleButton(btnP2, DarkTheme.SurfaceHighlight);
             btnP2.Click += (s, e) => txtHost.Text = "8.8.8.8";
             this.Controls.Add(btnP2);
 
-            var btnP3 = new Button { Text = "Default Gateway", Location = DarkTheme.Scale(new Point(390, y)), Size = DarkTheme.Scale(new Size(175, 26)) };
+            var btnP3 = new Button { Text = "Default Gateway", Location = DarkTheme.Scale(new Point(390, y)), Size = DarkTheme.Scale(new Size(175, 26)), UseMnemonic = false };
             DarkTheme.StyleButton(btnP3, DarkTheme.SurfaceHighlight);
             btnP3.Click += (s, e) => {
                 try {
@@ -2113,7 +2335,7 @@ namespace HMT.Forms {
                 UnitLabel = "ms",
                 LineColor = DarkTheme.AccentSuccess,
                 UseDynamicLatencyColors = true,
-                MaxPoints = 300
+                MaxPoints = 1800
             };
             this.Controls.Add(graphControl);
 
@@ -2127,8 +2349,32 @@ namespace HMT.Forms {
             };
             this.Controls.Add(lblStats);
 
-            this.FormClosing += (s, e) => pingEngine?.Stop();
+            uiRenderTimer = new System.Windows.Forms.Timer { Interval = 33 };
+            uiRenderTimer.Tick += (s, e) => FlushPendingSamplesAndRefreshStats();
+
+            this.FormClosing += (s, e) => {
+                uiRenderTimer?.Stop();
+                pingEngine?.Stop();
+            };
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+
+        private void FlushPendingSamplesAndRefreshStats() {
+            List<GraphPoint> batch = null;
+            lock (sampleQueueLock) {
+                if (pendingSamples.Count > 0) {
+                    batch = new List<GraphPoint>(pendingSamples);
+                    pendingSamples.Clear();
+                }
+            }
+            if (batch != null && batch.Count > 0) {
+                graphControl.AddPointsBatch(batch);
+            }
+            if (pingEngine != null && isRunning) {
+                var summary = pingEngine.GetSummary();
+                lblStats.Text = string.Format("Sent: {0} | Recv: {1} | Loss: {2:F1}% | Min: {3:F1}ms | Avg: {4:F1}ms | Max: {5:F1}ms | Jitter: {6:F1}ms",
+                    summary.TotalSent, summary.TotalReceived, summary.LossPercent, summary.MinRttMs, summary.AvgRttMs, summary.MaxRttMs, summary.CurrentJitterMs);
+            }
         }
 
         private void TogglePing() {
@@ -2138,6 +2384,8 @@ namespace HMT.Forms {
                 Task.Run(() => {
                     pingEngine?.Stop();
                     this.BeginInvoke((Action)(() => {
+                        uiRenderTimer.Stop();
+                        FlushPendingSamplesAndRefreshStats();
                         isRunning = false;
                         btnToggle.Text = "Start Test";
                         btnToggle.Enabled = true;
@@ -2157,24 +2405,23 @@ namespace HMT.Forms {
                 // Minimum 3 full minutes of historical points visible across the timeline
                 graphControl.MaxPoints = Math.Max(1800, pps * 180);
 
+                lock (sampleQueueLock) {
+                    pendingSamples.Clear();
+                }
+
                 pingEngine = new HighPrecisionPingEngine();
                 pingEngine.OnPingSample += (sample) => {
-                    this.BeginInvoke((Action)(() => {
-                        if (sample.Success) {
-                            graphControl.AddPoint(sample.RttMs, SmoothGraphControl.GetLatencyColor(sample.RttMs));
-                        } else {
-                            graphControl.AddLostPacket();
-                        }
-                    }));
-                };
-                pingEngine.OnSummaryUpdate += (summary) => {
-                    this.BeginInvoke((Action)(() => {
-                        lblStats.Text = string.Format("Sent: {0} | Recv: {1} | Loss: {2:F1}% | Min: {3:F1}ms | Avg: {4:F1}ms | Max: {5:F1}ms | Jitter: {6:F1}ms",
-                            summary.TotalSent, summary.TotalReceived, summary.LossPercent, summary.MinRttMs, summary.AvgRttMs, summary.MaxRttMs, summary.CurrentJitterMs);
-                    }));
+                    var pt = sample.Success
+                        ? new GraphPoint(sample.RttMs, SmoothGraphControl.GetLatencyColor(sample.RttMs), false)
+                        : new GraphPoint(0, Color.FromArgb(237, 66, 69), true);
+                    lock (sampleQueueLock) {
+                        pendingSamples.Add(pt);
+                    }
                 };
                 pingEngine.OnCompleted += (summary) => {
                     this.BeginInvoke((Action)(() => {
+                        uiRenderTimer.Stop();
+                        FlushPendingSamplesAndRefreshStats();
                         lblStats.Text = string.Format("Sent: {0} | Recv: {1} | Loss: {2:F1}% | Min: {3:F1}ms | Avg: {4:F1}ms | Max: {5:F1}ms | Jitter: {6:F1}ms",
                             summary.TotalSent, summary.TotalReceived, summary.LossPercent, summary.MinRttMs, summary.AvgRttMs, summary.MaxRttMs, summary.CurrentJitterMs);
                         isRunning = false;
@@ -2184,6 +2431,7 @@ namespace HMT.Forms {
                     }));
                 };
 
+                uiRenderTimer.Start();
                 pingEngine.Start(txtHost.Text.Trim(), pps, size, duration);
                 isRunning = true;
                 btnToggle.Text = "Stop Test";
@@ -2521,6 +2769,7 @@ namespace HMT.Forms {
         private SmoothProgressBar pBar;
         private Button btnEnable;
         private Button btnDisable;
+        private Button btnPause;
         private System.Windows.Forms.Timer pollTimer;
 
         public BitLockerManagerForm() {
@@ -2541,7 +2790,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(20, 15)),
                 AutoSize = true,
-                Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold)
+                Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold),
+                UseMnemonic = false
             };
             this.Controls.Add(lblSelectDrive);
 
@@ -2560,7 +2810,8 @@ namespace HMT.Forms {
             var btnRefresh = new Button {
                 Text = "Refresh",
                 Location = DarkTheme.Scale(new Point(640, 9)),
-                Size = DarkTheme.Scale(new Size(100, 30))
+                Size = DarkTheme.Scale(new Size(100, 30)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnRefresh, DarkTheme.SurfaceHighlight);
             btnRefresh.Click += (s, e) => LoadVolumes();
@@ -2621,7 +2872,7 @@ namespace HMT.Forms {
             btnCopyKey.Click += (s, e) => {
                 if (!string.IsNullOrEmpty(txtRecoveryKey.Text) && !txtRecoveryKey.Text.StartsWith("No 48-digit")) {
                     Clipboard.SetText(txtRecoveryKey.Text);
-                    MessageBox.Show("Recovery Key copied to clipboard!", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    DarkTheme.ShowStyledMessageBox("Copied", "Recovery Key copied to clipboard!", true);
                 }
             };
             this.Controls.Add(btnCopyKey);
@@ -2699,12 +2950,12 @@ namespace HMT.Forms {
             pBar = new SmoothProgressBar { Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(685, 18)), BorderRadius = DarkTheme.Scale(5), ProgressColor = DarkTheme.AccentPurple, ProgressColorEnd = DarkTheme.AccentPrimary, ShowShimmer = false, Value = 0 };
             progPanel.Controls.Add(pBar);
 
-            // Section 4: Action Buttons
+            // Section 4: Action Buttons (Enable, Disable, Pause/Resume, Close)
             int yActions = 458;
             btnEnable = new Button {
-                Text = "Enable BitLocker (Encrypt)",
+                Text = "Enable BitLocker",
                 Location = DarkTheme.Scale(new Point(20, yActions)),
-                Size = DarkTheme.Scale(new Size(210, 36)),
+                Size = DarkTheme.Scale(new Size(170, 36)),
                 UseMnemonic = false
             };
             DarkTheme.StyleButton(btnEnable, DarkTheme.AccentSuccess);
@@ -2712,19 +2963,30 @@ namespace HMT.Forms {
             this.Controls.Add(btnEnable);
 
             btnDisable = new Button {
-                Text = "Disable BitLocker (Decrypt)",
-                Location = DarkTheme.Scale(new Point(240, yActions)),
-                Size = DarkTheme.Scale(new Size(210, 36)),
+                Text = "Disable BitLocker",
+                Location = DarkTheme.Scale(new Point(198, yActions)),
+                Size = DarkTheme.Scale(new Size(170, 36)),
                 UseMnemonic = false
             };
             DarkTheme.StyleButton(btnDisable, DarkTheme.AccentDanger);
             btnDisable.Click += (s, e) => ManageBitLockerAction("-off");
             this.Controls.Add(btnDisable);
 
+            btnPause = new Button {
+                Text = "Pause / Resume",
+                Location = DarkTheme.Scale(new Point(376, yActions)),
+                Size = DarkTheme.Scale(new Size(170, 36)),
+                UseMnemonic = false,
+                Enabled = false
+            };
+            DarkTheme.StyleButton(btnPause, DarkTheme.SurfaceHighlight);
+            btnPause.Click += (s, e) => ToggleBitLockerPause();
+            this.Controls.Add(btnPause);
+
             var btnClose = new Button {
                 Text = "Close",
-                Location = DarkTheme.Scale(new Point(630, yActions)),
-                Size = DarkTheme.Scale(new Size(110, 36)),
+                Location = DarkTheme.Scale(new Point(554, yActions)),
+                Size = DarkTheme.Scale(new Size(186, 36)),
                 DialogResult = DialogResult.OK,
                 UseMnemonic = false
             };
@@ -2836,10 +3098,16 @@ namespace HMT.Forms {
 
                 string combinedOutput = statusOutput + "\n" + protectorsOutput;
 
-                // Extract all 48-digit numerical passwords
+                // Extract all 48-digit numerical passwords and IDs
                 var keyMatches = Regex.Matches(protectorsOutput, @"\b(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})\b");
                 var idMatches = Regex.Matches(protectorsOutput, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
 
+                // Capture currently selected protector ID to preserve selection across timer refreshes
+                string selectedId = (lvProtectors.SelectedItems.Count > 0 && lvProtectors.SelectedItems[0].SubItems.Count > 2)
+                    ? lvProtectors.SelectedItems[0].SubItems[2].Text
+                    : null;
+
+                lvProtectors.BeginUpdate();
                 lvProtectors.Items.Clear();
                 for (int i = 0; i < keyMatches.Count; i++) {
                     string keyVal = keyMatches[i].Groups[1].Value;
@@ -2847,6 +3115,10 @@ namespace HMT.Forms {
                     var lvi = new ListViewItem("Numerical Password");
                     lvi.SubItems.Add(keyVal);
                     lvi.SubItems.Add(keyId);
+                    if (selectedId != null && keyId.Equals(selectedId, StringComparison.OrdinalIgnoreCase)) {
+                        lvi.Selected = true;
+                        lvi.Focused = true;
+                    }
                     lvProtectors.Items.Add(lvi);
                 }
 
@@ -2860,9 +3132,15 @@ namespace HMT.Forms {
                     var lvi = new ListViewItem("TPM");
                     lvi.SubItems.Add("Hardware Trusted Platform Module Security Chip");
                     var tpmIdMatch = Regex.Match(protectorsOutput, @"TPM:[\s\S]*?ID:\s*(\{[A-Fa-f0-9\-]+\})");
-                    lvi.SubItems.Add(tpmIdMatch.Success ? tpmIdMatch.Groups[1].Value : "TPM-AutoUnlock");
+                    string tpmId = tpmIdMatch.Success ? tpmIdMatch.Groups[1].Value : "TPM-AutoUnlock";
+                    lvi.SubItems.Add(tpmId);
+                    if (selectedId != null && tpmId.Equals(selectedId, StringComparison.OrdinalIgnoreCase)) {
+                        lvi.Selected = true;
+                        lvi.Focused = true;
+                    }
                     lvProtectors.Items.Add(lvi);
                 }
+                lvProtectors.EndUpdate();
 
                 // Extract percentage encrypted
                 double pctVal = 0;
@@ -2890,6 +3168,8 @@ namespace HMT.Forms {
                                     convStatus.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
                 bool isDecrypting = statusOutput.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                     convStatus.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isPaused = statusOutput.IndexOf("Paused", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                convStatus.IndexOf("Paused", StringComparison.OrdinalIgnoreCase) >= 0;
                 bool isEncrypted = (!isEncrypting && !isDecrypting) && (
                                    statusOutput.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                    statusOutput.IndexOf("Used Space Only Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -2898,9 +3178,24 @@ namespace HMT.Forms {
                 lblVolPct.Text = string.Format("{0:F0}%", pctVal);
                 pBar.Value = (int)Math.Max(0, Math.Min(100, Math.Round(pctVal)));
 
-                btnAddProtector.Enabled = (isEncrypted || isEncrypting);
+                btnAddProtector.Enabled = (isEncrypted || isEncrypting || isPaused);
 
-                if (isEncrypting) {
+                // Configure Pause / Resume Button
+                if (isPaused) {
+                    btnPause.Text = "Resume Operation";
+                    btnPause.Enabled = true;
+                    DarkTheme.StyleButton(btnPause, DarkTheme.AccentSuccess);
+                    lblVolStatus.Text = string.Format("Status: Operation Paused ({0:F1}%)", pctVal);
+                    lblVolStatus.ForeColor = DarkTheme.AccentWarning;
+                    lblProgStatus.Text = string.Format("Operation Status: Paused ({0:F1}%)", pctVal);
+                    lblProgStatus.ForeColor = DarkTheme.AccentWarning;
+                    pBar.ShowShimmer = false;
+                    btnEnable.Enabled = false;
+                    btnDisable.Enabled = false;
+                } else if (isEncrypting) {
+                    btnPause.Text = "Pause Operation";
+                    btnPause.Enabled = true;
+                    DarkTheme.StyleButton(btnPause, DarkTheme.SurfaceHighlight);
                     lblVolStatus.Text = string.Format("Status: Encryption in Progress ({0:F1}%)", pctVal);
                     lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
                     lblProgStatus.Text = string.Format("Operation Status: Encryption in Progress... ({0:F1}%)", pctVal);
@@ -2910,6 +3205,9 @@ namespace HMT.Forms {
                     btnEnable.Enabled = false;
                     btnDisable.Enabled = true;
                 } else if (isDecrypting) {
+                    btnPause.Text = "Pause Operation";
+                    btnPause.Enabled = true;
+                    DarkTheme.StyleButton(btnPause, DarkTheme.SurfaceHighlight);
                     lblVolStatus.Text = string.Format("Status: Decryption in Progress ({0:F1}%)", pctVal);
                     lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
                     lblProgStatus.Text = string.Format("Operation Status: Decryption in Progress... ({0:F1}%)", pctVal);
@@ -2919,6 +3217,9 @@ namespace HMT.Forms {
                     btnEnable.Enabled = true;
                     btnDisable.Enabled = false;
                 } else if (isEncrypted) {
+                    btnPause.Text = "Pause / Resume";
+                    btnPause.Enabled = false;
+                    DarkTheme.StyleButton(btnPause, DarkTheme.SurfaceHighlight);
                     lblVolStatus.Text = "Status: Fully Encrypted (Protection Active)";
                     lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
                     lblProgStatus.Text = "Operation Status: Fully Encrypted (Protection Active)";
@@ -2930,6 +3231,9 @@ namespace HMT.Forms {
                     btnEnable.Enabled = false;
                     btnDisable.Enabled = true;
                 } else {
+                    btnPause.Text = "Pause / Resume";
+                    btnPause.Enabled = false;
+                    DarkTheme.StyleButton(btnPause, DarkTheme.SurfaceHighlight);
                     lblVolStatus.Text = "Status: Fully Decrypted (BitLocker Off)";
                     lblVolStatus.ForeColor = DarkTheme.TextMuted;
                     lblProgStatus.Text = "Operation Status: Idle (BitLocker Off)";
@@ -2946,10 +3250,37 @@ namespace HMT.Forms {
                     lblLockStatus.Text = "Lock Status: LOCKED | Protection: On";
                     btnEnable.Enabled = false;
                     btnDisable.Enabled = false;
+                    btnPause.Enabled = false;
                 }
             } catch (Exception ex) {
                 lblVolStatus.Text = "Query error: " + ex.Message;
             }
+        }
+
+        private void ToggleBitLockerPause() {
+            if (cmbDrives.SelectedItem == null) return;
+            string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
+            bool isResume = btnPause.Text.IndexOf("Resume", StringComparison.OrdinalIgnoreCase) >= 0;
+            btnPause.Enabled = false;
+
+            Task.Run(() => {
+                try {
+                    string args = isResume ? string.Format("-resume {0}", drive) : string.Format("-pause {0}", drive);
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = args,
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (var p = Process.Start(psi)) {
+                        p.WaitForExit();
+                    }
+                } catch { }
+
+                this.BeginInvoke((Action)(() => {
+                    RefreshBitLockerStatus();
+                }));
+            });
         }
 
         private void AddRecoveryPassword() {
@@ -2976,10 +3307,18 @@ namespace HMT.Forms {
         }
 
         private void DeleteSelectedProtector() {
-            if (cmbDrives.SelectedItem == null || lvProtectors.SelectedItems.Count == 0) return;
+            if (cmbDrives.SelectedItem == null || lvProtectors.SelectedItems.Count == 0) {
+                DarkTheme.ShowStyledMessageBox("Selection Required", "Please select a key protector from the list to delete.", false);
+                return;
+            }
+
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
-            string id = lvProtectors.SelectedItems[0].SubItems[2].Text;
-            if (string.IsNullOrEmpty(id) || !id.StartsWith("{")) return;
+            string id = (lvProtectors.SelectedItems[0].SubItems.Count > 2) ? lvProtectors.SelectedItems[0].SubItems[2].Text : "";
+
+            if (string.IsNullOrEmpty(id) || !id.StartsWith("{")) {
+                DarkTheme.ShowStyledMessageBox("Invalid Protector", "Selected item cannot be deleted directly (only numerical passwords with GUID IDs are supported).", false);
+                return;
+            }
 
             btnDeleteProtector.Enabled = false;
             Task.Run(() => {
@@ -2996,6 +3335,7 @@ namespace HMT.Forms {
                 } catch { }
 
                 this.BeginInvoke((Action)(() => {
+                    btnDeleteProtector.Enabled = true;
                     RefreshBitLockerStatus();
                 }));
             });
@@ -3007,7 +3347,7 @@ namespace HMT.Forms {
             string secret = txtUnlockSecret.Text.Trim();
 
             if (string.IsNullOrEmpty(secret)) {
-                MessageBox.Show("Please enter recovery password or passphrase.", "Unlock", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                DarkTheme.ShowStyledMessageBox("Input Required", "Please enter a 48-digit recovery password or passphrase to unlock.", false);
                 return;
             }
 
@@ -3043,6 +3383,7 @@ namespace HMT.Forms {
             pBar.ShowShimmer = true;
             btnEnable.Enabled = false;
             btnDisable.Enabled = false;
+            btnPause.Enabled = false;
 
             Task.Run(() => {
                 try {
@@ -3168,6 +3509,116 @@ namespace HMT.Forms {
                             lblStatus.Text = "Windows Update Reset Completed!";
                             lblDetail.Text = "All components and caches have been cleaned and refreshed.";
                             progressBar.Value = 100;
+                        }));
+                        Thread.Sleep(800);
+                    } catch { }
+                });
+
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            };
+
+            this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+    }
+
+    // --- Network & DNS Reset Form ---
+    public class NetworkResetForm : Form {
+        private Label lblStatus;
+        private Label lblDetail;
+        private SmoothProgressBar progressBar;
+
+        public NetworkResetForm() {
+            this.Text = "Network & DNS Reset";
+            this.BackColor = DarkTheme.Background;
+            this.AutoScaleDimensions = new SizeF(96F, 96F);
+            this.AutoScaleMode = AutoScaleMode.None;
+            this.ClientSize = DarkTheme.Scale(new Size(520, 200));
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.Icon = DarkTheme.AppIcon;
+            this.Font = DarkTheme.GetScaledFont(12f);
+
+            lblStatus = new Label {
+                Text = "Starting Network Reset...",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(20, 20)),
+                Size = DarkTheme.Scale(new Size(480, 24)),
+                Font = DarkTheme.GetScaledFont(11.5f, FontStyle.Bold),
+                UseMnemonic = false
+            };
+            this.Controls.Add(lblStatus);
+
+            lblDetail = new Label {
+                Text = "Flushing DNS resolver cache...",
+                ForeColor = DarkTheme.TextMuted,
+                Location = DarkTheme.Scale(new Point(20, 50)),
+                Size = DarkTheme.Scale(new Size(480, 22)),
+                Font = DarkTheme.GetScaledFont(10.5f),
+                UseMnemonic = false
+            };
+            this.Controls.Add(lblDetail);
+
+            progressBar = new SmoothProgressBar {
+                Location = DarkTheme.Scale(new Point(20, 85)),
+                Size = DarkTheme.Scale(new Size(480, 20)),
+                BorderRadius = DarkTheme.Scale(5),
+                ProgressColor = DarkTheme.AccentPrimary,
+                ProgressColorEnd = DarkTheme.AccentSuccess,
+                ShowShimmer = true
+            };
+            this.Controls.Add(progressBar);
+
+            this.Shown += async (s, e) => {
+                await Task.Run(() => {
+                    try {
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Flushing DNS Resolver Cache...";
+                            lblDetail.Text = "ipconfig /flushdns";
+                            progressBar.Value = 20;
+                        }));
+                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/flushdns") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Thread.Sleep(200);
+
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Clearing ARP Cache & Releasing IP...";
+                            lblDetail.Text = "arp -d * & ipconfig /release";
+                            progressBar.Value = 40;
+                        }));
+                        Process.Start(new ProcessStartInfo("arp.exe", "-d *") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/release") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Thread.Sleep(200);
+
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Renewing IP Configuration...";
+                            lblDetail.Text = "ipconfig /renew";
+                            progressBar.Value = 60;
+                        }));
+                        Process.Start(new ProcessStartInfo("ipconfig.exe", "/renew") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Thread.Sleep(200);
+
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Resetting Winsock Catalog...";
+                            lblDetail.Text = "netsh winsock reset";
+                            progressBar.Value = 80;
+                        }));
+                        Process.Start(new ProcessStartInfo("netsh.exe", "winsock reset") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Thread.Sleep(200);
+
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Resetting TCP/IP Stack...";
+                            lblDetail.Text = "netsh int ip reset";
+                            progressBar.Value = 95;
+                        }));
+                        Process.Start(new ProcessStartInfo("netsh.exe", "int ip reset") { CreateNoWindow = true, UseShellExecute = false })?.WaitForExit();
+                        Thread.Sleep(200);
+
+                        this.BeginInvoke((Action)(() => {
+                            lblStatus.Text = "Network Reset Completed Successfully!";
+                            lblDetail.Text = "DNS cache flushed, IP lease renewed, and TCP/IP stack refreshed.";
+                            progressBar.Value = 100;
+                            progressBar.ShowShimmer = false;
                         }));
                         Thread.Sleep(800);
                     } catch { }
