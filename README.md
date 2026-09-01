@@ -77,7 +77,11 @@ If you're interested in how it works under the hood, here's a breakdown of the c
 
 ***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged standalone executables.
 
-The project is packaged as a native Windows GUI subsystem executable (`HMTLauncher.cs`) containing an embedded application manifest (`app.manifest`), Per-Monitor V2 DPI awareness, and an embedded signed payload archive. Helper methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
+The project is packaged as a native Windows GUI subsystem executable (`HMTLauncher.cs`) that hosts the PowerShell runtime in-process via .NET `System.Management.Automation`, with an embedded application manifest (`app.manifest`), Per-Monitor V2 DPI awareness, and an embedded signed payload archive. Helper methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
+
+**Command-line switches:**
+- `Hats-Multitool.exe` (Default): Silent, flash-free startup displaying only the splash screen and GUI windows.
+- `Hats-Multitool.exe -debug`: Launches with a persistent, real-time diagnostic console window attached.
 
 **To package the project yourself:**
 1. Compile `HMTNative.cs` into `HMTNative.dll` and `HMTTools.cs` into `HMTTools.dll`:
