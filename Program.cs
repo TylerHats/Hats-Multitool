@@ -104,6 +104,7 @@ namespace HMT {
                 }
             }
 
+            NativeMethods.PerformBackgroundCleanupAndExit();
             return 0;
         }
 

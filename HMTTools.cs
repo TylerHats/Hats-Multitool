@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -1752,6 +1753,7 @@ namespace HMT.Tools {
     public class HighPrecisionPingEngine {
         private Thread _workerThread;
         private volatile bool _isRunning;
+        private CancellationTokenSource _cts;
         private string _targetHost = "1.1.1.1";
         private int _pingsPerSecond = 5;
         private int _packetSize = 32;
@@ -1789,8 +1791,8 @@ namespace HMT.Tools {
             try {
                 int minWorker, minIOC;
                 ThreadPool.GetMinThreads(out minWorker, out minIOC);
-                if (minWorker < 1024) {
-                    ThreadPool.SetMinThreads(1024, Math.Max(1024, minIOC));
+                if (minWorker < 2048) {
+                    ThreadPool.SetMinThreads(2048, Math.Max(2048, minIOC));
                 }
             } catch {}
 
@@ -1810,6 +1812,7 @@ namespace HMT.Tools {
             _stopwatch = System.Diagnostics.Stopwatch.StartNew();
             lock (_sampleLock) { _samples.Clear(); }
 
+            _cts = new CancellationTokenSource();
             _isRunning = true;
             _workerThread = new Thread(WorkerLoop) {
                 IsBackground = true,
@@ -1820,8 +1823,9 @@ namespace HMT.Tools {
 
         public void Stop() {
             _isRunning = false;
+            try { _cts?.Cancel(); } catch { }
             if (_workerThread != null && _workerThread.IsAlive) {
-                _workerThread.Join(2500);
+                _workerThread.Join(1000);
             }
         }
 
@@ -1834,15 +1838,16 @@ namespace HMT.Tools {
             int sequence = 0;
             long freq = System.Diagnostics.Stopwatch.Frequency;
             long nextDispatchTicks = System.Diagnostics.Stopwatch.GetTimestamp();
-            var activePings = new CountdownEvent(1);
+            var token = _cts.Token;
 
-            while (_isRunning) {
+            while (_isRunning && !token.IsCancellationRequested) {
                 sequence++;
                 int seq = sequence;
-                activePings.AddCount();
 
-                // Asynchronously dispatch ICMP ping
-                ThreadPool.QueueUserWorkItem(_ => {
+                // Dispatch truly asynchronous non-blocking ICMP ping
+                Task.Run(async () => {
+                    if (token.IsCancellationRequested) return;
+
                     var sample = new PingSample {
                         Sequence = seq,
                         Timestamp = DateTime.Now
@@ -1852,8 +1857,10 @@ namespace HMT.Tools {
                         Interlocked.Increment(ref _sentCount);
                         using (var pingSender = new Ping()) {
                             var sw = System.Diagnostics.Stopwatch.StartNew();
-                            var reply = pingSender.Send(_targetHost, 1500, buffer, pingOptions);
+                            var reply = await pingSender.SendPingAsync(_targetHost, 1500, buffer, pingOptions);
                             sw.Stop();
+
+                            if (token.IsCancellationRequested) return;
 
                             if (reply != null && reply.Status == IPStatus.Success) {
                                 sample.Success = true;
@@ -1887,6 +1894,7 @@ namespace HMT.Tools {
                             }
                         }
                     } catch (Exception ex) {
+                        if (token.IsCancellationRequested) return;
                         sample.Success = false;
                         sample.Status = IPStatus.Unknown;
                         sample.ErrorMessage = ex.Message;
@@ -1895,11 +1903,9 @@ namespace HMT.Tools {
                             sample.JitterMs = _jitter;
                             _samples.Add(sample);
                         }
-                    } finally {
-                        try { activePings.Signal(); } catch { }
                     }
 
-                    if (OnPingSample != null) {
+                    if (_isRunning && !token.IsCancellationRequested && OnPingSample != null) {
                         try { OnPingSample(sample); } catch { }
                     }
                 });
@@ -1922,7 +1928,7 @@ namespace HMT.Tools {
                     if (sleepMs > 3) {
                         Thread.Sleep(sleepMs - 2);
                     }
-                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks && _isRunning) {
+                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextDispatchTicks && _isRunning && !token.IsCancellationRequested) {
                         Thread.SpinWait(5);
                     }
                 } else {
@@ -1933,12 +1939,6 @@ namespace HMT.Tools {
             }
 
             _isRunning = false;
-
-            // Signal initial count and wait up to 2000ms for in-flight packets to complete
-            try {
-                activePings.Signal();
-                activePings.Wait(2000);
-            } catch { }
 
             if (OnSummaryUpdate != null) {
                 try { OnSummaryUpdate(GetSummary()); } catch { }

@@ -84,7 +84,11 @@ namespace HMT {
             }
         }
 
-        public static void CleanupAndExit(string appDir, string irmTarget) {
+        public static void CleanupAndExit(string appDir = null, string irmTarget = null) {
+            PerformBackgroundCleanupAndExit(appDir, irmTarget);
+        }
+
+        public static void PerformBackgroundCleanupAndExit(string appDir = null, string irmTarget = null) {
             try {
                 foreach (System.Windows.Forms.Form form in System.Windows.Forms.Application.OpenForms) {
                     try { form.Hide(); } catch { }
@@ -93,26 +97,34 @@ namespace HMT {
             } catch { }
 
             try {
-                if (!string.IsNullOrEmpty(appDir) && System.IO.Directory.Exists(appDir)) {
-                    try {
-                        System.IO.Directory.Delete(appDir, true);
-                    } catch {
-                        string cmdArgs = string.Format("/c \"timeout /t 2 >nul & (if exist \"{0}\" rmdir /s /q \"{0}\")\"", appDir);
-                        var psi = new System.Diagnostics.ProcessStartInfo {
-                            FileName = "cmd.exe",
-                            Arguments = cmdArgs,
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        };
-                        System.Diagnostics.Process.Start(psi);
-                    }
-                }
-            } catch { }
+                string hmtLocalDir = string.IsNullOrEmpty(appDir)
+                    ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT")
+                    : appDir;
+                string exePath = !string.IsNullOrEmpty(irmTarget)
+                    ? irmTarget
+                    : System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
-            try {
-                if (!string.IsNullOrEmpty(irmTarget) && System.IO.File.Exists(irmTarget)) {
-                    try { System.IO.File.Delete(irmTarget); } catch { }
-                }
+                bool isDownloads = exePath.IndexOf("Downloads", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   exePath.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   exePath.IndexOf("Hats-Multitool", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                string delExePart = isDownloads ? string.Format("(if exist \"{0}\" del /f /q \"{0}\" 2>nul) & ", exePath) : "";
+                string checkExePart = isDownloads ? string.Format("if not exist \"{0}\" ", exePath) : "";
+
+                // Background cmd monitor loop up to 40 retries (~40s) until folder and downloaded exe are removed
+                string cmdArgs = string.Format(
+                    "/c \"for /l %x in (1,1,40) do ((if exist \"{0}\" rmdir /s /q \"{0}\" 2>nul) & {1}if not exist \"{0}\" {2}exit || timeout /t 1 /nobreak >nul)\"",
+                    hmtLocalDir, delExePart, checkExePart
+                );
+
+                var psi = new System.Diagnostics.ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    CreateNoWindow = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                    UseShellExecute = false
+                };
+                System.Diagnostics.Process.Start(psi);
             } catch { }
 
             try {

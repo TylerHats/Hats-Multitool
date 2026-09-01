@@ -344,12 +344,12 @@ namespace HMT.Forms {
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblTitle);
-
+            
             y += 38;
             var lblVersion = new Label {
                 Text = "v" + version,
-                Font = DarkTheme.GetScaledFont(12f),
-                ForeColor = DarkTheme.TextMuted,
+                Font = DarkTheme.GetScaledFont(12f, FontStyle.Bold),
+                ForeColor = DarkTheme.AccentPrimary,
                 Location = DarkTheme.Scale(new Point(0, y)),
                 Size = DarkTheme.Scale(new Size(320, 22)),
                 TextAlign = ContentAlignment.MiddleCenter
@@ -358,11 +358,11 @@ namespace HMT.Forms {
 
             y += 28;
             var lblAuthor = new Label {
-                Text = string.Format("Created by Tyler Hatfield\n© {0} Hat's Things LLC\nReleased under the GPLv3 License", DateTime.Now.Year),
+                Text = "Created by Tyler Hatfield\nReleased under the GNU General Public License v3.0 (GPLv3)",
                 Font = DarkTheme.GetScaledFont(10.5f),
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(0, y)),
-                Size = DarkTheme.Scale(new Size(320, 55)),
+                Size = DarkTheme.Scale(new Size(320, 42)),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblAuthor);
@@ -1350,38 +1350,44 @@ namespace HMT.Forms {
         private void ExecuteTool(ExternalToolItem tool) {
             try {
                 if (tool.ActionType == "Command") {
-                    using (var runner = new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments)) {
-                        runner.ShowDialog(this);
-                    }
+                    var runner = new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments);
+                    runner.Show();
                 } else if (tool.ActionType == "Download") {
-                    using (var dl = new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive)) {
-                        dl.ShowDialog(this);
-                    }
+                    var dl = new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive);
+                    dl.Show();
                 } else if (tool.ActionType == "InternalDialog") {
                     switch (tool.Target) {
                         case "storage_health":
-                            using (var sh = new StorageHealthForm()) { sh.ShowDialog(this); }
+                            var sh = new StorageHealthForm();
+                            sh.Show();
                             break;
                         case "speed_test":
-                            using (var st = new SpeedTestForm()) { st.ShowDialog(this); }
+                            var st = new SpeedTestForm();
+                            st.Show();
                             break;
                         case "packet_loss":
-                            using (var pl = new PacketLossForm()) { pl.ShowDialog(this); }
+                            var pl = new PacketLossForm();
+                            pl.Show();
                             break;
                         case "tcp_checker":
-                            using (var tc = new TcpCheckerForm()) { tc.ShowDialog(this); }
+                            var tc = new TcpCheckerForm();
+                            tc.Show();
                             break;
                         case "bitlocker_manager":
-                            using (var bl = new BitLockerManagerForm()) { bl.ShowDialog(this); }
+                            var bl = new BitLockerManagerForm();
+                            bl.Show();
                             break;
                         case "startup_manager":
-                            using (var sm = new StartupManagerForm()) { sm.ShowDialog(this); }
+                            var sm = new StartupManagerForm();
+                            sm.Show();
                             break;
                         case "winupdate_reset":
-                            using (var wu = new WindowsUpdateResetForm()) { wu.ShowDialog(this); }
+                            var wu = new WindowsUpdateResetForm();
+                            wu.Show();
                             break;
                         case "oem_key":
-                            using (var ok = new OEMKeyReaderForm()) { ok.ShowDialog(this); }
+                            var ok = new OEMKeyReaderForm();
+                            ok.Show();
                             break;
                     }
                 } else if (tool.ActionType == "Special") {
@@ -2193,6 +2199,11 @@ namespace HMT.Forms {
         private Button btnSeqBench;
         private Button btnRandBench;
         private Label lblBenchStatus;
+        private Label valSeqRead;
+        private Label valSeqWrite;
+        private Label valRandRead;
+        private Label valRandWrite;
+        private SmoothGraphControl benchGraph;
         private SmoothProgressBar benchProgress;
         private DiskBenchmarkEngine benchEngine = new DiskBenchmarkEngine();
 
@@ -2307,29 +2318,83 @@ namespace HMT.Forms {
             var lblBenchSize = new Label { Text = "Test Size:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(290, 15)), AutoSize = true, Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
             tabBench.Controls.Add(lblBenchSize);
 
-            cmbBenchSize = new ComboBox { Location = DarkTheme.Scale(new Point(360, 11)), Size = DarkTheme.Scale(new Size(130, 28)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Surface, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10.5f) };
-            cmbBenchSize.Items.AddRange(new object[] { "100 MB (Fast)", "250 MB (Standard)", "500 MB (Thorough)" });
+            cmbBenchSize = new ComboBox { Location = DarkTheme.Scale(new Point(360, 11)), Size = DarkTheme.Scale(new Size(160, 28)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Surface, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10.5f) };
+            cmbBenchSize.Items.AddRange(new object[] { "100 MB (Quick)", "250 MB (Standard)", "500 MB (Thorough)", "1 GB (Extended)", "5 GB (Deep)", "10 GB (Longest)" });
             cmbBenchSize.SelectedIndex = 1;
             tabBench.Controls.Add(cmbBenchSize);
 
-            btnSeqBench = new Button { Text = "Run Sequential Benchmark", Location = DarkTheme.Scale(new Point(12, 55)), Size = DarkTheme.Scale(new Size(230, 40)) };
-            DarkTheme.StyleButton(btnSeqBench, DarkTheme.AccentPurple);
-            btnSeqBench.Click += async (s, e) => await RunDiskBenchmark(false);
+            btnSeqBench = new Button { Text = "Start Benchmark", Location = DarkTheme.Scale(new Point(535, 9)), Size = DarkTheme.Scale(new Size(135, 30)) };
+            DarkTheme.StyleButton(btnSeqBench, DarkTheme.AccentSuccess);
+            btnSeqBench.Click += async (s, e) => await StartCompleteBenchmark();
             tabBench.Controls.Add(btnSeqBench);
 
-            btnRandBench = new Button { Text = "Run 4K Random Benchmark", Location = DarkTheme.Scale(new Point(255, 55)), Size = DarkTheme.Scale(new Size(230, 40)) };
-            DarkTheme.StyleButton(btnRandBench, DarkTheme.AccentPrimary);
-            btnRandBench.Click += async (s, e) => await RunDiskBenchmark(true);
+            btnRandBench = new Button { Text = "Cancel", Location = DarkTheme.Scale(new Point(680, 9)), Size = DarkTheme.Scale(new Size(108, 30)), Enabled = false };
+            DarkTheme.StyleButton(btnRandBench, DarkTheme.SurfaceHighlight);
+            btnRandBench.Click += (s, e) => { benchEngine.Cancel(); btnRandBench.Enabled = false; };
             tabBench.Controls.Add(btnRandBench);
 
-            benchProgress = new SmoothProgressBar { Location = DarkTheme.Scale(new Point(12, 110)), Size = DarkTheme.Scale(new Size(776, 20)), BorderRadius = DarkTheme.Scale(5), ProgressColor = DarkTheme.AccentPurple, ProgressColorEnd = DarkTheme.AccentPrimary, ShowShimmer = true };
-            tabBench.Controls.Add(benchProgress);
+            // 4 Benchmark Scorecards
+            var scorePanel = new Panel {
+                Location = DarkTheme.Scale(new Point(12, 48)),
+                Size = DarkTheme.Scale(new Size(776, 70)),
+                BackColor = Color.Transparent
+            };
+            tabBench.Controls.Add(scorePanel);
 
-            lblBenchStatus = new Label { Text = "Ready to benchmark.", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(12, 145)), Size = DarkTheme.Scale(new Size(776, 30)), Font = DarkTheme.GetScaledFont(12f, FontStyle.Bold) };
+            valSeqRead = CreateBenchCard(scorePanel, "SEQ READ (128K)", "-- MB/s", 0, 188);
+            valSeqWrite = CreateBenchCard(scorePanel, "SEQ WRITE (128K)", "-- MB/s", 196, 188);
+            valRandRead = CreateBenchCard(scorePanel, "RANDOM 4K READ", "-- IOPS", 392, 188);
+            valRandWrite = CreateBenchCard(scorePanel, "RANDOM 4K WRITE", "-- IOPS", 588, 188);
+
+            lblBenchStatus = new Label { Text = "Ready to benchmark selected drive.", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(12, 124)), Size = DarkTheme.Scale(new Size(776, 18)), Font = DarkTheme.GetScaledFont(10.5f) };
             tabBench.Controls.Add(lblBenchStatus);
 
+            benchProgress = new SmoothProgressBar { Location = DarkTheme.Scale(new Point(12, 144)), Size = DarkTheme.Scale(new Size(776, 8)), BorderRadius = DarkTheme.Scale(4), ProgressColor = DarkTheme.AccentPurple, ProgressColorEnd = DarkTheme.AccentPrimary, ShowShimmer = true };
+            tabBench.Controls.Add(benchProgress);
+
+            benchGraph = new SmoothGraphControl {
+                Location = DarkTheme.Scale(new Point(12, 158)),
+                Size = DarkTheme.Scale(new Size(776, 248)),
+                UnitLabel = "MB/s",
+                LineColor = DarkTheme.AccentPrimary,
+                MaxPoints = 200
+            };
+            tabBench.Controls.Add(benchGraph);
+
             this.Shown += (s, e) => LoadDrives();
+            this.FormClosing += (s, e) => benchEngine.Cancel();
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+
+        private Label CreateBenchCard(Panel parent, string title, string initialVal, int left, int width) {
+            var p = new Panel {
+                Location = DarkTheme.Scale(new Point(left, 0)),
+                Size = DarkTheme.Scale(new Size(width, 70)),
+                BackColor = DarkTheme.Surface,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            parent.Controls.Add(p);
+
+            var lTitle = new Label {
+                Text = title,
+                ForeColor = DarkTheme.TextMuted,
+                Location = DarkTheme.Scale(new Point(0, 6)),
+                Size = DarkTheme.Scale(new Size(width, 16)),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = DarkTheme.GetScaledFont(9.5f)
+            };
+            p.Controls.Add(lTitle);
+
+            var lVal = new Label {
+                Text = initialVal,
+                ForeColor = DarkTheme.TextMain,
+                Font = DarkTheme.GetScaledFont(14f, FontStyle.Bold),
+                Location = DarkTheme.Scale(new Point(0, 26)),
+                Size = DarkTheme.Scale(new Size(width, 32)),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            p.Controls.Add(lVal);
+            return lVal;
         }
 
         private void LoadDrives() {
@@ -2366,32 +2431,65 @@ namespace HMT.Forms {
             }
         }
 
-        private async Task RunDiskBenchmark(bool isRandom) {
+        private async Task StartCompleteBenchmark() {
             string targetDir = cmbBenchTarget.SelectedItem?.ToString() ?? "C:\\";
             long sizeMb = 250;
-            if (cmbBenchSize.SelectedIndex == 0) sizeMb = 100;
-            if (cmbBenchSize.SelectedIndex == 2) sizeMb = 500;
+            switch (cmbBenchSize.SelectedIndex) {
+                case 0: sizeMb = 100; break;
+                case 1: sizeMb = 250; break;
+                case 2: sizeMb = 500; break;
+                case 3: sizeMb = 1024; break;
+                case 4: sizeMb = 5120; break;
+                case 5: sizeMb = 10240; break;
+                default: sizeMb = 250; break;
+            }
 
             btnSeqBench.Enabled = false;
-            btnRandBench.Enabled = false;
-            benchProgress.Value = 10;
-            lblBenchStatus.Text = isRandom ? "Running 4K Random Benchmark..." : "Running Sequential Benchmark...";
+            btnRandBench.Enabled = true;
+            cmbBenchTarget.Enabled = false;
+            cmbBenchSize.Enabled = false;
+            benchProgress.Value = 0;
+            benchGraph.Clear();
+            valSeqRead.Text = "-- MB/s";
+            valSeqWrite.Text = "-- MB/s";
+            valRandRead.Text = "-- IOPS";
+            valRandWrite.Text = "-- IOPS";
+            lblBenchStatus.Text = "Initializing benchmark tests...";
 
             await Task.Run(() => {
-                var res = benchEngine.RunBenchmark(targetDir, sizeMb);
-                this.BeginInvoke((Action)(() => {
-                    benchProgress.Value = 100;
-                    if (isRandom) {
-                        lblBenchStatus.Text = string.Format("4K Random Read: {0:F1} MB/s ({1:F0} IOPS) | 4K Write: {2:F1} MB/s ({3:F0} IOPS)",
-                            res.Rand4KReadMBs, res.Rand4KReadIops, res.Rand4KWriteMBs, res.Rand4KWriteIops);
-                    } else {
-                        lblBenchStatus.Text = string.Format("Sequential Read: {0:F1} MB/s | Sequential Write: {1:F1} MB/s",
-                            res.SeqReadMBs, res.SeqWriteMBs);
+                benchEngine.StartBenchmark(targetDir, sizeMb);
+
+                while (!benchEngine.IsFinished) {
+                    var p = benchEngine.CurrentProgress;
+                    if (p != null) {
+                        this.BeginInvoke((Action)(() => {
+                            benchProgress.Value = Math.Max(0, Math.Min(100, (int)p.ProgressPercent));
+                            lblBenchStatus.Text = string.Format("{0}... {1:F1} MB/s", p.CurrentTest, p.CurrentSpeedMBs);
+                            if (p.CurrentSpeedMBs > 0) benchGraph.AddPoint(p.CurrentSpeedMBs);
+                        }));
                     }
-                    btnSeqBench.Enabled = true;
-                    btnRandBench.Enabled = true;
-                }));
+                    Thread.Sleep(50);
+                }
             });
+
+            var res = benchEngine.Result;
+            if (res != null && res.Success) {
+                valSeqRead.Text = string.Format("{0:F1} MB/s", res.SeqReadMBs);
+                valSeqWrite.Text = string.Format("{0:F1} MB/s", res.SeqWriteMBs);
+                valRandRead.Text = string.Format("{0:F0} IOPS", res.Rand4KReadIops);
+                valRandWrite.Text = string.Format("{0:F0} IOPS", res.Rand4KWriteIops);
+                lblBenchStatus.Text = "Benchmark completed successfully!";
+                lblBenchStatus.ForeColor = DarkTheme.AccentSuccess;
+                benchProgress.Value = 100;
+            } else {
+                lblBenchStatus.Text = (res != null && !string.IsNullOrEmpty(res.ErrorMessage)) ? "Benchmark failed: " + res.ErrorMessage : "Benchmark cancelled.";
+                lblBenchStatus.ForeColor = DarkTheme.AccentDanger;
+            }
+
+            btnSeqBench.Enabled = true;
+            btnRandBench.Enabled = false;
+            cmbBenchTarget.Enabled = true;
+            cmbBenchSize.Enabled = true;
         }
     }
 
@@ -2405,7 +2503,8 @@ namespace HMT.Forms {
         private Label lblVolPctSub;
         private DarkTextBox txtRecoveryKey;
         private Button btnCopyKey;
-        private Button btnSaveKey;
+        private Button btnAddProtector;
+        private Button btnDeleteProtector;
         private DarkListView lvProtectors;
         private ComboBox cmbUnlockMethod;
         private DarkTextBox txtUnlockSecret;
@@ -2414,6 +2513,7 @@ namespace HMT.Forms {
         private SmoothProgressBar pBar;
         private Button btnEnable;
         private Button btnDisable;
+        private System.Windows.Forms.Timer pollTimer;
 
         public BitLockerManagerForm() {
             this.Text = "BitLocker Drive Encryption & Recovery Manager";
@@ -2470,7 +2570,7 @@ namespace HMT.Forms {
             lblVolStatus = new Label { Text = "Status: Detecting...", ForeColor = DarkTheme.AccentPrimary, Location = DarkTheme.Scale(new Point(15, 10)), Size = DarkTheme.Scale(new Size(450, 20)), Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold) };
             summaryPanel.Controls.Add(lblVolStatus);
 
-            lblVolType = new Label { Text = "Volume Type: Operating System | Encryption: XTS-AES 128-bit", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f) };
+            lblVolType = new Label { Text = "Volume Type: Fixed Disk | Encryption: XTS-AES 128/256-bit", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f) };
             summaryPanel.Controls.Add(lblVolType);
 
             lblLockStatus = new Label { Text = "Lock Status: Unlocked | Protection: On", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 52)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f) };
@@ -2494,7 +2594,7 @@ namespace HMT.Forms {
 
             txtRecoveryKey = new DarkTextBox {
                 Location = DarkTheme.Scale(new Point(20, 156)),
-                Size = DarkTheme.Scale(new Size(490, 26)),
+                Size = DarkTheme.Scale(new Size(390, 26)),
                 ReadOnly = true,
                 ForeColor = DarkTheme.AccentSuccess,
                 Font = new Font("Consolas", (float)Math.Max(9.0, Math.Round(11.5 * DarkTheme.ScaleFactor)), FontStyle.Bold, GraphicsUnit.Pixel),
@@ -2504,8 +2604,8 @@ namespace HMT.Forms {
 
             btnCopyKey = new Button {
                 Text = "Copy Key",
-                Location = DarkTheme.Scale(new Point(520, 154)),
-                Size = DarkTheme.Scale(new Size(105, 30))
+                Location = DarkTheme.Scale(new Point(420, 154)),
+                Size = DarkTheme.Scale(new Size(75, 30))
             };
             DarkTheme.StyleButton(btnCopyKey, DarkTheme.AccentPrimary);
             btnCopyKey.Click += (s, e) => {
@@ -2516,21 +2616,23 @@ namespace HMT.Forms {
             };
             this.Controls.Add(btnCopyKey);
 
-            btnSaveKey = new Button {
-                Text = "Save Key",
-                Location = DarkTheme.Scale(new Point(635, 154)),
-                Size = DarkTheme.Scale(new Size(105, 30))
+            btnAddProtector = new Button {
+                Text = "+ Add Password",
+                Location = DarkTheme.Scale(new Point(500, 154)),
+                Size = DarkTheme.Scale(new Size(115, 30))
             };
-            DarkTheme.StyleButton(btnSaveKey, DarkTheme.SurfaceHighlight);
-            btnSaveKey.Click += (s, e) => {
-                using (var sfd = new SaveFileDialog { Filter = "Text File (*.txt)|*.txt", FileName = "BitLocker_Recovery_Key.txt" }) {
-                    if (sfd.ShowDialog() == DialogResult.OK) {
-                        File.WriteAllText(sfd.FileName, txtRecoveryKey.Text);
-                        MessageBox.Show("Recovery Key saved successfully!", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
+            DarkTheme.StyleButton(btnAddProtector, DarkTheme.AccentSuccess);
+            btnAddProtector.Click += (s, e) => AddRecoveryPassword();
+            this.Controls.Add(btnAddProtector);
+
+            btnDeleteProtector = new Button {
+                Text = "Delete Key",
+                Location = DarkTheme.Scale(new Point(620, 154)),
+                Size = DarkTheme.Scale(new Size(120, 30))
             };
-            this.Controls.Add(btnSaveKey);
+            DarkTheme.StyleButton(btnDeleteProtector, DarkTheme.AccentDanger);
+            btnDeleteProtector.Click += (s, e) => DeleteSelectedProtector();
+            this.Controls.Add(btnDeleteProtector);
 
             lvProtectors = new DarkListView {
                 Location = DarkTheme.Scale(new Point(20, 190)),
@@ -2615,7 +2717,11 @@ namespace HMT.Forms {
             btnClose.Click += (s, e) => this.Close();
             this.Controls.Add(btnClose);
 
+            pollTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+            pollTimer.Tick += (s, e) => RefreshBitLockerStatus();
+
             this.Shown += (s, e) => LoadVolumes();
+            this.FormClosing += (s, e) => pollTimer?.Stop();
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
 
@@ -2626,6 +2732,9 @@ namespace HMT.Forms {
             try {
                 foreach (var d in DriveInfo.GetDrives()) {
                     try {
+                        // Strictly filter for fixed storage drives (exclude optical/CD and removable)
+                        if (d.DriveType != DriveType.Fixed) continue;
+
                         string letter = d.Name.Substring(0, 2);
                         driveLetters.Add(letter);
                         string label = "Local Disk";
@@ -2690,11 +2799,12 @@ namespace HMT.Forms {
 
                     lvProtectors.Items.Clear();
                     var matchKey = Regex.Match(output, @"Numerical Password:\s*(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})");
+                    var matchKeyId = Regex.Match(output, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
                     if (matchKey.Success) {
                         txtRecoveryKey.Text = matchKey.Groups[1].Value;
                         var lvi = new ListViewItem("Numerical Password");
                         lvi.SubItems.Add(matchKey.Groups[1].Value);
-                        lvi.SubItems.Add("Recovery Key");
+                        lvi.SubItems.Add(matchKeyId.Success ? matchKeyId.Groups[1].Value : "Key-1");
                         lvProtectors.Items.Add(lvi);
                     } else {
                         txtRecoveryKey.Text = "No 48-digit numerical password found.";
@@ -2703,8 +2813,17 @@ namespace HMT.Forms {
                     if (output.IndexOf("TPM", StringComparison.OrdinalIgnoreCase) >= 0) {
                         var lvi = new ListViewItem("TPM");
                         lvi.SubItems.Add("Hardware Trusted Platform Module Security Chip");
-                        lvi.SubItems.Add("Auto-Unlock");
+                        lvi.SubItems.Add("TPM-AutoUnlock");
                         lvProtectors.Items.Add(lvi);
+                    }
+
+                    var matchPct = Regex.Match(output, @"Percentage Encrypted:\s*([\d\.]+)%");
+                    if (matchPct.Success) {
+                        double pctVal = 0;
+                        if (double.TryParse(matchPct.Groups[1].Value, out pctVal)) {
+                            lblVolPct.Text = string.Format("{0:F0}%", pctVal);
+                            pBar.Value = (int)Math.Max(0, Math.Min(100, pctVal));
+                        }
                     }
 
                     // Mutually exclusive button enable/disable logic based on encryption status
@@ -2713,25 +2832,31 @@ namespace HMT.Forms {
                         lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
                         lblVolPct.Text = "100%";
                         lblVolPct.ForeColor = DarkTheme.AccentSuccess;
+                        pBar.Value = 100;
                         btnEnable.Enabled = false;
                         btnDisable.Enabled = true;
+                        pollTimer.Stop();
                     } else if (output.IndexOf("Fully Decrypted", StringComparison.OrdinalIgnoreCase) >= 0 || output.IndexOf("Protection Off", StringComparison.OrdinalIgnoreCase) >= 0) {
                         lblVolStatus.Text = "Status: Fully Decrypted (BitLocker Off)";
                         lblVolStatus.ForeColor = DarkTheme.TextMuted;
                         lblVolPct.Text = "0%";
                         lblVolPct.ForeColor = DarkTheme.TextMuted;
+                        pBar.Value = 0;
                         btnEnable.Enabled = true;
                         btnDisable.Enabled = false;
+                        pollTimer.Stop();
                     } else if (output.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
                         lblVolStatus.Text = "Status: Encryption in Progress...";
                         lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
                         btnEnable.Enabled = false;
                         btnDisable.Enabled = false;
+                        if (!pollTimer.Enabled) pollTimer.Start();
                     } else if (output.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
                         lblVolStatus.Text = "Status: Decryption in Progress...";
                         lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
                         btnEnable.Enabled = false;
                         btnDisable.Enabled = false;
+                        if (!pollTimer.Enabled) pollTimer.Start();
                     } else {
                         lblVolStatus.Text = "Status: Drive Accessible";
                         btnEnable.Enabled = true;
@@ -2748,6 +2873,47 @@ namespace HMT.Forms {
                 }
             } catch (Exception ex) {
                 lblVolStatus.Text = "Query error: " + ex.Message;
+            }
+        }
+
+        private void AddRecoveryPassword() {
+            if (cmbDrives.SelectedItem == null) return;
+            string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
+            try {
+                var psi = new ProcessStartInfo {
+                    FileName = "manage-bde.exe",
+                    Arguments = string.Format("-protectors -add {0} -RecoveryPassword", drive),
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var p = Process.Start(psi)) {
+                    p.WaitForExit();
+                }
+                RefreshBitLockerStatus();
+            } catch (Exception ex) {
+                MessageBox.Show("Failed to add recovery password: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void DeleteSelectedProtector() {
+            if (cmbDrives.SelectedItem == null || lvProtectors.SelectedItems.Count == 0) return;
+            string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
+            string id = lvProtectors.SelectedItems[0].SubItems[2].Text;
+            if (string.IsNullOrEmpty(id) || !id.StartsWith("{")) return;
+
+            try {
+                var psi = new ProcessStartInfo {
+                    FileName = "manage-bde.exe",
+                    Arguments = string.Format("-protectors -delete {0} -id {1}", drive, id),
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var p = Process.Start(psi)) {
+                    p.WaitForExit();
+                }
+                RefreshBitLockerStatus();
+            } catch (Exception ex) {
+                MessageBox.Show("Failed to delete protector: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -2772,7 +2938,6 @@ namespace HMT.Forms {
                 using (var proc = Process.Start(psi)) {
                     proc.WaitForExit();
                 }
-                MessageBox.Show("Unlock command dispatched.", "BitLocker", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshBitLockerStatus();
             } catch (Exception ex) {
                 MessageBox.Show("Unlock failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2784,19 +2949,25 @@ namespace HMT.Forms {
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
 
             try {
+                string args = (action == "-on")
+                    ? string.Format("-on {0} -RecoveryPassword -SkipHardwareTest", drive)
+                    : string.Format("-off {0}", drive);
+
                 var psi = new ProcessStartInfo {
                     FileName = "manage-bde.exe",
-                    Arguments = string.Format("{0} {1}", action, drive),
+                    Arguments = args,
                     CreateNoWindow = true,
                     UseShellExecute = false
                 };
                 using (var proc = Process.Start(psi)) {
                     proc.WaitForExit();
                 }
-                MessageBox.Show("Command dispatched: " + action + " on " + drive, "BitLocker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                // Immediately trigger background polling to track progress
+                pollTimer.Start();
                 RefreshBitLockerStatus();
             } catch (Exception ex) {
-                MessageBox.Show("Action failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("BitLocker operation failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
