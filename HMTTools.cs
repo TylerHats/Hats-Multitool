@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace HMT.Tools {
 
@@ -3074,6 +3075,238 @@ namespace HMT.Tools {
                 try { _process.Dispose(); } catch { }
                 _process = null;
             }
+        }
+    }
+
+    // ==============================================================================
+    // 12. High-Speed Native Startup & Autoruns Scanner
+    // ==============================================================================
+    public class StartupItem {
+        public string Name { get; set; }
+        public string Category { get; set; }
+        public string Command { get; set; }
+        public string Location { get; set; }
+        public string Type { get; set; } // "Registry", "File", "Task", "Winlogon", "Service"
+        public string RegPath { get; set; }
+        public string ApprPath { get; set; }
+        public string FilePath { get; set; }
+        public string TaskName { get; set; }
+        public string TaskPath { get; set; }
+        public string ServiceName { get; set; }
+        public string Status { get; set; } // "Enabled", "Disabled"
+    }
+
+    public static class StartupScanner {
+        private static string CheckStartupApproved(RegistryKey rootKey, string apprSubKey, string valName) {
+            try {
+                using (var key = rootKey.OpenSubKey(apprSubKey, false)) {
+                    if (key != null) {
+                        byte[] bytes = key.GetValue(valName) as byte[];
+                        if (bytes != null && bytes.Length > 0) {
+                            if (bytes[0] == 0x03 || bytes[0] == 0x01) {
+                                return "Disabled";
+                            }
+                        }
+                    }
+                }
+            } catch { }
+            return "Enabled";
+        }
+
+        public static List<StartupItem> ScanAll() {
+            var items = new List<StartupItem>();
+
+            // 1. HKCU Run
+            try {
+                string runSubKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+                string apprSubKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+                using (var key = Registry.CurrentUser.OpenSubKey(runSubKey, false)) {
+                    if (key != null) {
+                        foreach (var name in key.GetValueNames()) {
+                            string cmd = Convert.ToString(key.GetValue(name));
+                            string st = CheckStartupApproved(Registry.CurrentUser, apprSubKey, name);
+                            items.Add(new StartupItem {
+                                Name = name,
+                                Category = "Registry Run",
+                                Command = cmd,
+                                Location = "HKCU Run",
+                                Type = "Registry",
+                                RegPath = @"HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+                                ApprPath = @"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run",
+                                Status = st
+                            });
+                        }
+                    }
+                }
+            } catch { }
+
+            // 2. HKLM Run
+            try {
+                string runSubKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+                string apprSubKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+                using (var key = Registry.LocalMachine.OpenSubKey(runSubKey, false)) {
+                    if (key != null) {
+                        foreach (var name in key.GetValueNames()) {
+                            string cmd = Convert.ToString(key.GetValue(name));
+                            string st = CheckStartupApproved(Registry.LocalMachine, apprSubKey, name);
+                            items.Add(new StartupItem {
+                                Name = name,
+                                Category = "Registry Run",
+                                Command = cmd,
+                                Location = "HKLM Run",
+                                Type = "Registry",
+                                RegPath = @"HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
+                                ApprPath = @"HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run",
+                                Status = st
+                            });
+                        }
+                    }
+                }
+            } catch { }
+
+            // 3. HKLM WOW6432Node Run
+            try {
+                string run32SubKey = @"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
+                string appr32SubKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32";
+                using (var key = Registry.LocalMachine.OpenSubKey(run32SubKey, false)) {
+                    if (key != null) {
+                        foreach (var name in key.GetValueNames()) {
+                            string cmd = Convert.ToString(key.GetValue(name));
+                            string st = CheckStartupApproved(Registry.LocalMachine, appr32SubKey, name);
+                            items.Add(new StartupItem {
+                                Name = name,
+                                Category = "Registry Run",
+                                Command = cmd,
+                                Location = "HKLM Run (32-bit)",
+                                Type = "Registry",
+                                RegPath = @"HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run",
+                                ApprPath = @"HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32",
+                                Status = st
+                            });
+                        }
+                    }
+                }
+            } catch { }
+
+            // 4. User Startup Folder
+            try {
+                string userDir = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string apprFolder = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder";
+                if (!string.IsNullOrEmpty(userDir) && Directory.Exists(userDir)) {
+                    foreach (var file in Directory.GetFiles(userDir)) {
+                        string fn = Path.GetFileName(file);
+                        bool isDis = fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
+                        string st = isDis ? "Disabled" : CheckStartupApproved(Registry.CurrentUser, apprFolder, fn);
+                        items.Add(new StartupItem {
+                            Name = fn,
+                            Category = "Startup Folder",
+                            Command = file,
+                            Location = "User Startup Folder",
+                            Type = "File",
+                            FilePath = file,
+                            ApprPath = @"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder",
+                            Status = st
+                        });
+                    }
+                }
+            } catch { }
+
+            // 5. Common Startup Folder
+            try {
+                string commonDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup);
+                string apprFolder = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder";
+                if (!string.IsNullOrEmpty(commonDir) && Directory.Exists(commonDir)) {
+                    foreach (var file in Directory.GetFiles(commonDir)) {
+                        string fn = Path.GetFileName(file);
+                        bool isDis = fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
+                        string st = isDis ? "Disabled" : CheckStartupApproved(Registry.LocalMachine, apprFolder, fn);
+                        items.Add(new StartupItem {
+                            Name = fn,
+                            Category = "Startup Folder",
+                            Command = file,
+                            Location = "All Users Startup Folder",
+                            Type = "File",
+                            FilePath = file,
+                            ApprPath = @"HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder",
+                            Status = st
+                        });
+                    }
+                }
+            } catch { }
+
+            // 6. Shell & Winlogon
+            try {
+                string wlSubKey = @"Software\Microsoft\Windows NT\CurrentVersion\Winlogon";
+                using (var key = Registry.LocalMachine.OpenSubKey(wlSubKey, false)) {
+                    if (key != null) {
+                        string userinit = Convert.ToString(key.GetValue("Userinit"));
+                        if (!string.IsNullOrEmpty(userinit)) {
+                            items.Add(new StartupItem {
+                                Name = "Userinit",
+                                Category = "Shell / Winlogon",
+                                Command = userinit,
+                                Location = "HKLM Winlogon",
+                                Type = "Winlogon",
+                                RegPath = @"HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon",
+                                Status = "Enabled"
+                            });
+                        }
+                        string shell = Convert.ToString(key.GetValue("Shell"));
+                        if (!string.IsNullOrEmpty(shell) && !shell.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase)) {
+                            items.Add(new StartupItem {
+                                Name = "Custom Shell",
+                                Category = "Shell / Winlogon",
+                                Command = shell,
+                                Location = "HKLM Winlogon",
+                                Type = "Winlogon",
+                                RegPath = @"HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon",
+                                Status = "Enabled"
+                            });
+                        }
+                    }
+                }
+            } catch { }
+
+            // 7. Auto-start Services from Registry
+            try {
+                using (var servicesKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services", false)) {
+                    if (servicesKey != null) {
+                        foreach (var svcName in servicesKey.GetSubKeyNames()) {
+                            try {
+                                using (var svcKey = servicesKey.OpenSubKey(svcName, false)) {
+                                    if (svcKey != null) {
+                                        object startVal = svcKey.GetValue("Start");
+                                        if (startVal != null && (int)startVal == 2) {
+                                            string imagePath = Convert.ToString(svcKey.GetValue("ImagePath"));
+                                            if (!string.IsNullOrEmpty(imagePath)) {
+                                                if (imagePath.IndexOf("system32\\svchost.exe", StringComparison.OrdinalIgnoreCase) < 0 &&
+                                                    imagePath.IndexOf("system32\\lsass.exe", StringComparison.OrdinalIgnoreCase) < 0 &&
+                                                    imagePath.IndexOf("system32\\services.exe", StringComparison.OrdinalIgnoreCase) < 0) {
+                                                    
+                                                    string dispName = Convert.ToString(svcKey.GetValue("DisplayName"));
+                                                    if (string.IsNullOrEmpty(dispName)) dispName = svcName;
+
+                                                    items.Add(new StartupItem {
+                                                        Name = dispName,
+                                                        Category = "Startup Service",
+                                                        Command = imagePath,
+                                                        Location = "Services (" + svcName + ")",
+                                                        Type = "Service",
+                                                        ServiceName = svcName,
+                                                        Status = "Enabled"
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch { }
+                        }
+                    }
+                }
+            } catch { }
+
+            return items;
         }
     }
 }

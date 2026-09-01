@@ -2827,254 +2827,85 @@ function Show-StartupManagerDialog {
 
     $loadStartupItems = {
         $btnRefresh.Enabled = $false
+        $btnToggle.Enabled = $false
+        $btnDelete.Enabled = $false
+        $btnOpenLoc.Enabled = $false
+        $cmbCategory.Enabled = $false
+        $txtSearch.Enabled = $false
+        $lvStartup.Enabled = $false
         $lblSummary.Text = "Scanning startup items, scheduled tasks & services..."
         $state.StartupData = @()
         $lvStartup.Items.Clear()
+        [System.Windows.Forms.Application]::DoEvents()
 
-        $sync = [hashtable]::Synchronized(@{
-            Items = [System.Collections.ArrayList]::new()
-            Done  = $false
-            Error = $null
-        })
+        $items = @()
 
-        $rs = [runspacefactory]::CreateRunspace()
-        $rs.Open()
-        $ps = [powershell]::Create()
-        $ps.Runspace = $rs
-
-        $scanScript = {
-            param($syncState)
-            try {
-                $checkApproved = {
-                    param($regPath, $valName)
-                    try {
-                        $bytes = (Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue).$valName
-                        if ($bytes -and $bytes.Length -gt 0) {
-                            if ($bytes[0] -eq 0x03 -or $bytes[0] -eq 0x01) { return "Disabled" }
-                        }
-                    } catch {}
-                    return "Enabled"
-                }
-
-                # 1. HKCU Run
-                $hkcuRunPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-                $hkcuApprPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
-                try {
-                    $hkcuProps = Get-ItemProperty -Path $hkcuRunPath -ErrorAction SilentlyContinue
-                    if ($hkcuProps) {
-                        foreach ($prop in $hkcuProps.PSObject.Properties) {
-                            if ($prop.Name -notin @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider')) {
-                                $st = &$checkApproved $hkcuApprPath $prop.Name
-                                [void]$syncState.Items.Add([pscustomobject]@{
-                                    Name = $prop.Name
-                                    Category = "Registry Run"
-                                    Command = [string]$prop.Value
-                                    Location = "HKCU Run"
-                                    Type = "Registry"
-                                    RegPath = $hkcuRunPath
-                                    ApprPath = $hkcuApprPath
-                                    Status = $st
-                                })
-                            }
-                        }
-                    }
-                } catch {}
-
-                # 2. HKLM Run
-                $hklmRunPath = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
-                $hklmApprPath = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
-                try {
-                    $hklmProps = Get-ItemProperty -Path $hklmRunPath -ErrorAction SilentlyContinue
-                    if ($hklmProps) {
-                        foreach ($prop in $hklmProps.PSObject.Properties) {
-                            if ($prop.Name -notin @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider')) {
-                                $st = &$checkApproved $hklmApprPath $prop.Name
-                                [void]$syncState.Items.Add([pscustomobject]@{
-                                    Name = $prop.Name
-                                    Category = "Registry Run"
-                                    Command = [string]$prop.Value
-                                    Location = "HKLM Run"
-                                    Type = "Registry"
-                                    RegPath = $hklmRunPath
-                                    ApprPath = $hklmApprPath
-                                    Status = $st
-                                })
-                            }
-                        }
-                    }
-                } catch {}
-
-                # 3. HKLM WOW6432Node Run
-                $hklm32RunPath = "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
-                $hklm32ApprPath = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
-                try {
-                    $hklm32Props = Get-ItemProperty -Path $hklm32RunPath -ErrorAction SilentlyContinue
-                    if ($hklm32Props) {
-                        foreach ($prop in $hklm32Props.PSObject.Properties) {
-                            if ($prop.Name -notin @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider')) {
-                                $st = &$checkApproved $hklm32ApprPath $prop.Name
-                                [void]$syncState.Items.Add([pscustomobject]@{
-                                    Name = $prop.Name
-                                    Category = "Registry Run"
-                                    Command = [string]$prop.Value
-                                    Location = "HKLM Run (32-bit)"
-                                    Type = "Registry"
-                                    RegPath = $hklm32RunPath
-                                    ApprPath = $hklm32ApprPath
-                                    Status = $st
-                                })
-                            }
-                        }
-                    }
-                } catch {}
-
-                # 4. User Startup Folder
-                $userStartupDir = Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Windows\Start Menu\Programs\Startup"
-                $userApprFolder = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
-                if (Test-Path $userStartupDir) {
-                    $files = Get-ChildItem -Path $userStartupDir -File -ErrorAction SilentlyContinue
-                    foreach ($f in $files) {
-                        $isDisabled = $f.Name.EndsWith(".disabled", [StringComparison]::OrdinalIgnoreCase)
-                        $st = if ($isDisabled) { "Disabled" } else { &$checkApproved $userApprFolder $f.Name }
-                        [void]$syncState.Items.Add([pscustomobject]@{
-                            Name = $f.Name
-                            Category = "Startup Folder"
-                            Command = $f.FullName
-                            Location = "User Startup Folder"
-                            Type = "File"
-                            FilePath = $f.FullName
-                            ApprPath = $userApprFolder
-                            Status = $st
-                        })
+        # 1. Native High-Speed C# Scanner (Registry, Startup Folders, Shell, Services)
+        try {
+            $nativeItems = [HMT.Tools.StartupScanner]::ScanAll()
+            if ($nativeItems) {
+                foreach ($item in $nativeItems) {
+                    $items += [pscustomobject]@{
+                        Name        = $item.Name
+                        Category    = $item.Category
+                        Command     = $item.Command
+                        Location    = $item.Location
+                        Type        = $item.Type
+                        RegPath     = $item.RegPath
+                        ApprPath    = $item.ApprPath
+                        FilePath    = $item.FilePath
+                        ServiceName = $item.ServiceName
+                        Status      = $item.Status
                     }
                 }
-
-                # 5. Common Startup Folder
-                $commonStartupDir = Join-Path -Path $env:ProgramData -ChildPath "Microsoft\Windows\Start Menu\Programs\Startup"
-                $commonApprFolder = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
-                if (Test-Path $commonStartupDir) {
-                    $files = Get-ChildItem -Path $commonStartupDir -File -ErrorAction SilentlyContinue
-                    foreach ($f in $files) {
-                        $isDisabled = $f.Name.EndsWith(".disabled", [StringComparison]::OrdinalIgnoreCase)
-                        $st = if ($isDisabled) { "Disabled" } else { &$checkApproved $commonApprFolder $f.Name }
-                        [void]$syncState.Items.Add([pscustomobject]@{
-                            Name = $f.Name
-                            Category = "Startup Folder"
-                            Command = $f.FullName
-                            Location = "All Users Startup Folder"
-                            Type = "File"
-                            FilePath = $f.FullName
-                            ApprPath = $commonApprFolder
-                            Status = $st
-                        })
-                    }
-                }
-
-                # 6. Scheduled Tasks
-                try {
-                    $rootTasks = Get-ScheduledTask -TaskPath '\' -ErrorAction SilentlyContinue
-                    if ($rootTasks) {
-                        foreach ($t in $rootTasks) {
-                            if ($t.TaskName -and $t.TaskPath -notlike '\Microsoft\*') {
-                                $hasLogon = $false
-                                foreach ($trig in $t.Triggers) {
-                                    if ($trig.CimClass.CimClassName -match 'Logon|Boot|Startup') { $hasLogon = $true; break }
-                                }
-                                if ($hasLogon) {
-                                    $actionExec = ($t.Actions | Select-Object -First 1).Execute
-                                    [void]$syncState.Items.Add([pscustomobject]@{
-                                        Name = $t.TaskName
-                                        Category = "Scheduled Task"
-                                        Command = [string]$actionExec
-                                        Location = $t.TaskPath
-                                        Type = "Task"
-                                        TaskName = $t.TaskName
-                                        TaskPath = $t.TaskPath
-                                        Status = if ($t.State -eq 'Disabled') { "Disabled" } else { "Enabled" }
-                                    })
-                                }
-                            }
-                        }
-                    }
-                } catch {}
-
-                # 7. Shell & Winlogon Extensions
-                $winlogonPath = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon"
-                try {
-                    $wl = Get-ItemProperty -Path $winlogonPath -ErrorAction SilentlyContinue
-                    if ($wl.Userinit) {
-                        [void]$syncState.Items.Add([pscustomobject]@{
-                            Name = "Userinit"
-                            Category = "Shell / Winlogon"
-                            Command = [string]$wl.Userinit
-                            Location = "HKLM Winlogon"
-                            Type = "Winlogon"
-                            RegPath = $winlogonPath
-                            Status = "Enabled"
-                        })
-                    }
-                    if ($wl.Shell -and $wl.Shell -ne "explorer.exe") {
-                        [void]$syncState.Items.Add([pscustomobject]@{
-                            Name = "Custom Shell"
-                            Category = "Shell / Winlogon"
-                            Command = [string]$wl.Shell
-                            Location = "HKLM Winlogon"
-                            Type = "Winlogon"
-                            RegPath = $winlogonPath
-                            Status = "Enabled"
-                        })
-                    }
-                } catch {}
-
-                # 8. Startup Services
-                try {
-                    $services = Get-CimInstance -ClassName Win32_Service -Filter "StartMode = 'Auto'" -Property Name, DisplayName, PathName, State -ErrorAction SilentlyContinue
-                    if ($services) {
-                        foreach ($svc in $services) {
-                            $pn = $svc.PathName
-                            if ($pn -and $pn -notmatch '(?i)system32\\svchost\.exe|system32\\lsass\.exe|system32\\services\.exe') {
-                                [void]$syncState.Items.Add([pscustomobject]@{
-                                    Name = $svc.DisplayName
-                                    Category = "Startup Service"
-                                    Command = [string]$pn
-                                    Location = "Services ($($svc.Name))"
-                                    Type = "Service"
-                                    ServiceName = $svc.Name
-                                    Status = if ($svc.State -eq 'Running') { "Enabled" } else { "Disabled" }
-                                })
-                            }
-                        }
-                    }
-                } catch {}
-
-                $syncState.Done = $true
-            } catch {
-                $syncState.Error = $_.ToString()
-                $syncState.Done = $true
             }
-        }
+        } catch {}
 
-        $ps.AddScript($scanScript).AddArgument($sync) | Out-Null
-        $asyncHandle = $ps.BeginInvoke()
-
-        $pollTimer = New-Object System.Windows.Forms.Timer
-        $pollTimer.Interval = 40
-        $pollTimer.Add_Tick({
-            if ($sync.Done) {
-                $pollTimer.Stop()
-                $pollTimer.Dispose()
-                try {
-                    $ps.EndInvoke($asyncHandle)
-                    $ps.Dispose()
-                    $rs.Dispose()
-                } catch {}
-
-                $state.StartupData = @($sync.Items)
-                $btnRefresh.Enabled = $true
-                &$renderStartupList
+        # 2. Scheduled Tasks (Root & Non-Microsoft Logon Triggers)
+        try {
+            $rootTasks = Get-ScheduledTask -TaskPath '\' -ErrorAction SilentlyContinue
+            if ($rootTasks) {
+                foreach ($t in $rootTasks) {
+                    if ($t.TaskName -and $t.TaskPath -notlike '\Microsoft\*') {
+                        $hasLogon = $false
+                        foreach ($trig in $t.Triggers) {
+                            if ($trig.CimClass.CimClassName -match 'Logon|Boot|Startup') { $hasLogon = $true; break }
+                        }
+                        if ($hasLogon) {
+                            $actionExec = ($t.Actions | Select-Object -First 1).Execute
+                            $items += [pscustomobject]@{
+                                Name     = $t.TaskName
+                                Category = "Scheduled Task"
+                                Command  = [string]$actionExec
+                                Location = $t.TaskPath
+                                Type     = "Task"
+                                TaskName = $t.TaskName
+                                TaskPath = $t.TaskPath
+                                Status   = if ($t.State -eq 'Disabled') { "Disabled" } else { "Enabled" }
+                            }
+                        }
+                    }
+                }
             }
-        }.GetNewClosure())
-        $pollTimer.Start()
+        } catch {}
+
+        $state.StartupData = $items
+
+        # Re-enable controls once scanning finishes
+        $btnRefresh.Enabled = $true
+        $cmbCategory.Enabled = $true
+        $txtSearch.Enabled = $true
+        $lvStartup.Enabled = $true
+
+        &$renderStartupList
+    }.GetNewClosure()
+
+    $lvStartup.Add_SelectedIndexChanged({
+        $hasSel = ($lvStartup.SelectedItems.Count -gt 0)
+        $btnToggle.Enabled = $hasSel
+        $btnDelete.Enabled = $hasSel
+        $btnOpenLoc.Enabled = $hasSel
+    }.GetNewClosure())
     }.GetNewClosure()
 
     $txtSearch.Add_TextChanged({ &$renderStartupList }.GetNewClosure())
