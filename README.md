@@ -1,12 +1,12 @@
 <div align="center">
   <img src="HMTIcon.png" alt="Hat's Multitool Logo" width="150" />
   <h1>Hat's Multitool</h1>
-  <p><b>A powerful, modular PowerShell utility for Windows PC setup, optimization, and troubleshooting.</b></p>
+  <p><b>A high-performance, native C# .NET utility for Windows PC setup, optimization, and troubleshooting.</b></p>
 </div>
 
 ---
 
-**Hat's Multitool** is an open-source, PowerShell-based application designed to make setting up new PCs, optimizing current systems, and diagnosing issues as fast and painless as possible. Whether you are an IT professional deploying machines or a power user tweaking your personal rig, Hat's Multitool has you covered.
+**Hat's Multitool** is an open-source, compiled native C# application designed to make setting up new PCs, optimizing current systems, and diagnosing issues as fast and painless as possible. Built directly on .NET WinForms and Win32 APIs, it provides instant startup, smooth dark-themed UI, zero script droppers, and comprehensive sysadmin tools.
 
 *The latest release of this repo is always available at:* [**HatsThings.com/go/Hats-Multitool**](https://hatsthings.com/go/Hats-Multitool)
 
@@ -18,99 +18,64 @@ The multitool is divided into three primary categories, each packed with a robus
 
 ### 🛠️ PC Setup & Configuration
 Automate the tedious parts of Windows setup with built-in modules:
-- **Time Zone:** Automatically set or correct the system's time zone.
-- **Local Accounts:** Easily create or modify local user accounts.
-- **Bloat Cleanup:** Remove common OEM and consumer bloatware (e.g., McAfee, TikTok, pre-installed promotional apps) to keep Windows clean.
-- **Programs:** Automate the installation of essential software.
-- **System Properties & Setup Options:** Tweak Windows settings for maximum performance and usability.
+- **Time Zone:** Automatically set or correct the system's time zone and configure reliable NTP servers with auto-sync.
+- **Local Accounts:** Easily create or modify local user accounts, set passwords with hold-to-peek toggle, and grant administrator rights.
+- **Bloat Cleanup:** Remove common OEM and consumer bloatware (e.g., TikTok, Spotify, McAfee, promotional AppX packages), disable telemetry/diagnostic tracking services, and apply search privacy policies.
+- **Programs:** Automate the installation of essential software with WinGet integration and high-speed Microsoft Office 365 Click-to-Run deployment.
+- **System Properties & Setup Options:** Rename computers with NetBIOS validation, join domains/EntraID, configure classic Windows 11 context menus, enable hibernation, and optimize power savings.
 
-### 🧰 Built-in Tools
+### 🧰 Built-in Tools & Diagnostics
 Access a curated library of essential sysadmin and maintenance utilities directly from the GUI:
-- **System & Drive Utilities:** WizTree, Windows Disk Cleanup, Patch Cleaner, DISM++, BleachBit, HDDScan, Crystal Disk Mark, Crystal Disk Info.
-- **Network & Remote Tools:** Advanced IP Scanner, PuTTY.
-- **Driver & Profile Management:** Display Driver Uninstaller (DDU), User Profile Wizard.
-- **Uninstaller & Removal Tools:** McAfee MCPR Tool, Ninja Removal Script.
-- **Misc Tools:** BlueScreenView, Little Registry Cleaner, .NET 3.5 Installer, Windows 11 Upgrade Assistant.
-
-### 🚑 Troubleshooting
-Quickly run diagnostic commands and system fixes with a single click:
-- **System Repair:** Run Check Disk (Read Only), DISM Repair, and SFC Repair.
-- **Network Reset:** Flush DNS, release/renew IP, and clear the ARP cache.
-- **Diagnostic Reports:** Generate a detailed Battery Report or launch the Windows Reliability Monitor.
-- **Fixes:** Easily enable Safe Boot (with Networking) or restart a frozen Windows Explorer.
+- **Storage & Hardware:** SMART Info & Benchmarking, Windows Disk Cleanup, BitLocker Management, and external tool runners (WizTree, CrystalDiskInfo, DDU, HDDScan).
+- **Network & Diagnostics:** Internet Speed Test (Cloudflare Anycast), Latency & Packet Loss Monitor, TCP Port Checker, and network stack resets.
+- **System Repair:** SFC System File Checker, DISM Image Repair, Check Disk, and Windows Update Component Reset.
+- **Viewers & Utilities:** Startup & Autoruns Manager, Reliability Monitor, Battery Report Generator, and OEM ACPI MSDM Product Key reader.
 
 ---
 
 ## 🚀 Running the Program
 
-Hat's Multitool requires **no installation**. You can run it immediately in two ways:
+Hat's Multitool is a **single, portable, self-contained standalone executable** with **no installation** required.
 
-### 1. PowerShell One-Liner
-Open a standard PowerShell console (no elevation needed) and run the following command to download and execute the latest version automatically:
-
-```powershell
-IRM MT.HTSTH.APP | IEX
-```
-
-### 2. Standalone Executable
-Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-Multitool/releases)**. The executable is portable and self-updating, so you never have to redownload it to get the newest features!
+Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-Multitool/releases)**. The executable is portable and self-updating with EV Code Signing.
 
 ---
 
 ## 📂 Project Structure
 
-If you're interested in how it works under the hood, here's a breakdown of the core files:
-
-- **`Core.ps1`**: The brain of the operation. This script prepares the environment, handles DPI scaling, initializes WinForms, and coordinates the modules.
-- **`Common.ps1`**: A library of shared variables and helper functions used throughout the other scripts.
-- **`GUI_Main.ps1`**: Defines the Main Menu with branded header and the About dialog.
-- **`GUI_Tools.ps1`**: Houses the unified 5-tab Tools & Troubleshooting window and central execution router.
-- **`GUI_Diagnostics.ps1`**: Contains standalone diagnostic engines (Cloudflare Speed Test, Packet Loss Tester, Storage SMART Health, TCP Port Checker, and Command Runner).
-- **`GUI_Setup.ps1`**: Handles the setup module selection interface.
-- **`[Module].ps1`**: Individual scripts (like `BloatCleanup.ps1` or `SystemManagement.ps1`) that handle specific tasks chosen by the user.
-- **`HMTNative.cs` / `HMTNative.dll`**: Low-level Win32 P/Invoke interop library for DPI awareness, window theming, layered forms, and direct hardware storage descriptor queries.
-- **`HMTTools.cs` / `HMTTools.dll`**: High-performance diagnostic & graphing engine containing `SmoothGraphControl` (double-buffered GDI+ charts), `HighPrecisionPingEngine` (sub-millisecond latency & RFC 3550 jitter), `FastSpeedTestEngine` (multi-stream HTTP throughput), and `DiskBenchmarkEngine` (direct sequential & 4K random disk benchmark).
+- **`Program.cs`**: Main application entry point, Per-Monitor DPI initialization, and module orchestration.
+- **`HMTForms.cs`**: Native dark-themed WinForms UI implementations (`MainMenuForm`, `SetupSelectorForm`, `ToolsForm`, `ProgramsForm`, `BloatCleanupForm`, `SpeedTestForm`, `StartupManagerForm`, etc.).
+- **`HMTEngines.cs`**: Core background execution engines (`UpdateEngine`, `TimeZoneEngine`, `AccountEngine`, `BloatCleanupEngine`, `ProgramInstallerEngine`, `SetupOptionsEngine`).
+- **`HMTNative.cs`**: Low-level Win32 P/Invoke interop library for DPI awareness, window theming, and hardware storage descriptor queries.
+- **`HMTTools.cs`**: Custom GDI+ WinForms controls (`DarkButton`, `DarkTextBox`, `DarkTabControl`, `SmoothProgressBar`, `SmoothGraphControl`) and `FastSpeedTestEngine`.
+- **`app.manifest`**: Application manifest requesting elevation (`requireAdministrator`) and Per-Monitor V2 DPI awareness.
 
 ---
 
-## 📦 Packaging & Building
+## 📦 Building
 
-***[Releases](https://github.com/TylerHats/Hats-Multitool/releases)*** are packaged standalone executables.
+To compile the standalone Windows executable from source:
 
-The project is packaged as a native Windows GUI subsystem executable (`HMTLauncher.cs`) that hosts the PowerShell runtime in-process via .NET `System.Management.Automation`, with an embedded application manifest (`app.manifest`), Per-Monitor V2 DPI awareness, and an embedded signed payload archive. Helper methods are compiled into DLLs (`HMTNative.dll` and `HMTTools.dll`) using Mono-MCS during the build process.
-
-**Command-line switches:**
-- `Hats-Multitool.exe` (Default): Silent, flash-free startup displaying only the splash screen and GUI windows.
-- `Hats-Multitool.exe -debug`: Launches with a persistent, real-time diagnostic console window attached.
-
-**To package the project yourself:**
-1. Compile `HMTNative.cs` into `HMTNative.dll` and `HMTTools.cs` into `HMTTools.dll`:
-   ```bash
-   mcs -target:library -out:HMTNative.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTNative.cs
-   mcs -target:library -out:HMTTools.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll HMTTools.cs
-   ```
-2. Archive the repository files into a payload zip:
-   ```bash
-   zip -q -r payload.zip . -x "*.git*" "app.manifest" "HMTLauncher.cs" "payload.zip" "*.exe"
-   ```
-3. Compile the native C# launcher executable:
-   ```bash
-   mcs -target:winexe -win32manifest:app.manifest -win32icon:HMTIcon.ico -r:System.IO.Compression -r:System.IO.Compression.FileSystem -resource:payload.zip,payload.zip -out:Hats-Multitool.exe HMTLauncher.cs
-   ```
-*The multitool can also be opened simply by running* ***Core.ps1*** *directly; if the DLLs are not precompiled, it will automatically compile the CS files on first run.*
-
----
-
-## 🐛 Issues & Feedback
-
-Collaboration, bug reports, and feature requests are highly encouraged! 
-
-Please drop any reports or ideas on the **[Issues](https://github.com/TylerHats/Hats-Multitool/issues)** page. Every issue will be reviewed and researched. Even if a feature cannot be implemented, a detailed explanation will be provided before the request is closed.
+```bash
+mcs -target:winexe \
+    -platform:anycpu \
+    -win32manifest:app.manifest \
+    -win32icon:HMTIcon.ico \
+    -r:System.Windows.Forms \
+    -r:System.Drawing \
+    -r:System.IO.Compression \
+    -r:System.IO.Compression.FileSystem \
+    -r:System.Net.Http \
+    -r:System.ServiceProcess \
+    -r:System.Management \
+    -resource:HMTIcon.png,HMTIcon.png \
+    -resource:Splash.png,Splash.png \
+    -out:Hats-Multitool.exe \
+    HMTNative.cs HMTTools.cs HMTEngines.cs HMTForms.cs Program.cs
+```
 
 ---
 
 ## 📄 License
 
 This codebase is entirely open-source under the **[GPL 3.0 License](LICENSE)**. Feel free to use, modify, and distribute the code as long as it adheres to the license terms.
-
-*(Note: While the multitool downloads and runs various third-party and closed-source tools, those tools are governed by their respective owners and licenses, and their code is not maintained within this repository.)*
