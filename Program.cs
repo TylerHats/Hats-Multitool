@@ -54,8 +54,26 @@ namespace HMT {
                 }
             }
 
-            string version = "6.1.0";
+            string version = "6.1.6";
             try {
+                var asm = Assembly.GetExecutingAssembly();
+                var ver = asm.GetName().Version;
+                if (ver != null && ver.Major > 0) {
+                    version = string.Format("{0}.{1}.{2}", ver.Major, ver.Minor, ver.Build);
+                }
+
+                using (var stream = asm.GetManifestResourceStream("AppManifest.json")) {
+                    if (stream != null) {
+                        using (var reader = new StreamReader(stream)) {
+                            string json = reader.ReadToEnd();
+                            var match = System.Text.RegularExpressions.Regex.Match(json, @"""version""\s*:\s*""([^""]+)""");
+                            if (match.Success) {
+                                version = match.Groups[1].Value;
+                            }
+                        }
+                    }
+                }
+
                 string manifestPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AppManifest.json");
                 if (File.Exists(manifestPath)) {
                     string json = File.ReadAllText(manifestPath);

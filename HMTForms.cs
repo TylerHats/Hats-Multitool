@@ -2122,7 +2122,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(20, 375)),
                 Size = DarkTheme.Scale(new Size(740, 25)),
-                Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold)
+                Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold),
+                UseMnemonic = false
             };
             this.Controls.Add(lblStats);
 
@@ -2147,10 +2148,14 @@ namespace HMT.Forms {
                 graphControl.Clear();
                 int pps = 5;
                 int.TryParse(txtPps.Text, out pps);
+                if (pps < 1) pps = 1;
                 int size = 32;
                 int.TryParse(txtSize.Text, out size);
                 int duration = 0;
                 int.TryParse(txtDuration.Text, out duration);
+
+                // Minimum 3 full minutes of historical points visible across the timeline
+                graphControl.MaxPoints = Math.Max(1800, pps * 180);
 
                 pingEngine = new HighPrecisionPingEngine();
                 pingEngine.OnPingSample += (sample) => {
@@ -2158,7 +2163,7 @@ namespace HMT.Forms {
                         if (sample.Success) {
                             graphControl.AddPoint(sample.RttMs, SmoothGraphControl.GetLatencyColor(sample.RttMs));
                         } else {
-                            graphControl.AddPoint(0, DarkTheme.AccentDanger);
+                            graphControl.AddLostPacket();
                         }
                     }));
                 };
@@ -2570,19 +2575,19 @@ namespace HMT.Forms {
             };
             this.Controls.Add(summaryPanel);
 
-            lblVolStatus = new Label { Text = "Status: Detecting...", ForeColor = DarkTheme.AccentPrimary, Location = DarkTheme.Scale(new Point(15, 10)), Size = DarkTheme.Scale(new Size(450, 20)), Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold) };
+            lblVolStatus = new Label { Text = "Status: Detecting...", ForeColor = DarkTheme.AccentPrimary, Location = DarkTheme.Scale(new Point(15, 10)), Size = DarkTheme.Scale(new Size(450, 20)), Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold), UseMnemonic = false };
             summaryPanel.Controls.Add(lblVolStatus);
 
-            lblVolType = new Label { Text = "Volume Type: Fixed Disk | Encryption: XTS-AES 128/256-bit", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f) };
+            lblVolType = new Label { Text = "Volume Type: Fixed Disk | Encryption: Detecting...", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             summaryPanel.Controls.Add(lblVolType);
 
-            lblLockStatus = new Label { Text = "Lock Status: Unlocked | Protection: On", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 52)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f) };
+            lblLockStatus = new Label { Text = "Lock Status: Unlocked | Protection: Off", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(15, 52)), Size = DarkTheme.Scale(new Size(450, 18)), Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             summaryPanel.Controls.Add(lblLockStatus);
 
-            lblVolPct = new Label { Text = "100%", ForeColor = DarkTheme.AccentSuccess, Font = DarkTheme.GetScaledFont(18f, FontStyle.Bold), Location = DarkTheme.Scale(new Point(480, 10)), Size = DarkTheme.Scale(new Size(225, 30)), TextAlign = ContentAlignment.MiddleRight };
+            lblVolPct = new Label { Text = "0%", ForeColor = DarkTheme.TextMuted, Font = DarkTheme.GetScaledFont(18f, FontStyle.Bold), Location = DarkTheme.Scale(new Point(480, 10)), Size = DarkTheme.Scale(new Size(225, 30)), TextAlign = ContentAlignment.MiddleRight, UseMnemonic = false };
             summaryPanel.Controls.Add(lblVolPct);
 
-            lblVolPctSub = new Label { Text = "Encrypted", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(480, 42)), Size = DarkTheme.Scale(new Size(225, 20)), TextAlign = ContentAlignment.MiddleRight, Font = DarkTheme.GetScaledFont(10f) };
+            lblVolPctSub = new Label { Text = "Encrypted", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(480, 42)), Size = DarkTheme.Scale(new Size(225, 20)), TextAlign = ContentAlignment.MiddleRight, Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             summaryPanel.Controls.Add(lblVolPctSub);
 
             // Section 1: Protectors & Recovery Password Inspector
@@ -2591,7 +2596,8 @@ namespace HMT.Forms {
                 ForeColor = DarkTheme.TextMain,
                 Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold),
                 Location = DarkTheme.Scale(new Point(20, 134)),
-                AutoSize = true
+                AutoSize = true,
+                UseMnemonic = false
             };
             this.Controls.Add(lblProtTitle);
 
@@ -2608,11 +2614,12 @@ namespace HMT.Forms {
             btnCopyKey = new Button {
                 Text = "Copy Key",
                 Location = DarkTheme.Scale(new Point(420, 154)),
-                Size = DarkTheme.Scale(new Size(75, 30))
+                Size = DarkTheme.Scale(new Size(75, 30)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnCopyKey, DarkTheme.AccentPrimary);
             btnCopyKey.Click += (s, e) => {
-                if (!string.IsNullOrEmpty(txtRecoveryKey.Text)) {
+                if (!string.IsNullOrEmpty(txtRecoveryKey.Text) && !txtRecoveryKey.Text.StartsWith("No 48-digit")) {
                     Clipboard.SetText(txtRecoveryKey.Text);
                     MessageBox.Show("Recovery Key copied to clipboard!", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -2622,7 +2629,8 @@ namespace HMT.Forms {
             btnAddProtector = new Button {
                 Text = "+ Add Password",
                 Location = DarkTheme.Scale(new Point(500, 154)),
-                Size = DarkTheme.Scale(new Size(115, 30))
+                Size = DarkTheme.Scale(new Size(115, 30)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnAddProtector, DarkTheme.AccentSuccess);
             btnAddProtector.Click += (s, e) => AddRecoveryPassword();
@@ -2631,7 +2639,8 @@ namespace HMT.Forms {
             btnDeleteProtector = new Button {
                 Text = "Delete Key",
                 Location = DarkTheme.Scale(new Point(620, 154)),
-                Size = DarkTheme.Scale(new Size(120, 30))
+                Size = DarkTheme.Scale(new Size(120, 30)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnDeleteProtector, DarkTheme.AccentDanger);
             btnDeleteProtector.Click += (s, e) => DeleteSelectedProtector();
@@ -2656,7 +2665,7 @@ namespace HMT.Forms {
             };
             this.Controls.Add(unlockPanel);
 
-            var lblUnlockMethod = new Label { Text = "Unlock Method:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(10, 8)), Size = DarkTheme.Scale(new Size(120, 18)), Font = DarkTheme.GetScaledFont(10f) };
+            var lblUnlockMethod = new Label { Text = "Unlock Method:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(10, 8)), Size = DarkTheme.Scale(new Size(120, 18)), Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             unlockPanel.Controls.Add(lblUnlockMethod);
 
             cmbUnlockMethod = new ComboBox { Location = DarkTheme.Scale(new Point(10, 28)), Size = DarkTheme.Scale(new Size(210, 26)), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = DarkTheme.Background, ForeColor = DarkTheme.TextMain, FlatStyle = FlatStyle.Flat, Font = DarkTheme.GetScaledFont(10f) };
@@ -2664,13 +2673,13 @@ namespace HMT.Forms {
             cmbUnlockMethod.SelectedIndex = 0;
             unlockPanel.Controls.Add(cmbUnlockMethod);
 
-            var lblUnlockInput = new Label { Text = "Password / Recovery Key:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(235, 8)), Size = DarkTheme.Scale(new Size(200, 18)), Font = DarkTheme.GetScaledFont(10f) };
+            var lblUnlockInput = new Label { Text = "Password / Recovery Key:", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(235, 8)), Size = DarkTheme.Scale(new Size(200, 18)), Font = DarkTheme.GetScaledFont(10f), UseMnemonic = false };
             unlockPanel.Controls.Add(lblUnlockInput);
 
             txtUnlockSecret = new DarkTextBox { Location = DarkTheme.Scale(new Point(235, 28)), Size = DarkTheme.Scale(new Size(350, 26)) };
             unlockPanel.Controls.Add(txtUnlockSecret);
 
-            btnUnlock = new Button { Text = "Unlock Drive", Location = DarkTheme.Scale(new Point(595, 24)), Size = DarkTheme.Scale(new Size(110, 32)) };
+            btnUnlock = new Button { Text = "Unlock Drive", Location = DarkTheme.Scale(new Point(595, 24)), Size = DarkTheme.Scale(new Size(110, 32)), UseMnemonic = false };
             DarkTheme.StyleButton(btnUnlock, DarkTheme.AccentSuccess);
             btnUnlock.Click += (s, e) => UnlockCurrentDrive();
             unlockPanel.Controls.Add(btnUnlock);
@@ -2684,10 +2693,10 @@ namespace HMT.Forms {
             };
             this.Controls.Add(progPanel);
 
-            lblProgStatus = new Label { Text = "Operation Status: Idle", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(15, 8)), Size = DarkTheme.Scale(new Size(685, 20)), Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold) };
+            lblProgStatus = new Label { Text = "Operation Status: Idle", ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(15, 8)), Size = DarkTheme.Scale(new Size(685, 20)), Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold), UseMnemonic = false };
             progPanel.Controls.Add(lblProgStatus);
 
-            pBar = new SmoothProgressBar { Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(685, 18)), BorderRadius = DarkTheme.Scale(5), ProgressColor = DarkTheme.AccentPurple, ProgressColorEnd = DarkTheme.AccentPrimary, ShowShimmer = false, Value = 100 };
+            pBar = new SmoothProgressBar { Location = DarkTheme.Scale(new Point(15, 32)), Size = DarkTheme.Scale(new Size(685, 18)), BorderRadius = DarkTheme.Scale(5), ProgressColor = DarkTheme.AccentPurple, ProgressColorEnd = DarkTheme.AccentPrimary, ShowShimmer = false, Value = 0 };
             progPanel.Controls.Add(pBar);
 
             // Section 4: Action Buttons
@@ -2695,7 +2704,8 @@ namespace HMT.Forms {
             btnEnable = new Button {
                 Text = "Enable BitLocker (Encrypt)",
                 Location = DarkTheme.Scale(new Point(20, yActions)),
-                Size = DarkTheme.Scale(new Size(210, 36))
+                Size = DarkTheme.Scale(new Size(210, 36)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnEnable, DarkTheme.AccentSuccess);
             btnEnable.Click += (s, e) => ManageBitLockerAction("-on");
@@ -2704,7 +2714,8 @@ namespace HMT.Forms {
             btnDisable = new Button {
                 Text = "Disable BitLocker (Decrypt)",
                 Location = DarkTheme.Scale(new Point(240, yActions)),
-                Size = DarkTheme.Scale(new Size(210, 36))
+                Size = DarkTheme.Scale(new Size(210, 36)),
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnDisable, DarkTheme.AccentDanger);
             btnDisable.Click += (s, e) => ManageBitLockerAction("-off");
@@ -2714,7 +2725,8 @@ namespace HMT.Forms {
                 Text = "Close",
                 Location = DarkTheme.Scale(new Point(630, yActions)),
                 Size = DarkTheme.Scale(new Size(110, 36)),
-                DialogResult = DialogResult.OK
+                DialogResult = DialogResult.OK,
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
             btnClose.Click += (s, e) => this.Close();
@@ -2723,7 +2735,10 @@ namespace HMT.Forms {
             pollTimer = new System.Windows.Forms.Timer { Interval = 1500 };
             pollTimer.Tick += (s, e) => RefreshBitLockerStatus();
 
-            this.Shown += (s, e) => LoadVolumes();
+            this.Shown += (s, e) => {
+                LoadVolumes();
+                pollTimer.Start();
+            };
             this.FormClosing += (s, e) => pollTimer?.Stop();
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
@@ -2735,7 +2750,6 @@ namespace HMT.Forms {
             try {
                 foreach (var d in DriveInfo.GetDrives()) {
                     try {
-                        // Strictly filter for fixed storage drives (exclude optical/CD and removable)
                         if (d.DriveType != DriveType.Fixed) continue;
 
                         string letter = d.Name.Substring(0, 2);
@@ -2788,103 +2802,150 @@ namespace HMT.Forms {
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
 
             try {
-                var psi = new ProcessStartInfo {
-                    FileName = "manage-bde.exe",
-                    Arguments = "-status " + drive,
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                };
-
-                using (var proc = Process.Start(psi)) {
-                    string output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit();
-
-                    lvProtectors.Items.Clear();
-                    var keyMatches = Regex.Matches(output, @"Numerical Password:\s*(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})");
-                    var idMatches = Regex.Matches(output, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
-
-                    for (int i = 0; i < keyMatches.Count; i++) {
-                        string keyVal = keyMatches[i].Groups[1].Value;
-                        string keyId = (i < idMatches.Count) ? idMatches[i].Groups[1].Value : string.Format("Key-{0}", i + 1);
-                        var lvi = new ListViewItem("Numerical Password");
-                        lvi.SubItems.Add(keyVal);
-                        lvi.SubItems.Add(keyId);
-                        lvProtectors.Items.Add(lvi);
+                // 1. Query general drive BitLocker conversion status & encryption metrics
+                string statusOutput = "";
+                try {
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = "-status " + drive,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+                    using (var proc = Process.Start(psi)) {
+                        statusOutput = proc.StandardOutput.ReadToEnd();
+                        proc.WaitForExit();
                     }
+                } catch { }
 
-                    if (lvProtectors.Items.Count > 0) {
-                        txtRecoveryKey.Text = lvProtectors.Items[0].SubItems[1].Text;
-                    } else {
-                        txtRecoveryKey.Text = "No 48-digit numerical password found.";
+                // 2. Query protectors specifically (manage-bde -protectors -get) to extract actual 48-digit passwords and GUIDs
+                string protectorsOutput = "";
+                try {
+                    var psiProt = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = "-protectors -get " + drive,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+                    using (var procProt = Process.Start(psiProt)) {
+                        protectorsOutput = procProt.StandardOutput.ReadToEnd();
+                        procProt.WaitForExit();
                     }
+                } catch { }
 
-                    if (output.IndexOf("TPM", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        var lvi = new ListViewItem("TPM");
-                        lvi.SubItems.Add("Hardware Trusted Platform Module Security Chip");
-                        lvi.SubItems.Add("TPM-AutoUnlock");
-                        lvProtectors.Items.Add(lvi);
-                    }
+                string combinedOutput = statusOutput + "\n" + protectorsOutput;
 
-                    var matchPct = Regex.Match(output, @"Percentage Encrypted:\s*([\d\.]+)%");
-                    if (matchPct.Success) {
-                        double pctVal = 0;
-                        if (double.TryParse(matchPct.Groups[1].Value, out pctVal)) {
-                            lblVolPct.Text = string.Format("{0:F0}%", pctVal);
-                            pBar.Value = (int)Math.Max(0, Math.Min(100, pctVal));
-                        }
-                    }
+                // Extract all 48-digit numerical passwords
+                var keyMatches = Regex.Matches(protectorsOutput, @"\b(\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6}-\d{6})\b");
+                var idMatches = Regex.Matches(protectorsOutput, @"ID:\s*(\{[A-Fa-f0-9\-]+\})");
 
-                    bool isEncrypted = output.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                       output.IndexOf("Protection On", StringComparison.OrdinalIgnoreCase) >= 0;
-                    bool isEncrypting = output.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
+                lvProtectors.Items.Clear();
+                for (int i = 0; i < keyMatches.Count; i++) {
+                    string keyVal = keyMatches[i].Groups[1].Value;
+                    string keyId = (i < idMatches.Count) ? idMatches[i].Groups[1].Value : string.Format("Key-{0}", i + 1);
+                    var lvi = new ListViewItem("Numerical Password");
+                    lvi.SubItems.Add(keyVal);
+                    lvi.SubItems.Add(keyId);
+                    lvProtectors.Items.Add(lvi);
+                }
 
-                    btnAddProtector.Enabled = (isEncrypted || isEncrypting);
+                if (lvProtectors.Items.Count > 0) {
+                    txtRecoveryKey.Text = lvProtectors.Items[0].SubItems[1].Text;
+                } else {
+                    txtRecoveryKey.Text = "No 48-digit numerical password found.";
+                }
 
-                    // Mutually exclusive button enable/disable logic based on encryption status
-                    if (isEncrypted) {
-                        lblVolStatus.Text = "Status: Fully Encrypted (Protection Active)";
-                        lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
-                        lblVolPct.Text = "100%";
-                        lblVolPct.ForeColor = DarkTheme.AccentSuccess;
-                        pBar.Value = 100;
-                        btnEnable.Enabled = false;
-                        btnDisable.Enabled = true;
-                        pollTimer.Stop();
-                    } else if (output.IndexOf("Fully Decrypted", StringComparison.OrdinalIgnoreCase) >= 0 || output.IndexOf("Protection Off", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        lblVolStatus.Text = "Status: Fully Decrypted (BitLocker Off)";
-                        lblVolStatus.ForeColor = DarkTheme.TextMuted;
-                        lblVolPct.Text = "0%";
-                        lblVolPct.ForeColor = DarkTheme.TextMuted;
-                        pBar.Value = 0;
-                        btnEnable.Enabled = true;
-                        btnDisable.Enabled = false;
-                        pollTimer.Stop();
-                    } else if (isEncrypting) {
-                        lblVolStatus.Text = "Status: Encryption in Progress...";
-                        lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
-                        btnEnable.Enabled = false;
-                        btnDisable.Enabled = false;
-                        if (!pollTimer.Enabled) pollTimer.Start();
-                    } else if (output.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        lblVolStatus.Text = "Status: Decryption in Progress...";
-                        lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
-                        btnEnable.Enabled = false;
-                        btnDisable.Enabled = false;
-                        if (!pollTimer.Enabled) pollTimer.Start();
-                    } else {
-                        lblVolStatus.Text = "Status: Drive Accessible";
-                        btnEnable.Enabled = true;
-                        btnDisable.Enabled = true;
-                    }
+                if (combinedOutput.IndexOf("TPM", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    var lvi = new ListViewItem("TPM");
+                    lvi.SubItems.Add("Hardware Trusted Platform Module Security Chip");
+                    var tpmIdMatch = Regex.Match(protectorsOutput, @"TPM:[\s\S]*?ID:\s*(\{[A-Fa-f0-9\-]+\})");
+                    lvi.SubItems.Add(tpmIdMatch.Success ? tpmIdMatch.Groups[1].Value : "TPM-AutoUnlock");
+                    lvProtectors.Items.Add(lvi);
+                }
 
-                    if (output.IndexOf("Locked", StringComparison.OrdinalIgnoreCase) >= 0 && output.IndexOf("Unlocked", StringComparison.OrdinalIgnoreCase) < 0) {
-                        lblLockStatus.Text = "Lock Status: LOCKED | Protection: On";
-                        btnEnable.Enabled = false;
-                        btnDisable.Enabled = false;
-                    } else {
-                        lblLockStatus.Text = "Lock Status: Unlocked";
-                    }
+                // Extract percentage encrypted
+                double pctVal = 0;
+                var matchPct = Regex.Match(statusOutput, @"Percentage Encrypted:\s*([\d\.]+)%");
+                if (matchPct.Success) {
+                    double.TryParse(matchPct.Groups[1].Value, out pctVal);
+                }
+
+                // Extract conversion status, method, protection and lock
+                var matchConv = Regex.Match(statusOutput, @"Conversion Status:\s*(.+)");
+                string convStatus = matchConv.Success ? matchConv.Groups[1].Value.Trim() : "";
+
+                var matchMethod = Regex.Match(statusOutput, @"Encryption Method:\s*(.+)");
+                string encMethod = matchMethod.Success ? matchMethod.Groups[1].Value.Trim() : "None";
+                lblVolType.Text = string.Format("Volume Type: Fixed Disk | Encryption: {0}", encMethod);
+
+                var matchProt = Regex.Match(statusOutput, @"Protection Status:\s*(.+)");
+                string protStatus = matchProt.Success ? matchProt.Groups[1].Value.Trim() : "Off";
+
+                var matchLock = Regex.Match(statusOutput, @"Lock Status:\s*(.+)");
+                string lockStatus = matchLock.Success ? matchLock.Groups[1].Value.Trim() : "Unlocked";
+                lblLockStatus.Text = string.Format("Lock Status: {0} | Protection: {1}", lockStatus, protStatus);
+
+                bool isEncrypting = statusOutput.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    convStatus.IndexOf("Encryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isDecrypting = statusOutput.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    convStatus.IndexOf("Decryption in Progress", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isEncrypted = (!isEncrypting && !isDecrypting) && (
+                                   statusOutput.IndexOf("Fully Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   statusOutput.IndexOf("Used Space Only Encrypted", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   (pctVal >= 99.9 && statusOutput.IndexOf("Protection On", StringComparison.OrdinalIgnoreCase) >= 0));
+
+                lblVolPct.Text = string.Format("{0:F0}%", pctVal);
+                pBar.Value = (int)Math.Max(0, Math.Min(100, Math.Round(pctVal)));
+
+                btnAddProtector.Enabled = (isEncrypted || isEncrypting);
+
+                if (isEncrypting) {
+                    lblVolStatus.Text = string.Format("Status: Encryption in Progress ({0:F1}%)", pctVal);
+                    lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
+                    lblProgStatus.Text = string.Format("Operation Status: Encryption in Progress... ({0:F1}%)", pctVal);
+                    lblProgStatus.ForeColor = DarkTheme.AccentPrimary;
+                    lblVolPct.ForeColor = DarkTheme.AccentPrimary;
+                    pBar.ShowShimmer = true;
+                    btnEnable.Enabled = false;
+                    btnDisable.Enabled = true;
+                } else if (isDecrypting) {
+                    lblVolStatus.Text = string.Format("Status: Decryption in Progress ({0:F1}%)", pctVal);
+                    lblVolStatus.ForeColor = DarkTheme.AccentPrimary;
+                    lblProgStatus.Text = string.Format("Operation Status: Decryption in Progress... ({0:F1}%)", pctVal);
+                    lblProgStatus.ForeColor = DarkTheme.AccentPrimary;
+                    lblVolPct.ForeColor = DarkTheme.AccentPrimary;
+                    pBar.ShowShimmer = true;
+                    btnEnable.Enabled = true;
+                    btnDisable.Enabled = false;
+                } else if (isEncrypted) {
+                    lblVolStatus.Text = "Status: Fully Encrypted (Protection Active)";
+                    lblVolStatus.ForeColor = DarkTheme.AccentSuccess;
+                    lblProgStatus.Text = "Operation Status: Fully Encrypted (Protection Active)";
+                    lblProgStatus.ForeColor = DarkTheme.AccentSuccess;
+                    lblVolPct.Text = "100%";
+                    lblVolPct.ForeColor = DarkTheme.AccentSuccess;
+                    pBar.Value = 100;
+                    pBar.ShowShimmer = false;
+                    btnEnable.Enabled = false;
+                    btnDisable.Enabled = true;
+                } else {
+                    lblVolStatus.Text = "Status: Fully Decrypted (BitLocker Off)";
+                    lblVolStatus.ForeColor = DarkTheme.TextMuted;
+                    lblProgStatus.Text = "Operation Status: Idle (BitLocker Off)";
+                    lblProgStatus.ForeColor = DarkTheme.TextMuted;
+                    lblVolPct.Text = "0%";
+                    lblVolPct.ForeColor = DarkTheme.TextMuted;
+                    pBar.Value = 0;
+                    pBar.ShowShimmer = false;
+                    btnEnable.Enabled = true;
+                    btnDisable.Enabled = false;
+                }
+
+                if (lockStatus.IndexOf("Locked", StringComparison.OrdinalIgnoreCase) >= 0 && lockStatus.IndexOf("Unlocked", StringComparison.OrdinalIgnoreCase) < 0) {
+                    lblLockStatus.Text = "Lock Status: LOCKED | Protection: On";
+                    btnEnable.Enabled = false;
+                    btnDisable.Enabled = false;
                 }
             } catch (Exception ex) {
                 lblVolStatus.Text = "Query error: " + ex.Message;
@@ -2894,20 +2955,24 @@ namespace HMT.Forms {
         private void AddRecoveryPassword() {
             if (cmbDrives.SelectedItem == null) return;
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
-            try {
-                var psi = new ProcessStartInfo {
-                    FileName = "manage-bde.exe",
-                    Arguments = string.Format("-protectors -add {0} -RecoveryPassword", drive),
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using (var p = Process.Start(psi)) {
-                    p.WaitForExit();
-                }
-                RefreshBitLockerStatus();
-            } catch (Exception ex) {
-                MessageBox.Show("Failed to add recovery password: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            btnAddProtector.Enabled = false;
+            Task.Run(() => {
+                try {
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = string.Format("-protectors -add {0} -RecoveryPassword", drive),
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (var p = Process.Start(psi)) {
+                        p.WaitForExit();
+                    }
+                } catch { }
+
+                this.BeginInvoke((Action)(() => {
+                    RefreshBitLockerStatus();
+                }));
+            });
         }
 
         private void DeleteSelectedProtector() {
@@ -2916,20 +2981,24 @@ namespace HMT.Forms {
             string id = lvProtectors.SelectedItems[0].SubItems[2].Text;
             if (string.IsNullOrEmpty(id) || !id.StartsWith("{")) return;
 
-            try {
-                var psi = new ProcessStartInfo {
-                    FileName = "manage-bde.exe",
-                    Arguments = string.Format("-protectors -delete {0} -id {1}", drive, id),
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using (var p = Process.Start(psi)) {
-                    p.WaitForExit();
-                }
-                RefreshBitLockerStatus();
-            } catch (Exception ex) {
-                MessageBox.Show("Failed to delete protector: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            btnDeleteProtector.Enabled = false;
+            Task.Run(() => {
+                try {
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = string.Format("-protectors -delete {0} -id {1}", drive, id),
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (var p = Process.Start(psi)) {
+                        p.WaitForExit();
+                    }
+                } catch { }
+
+                this.BeginInvoke((Action)(() => {
+                    RefreshBitLockerStatus();
+                }));
+            });
         }
 
         private void UnlockCurrentDrive() {
@@ -2942,48 +3011,62 @@ namespace HMT.Forms {
                 return;
             }
 
-            try {
-                string flag = cmbUnlockMethod.SelectedIndex == 0 ? "-RecoveryPassword" : "-Password";
-                var psi = new ProcessStartInfo {
-                    FileName = "manage-bde.exe",
-                    Arguments = string.Format("-unlock {0} {1} {2}", drive, flag, secret),
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using (var proc = Process.Start(psi)) {
-                    proc.WaitForExit();
-                }
-                RefreshBitLockerStatus();
-            } catch (Exception ex) {
-                MessageBox.Show("Unlock failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            btnUnlock.Enabled = false;
+            Task.Run(() => {
+                try {
+                    string flag = cmbUnlockMethod.SelectedIndex == 0 ? "-RecoveryPassword" : "-Password";
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = string.Format("-unlock {0} {1} {2}", drive, flag, secret),
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (var proc = Process.Start(psi)) {
+                        proc.WaitForExit();
+                    }
+                } catch { }
+
+                this.BeginInvoke((Action)(() => {
+                    btnUnlock.Enabled = true;
+                    txtUnlockSecret.Text = "";
+                    RefreshBitLockerStatus();
+                }));
+            });
         }
 
         private void ManageBitLockerAction(string action) {
             if (cmbDrives.SelectedItem == null) return;
             string drive = cmbDrives.SelectedItem.ToString().Substring(0, 2);
 
-            try {
-                string args = (action == "-on")
-                    ? string.Format("-on {0} -RecoveryPassword -SkipHardwareTest", drive)
-                    : string.Format("-off {0}", drive);
+            lblProgStatus.Text = (action == "-on") ? "Starting BitLocker Encryption..." : "Starting BitLocker Decryption...";
+            lblProgStatus.ForeColor = DarkTheme.AccentPrimary;
+            pBar.ShowShimmer = true;
+            btnEnable.Enabled = false;
+            btnDisable.Enabled = false;
 
-                var psi = new ProcessStartInfo {
-                    FileName = "manage-bde.exe",
-                    Arguments = args,
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using (var proc = Process.Start(psi)) {
-                    proc.WaitForExit();
-                }
+            Task.Run(() => {
+                try {
+                    string args = (action == "-on")
+                        ? string.Format("-on {0} -RecoveryPassword -SkipHardwareTest", drive)
+                        : string.Format("-off {0}", drive);
 
-                // Immediately trigger background polling to track progress
-                pollTimer.Start();
-                RefreshBitLockerStatus();
-            } catch (Exception ex) {
-                MessageBox.Show("BitLocker operation failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+                    var psi = new ProcessStartInfo {
+                        FileName = "manage-bde.exe",
+                        Arguments = args,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+                    using (var proc = Process.Start(psi)) {
+                        proc.WaitForExit();
+                    }
+                } catch { }
+
+                this.BeginInvoke((Action)(() => {
+                    pollTimer.Start();
+                    RefreshBitLockerStatus();
+                }));
+            });
         }
     }
 

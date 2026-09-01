@@ -24,17 +24,20 @@ namespace HMT.Tools {
         public double Value;
         public Color PointColor;
         public bool HasCustomColor;
+        public bool IsLost;
 
-        public GraphPoint(double value) {
+        public GraphPoint(double value, bool isLost = false) {
             Value = value;
             PointColor = Color.Empty;
             HasCustomColor = false;
+            IsLost = isLost;
         }
 
-        public GraphPoint(double value, Color color) {
+        public GraphPoint(double value, Color color, bool isLost = false) {
             Value = value;
             PointColor = color;
             HasCustomColor = true;
+            IsLost = isLost;
         }
     }
 
@@ -122,9 +125,9 @@ namespace HMT.Tools {
 
             lock (_lock) {
                 if (customColor.IsEmpty) {
-                    _points.Add(new GraphPoint(valToRecord));
+                    _points.Add(new GraphPoint(valToRecord, false));
                 } else {
-                    _points.Add(new GraphPoint(valToRecord, customColor));
+                    _points.Add(new GraphPoint(valToRecord, customColor, false));
                 }
 
                 if (_points.Count > _maxPoints) {
@@ -135,19 +138,39 @@ namespace HMT.Tools {
                 double min = double.MaxValue;
                 double max = double.MinValue;
                 double sum = 0;
+                int validCount = 0;
 
                 for (int i = 0; i < _points.Count; i++) {
-                    double v = _points[i].Value;
-                    if (v < min) min = v;
-                    if (v > max) max = v;
-                    sum += v;
+                    if (!_points[i].IsLost) {
+                        double v = _points[i].Value;
+                        if (v < min) min = v;
+                        if (v > max) max = v;
+                        sum += v;
+                        validCount++;
+                    }
                 }
 
-                MinValue = (_points.Count > 0) ? min : 0;
-                MaxValue = (_points.Count > 0) ? max : 0;
-                AvgValue = (_points.Count > 0) ? (sum / _points.Count) : 0;
+                MinValue = (validCount > 0) ? min : 0;
+                MaxValue = (validCount > 0) ? max : 0;
+                AvgValue = (validCount > 0) ? (sum / validCount) : 0;
             }
 
+            if (IsHandleCreated) {
+                if (InvokeRequired) {
+                    BeginInvoke(new Action(Invalidate));
+                } else {
+                    Invalidate();
+                }
+            }
+        }
+
+        public void AddLostPacket() {
+            lock (_lock) {
+                _points.Add(new GraphPoint(0, Color.FromArgb(237, 66, 69), true));
+                if (_points.Count > _maxPoints) {
+                    _points.RemoveAt(0);
+                }
+            }
             if (IsHandleCreated) {
                 if (InvokeRequired) {
                     BeginInvoke(new Action(Invalidate));
@@ -222,23 +245,32 @@ namespace HMT.Tools {
                 g.FillRectangle(brush, 0, 0, w, h);
             }
 
-            // Margins - Expanded left margin for full axis readability
+            // Margins - Generous 85px left margin ensures "3500 MB/s" right-aligns with plenty of room
             int topMargin = 22;
             int bottomMargin = 22;
-            int leftMargin = 72;
+            int leftMargin = 85;
             int rightMargin = 15;
 
             int plotW = w - leftMargin - rightMargin;
             int plotH = h - topMargin - bottomMargin;
             if (plotW < 10 || plotH < 10) return;
 
-            // Compute Y Scale
-            double scaleMax = _fixedMax;
-            if (scaleMax <= 0) {
-                scaleMax = Math.Max(1.0, MaxValue * 1.15);
+            GraphPoint[] pts;
+            lock (_lock) {
+                pts = _points.ToArray();
             }
 
-            // Draw horizontal gridlines & Y axis labels
+            // Compute Y Scale using only valid latency points
+            double scaleMax = _fixedMax;
+            if (scaleMax <= 0) {
+                double validMax = double.MinValue;
+                for (int i = 0; i < pts.Length; i++) {
+                    if (!pts[i].IsLost && pts[i].Value > validMax) validMax = pts[i].Value;
+                }
+                scaleMax = (validMax > 0) ? Math.Max(1.0, validMax * 1.15) : 10.0;
+            }
+
+            // Draw horizontal gridlines & clean right-aligned Y axis labels
             using (var gridPen = new Pen(_gridColor, 1f) { DashStyle = DashStyle.Dash })
             using (var labelBrush = new SolidBrush(_subTextColor)) {
                 int gridLines = 4;
@@ -253,7 +285,11 @@ namespace HMT.Tools {
                     } else {
                         lbl = (val >= 100) ? val.ToString("F0") : (val >= 10 ? val.ToString("F1") : val.ToString("F2"));
                     }
-                    g.DrawString(lbl, Font, labelBrush, 4, y - 7);
+
+                    SizeF lblSize = g.MeasureString(lbl, Font);
+                    float textX = leftMargin - lblSize.Width - 6;
+                    float textY = y - (lblSize.Height / 2);
+                    g.DrawString(lbl, Font, labelBrush, textX, textY);
                 }
             }
 
@@ -262,75 +298,35 @@ namespace HMT.Tools {
                 g.DrawRectangle(borderPen, leftMargin, topMargin, plotW, plotH);
             }
 
-            // Draw Data Line & Gradient Area Fill
-            GraphPoint[] pts;
-            lock (_lock) {
-                pts = _points.ToArray();
-            }
-
-            if (pts.Length > 1) {
+            if (pts.Length > 0) {
                 int totalPoints = pts.Length;
-                PointF[] linePoints;
-                Color[] pointColors;
 
-                lock (_lock) {
-                    linePoints = new PointF[totalPoints];
-                    pointColors = new Color[totalPoints];
+                // 1. Draw vertical red bars for lost packets spanning full height
+                using (var lostPen = new Pen(Color.FromArgb(237, 66, 69), 1.5f)) {
                     for (int i = 0; i < totalPoints; i++) {
-                        float x = leftMargin + (plotW * (float)i / (totalPoints - 1));
-                        double v = Math.Max(0.0, Math.Min(scaleMax, pts[i].Value));
-                        float y = topMargin + plotH - (float)((v / scaleMax) * plotH);
-                        linePoints[i] = new PointF(x, y);
-                        pointColors[i] = pts[i].HasCustomColor ? pts[i].PointColor : _lineColor;
+                        if (pts[i].IsLost) {
+                            float x = leftMargin + (plotW * (float)i / Math.Max(1, totalPoints - 1));
+                            g.DrawLine(lostPen, x, topMargin + 1, x, topMargin + plotH - 1);
+                        }
                     }
                 }
 
-                // For very high point counts (e.g. 60,000 at 1000 pps), downsample into plotW pixel columns for max 60fps performance
-                if (totalPoints > plotW * 2) {
-                    List<PointF> sampledPoints = new List<PointF>(plotW * 2);
-                    List<Color> sampledColors = new List<Color>(plotW * 2);
-                    float pointsPerPixel = (float)totalPoints / plotW;
+                // 2. Build continuous line points for valid latency points
+                List<PointF> linePointsList = new List<PointF>(totalPoints);
+                List<Color> pointColorsList = new List<Color>(totalPoints);
 
-                    for (int xCol = 0; xCol < plotW; xCol++) {
-                        int startIdx = (int)(xCol * pointsPerPixel);
-                        int endIdx = Math.Min(totalPoints, (int)((xCol + 1) * pointsPerPixel));
-                        if (startIdx >= endIdx) continue;
-
-                        double minVal = double.MaxValue;
-                        double maxVal = double.MinValue;
-                        GraphPoint lastPt = pts[endIdx - 1];
-
-                        for (int k = startIdx; k < endIdx; k++) {
-                            if (pts[k].Value < minVal) minVal = pts[k].Value;
-                            if (pts[k].Value > maxVal) maxVal = pts[k].Value;
-                        }
-
-                        float xPos = leftMargin + xCol;
-                        float yMax = topMargin + plotH * (1.0f - (float)Math.Max(0.0, Math.Min(scaleMax, maxVal)) / (float)scaleMax);
-                        float yMin = topMargin + plotH * (1.0f - (float)Math.Max(0.0, Math.Min(scaleMax, minVal)) / (float)scaleMax);
-
-                        Color c = _useDynamicLatencyColors ? GetLatencyColor(lastPt.Value) : (lastPt.HasCustomColor ? lastPt.PointColor : _lineColor);
-
-                        sampledPoints.Add(new PointF(xPos, yMax));
-                        sampledColors.Add(c);
-                        if (Math.Abs(yMin - yMax) > 1f) {
-                            sampledPoints.Add(new PointF(xPos, yMin));
-                            sampledColors.Add(c);
-                        }
-                    }
-                    linePoints = sampledPoints.ToArray();
-                    pointColors = sampledColors.ToArray();
-                } else {
-                    linePoints = new PointF[totalPoints];
-                    pointColors = new Color[totalPoints];
-                    for (int i = 0; i < totalPoints; i++) {
+                for (int i = 0; i < totalPoints; i++) {
+                    if (!pts[i].IsLost) {
                         float x = leftMargin + (plotW * (float)i / Math.Max(1, totalPoints - 1));
                         float normY = (float)Math.Max(0.0, Math.Min(scaleMax, pts[i].Value)) / (float)scaleMax;
                         float y = topMargin + plotH * (1.0f - normY);
-                        linePoints[i] = new PointF(x, y);
-                        pointColors[i] = _useDynamicLatencyColors ? GetLatencyColor(pts[i].Value) : (pts[i].HasCustomColor ? pts[i].PointColor : _lineColor);
+                        linePointsList.Add(new PointF(x, y));
+                        pointColorsList.Add(_useDynamicLatencyColors ? GetLatencyColor(pts[i].Value) : (pts[i].HasCustomColor ? pts[i].PointColor : _lineColor));
                     }
                 }
+
+                PointF[] linePoints = linePointsList.ToArray();
+                Color[] pointColors = pointColorsList.ToArray();
 
                 if (linePoints.Length > 1) {
                     // Fill gradient under the curve
