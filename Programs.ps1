@@ -3,29 +3,14 @@
 # Force TLS 1.2 for reliable WebClient downloads
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor 12288
 
-# Force initialize WinGet source
-$global:BGRBaseText = "Updating WinGet Sources"
-if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) { $global:BGRlabel.Text = $global:BGRBaseText }
-[System.Windows.Forms.Application]::DoEvents()
-Log-Message "Initializing WinGet and updating sources..."
-
-$procReset = Start-Process winget.exe -ArgumentList "source reset --force" -WindowStyle Hidden -PassThru
-while (-not $procReset.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
-
-$procUpdate = Start-Process winget.exe -ArgumentList "source update" -WindowStyle Hidden -PassThru
-while (-not $procUpdate.HasExited) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 50 }
-
-$global:BGRBaseText = "Hat's Multitool is running"
-if ($null -ne $global:BGRlabel -and -not $global:BGRlabel.IsDisposed) { $global:BGRlabel.Text = $global:BGRBaseText }
-
 # Initialize GUI form
-Log-Message "Preparing Software Catalog..."
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Net.Http
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Software & Program Installation Suite'
+$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Programs" } else { "Software & Program Installation Suite" }
+$form.Text = "Hat's Multitool - $titlePrefix"
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $form.StartPosition = 'CenterScreen'
 $HMTIconPath = Join-Path -Path $PSScriptRoot -ChildPath "HMTIconSmall.ico"
@@ -372,13 +357,12 @@ $downloadWithProgress = {
     }
 
     while (-not $state.IsCompleted -and [string]::IsNullOrEmpty($state.Error)) {
-        [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 40
-
         if ($script:SkipCurrent) {
             $state.IsCancelled = $true
             break
         }
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 25
 
         $readBytes = $state.BytesRead
         $totBytes = $state.TotalBytes
@@ -444,8 +428,9 @@ $okButton.Add_Click({
 
         $yMS = $progressBar.Bottom + [int](15 * $global:HMTScaleFactor)
         $msStatusLabel.Location = New-Object System.Drawing.Point(20, $yMS)
-        $msDetailLabel.Location = New-Object System.Drawing.Point(20, ($yMS + 18))
-        $msProgressBar.Location = New-Object System.Drawing.Point(20, ($yMS + 38))
+        $msDetailLabel.Location = New-Object System.Drawing.Point(20, ($yMS + [int](20 * $global:HMTScaleFactor)))
+        $msProgressBar.Location = New-Object System.Drawing.Point(20, ($yMS + [int](44 * $global:HMTScaleFactor)))
+        $msProgressBar.Width = $progressBar.Width
 
         $yBtn = $msProgressBar.Bottom + [int](20 * $global:HMTScaleFactor)
         $okButton.Top = $yBtn
@@ -736,14 +721,19 @@ $okButton.Add_Click({
             $procInfo.CreateNoWindow = $true
 
             $proc = New-Object System.Diagnostics.Process
-            $proc.StartInfo = $procInfo
+                            $proc.StartInfo = $procInfo
             try {
                 $proc.Start() | Out-Null
                 $readTask = $proc.StandardOutput.ReadToEndAsync()
                 while (-not $readTask.IsCompleted) {
+                    if ($script:SkipCurrent) {
+                        try { $proc.Kill() } catch {}
+                        break
+                    }
                     [System.Windows.Forms.Application]::DoEvents()
-                    Start-Sleep -Milliseconds 30
+                    Start-Sleep -Milliseconds 20
                 }
+                if ($script:SkipCurrent) { return $null }
                 $wingetOutput = $readTask.Result
                 $proc.WaitForExit()
 
@@ -779,10 +769,10 @@ $okButton.Add_Click({
             $foundSilent = "--install `"$env:ProgramFiles (x86)\AnyDesk`" --start-with-win --silent"
         }
 
-        return [pscustomobject]@{
+        return @{
             InstallerUrl = $foundUrl
-            SilentArgs = $foundSilent
-            InstallerType = $foundType
+            SilentArgs   = $foundSilent
+            InstallerType= $foundType
         }
     }
 
@@ -814,7 +804,15 @@ $okButton.Add_Click({
                 Log-Message "Direct installer URL not advertised in manifest for $($program.Name). Running WinGet CLI install..." "Info"
                 &$updateLocalProgress $index $total 50 "$phasePrefix $($index + 1) of $($total): $($program.Name)" "Running WinGet CLI install..."
                 
-                $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -PassThru -WindowStyle Hidden
+                while (-not $wgProc.HasExited) {
+                    if ($script:SkipCurrent) {
+                        try { $wgProc.Kill() } catch {}
+                        break
+                    }
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 50
+                }
                 
                 # Check exit code or verify on system
                 if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010 -or (&$testProgramInstalled $program)) {
@@ -844,7 +842,15 @@ $okButton.Add_Click({
                     &$downloadWithProgress $installerUrl $tempPath $index $total $program.Name $dlHeaders
                 } catch {
                     Log-Message "Direct download failed for $($program.Name) ($($_)). Attempting WinGet CLI fallback..." "Warning"
-                    $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -Wait -PassThru -WindowStyle Hidden
+                    $wgProc = Start-Process -FilePath "winget.exe" -ArgumentList "install --id `"$($program.WingetID)`" --exact --silent --accept-source-agreements --accept-package-agreements --disable-interactivity" -PassThru -WindowStyle Hidden
+                    while (-not $wgProc.HasExited) {
+                        if ($script:SkipCurrent) {
+                            try { $wgProc.Kill() } catch {}
+                            break
+                        }
+                        [System.Windows.Forms.Application]::DoEvents()
+                        Start-Sleep -Milliseconds 50
+                    }
                     if ($wgProc.ExitCode -eq 0 -or $wgProc.ExitCode -eq 3010 -or (&$testProgramInstalled $program)) {
                         Log-Message "$($program.Name): Installed successfully via WinGet CLI fallback." "Success"
                         $success = $true

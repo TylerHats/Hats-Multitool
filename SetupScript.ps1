@@ -1,57 +1,30 @@
-# PC Setup and Config Script - Tyler Hatfield - v1.21
+# PC Setup and Config Script - Tyler Hatfield - v2.0
 
-# Initialize background reminder UI
-$BackgroundReminderPath = Join-Path -Path $PSScriptRoot -ChildPath 'BGReminder.ps1'
-$BGRCodeExit = $false
-. "$BackgroundReminderPath"
-	
-# Execute Time Zone module
-if ($Run_TimeZone) {
-	Log-Message "Starting Time Zone module..." "Info"
-	$TZPath = Join-Path -Path $PSScriptRoot -ChildPath 'TimeZone.ps1'
-	. "$TZPath"
+# Build ordered list of active setup modules
+$selectedModules = @()
+if ($Run_TimeZone) { $selectedModules += [pscustomobject]@{ Name = "Time Zone"; Script = "TimeZone.ps1" } }
+if ($Run_LocalAccounts) { $selectedModules += [pscustomobject]@{ Name = "Local Accounts"; Script = "Accounts.ps1" } }
+if ($Run_SystemProperties) { $selectedModules += [pscustomobject]@{ Name = "System Properties"; Script = "SystemManagement.ps1" } }
+if ($Run_SetupOptions) { $selectedModules += [pscustomobject]@{ Name = "Setup Options"; Script = "FinalOptions.ps1" } }
+if ($Run_BloatCleanup) { $selectedModules += [pscustomobject]@{ Name = "Bloat Cleanup"; Script = "BloatCleanup.ps1" } }
+if ($Run_Programs) { $selectedModules += [pscustomobject]@{ Name = "Programs"; Script = "Programs.ps1" } }
+
+$global:HMTSetupTotalSteps = $selectedModules.Count
+$global:HMTSetupCurrentStepIndex = 0
+
+for ($i = 0; $i -lt $selectedModules.Count; $i++) {
+    $global:HMTSetupCurrentStepIndex = $i + 1
+    $mod = $selectedModules[$i]
+    $global:HMTSetupStepName = $mod.Name
+
+    Log-Message "Starting $($mod.Name) module (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps))..." "Info"
+    $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath $mod.Script
+    if (Test-Path $scriptPath) {
+        . "$scriptPath"
+    }
 }
-
-# Execute Local Accounts module
-if ($Run_LocalAccounts) {
-	Log-Message "Starting Local Accounts module..." "Info"
-	$AccountsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Accounts.ps1'
-	. "$AccountsModPath"
-}
-
-# Execute System Management module
-if ($Run_SystemProperties) {
-	Log-Message "Starting System Properties module..." "Info"
-	$SystemManagementModPath = Join-Path -Path $PSScriptRoot -ChildPath 'SystemManagement.ps1'
-	. "$SystemManagementModPath"
-}
-
-# Execute Final Options module
-if ($Run_SetupOptions) {
-	Log-Message "Starting Setup Options module..." "Info"
-	$FOPath = Join-Path -Path $PSScriptRoot -ChildPath 'FinalOptions.ps1'
-	. "$FOPath"
-}
-
-# Execute Bloat Cleanup module
-if ($Run_BloatCleanup) {
-	Log-Message "Starting Bloat Cleanup module..." "Info"
-	$BloatCleanupModPath = Join-Path -Path $PSScriptRoot -ChildPath 'BloatCleanup.ps1'
-	. "$BloatCleanupModPath"
-}
-
-# Execute Programs module
-if ($Run_Programs) {
-	Log-Message "Starting Programs module..." "Info"
-	$ProgramsModPath = Join-Path -Path $PSScriptRoot -ChildPath 'Programs.ps1'
-	. "$ProgramsModPath"
-}
-
-# Terminate background reminder UI
-$BGRCodeExit = $true
-$BGR.Close()
 
 if ($global:RunUserExitOnComplete -eq $true) {
-	Log-Message "Auto-exit enabled by Programs module. Closing and cleaning up..." "Info"
-	User-Exit
+    Log-Message "Auto-exit enabled by Programs module. Closing and cleaning up..." "Info"
+    User-Exit
 }

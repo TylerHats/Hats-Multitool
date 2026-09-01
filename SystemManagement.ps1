@@ -12,7 +12,8 @@ $CurrentDomain = if ($sysInfo -and $sysInfo.PartOfDomain) { $sysInfo.Domain } el
 
 # Initialize GUI form
 $SMGUI = New-Object System.Windows.Forms.Form
-$SMGUI.Text = "Hat's Multitool"
+$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): System Properties" } else { "System Properties" }
+$SMGUI.Text = "Hat's Multitool - $titlePrefix"
 $SMGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $SMGUI.ClientSize = New-Object System.Drawing.Size(315, 265)
 $SMGUI.StartPosition = 'CenterScreen'

@@ -1,8 +1,65 @@
-﻿# Bloat Cleanup Module - Tyler Hatfield - v3.0
+# Bloat Cleanup Module - Tyler Hatfield - v3.0
 
-# $RemoveBloat = "y"
+# Initialize Bloat Cleanup GUI Dialog
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-$global:BGRBaseText = "Starting Bloat Cleanup"
+$BloatGUI = New-Object System.Windows.Forms.Form
+$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Bloat Cleanup" } else { "Bloat Cleanup & System Debloat" }
+$BloatGUI.Text = "Hat's Multitool - $titlePrefix"
+$BloatGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
+$BloatGUI.ClientSize = New-Object System.Drawing.Size(480, 160)
+$BloatGUI.StartPosition = 'CenterScreen'
+if ($HMTIcon) { $BloatGUI.Icon = $HMTIcon }
+$BloatGUI.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$BloatGUI.MaximizeBox = $false
+$BloatGUI.MinimizeBox = $true
+$BloatGUI.ShowInTaskbar = $true
+$BloatGUI.Font = $font
+$BloatGUI.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+$BloatGUI.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+Set-DarkTitleBar -TargetForm $BloatGUI
+
+$padding = 20
+$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus.Text = "Preparing Bloat Cleanup..."
+$lblStatus.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d9d9d9")
+$lblStatus.Location = New-Object System.Drawing.Point($padding, 18)
+$lblStatus.Size = New-Object System.Drawing.Size(440, 22)
+$lblStatus.AutoSize = $false
+$BloatGUI.Controls.Add($lblStatus)
+
+$lblDetail = New-Object System.Windows.Forms.Label
+$lblDetail.Text = "Scanning installed AppX packages..."
+$lblDetail.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a0a0a0")
+$lblDetail.Location = New-Object System.Drawing.Point($padding, 42)
+$lblDetail.Size = New-Object System.Drawing.Size(440, 20)
+$lblDetail.AutoSize = $false
+$BloatGUI.Controls.Add($lblDetail)
+
+$pBar = New-Object HMT.Tools.SmoothProgressBar
+$pBar.Location = New-Object System.Drawing.Point($padding, 70)
+$pBar.Size = New-Object System.Drawing.Size(440, 20)
+$pBar.BorderRadius = 5
+$pBar.ProgressColor = [System.Drawing.ColorTranslator]::FromHtml("#6f1fde")
+$pBar.ProgressColorEnd = [System.Drawing.ColorTranslator]::FromHtml("#5865F2")
+$pBar.ShowShimmer = $true
+$BloatGUI.Controls.Add($pBar)
+
+$BloatGUI.Add_Load({
+    Invoke-HMTScale $BloatGUI
+    $p = [int]($padding * $global:HMTScaleFactor)
+    $lblStatus.Location = New-Object System.Drawing.Point($p, [int](18 * $global:HMTScaleFactor))
+    $lblStatus.Size = New-Object System.Drawing.Size(($BloatGUI.ClientSize.Width - ($p * 2)), [int](22 * $global:HMTScaleFactor))
+    $lblDetail.Location = New-Object System.Drawing.Point($p, [int](42 * $global:HMTScaleFactor))
+    $lblDetail.Size = New-Object System.Drawing.Size(($BloatGUI.ClientSize.Width - ($p * 2)), [int](20 * $global:HMTScaleFactor))
+    $pBar.Location = New-Object System.Drawing.Point($p, [int](70 * $global:HMTScaleFactor))
+    $pBar.Size = New-Object System.Drawing.Size(($BloatGUI.ClientSize.Width - ($p * 2)), [int](20 * $global:HMTScaleFactor))
+    $BloatGUI.ClientSize = New-Object System.Drawing.Size($BloatGUI.ClientSize.Width, ($pBar.Bottom + $p))
+})
+
+# Show form non-blocking and execute debloat
+$BloatGUI.Show()
 [System.Windows.Forms.Application]::DoEvents()
 
 <#
@@ -26,8 +83,8 @@ $bloatApps = @(
     "*BingNews*",
     "*BingWeather*",
     "*WindowsMaps*",
-    "*ZuneVideo*",          # Old Movies & TV
-    "*ZuneMusic*",          # Old Groove Music
+    "*ZuneVideo*",
+    "*ZuneMusic*",
     "*Cortana*",
     "*MicrosoftSolitaireCollection*",
     "*GetHelp*",
@@ -36,13 +93,19 @@ $bloatApps = @(
     "*windowscommunicationsapps*"
 )
 
-# $totalBloat = $bloatApps.Count
+$totalBloat = $bloatApps.Count
 $removedCount = 0
+$idx = 0
 
 foreach ($app in $bloatApps) {
-    Log-Message "Attempting to remove $app..." "Info"
-    $global:BGRBaseText = "Removing $app"
+    $idx++
+    $cleanName = $app.Trim('*')
+    $lblStatus.Text = "Removing Bloatware: $cleanName ($idx of $totalBloat)"
+    $lblDetail.Text = "Checking AppX user and provisioned package registrations..."
+    $pBar.Value = [int](($idx / ($totalBloat + 3)) * 100)
     [System.Windows.Forms.Application]::DoEvents()
+
+    Log-Message "Attempting to remove $app..." "Info"
 
     try {
         # 1. Remove from all existing user profiles
@@ -64,12 +127,18 @@ foreach ($app in $bloatApps) {
     catch {
         Log-Message "Failed to completely remove $app. Error: $_" "Error"
     }
+
+    [System.Windows.Forms.Application]::DoEvents()
 }
 
 Log-Message "Appx Debloat complete. Processed $removedCount package targets." "Success"
 
-$global:BGRBaseText = "Disabling Telemetry & Services"
+# Phase 2: Telemetry & Services
+$lblStatus.Text = "Optimizing System: Disabling Telemetry & Diagnostic Services..."
+$lblDetail.Text = "Configuring DiagTrack and dmwappushservice policies..."
+$pBar.Value = 85
 [System.Windows.Forms.Application]::DoEvents()
+
 Log-Message "Disabling Telemetry and Tracking services..." "Info"
 Stop-Service -Name "DiagTrack" -ErrorAction SilentlyContinue
 Set-Service -Name "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
@@ -87,9 +156,13 @@ if (-not (Test-Path $cloudPath)) { New-Item -Path $cloudPath -Force | Out-Null }
 Set-ItemProperty -Path $cloudPath -Name "DisableWindowsConsumerFeatures" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
 Set-ItemProperty -Path $cloudPath -Name "DisableCloudOptimizedContent" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
 
-$global:BGRBaseText = "Disabling Bing Search & Ads"
+# Phase 3: Bing Search & Ads Policies
+$lblStatus.Text = "Optimizing System: Disabling Bing Search & Web Ads..."
+$lblDetail.Text = "Applying explorer and search policies..."
+$pBar.Value = 95
 [System.Windows.Forms.Application]::DoEvents()
-Log-Message "Applying registry tweaks for Bing Search, Consumer Pins, and Advertising (System-wide & New User Default)..." "Info"
+
+Log-Message "Applying registry tweaks for Bing Search, Consumer Pins, and Advertising..." "Info"
 
 # 1. HKLM System-wide Policies
 $hklmExplorerPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
@@ -140,6 +213,11 @@ if (Test-Path $defNtUser) {
     }
 }
 
-Log-Message "Bloat cleanup complete." "Info"
-$global:BGRBaseText = "Hat's Multitool is running"
+$lblStatus.Text = "Bloat Cleanup Complete"
+$lblDetail.Text = "Finished removing bloatware and optimizing policies."
+$pBar.Value = 100
 [System.Windows.Forms.Application]::DoEvents()
+Start-Sleep -Milliseconds 400
+
+$BloatGUI.Close()
+$BloatGUI.Dispose()

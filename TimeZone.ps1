@@ -3,7 +3,8 @@
 # Create TZ GUI
 # Prepare form
 $TZGUI = New-Object System.Windows.Forms.Form
-$TZGUI.Text = "Hat's Multitool"
+$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Time Zone" } else { "Time Zone Configuration" }
+$TZGUI.Text = "Hat's Multitool - $titlePrefix"
 $TZGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $TZGUI.ClientSize = New-Object System.Drawing.Size(400, 160)
 $TZGUI.StartPosition = 'CenterScreen'

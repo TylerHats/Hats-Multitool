@@ -1,9 +1,10 @@
-﻿# Final Setup Options Module - Tyler Hatfield - v2.0
+# Final Setup Options Module - Tyler Hatfield - v2.0
 
 # Create Options GUI
 # Prepare form
 $FOGUI = New-Object System.Windows.Forms.Form
-$FOGUI.Text = "Hat's Multitool"
+$titlePrefix = if ($global:HMTSetupTotalSteps -gt 1) { "Setup (Step $($global:HMTSetupCurrentStepIndex) of $($global:HMTSetupTotalSteps)): Setup Options" } else { "Setup Options" }
+$FOGUI.Text = "Hat's Multitool - $titlePrefix"
 $FOGUI.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2f3136")
 $FOGUI.ClientSize = New-Object System.Drawing.Size(640, 380)
 $FOGUI.StartPosition = 'CenterScreen'
