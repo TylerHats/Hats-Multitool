@@ -108,8 +108,11 @@ function Invoke-SelfUpdateCleanup {
     [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
     [System.Windows.Forms.Application]::DoEvents()
 
+    $escapedRoot = if ($PSScriptRoot) { $PSScriptRoot.Replace("'", "''") } else { "" }
+    $escapedOut = $OutPath.Replace("'", "''")
+
     # Prepare cleanup command
-    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$PSScriptRoot\*' }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$PSScriptRoot') { Remove-Item -LiteralPath '$PSScriptRoot' -Recurse -Force }; Start-Process -FilePath '$OutPath' -WindowStyle Minimized"
+    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { try { `$_.Path -and `$_.Path -like '$escapedRoot\*' } catch { `$false } }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$escapedRoot') { Remove-Item -LiteralPath '$escapedRoot' -Recurse -Force -ErrorAction SilentlyContinue }; Start-Process -FilePath '$escapedOut' -WindowStyle Minimized"
     
     # Execute async cleanup process
     $psi = New-Object System.Diagnostics.ProcessStartInfo

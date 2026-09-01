@@ -602,12 +602,27 @@ function global:User-Exit {
         [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
         [System.Windows.Forms.Application]::DoEvents()
         
-        if ($Global:IRMExeTarget -and (Test-Path -LiteralPath $Global:IRMExeTarget)) {
-            Remove-Item -LiteralPath $Global:IRMExeTarget -Force -ErrorAction SilentlyContinue
+        $escapedRoot = if ($PSScriptRoot) { $PSScriptRoot.Replace("'", "''") } else { "" }
+        $escapedIrm = if ($Global:IRMExeTarget) { $Global:IRMExeTarget.Replace("'", "''") } else { "" }
+
+        # Prepare cleanup command with active process monitor
+        if ($escapedRoot -and (Test-Path -LiteralPath $escapedRoot)) {
+            $cleanupScript = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { try { `$_.Path -and `$_.Path -like '$escapedRoot\*' } catch { `$false } }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$escapedRoot') { Remove-Item -LiteralPath '$escapedRoot' -Recurse -Force -ErrorAction SilentlyContinue }; `$parent = Split-Path -Path '$escapedRoot' -Parent; if (`$parent -and (Test-Path -LiteralPath `$parent)) { `$remaining = Get-ChildItem -LiteralPath `$parent -Force -ErrorAction SilentlyContinue; if (-not `$remaining) { Remove-Item -LiteralPath `$parent -Force -ErrorAction SilentlyContinue } }; if ('$escapedIrm' -ne '' -and (Test-Path -LiteralPath '$escapedIrm')) { `$retry = 0; while ((Test-Path -LiteralPath '$escapedIrm') -and `$retry -lt 10) { Remove-Item -LiteralPath '$escapedIrm' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }"
+
+            # Execute async cleanup process
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$cleanupScript`""
+            $psi.WorkingDirectory = $env:TEMP
+            $psi.CreateNoWindow = $true
+            $psi.UseShellExecute = $false
+            [System.Diagnostics.Process]::Start($psi) | Out-Null
+        } elseif ($escapedIrm -and (Test-Path -LiteralPath $escapedIrm)) {
+            Remove-Item -LiteralPath $escapedIrm -Force -ErrorAction SilentlyContinue
         }
 
         [System.Windows.Forms.Application]::Exit()
-        [System.Environment]::Exit(0)
+        [System.Diagnostics.Process]::GetCurrentProcess().Kill()
     }
 }
 
