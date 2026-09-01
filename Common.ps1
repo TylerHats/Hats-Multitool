@@ -622,31 +622,10 @@ function global:User-Exit {
     if ($script:ProgramExiting -ne $true) {
         $script:ProgramExiting = $true
         
-        # Terminate GUI
-        [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
-        [System.Windows.Forms.Application]::DoEvents()
-        
-        $escapedRoot = if ($PSScriptRoot) { $PSScriptRoot.Replace("'", "''") } else { "" }
-        $escapedIrm = if ($Global:IRMExeTarget) { $Global:IRMExeTarget.Replace("'", "''") } else { "" }
+        $escapedRoot = if ($PSScriptRoot) { $PSScriptRoot } else { "" }
+        $escapedIrm = if ($Global:IRMExeTarget) { $Global:IRMExeTarget } else { "" }
 
-        # Prepare cleanup command with active process monitor
-        if ($escapedRoot -and (Test-Path -LiteralPath $escapedRoot)) {
-            $cleanupScript = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { try { `$_.Path -and `$_.Path -like '$escapedRoot\*' } catch { `$false } }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$escapedRoot') { Remove-Item -LiteralPath '$escapedRoot' -Recurse -Force -ErrorAction SilentlyContinue }; `$parent = Split-Path -Path '$escapedRoot' -Parent; if (`$parent -and (Test-Path -LiteralPath `$parent)) { `$remaining = Get-ChildItem -LiteralPath `$parent -Force -ErrorAction SilentlyContinue; if (-not `$remaining) { Remove-Item -LiteralPath `$parent -Force -ErrorAction SilentlyContinue } }; if ('$escapedIrm' -ne '' -and (Test-Path -LiteralPath '$escapedIrm')) { `$retry = 0; while ((Test-Path -LiteralPath '$escapedIrm') -and `$retry -lt 10) { Remove-Item -LiteralPath '$escapedIrm' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; `$retry++ } }"
-
-            # Execute async cleanup process
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = "powershell.exe"
-            $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$cleanupScript`""
-            $psi.WorkingDirectory = $env:TEMP
-            $psi.CreateNoWindow = $true
-            $psi.UseShellExecute = $false
-            [System.Diagnostics.Process]::Start($psi) | Out-Null
-        } elseif ($escapedIrm -and (Test-Path -LiteralPath $escapedIrm)) {
-            Remove-Item -LiteralPath $escapedIrm -Force -ErrorAction SilentlyContinue
-        }
-
-        [System.Windows.Forms.Application]::Exit()
-        [System.Diagnostics.Process]::GetCurrentProcess().Kill()
+        [HMT.NativeMethods]::CleanupAndExit($escapedRoot, $escapedIrm)
     }
 }
 
@@ -988,9 +967,8 @@ function global:Show-DownloadDialog {
     $uiTimer.Stop()
     $uiTimer.Dispose()
 
-    # Unblock file on success
+    # Return success or cleanup on failure
     if ($script:dlSuccess -and (Test-Path -LiteralPath $OutputPath)) {
-        try { Unblock-File -LiteralPath $OutputPath -ErrorAction SilentlyContinue } catch {}
         return $true
     } else {
         if (Test-Path -LiteralPath $OutputPath) {

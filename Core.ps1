@@ -6,30 +6,23 @@ param(
 
 $global:HMTDebug = $Debug.IsPresent -or ($args -match '(?i)^[-/]{1,2}debug$')
 
-# Validate process architecture and elevation
-$IsElevated = [System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match 'S-1-5-32-544'
-$IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
+# Configure modern TLS protocols for secure web connections
+try {
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]'Tls12,Tls13'
+} catch {
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]'Tls12'
+    } catch {}
+}
 
-# When hosted inside HMTLauncher.exe, elevation and architecture are already enforced by the launcher
+# Standalone execution elevation validation (when not launched via HMTLauncher.exe)
 if (-not ($env:HMT_LAUNCHER_EXE -or $global:HMT_LAUNCHER_EXE)) {
-    if (-not $IsElevated -or $IsTrappedIn32Bit) {
-        Write-Host "Elevation: $IsElevated - TrappedIn32Bit: $IsTrappedIn32Bit - Relaunching elevated..."
-        $currentProc = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-        if ($currentProc -and (Test-Path -LiteralPath $currentProc) -and $currentProc -notmatch 'powershell\.exe|pwsh\.exe') {
-            Start-Process -FilePath $currentProc -Verb RunAs
-            exit
-        } else {
-            $ExePath = if ($IsTrappedIn32Bit) { 
-                "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe" 
-            } else { 
-                "powershell.exe" 
-            }
-            $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
-            $winStyle = if ($global:HMTDebug) { "Normal" } else { "Hidden" }
-            $dbgFlag = if ($global:HMTDebug) { " -Debug" } else { "" }
-            Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"$dbgFlag" -Verb RunAs -WindowStyle $winStyle
-            exit
-        }
+    $IsTrappedIn32Bit = ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
+    if ($IsTrappedIn32Bit) {
+        $ExePath = "$env:WINDIR\sysnative\WindowsPowerShell\v1.0\powershell.exe"
+        $targetScript = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'Core.ps1' }
+        Start-Process -FilePath $ExePath -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$targetScript`"" -Verb RunAs
+        exit
     }
 }
 

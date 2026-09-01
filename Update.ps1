@@ -103,28 +103,7 @@ function Invoke-SelfUpdateCleanup {
         [Parameter(Mandatory = $true)]
         [string]$OutPath
     )
-    
-    # Terminate GUI
-    [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Hide() }
-    [System.Windows.Forms.Application]::DoEvents()
-
-    $escapedRoot = if ($PSScriptRoot) { $PSScriptRoot.Replace("'", "''") } else { "" }
-    $escapedOut = $OutPath.Replace("'", "''")
-
-    # Prepare cleanup command
-    $updateCleanup = "Wait-Process -Id $PID -ErrorAction SilentlyContinue; while (`$true) { `$lockingProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { try { `$_.Path -and `$_.Path -like '$escapedRoot\*' } catch { `$false } }; if (-not `$lockingProcs) { break }; `$lockingProcs | Wait-Process -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath '$escapedRoot') { Remove-Item -LiteralPath '$escapedRoot' -Recurse -Force -ErrorAction SilentlyContinue }; Start-Process -FilePath '$escapedOut' -WindowStyle Minimized"
-    
-    # Execute async cleanup process
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$updateCleanup`""
-    $psi.WorkingDirectory = $env:TEMP
-    $psi.CreateNoWindow = $true
-    $psi.UseShellExecute = $false
-    [System.Diagnostics.Process]::Start($psi) | Out-Null
-
-    # Terminate current process
-    [System.Diagnostics.Process]::GetCurrentProcess().Kill()
+    [HMT.NativeMethods]::RelaunchUpdateAndExit($OutPath, $PSScriptRoot)
 }
 
 # Check program version against remote, update if needed
@@ -134,7 +113,10 @@ if ($skipUpdate -ne 1) {
     [version]$currentVersion = $Global:currentVersionString
     $skipUpdate = 0
     Try {
-        $remoteRequest = Invoke-WebRequest -Uri "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt" -UseBasicParsing
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "Hats-Multitool")
+        $remoteVersionString = $wc.DownloadString("https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt").Trim()
+        $wc.Dispose()
     }
     catch {
         Log-Message "Unable to determine remote version, skipping self update check." "Error"
@@ -144,7 +126,6 @@ if ($skipUpdate -ne 1) {
 }
 
 if ($skipUpdate -ne 1) {
-    $remoteVersionString = $remoteRequest.Content.Trim()
     [version]$remoteVersion = $remoteVersionString
     if ($currentVersion -eq $remoteVersion) {
         if ($env:hatsUpdated -eq "1") {
@@ -166,7 +147,10 @@ if ($skipUpdate -ne 1) {
             $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
             $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
             Try {
-                Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing *>&1
+                $wc = New-Object System.Net.WebClient
+                $wc.Headers.Add("User-Agent", "Hats-Multitool")
+                $wc.DownloadFile($sourceURL, $outputPath)
+                $wc.Dispose()
             }
             catch {
                 PopupError "Failed to download update, please update manually." "Error"
@@ -186,7 +170,10 @@ if ($skipUpdate -ne 1) {
         $sourceURL = "https://github.com/TylerHats/Hats-Multitool/releases/download/v$remoteVersion/Hats-Multitool-v$remoteVersion.exe"
         $outputPath = "$downloadsFolder\Hats-Multitool-v$remoteVersion.exe"
         Try {
-            Invoke-WebRequest -Uri $sourceURL -OutFile $outputPath -UseBasicParsing *>&1
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", "Hats-Multitool")
+            $wc.DownloadFile($sourceURL, $outputPath)
+            $wc.Dispose()
         }
         catch {
             Log-Message "Failed to download update, proceeding with current version." "Warning"

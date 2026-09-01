@@ -72,6 +72,80 @@ namespace HMT {
         // --- Taskbar Management ---
         [DllImport("shell32.dll", SetLastError = true)]
         public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+
+        // --- Elevation & Process Lifecycle ---
+        public static bool IsAdministrator() {
+            try {
+                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            } catch {
+                return false;
+            }
+        }
+
+        public static void CleanupAndExit(string appDir, string irmTarget) {
+            try {
+                foreach (System.Windows.Forms.Form form in System.Windows.Forms.Application.OpenForms) {
+                    try { form.Hide(); } catch { }
+                }
+                System.Windows.Forms.Application.DoEvents();
+            } catch { }
+
+            try {
+                if (!string.IsNullOrEmpty(appDir) && System.IO.Directory.Exists(appDir)) {
+                    try {
+                        System.IO.Directory.Delete(appDir, true);
+                    } catch {
+                        string cmdArgs = string.Format("/c \"timeout /t 2 >nul & (if exist \"{0}\" rmdir /s /q \"{0}\")\"", appDir);
+                        var psi = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "cmd.exe",
+                            Arguments = cmdArgs,
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        System.Diagnostics.Process.Start(psi);
+                    }
+                }
+            } catch { }
+
+            try {
+                if (!string.IsNullOrEmpty(irmTarget) && System.IO.File.Exists(irmTarget)) {
+                    try { System.IO.File.Delete(irmTarget); } catch { }
+                }
+            } catch { }
+
+            try {
+                System.Windows.Forms.Application.Exit();
+            } catch { }
+            try {
+                System.Diagnostics.Process.GetCurrentProcess().Kill();
+            } catch { }
+        }
+
+        public static void RelaunchUpdateAndExit(string updateExePath, string appDir) {
+            try {
+                foreach (System.Windows.Forms.Form form in System.Windows.Forms.Application.OpenForms) {
+                    try { form.Hide(); } catch { }
+                }
+                System.Windows.Forms.Application.DoEvents();
+            } catch { }
+
+            try {
+                string cmdArgs = string.Format("/c \"timeout /t 1 >nul & (if exist \"{0}\" rmdir /s /q \"{0}\") & start \"\" \"{1}\"\"", appDir, updateExePath);
+                var psi = new System.Diagnostics.ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                System.Diagnostics.Process.Start(psi);
+            } catch { }
+
+            try {
+                System.Diagnostics.Process.GetCurrentProcess().Kill();
+            } catch { }
+        }
     }
 
     // --- Low-Level Drive & Storage Interop ---

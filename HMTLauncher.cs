@@ -45,11 +45,23 @@ namespace HMT {
                 return Assembly.Load("System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
             } catch { }
 
+            try {
+                return Assembly.Load("System.Management.Automation");
+            } catch { }
+
+            try {
+                #pragma warning disable 0618
+                return Assembly.LoadWithPartialName("System.Management.Automation");
+                #pragma warning restore 0618
+            } catch { }
+
             string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
             string[] searchPaths = new string[] {
                 Path.Combine(winDir, "Microsoft.NET", "assembly", "GAC_MSIL", "System.Management.Automation", "v4.0_3.0.0.0__31bf3856ad364e35", "System.Management.Automation.dll"),
+                Path.Combine(winDir, "assembly", "GAC_MSIL", "System.Management.Automation", "1.0.0.0__31bf3856ad364e35", "System.Management.Automation.dll"),
                 Path.Combine(winDir, "System32", "WindowsPowerShell", "v1.0", "System.Management.Automation.dll"),
-                Path.Combine(winDir, "SysNative", "WindowsPowerShell", "v1.0", "System.Management.Automation.dll")
+                Path.Combine(winDir, "SysNative", "WindowsPowerShell", "v1.0", "System.Management.Automation.dll"),
+                Path.Combine(winDir, "SysWOW64", "WindowsPowerShell", "v1.0", "System.Management.Automation.dll")
             };
 
             foreach (string path in searchPaths) {
@@ -190,9 +202,21 @@ namespace HMT {
                 MethodInfo invokeMethod = psType.GetMethod("Invoke", Type.EmptyTypes);
                 if (invokeMethod == null) return false;
 
-                invokeMethod.Invoke(ps, null);
+                try {
+                    invokeMethod.Invoke(ps, null);
+                } catch (TargetInvocationException tie) {
+                    if (tie.InnerException != null && tie.InnerException.GetType().Name == "ScriptHalted") {
+                        return true;
+                    }
+                    if (isDebug) {
+                        Console.WriteLine("PowerShell runtime notice: " + tie.InnerException);
+                    }
+                }
                 return true;
-            } catch (Exception) {
+            } catch (Exception ex) {
+                if (isDebug) {
+                    Console.WriteLine("In-process SMA error: " + ex);
+                }
                 return false;
             }
         }
@@ -254,34 +278,9 @@ namespace HMT {
 
                 string forwardArgs = FormatArguments(args);
 
-                // Attempt in-process PowerShell execution first
-                if (RunPowerShellInProcess(appDir, coreScript, forwardArgs, isDebug, currentAssembly.Location)) {
-                    return 0;
-                }
-
-                // Fallback to out-of-process if SMA is unavailable
-                string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-                string sysNative = Path.Combine(winDir, "SysNative", "WindowsPowerShell", "v1.0", "powershell.exe");
-                string system32 = Path.Combine(winDir, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-                string psExe = File.Exists(sysNative) ? sysNative : (File.Exists(system32) ? system32 : "powershell.exe");
-
-                var psi = new ProcessStartInfo {
-                    FileName = psExe,
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + coreScript + "\"" + forwardArgs,
-                    WorkingDirectory = appDir,
-                    UseShellExecute = false,
-                    CreateNoWindow = !isDebug,
-                    WindowStyle = isDebug ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden
-                };
-
-                try {
-                    psi.EnvironmentVariables["HMT_LAUNCHER_EXE"] = currentAssembly.Location;
-                } catch { }
-
-                using (Process proc = Process.Start(psi)) {
-                    proc.WaitForExit();
-                    return proc.ExitCode;
-                }
+                // Execute 100% in-process inside Hats-Multitool.exe
+                RunPowerShellInProcess(appDir, coreScript, forwardArgs, isDebug, currentAssembly.Location);
+                return 0;
             } catch (Exception) {
                 return 3;
             }
