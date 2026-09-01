@@ -602,69 +602,80 @@ namespace HMT.Engines {
     }
 
     public static class ProgramInstallerEngine {
-        public static List<SoftwareItem> GetCatalog() {
-            var list = new List<SoftwareItem>();
+        public static Dictionary<string, List<SoftwareItem>> GetCategorizedCatalog() {
+            var cat = new Dictionary<string, List<SoftwareItem>>();
+
             // Browsers & Comms
-            list.Add(new SoftwareItem("Google Chrome", "Browsers & Comms", "Google.Chrome"));
-            list.Add(new SoftwareItem("Mozilla Firefox", "Browsers & Comms", "Mozilla.Firefox"));
-            list.Add(new SoftwareItem("Brave Browser", "Browsers & Comms", "Brave.Brave"));
-            list.Add(new SoftwareItem("Discord", "Browsers & Comms", "Discord.Discord"));
-            list.Add(new SoftwareItem("Microsoft Teams", "Browsers & Comms", "Microsoft.Teams"));
-            list.Add(new SoftwareItem("Zoom", "Browsers & Comms", "Zoom.Zoom"));
-            list.Add(new SoftwareItem("Slack", "Browsers & Comms", "SlackTechnologies.Slack"));
-            list.Add(new SoftwareItem("Telegram Desktop", "Browsers & Comms", "Telegram.TelegramDesktop"));
-            list.Add(new SoftwareItem("Mozilla Thunderbird", "Browsers & Comms", "Mozilla.Thunderbird"));
+            cat["Browsers & Comms"] = new List<SoftwareItem> {
+                new SoftwareItem("Google Chrome", "Browsers & Comms", "Google.Chrome"),
+                new SoftwareItem("Mozilla Firefox", "Browsers & Comms", "Mozilla.Firefox"),
+                new SoftwareItem("Brave Browser", "Browsers & Comms", "Brave.Brave"),
+                new SoftwareItem("Discord", "Browsers & Comms", "Discord.Discord"),
+                new SoftwareItem("Microsoft Teams", "Browsers & Comms", "Microsoft.Teams"),
+                new SoftwareItem("Zoom", "Browsers & Comms", "Zoom.Zoom"),
+                new SoftwareItem("Slack", "Browsers & Comms", "SlackTechnologies.Slack"),
+                new SoftwareItem("Telegram Desktop", "Browsers & Comms", "Telegram.TelegramDesktop"),
+                new SoftwareItem("Mozilla Thunderbird", "Browsers & Comms", "Mozilla.Thunderbird")
+            };
 
             // Productivity
-            list.Add(new SoftwareItem("7-Zip", "Productivity", "7zip.7zip"));
-            list.Add(new SoftwareItem("WinRAR", "Productivity", "RARLab.WinRAR"));
-            list.Add(new SoftwareItem("Notepad++", "Productivity", "Notepad++.Notepad++"));
-            list.Add(new SoftwareItem("Adobe Acrobat Reader", "Productivity", "Adobe.Acrobat.Reader.64-bit"));
-            list.Add(new SoftwareItem("Adobe Creative Cloud", "Productivity", "Adobe.CreativeCloud"));
-            list.Add(new SoftwareItem("Microsoft Office (64-Bit)", "Productivity", "", "MSOffice"));
-            list.Add(new SoftwareItem("Outlook Classic", "Productivity", "", "MSOutlook"));
-            list.Add(new SoftwareItem("LibreOffice", "Productivity", "TheDocumentFoundation.LibreOffice"));
-            list.Add(new SoftwareItem("Microsoft PowerToys", "Productivity", "Microsoft.PowerToys"));
-            list.Add(new SoftwareItem("Everything Search", "Productivity", "voidtools.Everything"));
-            list.Add(new SoftwareItem("ShareX", "Productivity", "ShareX.ShareX"));
-            list.Add(new SoftwareItem("Greenshot", "Productivity", "Greenshot.Greenshot"));
+            cat["Productivity"] = new List<SoftwareItem> {
+                new SoftwareItem("7-Zip", "Productivity", "7zip.7zip"),
+                new SoftwareItem("WinRAR", "Productivity", "RARLab.WinRAR"),
+                new SoftwareItem("Notepad++", "Productivity", "Notepad++.Notepad++"),
+                new SoftwareItem("Adobe Acrobat Reader", "Productivity", "Adobe.Acrobat.Reader.64-bit"),
+                new SoftwareItem("Adobe Creative Cloud", "Productivity", "Adobe.CreativeCloud"),
+                new SoftwareItem("Microsoft Office (64-Bit)", "Productivity", "", "MSOffice"),
+                new SoftwareItem("Outlook Classic", "Productivity", "", "MSOutlook"),
+                new SoftwareItem("LibreOffice", "Productivity", "TheDocumentFoundation.LibreOffice"),
+                new SoftwareItem("Microsoft PowerToys", "Productivity", "Microsoft.PowerToys"),
+                new SoftwareItem("Everything Search", "Productivity", "voidtools.Everything"),
+                new SoftwareItem("ShareX", "Productivity", "ShareX.ShareX"),
+                new SoftwareItem("Greenshot", "Productivity", "Greenshot.Greenshot")
+            };
 
             // IT & Dev Tools
-            list.Add(new SoftwareItem("Visual Studio Code", "IT & Dev Tools", "Microsoft.VisualStudioCode"));
-            list.Add(new SoftwareItem("Git for Windows", "IT & Dev Tools", "Git.Git"));
-            list.Add(new SoftwareItem("Python 3.12", "IT & Dev Tools", "Python.Python.3.12"));
-            list.Add(new SoftwareItem("Node.js LTS", "IT & Dev Tools", "OpenJS.NodeJS.LTS"));
-            list.Add(new SoftwareItem("Windows Terminal", "IT & Dev Tools", "Microsoft.WindowsTerminal"));
-            list.Add(new SoftwareItem("PuTTY", "IT & Dev Tools", "PuTTY.PuTTY"));
-            list.Add(new SoftwareItem("WinSCP", "IT & Dev Tools", "WinSCP.WinSCP"));
-            list.Add(new SoftwareItem("Wireshark", "IT & Dev Tools", "WiresharkFoundation.Wireshark"));
-            list.Add(new SoftwareItem("Twingate Client", "IT & Dev Tools", "Twingate.Client"));
-            list.Add(new SoftwareItem("Tailscale", "IT & Dev Tools", "Tailscale.Tailscale"));
-            list.Add(new SoftwareItem("AnyDesk", "IT & Dev Tools", "AnyDeskSoftwareGmbH.AnyDesk"));
-            list.Add(new SoftwareItem("TeamViewer", "IT & Dev Tools", "TeamViewer.TeamViewer"));
+            cat["IT & Dev Tools"] = new List<SoftwareItem> {
+                new SoftwareItem("Visual Studio Code", "IT & Dev Tools", "Microsoft.VisualStudioCode"),
+                new SoftwareItem("Git for Windows", "IT & Dev Tools", "Git.Git"),
+                new SoftwareItem("Python 3.12", "IT & Dev Tools", "Python.Python.3.12"),
+                new SoftwareItem("Node.js LTS", "IT & Dev Tools", "OpenJS.NodeJS.LTS"),
+                new SoftwareItem("Windows Terminal", "IT & Dev Tools", "Microsoft.WindowsTerminal"),
+                new SoftwareItem("PuTTY", "IT & Dev Tools", "PuTTY.PuTTY"),
+                new SoftwareItem("WinSCP", "IT & Dev Tools", "WinSCP.WinSCP"),
+                new SoftwareItem("Wireshark", "IT & Dev Tools", "WiresharkFoundation.Wireshark"),
+                new SoftwareItem("Twingate Client", "IT & Dev Tools", "Twingate.Client"),
+                new SoftwareItem("Tailscale", "IT & Dev Tools", "Tailscale.Tailscale"),
+                new SoftwareItem("AnyDesk", "IT & Dev Tools", "AnyDeskSoftwareGmbH.AnyDesk"),
+                new SoftwareItem("TeamViewer", "IT & Dev Tools", "TeamViewer.TeamViewer")
+            };
 
             // Media & Design
-            list.Add(new SoftwareItem("VLC Media Player", "Media & Design", "VideoLAN.VLC"));
-            list.Add(new SoftwareItem("Spotify", "Media & Design", "Spotify.Spotify"));
-            list.Add(new SoftwareItem("OBS Studio", "Media & Design", "OBSProject.OBSStudio"));
-            list.Add(new SoftwareItem("Audacity", "Media & Design", "Audacity.Audacity"));
-            list.Add(new SoftwareItem("HandBrake", "Media & Design", "HandBrake.HandBrake"));
-            list.Add(new SoftwareItem("GIMP", "Media & Design", "GIMP.GIMP"));
-            list.Add(new SoftwareItem("Inkscape", "Media & Design", "Inkscape.Inkscape"));
-            list.Add(new SoftwareItem("K-Lite Codec Pack Mega", "Media & Design", "CodecGuide.K-LiteCodecPack.Mega"));
+            cat["Media & Design"] = new List<SoftwareItem> {
+                new SoftwareItem("VLC Media Player", "Media & Design", "VideoLAN.VLC"),
+                new SoftwareItem("Spotify", "Media & Design", "Spotify.Spotify"),
+                new SoftwareItem("OBS Studio", "Media & Design", "OBSProject.OBSStudio"),
+                new SoftwareItem("Audacity", "Media & Design", "Audacity.Audacity"),
+                new SoftwareItem("HandBrake", "Media & Design", "HandBrake.HandBrake"),
+                new SoftwareItem("GIMP", "Media & Design", "GIMP.GIMP"),
+                new SoftwareItem("Inkscape", "Media & Design", "Inkscape.Inkscape"),
+                new SoftwareItem("K-Lite Codec Pack Mega", "Media & Design", "CodecGuide.K-LiteCodecPack.Mega")
+            };
 
             // Cloud & Gaming
-            list.Add(new SoftwareItem("Google Drive", "Cloud & Gaming", "Google.Drive"));
-            list.Add(new SoftwareItem("Dropbox", "Cloud & Gaming", "Dropbox.Dropbox"));
-            list.Add(new SoftwareItem("Steam", "Cloud & Gaming", "Valve.Steam"));
-            list.Add(new SoftwareItem("Epic Games Launcher", "Cloud & Gaming", "EpicGames.EpicGamesLauncher"));
-            list.Add(new SoftwareItem("GOG Galaxy", "Cloud & Gaming", "GOG.Galaxy"));
-            list.Add(new SoftwareItem("CPUID HWMonitor", "Cloud & Gaming", "CPUID.HWMonitor"));
-            list.Add(new SoftwareItem("CPUID CPU-Z", "Cloud & Gaming", "CPUID.CPU-Z"));
-            list.Add(new SoftwareItem("TechPowerUp GPU-Z", "Cloud & Gaming", "TechPowerUp.GPU-Z"));
-            list.Add(new SoftwareItem("MSI Afterburner", "Cloud & Gaming", "Guru3D.Afterburner"));
+            cat["Cloud & Gaming"] = new List<SoftwareItem> {
+                new SoftwareItem("Google Drive", "Cloud & Gaming", "Google.Drive"),
+                new SoftwareItem("Dropbox", "Cloud & Gaming", "Dropbox.Dropbox"),
+                new SoftwareItem("Steam", "Cloud & Gaming", "Valve.Steam"),
+                new SoftwareItem("Epic Games Launcher", "Cloud & Gaming", "EpicGames.EpicGamesLauncher"),
+                new SoftwareItem("GOG Galaxy", "Cloud & Gaming", "GOG.Galaxy"),
+                new SoftwareItem("CPUID HWMonitor", "Cloud & Gaming", "CPUID.HWMonitor"),
+                new SoftwareItem("CPUID CPU-Z", "Cloud & Gaming", "CPUID.CPU-Z"),
+                new SoftwareItem("TechPowerUp GPU-Z", "Cloud & Gaming", "TechPowerUp.GPU-Z"),
+                new SoftwareItem("MSI Afterburner", "Cloud & Gaming", "Guru3D.Afterburner")
+            };
 
-            return list;
+            return cat;
         }
 
         public static HashSet<string> GetInstalledDisplayNames() {
@@ -705,11 +716,13 @@ namespace HMT.Engines {
                 if (dn.IndexOf(pName, StringComparison.OrdinalIgnoreCase) >= 0) return true;
             }
             if (!string.IsNullOrEmpty(item.WingetID)) {
-                string[] parts = item.WingetID.Split('.');
-                string tail = parts[parts.Length - 1];
-                if (tail.Length >= 4) {
-                    foreach (var dn in installedSet) {
-                        if (dn.IndexOf(tail, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                string[] parts = item.WingetID.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts != null && parts.Length > 0) {
+                    string tail = parts[parts.Length - 1];
+                    if (tail.Length >= 4) {
+                        foreach (var dn in installedSet) {
+                            if (dn.IndexOf(tail, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                        }
                     }
                 }
             }
@@ -717,32 +730,48 @@ namespace HMT.Engines {
         }
 
         public static async Task DeployOfficeAsync(bool isAll, IProgress<BloatProgressInfo> progress, CancellationToken ct) {
-            string productID = isAll ? "O365ProPlusRetail" : "OutlookRetail";
-            string displayName = isAll ? "Microsoft Office 365" : "Outlook Classic";
-            string tempDir = Path.Combine(Path.GetTempPath(), "HMT_Office");
-            string officeDir = Path.Combine(tempDir, isAll ? "O365" : "Outlook");
-            string zipPath = Path.Combine(tempDir, (isAll ? "O365" : "Outlook") + ".zip");
-            string cdnUrl = isAll ? "https://hatsthings.com/MultitoolFiles/O365.zip" : "https://hatsthings.com/MultitoolFiles/Outlook.zip";
+            string productID = isAll ? "O365BusinessRetail" : "OutlookRetail";
+            string displayName = isAll ? "Microsoft Office (x64)" : "Outlook (Classic)";
+            string extDir = ExternalToolsEngine.GetExtProgramDir();
+            string officeDir = Path.Combine(extDir, "MicrosoftOffice");
+            string zipName = "o365_payload.zip";
+            string zipPath = Path.Combine(extDir, zipName);
+            string cdnUrl = "https://cdn.hatsthings.com/O365/" + zipName;
 
             if (!Directory.Exists(officeDir)) {
                 Directory.CreateDirectory(officeDir);
             }
 
-            // Download office payload from CDN
-            if (!File.Exists(zipPath)) {
+            // Check if Office\Data and setup.exe are already unpacked
+            bool existingData = Directory.Exists(Path.Combine(officeDir, "Office", "Data"));
+            bool existingSetup = File.Exists(Path.Combine(officeDir, "setup.exe"));
+
+            if (existingData && existingSetup) {
                 progress?.Report(new BloatProgressInfo {
-                    Status = "Downloading " + displayName + "...",
-                    Detail = "Connecting to Hat's Things CDN...",
-                    ProgressPercentage = 15
+                    Status = "Found local " + displayName + " payload...",
+                    Detail = "Using existing decompressed payload in ExtPrograms\\MicrosoftOffice...",
+                    ProgressPercentage = 85
                 });
+            } else {
+                // Download office payload from CDN with authentication token
+                if (!File.Exists(zipPath)) {
+                    progress?.Report(new BloatProgressInfo {
+                        Status = "Starting " + displayName + " download...",
+                        Detail = "Connecting to CDN...",
+                        ProgressPercentage = 10
+                    });
 
-                using (var client = new HttpClient()) {
-                    client.Timeout = TimeSpan.FromMinutes(10);
-                    using (var response = await client.GetAsync(cdnUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                        response.EnsureSuccessStatusCode();
-                        long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                    using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                    using (var client = new HttpClient(handler)) {
+                        client.Timeout = TimeSpan.FromMinutes(30);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0");
+                        client.DefaultRequestHeaders.Add("X-HMT-Token", "HMTDAT1");
 
-                        using (var stream = await response.Content.ReadAsStreamAsync()) {
+                        using (var response = await client.GetAsync(cdnUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                            response.EnsureSuccessStatusCode();
+                            long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+
+                            using (var stream = await response.Content.ReadAsStreamAsync())
                             using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
                                 byte[] buffer = new byte[1048576];
                                 long totalRead = 0;
@@ -757,7 +786,7 @@ namespace HMT.Engines {
                                         sw.Restart();
                                         double mbRead = Math.Round(totalRead / 1048576.0, 1);
                                         double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
-                                        int pct = totalBytes > 0 ? (int)((totalRead * 70) / totalBytes) + 15 : 50;
+                                        int pct = totalBytes > 0 ? (int)((totalRead * 70) / totalBytes) + 10 : 50;
                                         progress?.Report(new BloatProgressInfo {
                                             Status = "Downloading " + displayName + "...",
                                             Detail = string.Format("{0} MB / {1} MB downloaded", mbRead, mbTotal),
@@ -785,23 +814,6 @@ namespace HMT.Engines {
 
             // Generate configuration.xml
             string setupExe = Path.Combine(officeDir, "setup.exe");
-            if (!File.Exists(setupExe)) {
-                string odtUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_18526-20146.exe";
-                string odtPath = Path.Combine(officeDir, "odt.exe");
-                using (var wc = new WebClient()) {
-                    wc.DownloadFile(odtUrl, odtPath);
-                }
-                var psiOdt = new ProcessStartInfo {
-                    FileName = odtPath,
-                    Arguments = "/quiet /extract:\"" + officeDir + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using (var proc = Process.Start(psiOdt)) {
-                    proc.WaitForExit();
-                }
-            }
-
             string xmlPath = Path.Combine(officeDir, "configuration.xml");
             string xmlContent = string.Format(
                 "<Configuration>\n  <Add SourcePath=\"{0}\" OfficeClientEdition=\"64\" Channel=\"Current\">\n    <Product ID=\"{1}\">\n      <Language ID=\"en-us\" />\n    </Product>\n  </Add>\n  <Display Level=\"Full\" AcceptEULA=\"TRUE\" />\n  <Property Name=\"AUTOACTIVATE\" Value=\"0\" />\n</Configuration>",
