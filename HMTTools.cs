@@ -2656,6 +2656,9 @@ namespace HMT.Tools {
         private Thread _errThread;
         private Thread _monitorThread;
 
+        public event Action<string> OnLineReceived;
+        public event Action<int> OnProcessExited;
+
         // ConPTY state
         private bool _isConPty = false;
         private IntPtr _hProcess = IntPtr.Zero;
@@ -3011,9 +3014,9 @@ namespace HMT.Tools {
             lock (_lock) { hProc = _hProcess; }
             if (hProc == IntPtr.Zero) return;
 
+            int ec = -1;
             try {
                 WaitForSingleObject(hProc, INFINITE);
-                int ec = -1;
                 if (GetExitCodeProcess(hProc, out ec)) {
                     lock (_lock) {
                         _exitCode = ec;
@@ -3021,10 +3024,13 @@ namespace HMT.Tools {
                 }
             } catch { }
             finally {
+                int finalEc;
                 lock (_lock) {
                     _hasExited = true;
+                    finalEc = _exitCode;
                 }
                 CleanupConPtyResources();
+                try { OnProcessExited?.Invoke(finalEc); } catch { }
             }
         }
 
@@ -3066,12 +3072,28 @@ namespace HMT.Tools {
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
-                try {
-                    psi.StandardOutputEncoding = Console.OutputEncoding ?? Encoding.Default;
-                    psi.StandardErrorEncoding = Console.OutputEncoding ?? Encoding.Default;
-                } catch {
-                    psi.StandardOutputEncoding = Encoding.Default;
-                    psi.StandardErrorEncoding = Encoding.Default;
+                
+                string lower = (fileName ?? "").ToLowerInvariant();
+                if (lower.IndexOf("sfc") >= 0) {
+                    psi.StandardOutputEncoding = Encoding.Unicode;
+                    psi.StandardErrorEncoding = Encoding.Unicode;
+                } else if (lower.IndexOf("chkdsk") >= 0) {
+                    try {
+                        int oemCp = System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage;
+                        psi.StandardOutputEncoding = Encoding.GetEncoding(oemCp);
+                        psi.StandardErrorEncoding = Encoding.GetEncoding(oemCp);
+                    } catch {
+                        psi.StandardOutputEncoding = Encoding.Default;
+                        psi.StandardErrorEncoding = Encoding.Default;
+                    }
+                } else {
+                    try {
+                        psi.StandardOutputEncoding = Console.OutputEncoding ?? Encoding.Default;
+                        psi.StandardErrorEncoding = Console.OutputEncoding ?? Encoding.Default;
+                    } catch {
+                        psi.StandardOutputEncoding = Encoding.Default;
+                        psi.StandardErrorEncoding = Encoding.Default;
+                    }
                 }
                 psi.CreateNoWindow = true;
 
@@ -3080,12 +3102,15 @@ namespace HMT.Tools {
                 _process.EnableRaisingEvents = true;
 
                 _process.Exited += (s, e) => {
+                    int ec = -1;
                     lock (_lock) {
                         _hasExited = true;
                         try {
                             _exitCode = _process.ExitCode;
+                            ec = _exitCode;
                         } catch { }
                     }
+                    try { OnProcessExited?.Invoke(ec); } catch { }
                 };
 
                 bool started = _process.Start();
@@ -3136,12 +3161,13 @@ namespace HMT.Tools {
                                     ansiState = 1;
                                 } else if (c == '\r' || c == '\n') {
                                     if (sb.Length > 0) {
-                                        string line = sb.ToString().Trim();
+                                        string line = CleanLine(sb.ToString());
                                         sb.Length = 0;
                                         if (!string.IsNullOrEmpty(line)) {
                                             lock (_lock) {
                                                 _outputQueue.Add(line);
                                             }
+                                            try { OnLineReceived?.Invoke(line); } catch { }
                                         }
                                     }
                                 } else if (c != '\0' && c != '\b' && c != '\a') {
@@ -3181,14 +3207,23 @@ namespace HMT.Tools {
                     }
                 }
                 if (sb.Length > 0) {
-                    string line = sb.ToString().Trim();
+                    string line = CleanLine(sb.ToString());
                     if (!string.IsNullOrEmpty(line)) {
                         lock (_lock) {
                             _outputQueue.Add(line);
                         }
+                        try { OnLineReceived?.Invoke(line); } catch { }
                     }
                 }
             } catch { }
+        }
+
+        private static string CleanLine(string line) {
+            if (string.IsNullOrEmpty(line)) return "";
+            line = line.Trim();
+            if (line.StartsWith("\uFEFF")) line = line.Substring(1).Trim();
+            if (line.StartsWith("ÿþ")) line = line.Substring(2).Trim();
+            return line;
         }
 
         public string[] DrainOutput() {

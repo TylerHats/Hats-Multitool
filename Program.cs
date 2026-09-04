@@ -31,11 +31,12 @@ namespace HMT {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Configure Standard Reliable TLS 1.2 / TLS 1.1 / TLS
+            // Configure Standard Reliable TLS 1.2 / TLS 1.3 / High Performance Networking
             try {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-                ServicePointManager.DefaultConnectionLimit = 64;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls | (SecurityProtocolType)12288;
+                ServicePointManager.DefaultConnectionLimit = 128;
                 ServicePointManager.Expect100Continue = false;
+                ServicePointManager.UseNagleAlgorithm = false;
             } catch { }
 
             // Ensure Single Instance / Admin Elevation is active
@@ -54,7 +55,7 @@ namespace HMT {
                 }
             }
 
-            string version = "6.1.6";
+            string version = "6.2.2";
             try {
                 var asm = Assembly.GetExecutingAssembly();
                 var ver = asm.GetName().Version;

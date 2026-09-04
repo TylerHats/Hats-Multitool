@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Management;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
@@ -157,8 +158,31 @@ namespace HMT.Engines {
     }
 
     // --- Local Accounts Engine ---
+    public class PasswordPolicy {
+        public int MinLength { get; set; }
+        public bool ComplexityRequired { get; set; }
+        public int PasswordHistory { get; set; }
+        public int MaxPasswordAgeDays { get; set; }
+
+        public bool HasPolicy {
+            get { return MinLength > 0 || ComplexityRequired || PasswordHistory > 0; }
+        }
+
+        public string GetDescription() {
+            if (!HasPolicy) {
+                return "Enforced Password Policy: None (No restrictions)";
+            }
+            var parts = new List<string>();
+            if (MinLength > 0) parts.Add(string.Format("Min Length: {0} chars", MinLength));
+            if (ComplexityRequired) parts.Add("Complexity Required (Upper, Lower, Digits/Symbols)");
+            if (PasswordHistory > 0) parts.Add(string.Format("History: {0} remembered", PasswordHistory));
+            return "Enforced Policy: " + string.Join(" • ", parts.ToArray());
+        }
+    }
+
     public static class AccountEngine {
-        public static int GetMinimumPasswordLength() {
+        public static PasswordPolicy GetPasswordPolicy() {
+            var policy = new PasswordPolicy();
             try {
                 var psi = new ProcessStartInfo {
                     FileName = "net.exe",
@@ -170,29 +194,96 @@ namespace HMT.Engines {
                 using (var proc = Process.Start(psi)) {
                     string output = proc.StandardOutput.ReadToEnd();
                     proc.WaitForExit();
-                    var match = Regex.Match(output, @"Minimum password length\s+(\d+)");
-                    if (match.Success) {
+                    var matchLen = Regex.Match(output, @"Minimum password length\s+(\d+)", RegexOptions.IgnoreCase);
+                    if (matchLen.Success) {
                         int len;
-                        if (int.TryParse(match.Groups[1].Value, out len)) {
-                            return len;
+                        if (int.TryParse(matchLen.Groups[1].Value, out len)) policy.MinLength = len;
+                    }
+                    var matchHist = Regex.Match(output, @"Length of password history maintained\s+(\d+)", RegexOptions.IgnoreCase);
+                    if (matchHist.Success) {
+                        int hist;
+                        if (int.TryParse(matchHist.Groups[1].Value, out hist)) policy.PasswordHistory = hist;
+                    }
+                    var matchAge = Regex.Match(output, @"Maximum password age\s*\(days\)\s*:\s*(\d+)", RegexOptions.IgnoreCase);
+                    if (matchAge.Success) {
+                        int age;
+                        if (int.TryParse(matchAge.Groups[1].Value, out age)) policy.MaxPasswordAgeDays = age;
+                    }
+                }
+            } catch { }
+
+            // Inspect local security policy for complexity
+            try {
+                string tmpCfg = Path.Combine(Path.GetTempPath(), "hmt_secpol_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".inf");
+                var psiSec = new ProcessStartInfo {
+                    FileName = "secedit.exe",
+                    Arguments = string.Format("/export /cfg \"{0}\" /areas SECURITYPOLICY", tmpCfg),
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var proc = Process.Start(psiSec)) {
+                    proc.WaitForExit(3000);
+                }
+                if (File.Exists(tmpCfg)) {
+                    string cfgText = File.ReadAllText(tmpCfg);
+                    try { File.Delete(tmpCfg); } catch { }
+
+                    var mComp = Regex.Match(cfgText, @"PasswordComplexity\s*=\s*([01])", RegexOptions.IgnoreCase);
+                    if (mComp.Success && mComp.Groups[1].Value == "1") {
+                        policy.ComplexityRequired = true;
+                    }
+                    if (policy.MinLength <= 0) {
+                        var mLen = Regex.Match(cfgText, @"MinimumPasswordLength\s*=\s*(\d+)", RegexOptions.IgnoreCase);
+                        if (mLen.Success) {
+                            int l;
+                            if (int.TryParse(mLen.Groups[1].Value, out l)) policy.MinLength = l;
                         }
                     }
                 }
             } catch { }
-            return 0;
+
+            return policy;
         }
 
-        public static bool CreateUser(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire) {
+        public static int GetMinimumPasswordLength() {
+            return GetPasswordPolicy().MinLength;
+        }
+
+        private static string ExtractProcessError(Process proc) {
+            try {
+                string err = proc.StandardError.ReadToEnd();
+                if (string.IsNullOrWhiteSpace(err)) err = proc.StandardOutput.ReadToEnd();
+                if (!string.IsNullOrWhiteSpace(err)) {
+                    var lines = err.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var l in lines) {
+                        string trimmed = l.Trim();
+                        if (trimmed.StartsWith("The syntax of", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (trimmed.StartsWith("More help is", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (trimmed.StartsWith("NET HELPMSG", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (trimmed.Length > 0) return trimmed;
+                    }
+                }
+            } catch { }
+            return "Windows rejected the operation. Ensure the password satisfies system security policies.";
+        }
+
+        public static bool CreateUser(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire, out string errorMessage) {
+            errorMessage = "";
             try {
                 var psi = new ProcessStartInfo {
                     FileName = "net.exe",
                     Arguments = string.Format("user \"{0}\" \"{1}\" /add /y", username, password),
                     CreateNoWindow = true,
-                    UseShellExecute = false
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 };
                 using (var proc = Process.Start(psi)) {
                     proc.WaitForExit();
-                    if (proc.ExitCode != 0) return false;
+                    if (proc.ExitCode != 0) {
+                        errorMessage = ExtractProcessError(proc);
+                        return false;
+                    }
                 }
 
                 if (isAdmin) {
@@ -226,22 +317,34 @@ namespace HMT.Engines {
                 Logger.Log("Successfully created user: " + username, "Success");
                 return true;
             } catch (Exception ex) {
+                errorMessage = ex.Message;
                 Logger.Log("User creation failed: " + ex.Message, "Error");
                 return false;
             }
         }
 
-        public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire) {
+        public static bool CreateUser(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire) {
+            string err;
+            return CreateUser(username, password, isAutoLogin, isAdmin, isDontExpire, out err);
+        }
+
+        public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire, out string errorMessage) {
+            errorMessage = "";
             try {
                 var psi = new ProcessStartInfo {
                     FileName = "net.exe",
                     Arguments = string.Format("user \"{0}\" \"{1}\"", username, password),
                     CreateNoWindow = true,
-                    UseShellExecute = false
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 };
                 using (var proc = Process.Start(psi)) {
                     proc.WaitForExit();
-                    if (proc.ExitCode != 0) return false;
+                    if (proc.ExitCode != 0) {
+                        errorMessage = ExtractProcessError(proc);
+                        return false;
+                    }
                 }
 
                 if (isAdmin) {
@@ -263,9 +366,15 @@ namespace HMT.Engines {
                 Logger.Log("Successfully updated password for: " + username, "Success");
                 return true;
             } catch (Exception ex) {
+                errorMessage = ex.Message;
                 Logger.Log("Password update failed: " + ex.Message, "Error");
                 return false;
             }
+        }
+
+        public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire) {
+            string err;
+            return UpdateUserPassword(username, password, isAutoLogin, isAdmin, isDontExpire, out err);
         }
 
         private static void SetAutoLogon(string username, string password) {
@@ -325,6 +434,11 @@ namespace HMT.Engines {
             return false;
         }
 
+        public static bool IsValidComputerName(string name) {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            return Regex.IsMatch(name, @"^(?!\d+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$");
+        }
+
         public static bool RenameComputer(string newName) {
             try {
                 using (var obj = new ManagementObject(string.Format("Win32_ComputerSystem.Name='{0}'", Environment.MachineName))) {
@@ -352,14 +466,48 @@ namespace HMT.Engines {
             }
         }
 
-        public static void UpgradeToProEdition(string productKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T") {
+        public static void JoinDomain(string domainName) {
             try {
                 var psi = new ProcessStartInfo {
-                    FileName = "changepk.exe",
-                    Arguments = "/ProductKey " + productKey,
+                    FileName = "powershell.exe",
+                    Arguments = string.Format("-NoProfile -NonInteractive -Command \"Add-Computer -DomainName '{0}' -Credential (Get-Credential) -ErrorAction Stop\"", domainName),
                     UseShellExecute = true
                 };
                 Process.Start(psi);
+            } catch (Exception ex) {
+                Logger.Log("Failed to join domain: " + ex.Message, "Error");
+            }
+        }
+
+        public static void OpenWorkplaceSettings() {
+            try {
+                Process.Start(new ProcessStartInfo {
+                    FileName = "ms-settings:workplace",
+                    UseShellExecute = true
+                });
+            } catch { }
+        }
+
+        public static void UpgradeToProEdition(string productKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T") {
+            try {
+                if (string.IsNullOrWhiteSpace(productKey)) productKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T";
+                var psiDism = new ProcessStartInfo {
+                    FileName = "dism.exe",
+                    Arguments = string.Format("/Online /Set-Edition:Professional /ProductKey:{0} /NoRestart /AcceptEula", productKey),
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var proc = Process.Start(psiDism)) {
+                    proc.WaitForExit(15000);
+                    if (proc.ExitCode != 0) {
+                        var psiPk = new ProcessStartInfo {
+                            FileName = "changepk.exe",
+                            Arguments = "/ProductKey " + productKey,
+                            UseShellExecute = true
+                        };
+                        Process.Start(psiPk);
+                    }
+                }
             } catch (Exception ex) {
                 Logger.Log("Failed to start edition upgrade: " + ex.Message, "Error");
             }
@@ -491,12 +639,12 @@ namespace HMT.Engines {
 
     public static class BloatCleanupEngine {
         private static readonly string[] BloatApps = new string[] {
-            "*Spotify*", "*TikTok*", "*Disney*", "*Clipchamp*", "*McAfee*", "*Norton*", "*Instagram*",
-            "*Facebook*", "*PrimeVideo*", "*Netflix*", "*LinkedIn*", "*Twitter*", "*Pandora*",
-            "*CandyCrush*", "*Dolby*", "*Dropbox*", "*Grammarly*", "*Evernote*", "*WhatsApp*",
-            "*Microsoft.BingNews*", "*Microsoft.BingWeather*", "*Microsoft.GetHelp*", "*Microsoft.Getstarted*",
-            "*Microsoft.MicrosoftSolitaireCollection*", "*Microsoft.People*", "*Microsoft.PowerAutomateDesktop*",
-            "*Microsoft.Todos*", "*Microsoft.YourPhone*", "*Microsoft.ZuneVideo*", "*Microsoft.ZuneMusic*"
+            "Spotify", "TikTok", "Disney", "Clipchamp", "McAfee", "Norton", "Instagram",
+            "Facebook", "PrimeVideo", "Netflix", "LinkedIn", "Twitter", "Pandora",
+            "CandyCrush", "Dolby", "Dropbox", "Grammarly", "Evernote", "WhatsApp",
+            "Microsoft.BingNews", "Microsoft.BingWeather", "Microsoft.GetHelp", "Microsoft.Getstarted",
+            "Microsoft.MicrosoftSolitaireCollection", "Microsoft.People", "Microsoft.PowerAutomateDesktop",
+            "Microsoft.Todos", "Microsoft.YourPhone", "Microsoft.ZuneVideo", "Microsoft.ZuneMusic"
         };
 
         public static async Task ExecuteBloatCleanupAsync(IProgress<BloatProgressInfo> progress) {
@@ -504,38 +652,47 @@ namespace HMT.Engines {
                 try {
                     progress?.Report(new BloatProgressInfo {
                         Status = "Starting Bloatware Removal...",
-                        Detail = "Scanning installed AppX packages...",
+                        Detail = "Scanning installed AppX packages across all users...",
                         ProgressPercentage = 5
                     });
 
-                    // 1. Remove AppX Packages
-                    int total = BloatApps.Length;
-                    for (int i = 0; i < total; i++) {
-                        string appPattern = BloatApps[i];
-                        progress?.Report(new BloatProgressInfo {
-                            Status = "Removing AppX Bloatware...",
-                            Detail = string.Format("Cleaning {0} ({1}/{2})...", appPattern.Replace("*", ""), i + 1, total),
-                            ProgressPercentage = 10 + (int)((i * 55) / total)
-                        });
+                    // 1. Unified Batch AppX Package Removal
+                    string appListLiteral = string.Join("','", BloatApps);
+                    string psBatchScript = string.Format(@"$ErrorActionPreference = 'SilentlyContinue'; $bloat = @('{0}'); $packages = Get-AppxPackage -AllUsers; $provisioned = Get-AppxProvisionedPackage -Online; $i = 0; foreach ($app in $bloat) {{ $i++; [Console]::WriteLine(""PROGRESS:$i:$app""); $pkgs = $packages | Where-Object {{ $_.Name -like ""*$app*"" }}; if ($pkgs) {{ $pkgs | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue; }} $prov = $provisioned | Where-Object {{ $_.DisplayName -like ""*$app*"" -or $_.PackageName -like ""*$app*"" }}; if ($prov) {{ foreach ($p in $prov) {{ Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName -ErrorAction SilentlyContinue | Out-Null; }} }} }}", appListLiteral);
 
-                        try {
-                            var psi = new ProcessStartInfo {
-                                FileName = "powershell.exe",
-                                Arguments = string.Format("-NoProfile -NonInteractive -Command \"Get-AppxPackage -Name '{0}' -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue; Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like '{0}' | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\"", appPattern),
-                                CreateNoWindow = true,
-                                UseShellExecute = false
-                            };
-                            using (var proc = Process.Start(psi)) {
-                                proc.WaitForExit(8000);
+                    var psi = new ProcessStartInfo {
+                        FileName = "powershell.exe",
+                        Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + psBatchScript + "\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true
+                    };
+
+                    using (var proc = Process.Start(psi)) {
+                        string line;
+                        while ((line = proc.StandardOutput.ReadLine()) != null) {
+                            if (line.StartsWith("PROGRESS:")) {
+                                var parts = line.Split(new char[] { ':' });
+                                if (parts.Length >= 3) {
+                                    int idx;
+                                    int.TryParse(parts[1], out idx);
+                                    string name = parts[2];
+                                    progress?.Report(new BloatProgressInfo {
+                                        Status = "Removing AppX Bloatware...",
+                                        Detail = string.Format("Cleaning {0} ({1}/{2})...", name, idx, BloatApps.Length),
+                                        ProgressPercentage = 5 + (int)((idx * 65.0) / BloatApps.Length)
+                                    });
+                                }
                             }
-                        } catch { }
+                        }
+                        proc.WaitForExit(30000);
                     }
 
                     // 2. Disable Telemetry Services
                     progress?.Report(new BloatProgressInfo {
                         Status = "Optimizing Services...",
                         Detail = "Disabling telemetry and diagnostic tracking services...",
-                        ProgressPercentage = 70
+                        ProgressPercentage = 75
                     });
 
                     string[] services = new string[] { "DiagTrack", "dmwappushservice" };
@@ -544,41 +701,83 @@ namespace HMT.Engines {
                             using (var sc = new ServiceController(s)) {
                                 if (sc.Status == ServiceControllerStatus.Running) sc.Stop();
                             }
-                            var psi = new ProcessStartInfo {
+                        } catch { }
+                        try {
+                            var psiSc = new ProcessStartInfo {
                                 FileName = "sc.exe",
                                 Arguments = "config " + s + " start= disabled",
                                 CreateNoWindow = true,
                                 UseShellExecute = false
                             };
-                            using (var proc = Process.Start(psi)) {
-                                proc.WaitForExit(3000);
+                            using (var pSc = Process.Start(psiSc)) {
+                                pSc.WaitForExit(3000);
                             }
                         } catch { }
                     }
 
-                    // 3. Apply Registry Tweaks (Bing Search, Advertising ID)
+                    // 3. Apply Registry Policies (Telemetry, Bing Search, Consumer Features, Advertising ID)
                     progress?.Report(new BloatProgressInfo {
-                        Status = "Applying Privacy Policies...",
-                        Detail = "Disabling Start Menu web search & Advertising ID...",
-                        ProgressPercentage = 85
+                        Status = "Applying Privacy & Search Policies...",
+                        Detail = "Disabling telemetry, Bing web search, and consumer suggestions...",
+                        ProgressPercentage = 90
                     });
 
                     try {
+                        // System-wide Telemetry
+                        using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\DataCollection")) {
+                            if (key != null) key.SetValue("AllowTelemetry", 0, RegistryValueKind.DWord);
+                        }
+                        // Consumer Features
+                        using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\CloudContent")) {
+                            if (key != null) {
+                                key.SetValue("DisableWindowsConsumerFeatures", 1, RegistryValueKind.DWord);
+                                key.SetValue("DisableCloudOptimizedContent", 1, RegistryValueKind.DWord);
+                            }
+                        }
+                        // Explorer & Windows Search
+                        using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\Explorer")) {
+                            if (key != null) key.SetValue("DisableSearchBoxSuggestions", 1, RegistryValueKind.DWord);
+                        }
+                        using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\Windows Search")) {
+                            if (key != null) {
+                                key.SetValue("DisableSearchBoxSuggestions", 1, RegistryValueKind.DWord);
+                                key.SetValue("ConnectedSearchUseWeb", 0, RegistryValueKind.DWord);
+                                key.SetValue("AllowCortana", 0, RegistryValueKind.DWord);
+                            }
+                        }
+                        // Current User Search & Advertising
                         using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Policies\Microsoft\Windows\Explorer")) {
                             if (key != null) key.SetValue("DisableSearchBoxSuggestions", 1, RegistryValueKind.DWord);
                         }
+                        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Search")) {
+                            if (key != null) key.SetValue("BingSearchEnabled", 0, RegistryValueKind.DWord);
+                        }
                         using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo")) {
                             if (key != null) key.SetValue("Enabled", 0, RegistryValueKind.DWord);
+                        }
+                        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Privacy")) {
+                            if (key != null) key.SetValue("TailoredExperiencesWithDiagnosticDataEnabled", 0, RegistryValueKind.DWord);
+                        }
+                        // Content Delivery Manager
+                        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager")) {
+                            if (key != null) {
+                                key.SetValue("ContentDeliveryAllowed", 0, RegistryValueKind.DWord);
+                                key.SetValue("OemPreInstalledAppsEnabled", 0, RegistryValueKind.DWord);
+                                key.SetValue("PreInstalledAppsEnabled", 0, RegistryValueKind.DWord);
+                                key.SetValue("SilentInstalledAppsEnabled", 0, RegistryValueKind.DWord);
+                                key.SetValue("SubscribedContent-338388Enabled", 0, RegistryValueKind.DWord);
+                                key.SetValue("SubscribedContent-338389Enabled", 0, RegistryValueKind.DWord);
+                            }
                         }
                     } catch { }
 
                     progress?.Report(new BloatProgressInfo {
                         Status = "Bloat Cleanup Complete!",
-                        Detail = "All selected bloatware and telemetry services have been optimized.",
+                        Detail = "All selected bloatware, telemetry, and promotional features have been removed.",
                         ProgressPercentage = 100
                     });
 
-                    Thread.Sleep(500);
+                    Thread.Sleep(400);
                 } catch (Exception ex) {
                     Logger.Log("Bloat cleanup error: " + ex.Message, "Error");
                 }
@@ -599,6 +798,18 @@ namespace HMT.Engines {
             WingetID = wingetId;
             Type = type;
         }
+    }
+
+    public class InstallerPackageInfo {
+        public string InstallerUrl { get; set; }
+        public string SilentArgs { get; set; }
+        public string InstallerType { get; set; }
+    }
+
+    public class ProgramProgressInfo {
+        public string StatusText { get; set; }
+        public string DetailText { get; set; }
+        public int ProgressPercentage { get; set; }
     }
 
     public static class ProgramInstallerEngine {
@@ -729,6 +940,262 @@ namespace HMT.Engines {
             return false;
         }
 
+        public static InstallerPackageInfo GetWingetInstallerInfo(string wingetId, CancellationToken ct) {
+            var info = new InstallerPackageInfo();
+            if (string.IsNullOrEmpty(wingetId)) return info;
+
+            // App-specific fast-paths / verified overrides
+            if (wingetId.Equals("Adobe.Acrobat.Reader.64-bit", StringComparison.OrdinalIgnoreCase)) {
+                info.SilentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart";
+            } else if (wingetId.Equals("Valve.Steam", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe";
+                info.SilentArgs = "/S";
+                return info;
+            } else if (wingetId.IndexOf("Slack", StringComparison.OrdinalIgnoreCase) >= 0) {
+                info.InstallerUrl = "https://slack.com/ssb/download-win64";
+                info.SilentArgs = "/silent";
+                return info;
+            } else if (wingetId.IndexOf("AnyDesk", StringComparison.OrdinalIgnoreCase) >= 0) {
+                info.InstallerUrl = "https://download.anydesk.com/AnyDesk.exe";
+                info.SilentArgs = "--install \"" + Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) + "\\AnyDesk\" --start-with-win --silent";
+                return info;
+            } else if (wingetId.Equals("Google.Chrome", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B4F373802-9F19-C0FD-BA19-1EBE5394B73B%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dtrue%26ap%3Dx64-stable-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeStandaloneSetup64.exe";
+                info.SilentArgs = "/silent /install";
+                return info;
+            } else if (wingetId.Equals("Mozilla.Firefox", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US";
+                info.SilentArgs = "/S";
+                return info;
+            } else if (wingetId.Equals("7zip.7zip", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://www.7-zip.org/a/7z2408-x64.exe";
+                info.SilentArgs = "/S";
+                return info;
+            } else if (wingetId.Equals("Notepad++.Notepad++", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.9/npp.8.6.9.Installer.x64.exe";
+                info.SilentArgs = "/S";
+                return info;
+            } else if (wingetId.Equals("Git.Git", StringComparison.OrdinalIgnoreCase)) {
+                info.InstallerUrl = "https://github.com/git-for-windows/git/releases/download/v2.46.0.windows.1/Git-2.46.0-64-bit.exe";
+                info.SilentArgs = "/VERYSILENT /NORESTART";
+                return info;
+            }
+
+            try {
+                var psi = new ProcessStartInfo {
+                    FileName = "winget.exe",
+                    Arguments = string.Format("show --id \"{0}\" --exact --source winget --architecture x64 --scope machine --accept-source-agreements --disable-interactivity", wingetId),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                };
+                using (var proc = Process.Start(psi)) {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(10000);
+                    if (!string.IsNullOrEmpty(output)) {
+                        var lines = output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var rawLine in lines) {
+                            string line = rawLine.Trim();
+                            var mUrl = Regex.Match(line, @"^Installer URL:\s*(.+)$", RegexOptions.IgnoreCase);
+                            if (mUrl.Success) info.InstallerUrl = mUrl.Groups[1].Value.Trim();
+
+                            var mType = Regex.Match(line, @"^Installer Type:\s*(.+)$", RegexOptions.IgnoreCase);
+                            if (mType.Success) info.InstallerType = mType.Groups[1].Value.Trim();
+
+                            var mSilent = Regex.Match(line, @"^Silent:\s*(.+)$", RegexOptions.IgnoreCase);
+                            if (mSilent.Success && string.IsNullOrEmpty(info.SilentArgs)) info.SilentArgs = mSilent.Groups[1].Value.Trim();
+
+                            var mSilentProg = Regex.Match(line, @"^Silent with Progress:\s*(.+)$", RegexOptions.IgnoreCase);
+                            if (mSilentProg.Success && string.IsNullOrEmpty(info.SilentArgs)) info.SilentArgs = mSilentProg.Groups[1].Value.Trim();
+                        }
+                    }
+                }
+            } catch { }
+
+            // Default silent argument inferencing if missing
+            if (string.IsNullOrEmpty(info.SilentArgs)) {
+                if (!string.IsNullOrEmpty(info.InstallerUrl)) {
+                    if (info.InstallerUrl.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) || (info.InstallerType != null && info.InstallerType.IndexOf("msi", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                        info.SilentArgs = "/qn /norestart";
+                    } else if (info.InstallerType != null && info.InstallerType.IndexOf("inno", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        info.SilentArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-";
+                    } else if (info.InstallerType != null && info.InstallerType.IndexOf("nullsoft", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        info.SilentArgs = "/S";
+                    } else {
+                        info.SilentArgs = "/S";
+                    }
+                }
+            }
+
+            return info;
+        }
+
+        public static async Task<bool> InstallProgramDirectAsync(SoftwareItem item, int index, int total, IProgress<ProgramProgressInfo> progress, CancellationToken ct) {
+            string phase = string.Format("Installing {0} of {1}: {2}", index + 1, total, item.Name);
+            progress?.Report(new ProgramProgressInfo {
+                StatusText = phase,
+                DetailText = "Resolving installer package...",
+                ProgressPercentage = 5
+            });
+
+            try {
+                // 1. Scrape package URL and silent args
+                var info = await Task.Run(() => GetWingetInstallerInfo(item.WingetID, ct));
+                ct.ThrowIfCancellationRequested();
+
+                if (!string.IsNullOrEmpty(info.InstallerUrl)) {
+                    // 2. In-house HTTP download with speed tracking
+                    string ext = ".exe";
+                    if (info.InstallerUrl.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) || (info.InstallerType != null && info.InstallerType.IndexOf("msi", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                        ext = ".msi";
+                    }
+                    string tempFile = Path.Combine(Path.GetTempPath(), "hmt_installer_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ext);
+
+                    try {
+                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                        using (var client = new HttpClient(handler)) {
+                            client.Timeout = TimeSpan.FromMinutes(15);
+                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                            client.DefaultRequestHeaders.Add("Accept", "*/*");
+
+                            using (var response = await client.GetAsync(info.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                response.EnsureSuccessStatusCode();
+                                long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+
+                                using (var stream = await response.Content.ReadAsStreamAsync())
+                                using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                    byte[] buffer = new byte[262144];
+                                    long totalRead = 0;
+                                    long lastBytes = 0;
+                                    int read;
+                                    var swUi = Stopwatch.StartNew();
+                                    var swWindow = Stopwatch.StartNew();
+                                    double speedMbps = 0.0;
+
+                                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
+                                        await fileStream.WriteAsync(buffer, 0, read, ct);
+                                        totalRead += read;
+
+                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                            swUi.Restart();
+                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                            long delta = totalRead - lastBytes;
+                                            lastBytes = totalRead;
+                                            swWindow.Restart();
+                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+
+                                            double mbRead = Math.Round(totalRead / 1048576.0, 1);
+                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                            int pct = totalBytes > 0 ? (int)((totalRead * 70.0) / totalBytes) : 40;
+                                            string detail = (totalBytes > 0)
+                                                ? string.Format("Downloading... {0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
+                                                : string.Format("Downloading... {0:F1} MB @ {1:F1} Mbps", mbRead, speedMbps);
+
+                                            progress?.Report(new ProgramProgressInfo {
+                                                StatusText = phase,
+                                                DetailText = detail,
+                                                ProgressPercentage = pct
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ct.ThrowIfCancellationRequested();
+
+                        // 3. Direct Execution
+                        progress?.Report(new ProgramProgressInfo {
+                            StatusText = phase,
+                            DetailText = "Running installer...",
+                            ProgressPercentage = 80
+                        });
+
+                        var psi = new ProcessStartInfo();
+                        if (tempFile.EndsWith(".msi", StringComparison.OrdinalIgnoreCase)) {
+                            psi.FileName = "msiexec.exe";
+                            psi.Arguments = string.Format("/i \"{0}\" {1}", tempFile, string.IsNullOrEmpty(info.SilentArgs) ? "/qn /norestart" : info.SilentArgs);
+                        } else {
+                            psi.FileName = tempFile;
+                            psi.Arguments = info.SilentArgs ?? "/S";
+                        }
+                        psi.CreateNoWindow = true;
+                        psi.UseShellExecute = false;
+
+                        using (var proc = Process.Start(psi)) {
+                            while (!proc.HasExited) {
+                                if (ct.IsCancellationRequested) {
+                                    try {
+                                        Process.Start(new ProcessStartInfo {
+                                            FileName = "taskkill.exe",
+                                            Arguments = string.Format("/F /T /PID {0}", proc.Id),
+                                            CreateNoWindow = true,
+                                            UseShellExecute = false
+                                        })?.WaitForExit(1000);
+                                    } catch { }
+                                    try { proc.Kill(); } catch { }
+                                    try { File.Delete(tempFile); } catch { }
+                                    return false;
+                                }
+                                await Task.Delay(200, ct);
+                            }
+                        }
+
+                        try { File.Delete(tempFile); } catch { }
+
+                        progress?.Report(new ProgramProgressInfo {
+                            StatusText = "Finished: " + item.Name,
+                            DetailText = "",
+                            ProgressPercentage = 100
+                        });
+                        return true;
+                    } catch (OperationCanceledException) {
+                        try { File.Delete(tempFile); } catch { }
+                        throw;
+                    } catch {
+                        try { File.Delete(tempFile); } catch { }
+                    }
+                }
+
+                // Fallback to WinGet if direct download/run was not available or failed
+                progress?.Report(new ProgramProgressInfo {
+                    StatusText = phase,
+                    DetailText = "Installing via WinGet package manager...",
+                    ProgressPercentage = 50
+                });
+
+                var psiWinget = new ProcessStartInfo {
+                    FileName = "winget.exe",
+                    Arguments = string.Format("install --id \"{0}\" --exact --source winget --architecture x64 --silent --accept-package-agreements --accept-source-agreements --disable-interactivity", item.WingetID),
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var proc = Process.Start(psiWinget)) {
+                    while (!proc.HasExited) {
+                        if (ct.IsCancellationRequested) {
+                            try {
+                                Process.Start(new ProcessStartInfo {
+                                    FileName = "taskkill.exe",
+                                    Arguments = string.Format("/F /T /PID {0}", proc.Id),
+                                    CreateNoWindow = true,
+                                    UseShellExecute = false
+                                })?.WaitForExit(1000);
+                            } catch { }
+                            try { proc.Kill(); } catch { }
+                            return false;
+                        }
+                        await Task.Delay(200, ct);
+                    }
+                    return proc.ExitCode == 0;
+                }
+            } catch (OperationCanceledException) {
+                return false;
+            } catch (Exception ex) {
+                Logger.Log(string.Format("Failed to install {0}: {1}", item.Name, ex.Message), "Warning");
+                return false;
+            }
+        }
+
         public static async Task DeployOfficeAsync(bool isAll, IProgress<BloatProgressInfo> progress, CancellationToken ct) {
             string productID = isAll ? "O365BusinessRetail" : "OutlookRetail";
             string displayName = isAll ? "Microsoft Office (x64)" : "Outlook (Classic)";
@@ -758,66 +1225,206 @@ namespace HMT.Engines {
                     progress?.Report(new BloatProgressInfo {
                         Status = "Starting " + displayName + " download...",
                         Detail = "Connecting to CDN...",
-                        ProgressPercentage = 10
+                        ProgressPercentage = 5
                     });
 
-                    using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
-                    using (var client = new HttpClient(handler)) {
+                    try {
+                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                        using (var client = new HttpClient(handler)) {
                         client.Timeout = TimeSpan.FromMinutes(30);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0");
-                        client.DefaultRequestHeaders.Add("X-HMT-Token", "HMTDAT1");
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
 
-                        using (var response = await client.GetAsync(cdnUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                            response.EnsureSuccessStatusCode();
-                            long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                        // 1. Probe CDN for Content-Length and Range support
+                        long totalBytes = -1L;
+                        bool supportsRange = false;
+                        try {
+                            var headReq = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                            headReq.Headers.Add("X-HMT-Token", "HMTDAT1");
+                            headReq.Headers.Range = new RangeHeaderValue(0, 0);
+                            using (var probeResp = await client.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                if (probeResp.StatusCode == HttpStatusCode.PartialContent) {
+                                    supportsRange = true;
+                                    totalBytes = probeResp.Content.Headers.ContentRange?.Length ?? -1L;
+                                } else if (probeResp.IsSuccessStatusCode) {
+                                    totalBytes = probeResp.Content.Headers.ContentLength ?? -1L;
+                                }
+                            }
+                        } catch { }
 
-                            using (var stream = await response.Content.ReadAsStreamAsync())
-                            using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
-                                byte[] buffer = new byte[1048576];
-                                long totalRead = 0;
-                                int read;
-                                var sw = Stopwatch.StartNew();
+                        int workerCount = (supportsRange && totalBytes > 50 * 1024 * 1024) ? 8 : 1;
 
-                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
-                                    await fileStream.WriteAsync(buffer, 0, read, ct);
-                                    totalRead += read;
+                        if (workerCount > 1) {
+                            // Multi-Part Parallel Range Downloader
+                            using (var fsInit = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) {
+                                fsInit.SetLength(totalBytes);
+                            }
 
-                                    if (sw.ElapsedMilliseconds > 150) {
-                                        sw.Restart();
-                                        double mbRead = Math.Round(totalRead / 1048576.0, 1);
-                                        double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
-                                        int pct = totalBytes > 0 ? (int)((totalRead * 70) / totalBytes) + 10 : 50;
-                                        progress?.Report(new BloatProgressInfo {
-                                            Status = "Downloading " + displayName + "...",
-                                            Detail = string.Format("{0} MB / {1} MB downloaded", mbRead, mbTotal),
-                                            ProgressPercentage = pct
-                                        });
+                            long chunkSize = (totalBytes + workerCount - 1) / workerCount;
+                            long totalRead = 0;
+                            long lastBytes = 0;
+                            var swWindow = Stopwatch.StartNew();
+                            var swUi = Stopwatch.StartNew();
+                            double speedMbps = 0.0;
+                            object syncObj = new object();
+
+                            var downloadTasks = new List<Task>();
+                            for (int w = 0; w < workerCount; w++) {
+                                long start = w * chunkSize;
+                                long end = Math.Min(totalBytes - 1, start + chunkSize - 1);
+                                if (start > end) break;
+
+                                downloadTasks.Add(Task.Run(async () => {
+                                    var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                                    req.Headers.Add("X-HMT-Token", "HMTDAT1");
+                                    req.Headers.Range = new RangeHeaderValue(start, end);
+
+                                    using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                        resp.EnsureSuccessStatusCode();
+                                        using (var stream = await resp.Content.ReadAsStreamAsync())
+                                        using (var fs = new FileStream(zipPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 262144, true)) {
+                                            fs.Seek(start, SeekOrigin.Begin);
+                                            byte[] buf = new byte[262144];
+                                            int read;
+                                            while ((read = await stream.ReadAsync(buf, 0, buf.Length, ct)) > 0) {
+                                                await fs.WriteAsync(buf, 0, read, ct);
+                                                long cur = Interlocked.Add(ref totalRead, read);
+
+                                                if (swUi.ElapsedMilliseconds >= 150) {
+                                                    lock (syncObj) {
+                                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                                            swUi.Restart();
+                                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                                            long delta = cur - lastBytes;
+                                                            lastBytes = cur;
+                                                            swWindow.Restart();
+                                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+
+                                                            int pct = (int)((cur * 75.0) / totalBytes);
+                                                            double mbRead = Math.Round(cur / 1048576.0, 1);
+                                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                                            string detail = string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps);
+
+                                                            progress?.Report(new BloatProgressInfo {
+                                                                Status = "Downloading " + displayName + " (Multi-Stream)...",
+                                                                Detail = detail,
+                                                                ProgressPercentage = pct
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }, ct));
+                            }
+
+                            await Task.WhenAll(downloadTasks);
+                        } else {
+                            // High-speed single-stream fallback
+                            var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                            req.Headers.Add("X-HMT-Token", "HMTDAT1");
+                            using (var response = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                response.EnsureSuccessStatusCode();
+                                if (totalBytes <= 0) totalBytes = response.Content.Headers.ContentLength ?? -1L;
+
+                                using (var stream = await response.Content.ReadAsStreamAsync())
+                                using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                    byte[] buffer = new byte[262144];
+                                    long totalRead = 0;
+                                    long lastBytes = 0;
+                                    int read;
+                                    var swUi = Stopwatch.StartNew();
+                                    var swWindow = Stopwatch.StartNew();
+                                    double speedMbps = 0.0;
+
+                                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
+                                        await fileStream.WriteAsync(buffer, 0, read, ct);
+                                        totalRead += read;
+
+                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                            swUi.Restart();
+                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                            long delta = totalRead - lastBytes;
+                                            lastBytes = totalRead;
+                                            swWindow.Restart();
+                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+
+                                            double mbRead = Math.Round(totalRead / 1048576.0, 1);
+                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                            int pct = totalBytes > 0 ? (int)((totalRead * 75.0) / totalBytes) : 40;
+                                            string detail = (totalBytes > 0)
+                                                ? string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
+                                                : string.Format("{0:F1} MB downloaded @ {1:F1} Mbps", mbRead, speedMbps);
+
+                                            progress?.Report(new BloatProgressInfo {
+                                                Status = "Downloading " + displayName + "...",
+                                                Detail = detail,
+                                                ProgressPercentage = pct
+                                            });
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    } catch {
+                        try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
+                        throw;
+                    }
                 }
 
+                ct.ThrowIfCancellationRequested();
+
+                // Smooth entry-by-entry extraction tracking
                 progress?.Report(new BloatProgressInfo {
                     Status = "Extracting " + displayName + " payload...",
-                    Detail = "Unpacking payload files...",
-                    ProgressPercentage = 85
+                    Detail = "Unpacking payload files into ExtPrograms\\MicrosoftOffice...",
+                    ProgressPercentage = 80
                 });
 
                 await Task.Run(() => {
-                    try {
-                        ZipFile.ExtractToDirectory(zipPath, officeDir);
-                    } catch { }
-                });
+                    using (var archive = ZipFile.OpenRead(zipPath)) {
+                        int totalEntries = archive.Entries.Count;
+                        int currentEntry = 0;
+                        foreach (var entry in archive.Entries) {
+                            if (ct.IsCancellationRequested) ct.ThrowIfCancellationRequested();
+                            currentEntry++;
+                            string destinationPath = Path.Combine(officeDir, entry.FullName);
+                            string destDir = Path.GetDirectoryName(destinationPath);
+                            if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir)) {
+                                Directory.CreateDirectory(destDir);
+                            }
+                            if (!string.IsNullOrEmpty(entry.Name)) {
+                                entry.ExtractToFile(destinationPath, true);
+                            }
+                            if (currentEntry % 5 == 0 || currentEntry == totalEntries) {
+                                int extractPct = 80 + (int)((currentEntry * 15.0) / Math.Max(1, totalEntries));
+                                progress?.Report(new BloatProgressInfo {
+                                    Status = "Extracting " + displayName + " payload...",
+                                    Detail = string.Format("Extracting file {0} of {1}...", currentEntry, totalEntries),
+                                    ProgressPercentage = extractPct
+                                });
+                            }
+                        }
+                    }
+                }, ct);
             }
 
-            // Generate configuration.xml
+            ct.ThrowIfCancellationRequested();
+
+            // Locate setup directory and files
             string setupExe = Path.Combine(officeDir, "setup.exe");
-            string xmlPath = Path.Combine(officeDir, "configuration.xml");
+            if (!File.Exists(setupExe)) {
+                var found = Directory.GetFiles(officeDir, "setup.exe", SearchOption.AllDirectories);
+                if (found.Length > 0) setupExe = found[0];
+            }
+            string setupDir = Path.GetDirectoryName(setupExe);
+
+            // Generate configuration.xml
+            string xmlPath = Path.Combine(setupDir, "configuration.xml");
             string xmlContent = string.Format(
                 "<Configuration>\n  <Add SourcePath=\"{0}\" OfficeClientEdition=\"64\" Channel=\"Current\">\n    <Product ID=\"{1}\">\n      <Language ID=\"en-us\" />\n    </Product>\n  </Add>\n  <Display Level=\"Full\" AcceptEULA=\"TRUE\" />\n  <Property Name=\"AUTOACTIVATE\" Value=\"0\" />\n</Configuration>",
-                officeDir,
+                setupDir,
                 productID
             );
             File.WriteAllText(xmlPath, xmlContent, Encoding.UTF8);
@@ -831,7 +1438,7 @@ namespace HMT.Engines {
             var psiSetup = new ProcessStartInfo {
                 FileName = setupExe,
                 Arguments = "/configure \"" + xmlPath + "\"",
-                WorkingDirectory = officeDir,
+                WorkingDirectory = setupDir,
                 WindowStyle = ProcessWindowStyle.Hidden,
                 CreateNoWindow = true
             };
@@ -841,32 +1448,6 @@ namespace HMT.Engines {
                 Status = "Launched: " + displayName,
                 Detail = "Office Click-to-Run setup is running in the background.",
                 ProgressPercentage = 100
-            });
-        }
-
-        public static async Task InstallWingetPackageAsync(string wingetId, IProgress<string> statusCallback, CancellationToken ct) {
-            await Task.Run(() => {
-                try {
-                    statusCallback?.Report("Installing " + wingetId + " via WinGet...");
-                    var psi = new ProcessStartInfo {
-                        FileName = "winget.exe",
-                        Arguments = string.Format("install --id \"{0}\" --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity", wingetId),
-                        CreateNoWindow = true,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true
-                    };
-                    using (var proc = Process.Start(psi)) {
-                        while (!proc.HasExited) {
-                            if (ct.IsCancellationRequested) {
-                                try { proc.Kill(); } catch { }
-                                return;
-                            }
-                            Thread.Sleep(200);
-                        }
-                    }
-                } catch (Exception ex) {
-                    Logger.Log("Winget installation error: " + ex.Message, "Error");
-                }
             });
         }
     }

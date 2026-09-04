@@ -647,16 +647,21 @@ namespace HMT.Forms {
         private DarkTextBox txtUsername;
         private DarkTextBox txtPassword;
         private DarkTextBox txtConfirm;
+        private Button btnPeek;
         private CheckBox chkAutoLogon;
         private CheckBox chkAdmin;
         private CheckBox chkNeverExpire;
+        private Label lblPolicy;
+        private Label lblStatus;
+        private bool isPeeking = false;
+        private PasswordPolicy currentPolicy = new PasswordPolicy();
 
         public LocalAccountsForm(string stepTitle) {
             this.Text = stepTitle;
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.None;
-            this.ClientSize = DarkTheme.Scale(new Size(440, 360));
+            this.ClientSize = DarkTheme.Scale(new Size(440, 410));
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -673,180 +678,498 @@ namespace HMT.Forms {
             };
             this.Controls.Add(lblTitle);
 
-            y += 28;
+            y += 24;
+            lblPolicy = new Label {
+                Text = "Enforced Password Policy: Detecting...",
+                ForeColor = DarkTheme.TextMuted,
+                Location = DarkTheme.Scale(new Point(20, y)),
+                Size = DarkTheme.Scale(new Size(400, 20)),
+                Font = DarkTheme.GetScaledFont(9.5f)
+            };
+            this.Controls.Add(lblPolicy);
+
+            y += 26;
             var lblUser = new Label { Text = "Username:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblUser);
-            txtUsername = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)), Text = "User" };
+            txtUsername = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)) };
+            SetupPlaceholder(txtUsername, "Username", false);
             this.Controls.Add(txtUsername);
 
             y += 36;
             var lblPass = new Label { Text = "Password:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblPass);
-            txtPassword = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)), PasswordChar = '•' };
+            txtPassword = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(230, 26)) };
+            SetupPlaceholder(txtPassword, "Password", true);
             this.Controls.Add(txtPassword);
+
+            btnPeek = new Button {
+                Text = "👁",
+                Location = DarkTheme.Scale(new Point(374, y - 2)),
+                Size = DarkTheme.Scale(new Size(36, 26)),
+                Font = DarkTheme.GetScaledFont(10f),
+                Cursor = Cursors.Hand,
+                UseMnemonic = false
+            };
+            DarkTheme.StyleButton(btnPeek, DarkTheme.SurfaceHighlight);
+            btnPeek.Click += (s, e) => {
+                isPeeking = !isPeeking;
+                btnPeek.ForeColor = isPeeking ? DarkTheme.AccentPrimary : DarkTheme.TextMain;
+                if (txtPassword.Text != "Password") {
+                    txtPassword.PasswordChar = isPeeking ? '\0' : '•';
+                }
+                if (txtConfirm.Text != "Confirm Password") {
+                    txtConfirm.PasswordChar = isPeeking ? '\0' : '•';
+                }
+            };
+            this.Controls.Add(btnPeek);
 
             y += 36;
             var lblConf = new Label { Text = "Confirm:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblConf);
-            txtConfirm = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)), PasswordChar = '•' };
+            txtConfirm = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)) };
+            SetupPlaceholder(txtConfirm, "Confirm Password", true);
             this.Controls.Add(txtConfirm);
 
-            y += 40;
-            chkAutoLogon = new CheckBox { Text = "Configure Automatic Logon", Checked = true, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            y += 38;
+            chkAutoLogon = new CheckBox { Text = "Configure Automatic Logon", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(chkAutoLogon);
 
             y += 28;
-            chkAdmin = new CheckBox { Text = "Add to Local Administrators Group", Checked = true, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            chkAdmin = new CheckBox { Text = "Add to Local Administrators Group", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(chkAdmin);
 
             y += 28;
-            chkNeverExpire = new CheckBox { Text = "Set Password to Never Expire", Checked = true, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            chkNeverExpire = new CheckBox { Text = "Set Password to Never Expire", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(chkNeverExpire);
 
-            y += 44;
+            y += 30;
+            lblStatus = new Label {
+                Text = "",
+                ForeColor = DarkTheme.AccentSuccess,
+                Location = DarkTheme.Scale(new Point(20, y)),
+                Size = DarkTheme.Scale(new Size(400, 22)),
+                Font = DarkTheme.GetScaledFont(9.5f),
+                AutoEllipsis = true
+            };
+            this.Controls.Add(lblStatus);
+
+            y += 28;
             var btnCreate = new Button {
                 Text = "Create / Update Account",
                 Location = DarkTheme.Scale(new Point(20, y)),
-                Size = DarkTheme.Scale(new Size(210, 42)),
-                DialogResult = DialogResult.OK
+                Size = DarkTheme.Scale(new Size(220, 42)),
+                DialogResult = DialogResult.None
             };
             DarkTheme.StyleButton(btnCreate, DarkTheme.AccentPurple);
             btnCreate.Click += (s, e) => {
-                string user = txtUsername.Text.Trim();
-                string pass = txtPassword.Text;
-                string conf = txtConfirm.Text;
+                string user = (txtUsername.Text == "Username") ? "" : txtUsername.Text.Trim();
+                string pass = (txtPassword.Text == "Password") ? "" : txtPassword.Text;
+                string conf = (txtConfirm.Text == "Confirm Password") ? "" : txtConfirm.Text;
 
                 if (string.IsNullOrEmpty(user)) {
-                    MessageBox.Show("Username cannot be empty.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    lblStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblStatus.Text = "Username cannot be empty.";
+                    txtUsername.Focus();
                     return;
                 }
                 if (pass != conf) {
-                    MessageBox.Show("Passwords do not match.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    lblStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblStatus.Text = "Passwords do not match.";
+                    txtConfirm.Focus();
                     return;
                 }
 
-                bool ok = AccountEngine.CreateUser(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked);
-                if (!ok) {
-                    AccountEngine.UpdateUserPassword(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked);
+                if (currentPolicy != null && currentPolicy.MinLength > 0 && pass.Length < currentPolicy.MinLength) {
+                    lblStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblStatus.Text = string.Format("Password must be at least {0} characters to meet policy.", currentPolicy.MinLength);
+                    txtPassword.Focus();
+                    return;
                 }
-                this.Close();
+
+                string errorMsg;
+                bool ok = AccountEngine.CreateUser(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked, out errorMsg);
+                if (!ok) {
+                    string updateError;
+                    bool updated = AccountEngine.UpdateUserPassword(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked, out updateError);
+                    if (!updated) {
+                        lblStatus.ForeColor = DarkTheme.AccentDanger;
+                        lblStatus.Text = !string.IsNullOrEmpty(errorMsg) ? errorMsg : (!string.IsNullOrEmpty(updateError) ? updateError : "Failed to create or update account.");
+                        return;
+                    }
+                }
+
+                ClearAccountFields();
+                lblStatus.ForeColor = DarkTheme.AccentSuccess;
+                lblStatus.Text = string.Format("✓ Account '{0}' saved. Add another or click Close.", user);
             };
             this.Controls.Add(btnCreate);
 
-            var btnSkip = new Button {
-                Text = "Skip",
-                Location = DarkTheme.Scale(new Point(240, y)),
-                Size = DarkTheme.Scale(new Size(170, 42)),
-                DialogResult = DialogResult.Cancel
+            var btnClose = new Button {
+                Text = "Close",
+                Location = DarkTheme.Scale(new Point(250, y)),
+                Size = DarkTheme.Scale(new Size(160, 42)),
+                DialogResult = DialogResult.OK
             };
-            DarkTheme.StyleButton(btnSkip, DarkTheme.SurfaceHighlight);
-            btnSkip.Click += (s, e) => this.Close();
-            this.Controls.Add(btnSkip);
+            DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
+            btnClose.Click += (s, e) => this.Close();
+            this.Controls.Add(btnClose);
 
-            this.ClientSize = DarkTheme.Scale(new Size(440, y + 60));
-            this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+            this.ClientSize = DarkTheme.Scale(new Size(440, y + 58));
+            this.Load += (s, e) => {
+                DarkTheme.ApplyDarkTitleBar(this);
+                Task.Run(() => {
+                    var pol = AccountEngine.GetPasswordPolicy();
+                    if (!this.IsDisposed && this.IsHandleCreated) {
+                        this.BeginInvoke((Action)(() => {
+                            currentPolicy = pol;
+                            lblPolicy.Text = pol.GetDescription();
+                            lblPolicy.ForeColor = pol.HasPolicy ? DarkTheme.AccentWarning : DarkTheme.TextMuted;
+                        }));
+                    }
+                });
+            };
+        }
+
+        private void ClearAccountFields() {
+            txtUsername.Text = "Username";
+            txtUsername.ForeColor = DarkTheme.TextMuted;
+
+            txtPassword.Text = "Password";
+            txtPassword.ForeColor = DarkTheme.TextMuted;
+            txtPassword.PasswordChar = '\0';
+
+            txtConfirm.Text = "Confirm Password";
+            txtConfirm.ForeColor = DarkTheme.TextMuted;
+            txtConfirm.PasswordChar = '\0';
+
+            isPeeking = false;
+            btnPeek.ForeColor = DarkTheme.TextMain;
+
+            chkAutoLogon.Checked = false;
+            chkAdmin.Checked = false;
+            chkNeverExpire.Checked = false;
+        }
+
+        private void SetupPlaceholder(DarkTextBox txt, string placeholder, bool isPassword) {
+            txt.Text = placeholder;
+            txt.ForeColor = DarkTheme.TextMuted;
+            if (isPassword) txt.PasswordChar = '\0';
+
+            txt.GotFocus += (s, e) => {
+                if (txt.Text == placeholder) {
+                    txt.Text = "";
+                    txt.ForeColor = DarkTheme.TextMain;
+                    if (isPassword && !isPeeking) txt.PasswordChar = '•';
+                }
+            };
+
+            txt.LostFocus += (s, e) => {
+                if (string.IsNullOrWhiteSpace(txt.Text)) {
+                    txt.Text = placeholder;
+                    txt.ForeColor = DarkTheme.TextMuted;
+                    if (isPassword) txt.PasswordChar = '\0';
+                }
+            };
         }
     }
 
-    // --- System Properties Form ---
+    // --- System Properties Form (Classic pre-v6.1 Design) ---
     public class SystemPropertiesForm : Form {
-        private DarkTextBox txtComputerName;
+        private DarkTextBox txtPCName;
+        private CheckBox chkDomain;
+        private CheckBox chkEntra;
+        private DarkTextBox txtDomain;
+        private CheckBox chkEdition;
+        private DarkTextBox txtProductKey;
+        private Button btnOK;
+        private Button btnSkip;
+        private readonly bool isPro;
+        private readonly bool isAlreadyJoined;
+        private readonly string currentDomain;
+        private readonly string serialNumber;
 
         public SystemPropertiesForm(string stepTitle) {
             this.Text = stepTitle;
             this.BackColor = DarkTheme.Background;
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.None;
-            this.ClientSize = DarkTheme.Scale(new Size(460, 310));
+            this.ClientSize = DarkTheme.Scale(new Size(320, 390));
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.Icon = DarkTheme.AppIcon;
             this.Font = DarkTheme.GetScaledFont(12f);
 
-            int y = 16;
-            var lblInfo = new Label {
-                Text = "System Information & Configuration:",
+            string edition = SystemPropertiesEngine.GetWindowsEdition();
+            isPro = edition.IndexOf("Pro", StringComparison.OrdinalIgnoreCase) >= 0 || edition.IndexOf("Enterprise", StringComparison.OrdinalIgnoreCase) >= 0;
+            isAlreadyJoined = SystemPropertiesEngine.IsDomainJoined(out currentDomain);
+            serialNumber = SystemPropertiesEngine.GetSerialNumber();
+
+            int y = 10;
+            var lblTitle = new Label {
+                Text = "Enter new device name:",
                 ForeColor = DarkTheme.TextMain,
-                Location = DarkTheme.Scale(new Point(20, y)),
-                Size = DarkTheme.Scale(new Size(420, 22)),
-                Font = DarkTheme.GetScaledFont(11f, FontStyle.Bold)
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 20)),
+                Font = DarkTheme.GetScaledFont(10.5f),
+                UseMnemonic = false
             };
-            this.Controls.Add(lblInfo);
+            this.Controls.Add(lblTitle);
+
+            y += 20;
+            var lblCurrent = new Label {
+                Text = "(Currently: " + Environment.MachineName + ")",
+                ForeColor = DarkTheme.TextMuted,
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 20)),
+                Font = DarkTheme.GetScaledFont(10f),
+                UseMnemonic = false
+            };
+            this.Controls.Add(lblCurrent);
+
+            y += 20;
+            var lblSerial = new Label {
+                Text = "Serial Number: " + (string.IsNullOrEmpty(serialNumber) ? "N/A" : serialNumber),
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 20)),
+                Font = DarkTheme.GetScaledFont(10f),
+                Cursor = Cursors.Hand,
+                UseMnemonic = false
+            };
+            var tip = new ToolTip();
+            lblSerial.Click += (s, e) => {
+                try {
+                    Clipboard.SetText(string.IsNullOrEmpty(serialNumber) ? "N/A" : serialNumber);
+                    tip.Show("Copied!", lblSerial, 0, -20, 1200);
+                } catch { }
+            };
+            this.Controls.Add(lblSerial);
+
+            y += 28;
+            txtPCName = new DarkTextBox {
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 26)),
+                MaxLength = 15
+            };
+            SetupPlaceholder(txtPCName, "Computer Name");
+            txtPCName.KeyPress += (s, e) => {
+                if (char.IsControl(e.KeyChar)) return;
+                if (!char.IsLetterOrDigit(e.KeyChar) && e.KeyChar != '-') e.Handled = true;
+            };
+            txtPCName.TextChanged += (s, e) => UpdateOKButtonState();
+            this.Controls.Add(txtPCName);
 
             y += 30;
-            string edition = SystemPropertiesEngine.GetWindowsEdition();
-            string serial = SystemPropertiesEngine.GetSerialNumber();
-            string domain;
-            bool isDom = SystemPropertiesEngine.IsDomainJoined(out domain);
-
-            var lblDetails = new Label {
-                Text = string.Format("Edition: {0}\nSerial Number: {1}\nDomain: {2}", edition, serial, isDom ? domain : "WORKGROUP (Not Domain Joined)"),
-                ForeColor = DarkTheme.TextMuted,
-                Location = DarkTheme.Scale(new Point(20, y)),
-                Size = DarkTheme.Scale(new Size(420, 56)),
-                Font = DarkTheme.GetScaledFont(10f)
-            };
-            this.Controls.Add(lblDetails);
-
-            y += 66;
-            var lblName = new Label {
-                Text = "Computer Name:",
+            chkDomain = new CheckBox {
+                Text = "Join to Domain",
                 ForeColor = DarkTheme.TextMain,
-                Location = DarkTheme.Scale(new Point(20, y + 2)),
-                Size = DarkTheme.Scale(new Size(140, 20)),
-                Font = DarkTheme.GetScaledFont(10.5f, FontStyle.Bold)
-            };
-            this.Controls.Add(lblName);
-
-            txtComputerName = new DarkTextBox {
-                Location = DarkTheme.Scale(new Point(165, y)),
-                Size = DarkTheme.Scale(new Size(265, 26)),
-                Text = SystemPropertiesEngine.GetCurrentComputerName()
-            };
-            this.Controls.Add(txtComputerName);
-
-            y += 44;
-            var btnUpgradePro = new Button {
-                Text = "Upgrade to Windows 10/11 Pro (Generic Key)",
                 Location = DarkTheme.Scale(new Point(20, y)),
-                Size = DarkTheme.Scale(new Size(410, 36))
+                AutoSize = true,
+                Font = DarkTheme.GetScaledFont(10.5f)
             };
-            DarkTheme.StyleButton(btnUpgradePro, DarkTheme.AccentPrimary);
-            btnUpgradePro.Click += (s, e) => {
-                SystemPropertiesEngine.UpgradeToProEdition();
-            };
-            this.Controls.Add(btnUpgradePro);
+            if (isAlreadyJoined) {
+                chkDomain.Checked = true;
+                chkDomain.Enabled = false;
+            } else if (isPro) {
+                chkDomain.Enabled = true;
+            } else {
+                chkDomain.Enabled = false;
+            }
+            this.Controls.Add(chkDomain);
 
-            y += 48;
-            var btnSave = new Button {
-                Text = "Apply Name & Continue",
+            y += 25;
+            chkEntra = new CheckBox {
+                Text = "Join to EntraID",
+                ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(20, y)),
-                Size = DarkTheme.Scale(new Size(230, 42)),
-                DialogResult = DialogResult.OK
+                AutoSize = true,
+                Font = DarkTheme.GetScaledFont(10.5f)
             };
-            DarkTheme.StyleButton(btnSave, DarkTheme.AccentPurple);
-            btnSave.Click += (s, e) => {
-                string newName = txtComputerName.Text.Trim();
-                if (!string.IsNullOrEmpty(newName) && !newName.Equals(SystemPropertiesEngine.GetCurrentComputerName(), StringComparison.OrdinalIgnoreCase)) {
-                    SystemPropertiesEngine.RenameComputer(newName);
+            if (isAlreadyJoined) {
+                chkEntra.Enabled = false;
+            } else if (isPro) {
+                chkEntra.Enabled = true;
+            } else {
+                chkEntra.Enabled = false;
+            }
+            this.Controls.Add(chkEntra);
+
+            y += 30;
+            txtDomain = new DarkTextBox {
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 26))
+            };
+            if (isAlreadyJoined) {
+                txtDomain.Text = currentDomain;
+                txtDomain.Enabled = false;
+            } else if (!isPro) {
+                txtDomain.Text = "Edition: Home";
+                txtDomain.Enabled = false;
+            } else {
+                SetupPlaceholder(txtDomain, "Domain Name");
+                txtDomain.Enabled = false;
+            }
+            txtDomain.TextChanged += (s, e) => UpdateOKButtonState();
+            this.Controls.Add(txtDomain);
+
+            chkDomain.CheckedChanged += (s, e) => {
+                if (!isAlreadyJoined) {
+                    if (chkDomain.Checked) {
+                        if (txtDomain.Text == "Edition: Home") txtDomain.Text = "";
+                        txtDomain.Enabled = true;
+                        if (txtDomain.Text == "") SetupPlaceholder(txtDomain, "Domain Name");
+                        chkEntra.Enabled = false;
+                        chkEntra.Checked = false;
+                    } else {
+                        txtDomain.Enabled = false;
+                        if (!isPro) txtDomain.Text = "Edition: Home";
+                        chkEntra.Enabled = isPro;
+                    }
+                    UpdateOKButtonState();
                 }
-                this.Close();
             };
-            this.Controls.Add(btnSave);
 
-            var btnSkip = new Button {
+            chkEntra.CheckedChanged += (s, e) => {
+                if (!isAlreadyJoined) {
+                    if (chkEntra.Checked) {
+                        if (txtDomain.Text != "Edition: Home") txtDomain.Text = "";
+                        txtDomain.Enabled = false;
+                        chkDomain.Enabled = false;
+                        chkDomain.Checked = false;
+                    } else {
+                        chkDomain.Enabled = isPro;
+                        if (!isPro) txtDomain.Text = "Edition: Home";
+                    }
+                    UpdateOKButtonState();
+                }
+            };
+
+            y += 35;
+            chkEdition = new CheckBox {
+                Text = "Set Edition to Pro",
+                ForeColor = DarkTheme.TextMain,
+                Location = DarkTheme.Scale(new Point(20, y)),
+                AutoSize = true,
+                Font = DarkTheme.GetScaledFont(10.5f),
+                Enabled = !isPro
+            };
+            this.Controls.Add(chkEdition);
+
+            y += 25;
+            txtProductKey = new DarkTextBox {
+                Location = DarkTheme.Scale(new Point(17, y)),
+                Size = DarkTheme.Scale(new Size(280, 26)),
+                Enabled = false
+            };
+            SetupPlaceholder(txtProductKey, "VK7JG-NPHTM-C97JM-9MPGT-3V66T");
+            txtProductKey.TextChanged += (s, e) => UpdateOKButtonState();
+            this.Controls.Add(txtProductKey);
+
+            chkEdition.CheckedChanged += (s, e) => {
+                if (chkEdition.Checked) {
+                    txtProductKey.Enabled = true;
+                } else {
+                    txtProductKey.Enabled = false;
+                    SetupPlaceholder(txtProductKey, "VK7JG-NPHTM-C97JM-9MPGT-3V66T");
+                }
+                UpdateOKButtonState();
+            };
+
+            y += 38;
+            btnSkip = new Button {
                 Text = "Skip",
-                Location = DarkTheme.Scale(new Point(260, y)),
-                Size = DarkTheme.Scale(new Size(170, 42)),
-                DialogResult = DialogResult.Cancel
+                Location = DarkTheme.Scale(new Point(45, y)),
+                Size = DarkTheme.Scale(new Size(105, 38)),
+                DialogResult = DialogResult.Cancel,
+                UseMnemonic = false
             };
             DarkTheme.StyleButton(btnSkip, DarkTheme.SurfaceHighlight);
             btnSkip.Click += (s, e) => this.Close();
             this.Controls.Add(btnSkip);
+            this.CancelButton = btnSkip;
 
-            this.ClientSize = DarkTheme.Scale(new Size(460, y + 60));
+            btnOK = new Button {
+                Text = "OK",
+                Location = DarkTheme.Scale(new Point(165, y)),
+                Size = DarkTheme.Scale(new Size(105, 38)),
+                Enabled = false,
+                UseMnemonic = false
+            };
+            DarkTheme.StyleButton(btnOK, DarkTheme.AccentPurple);
+            btnOK.Click += async (s, e) => {
+                btnOK.Enabled = false;
+                btnOK.Text = "Processing...";
+
+                string pcName = (txtPCName.Text == "Computer Name") ? "" : txtPCName.Text.Trim();
+                string domainName = (txtDomain.Text == "Domain Name" || txtDomain.Text == "Edition: Home") ? "" : txtDomain.Text.Trim();
+                string productKey = (txtProductKey.Text == "VK7JG-NPHTM-C97JM-9MPGT-3V66T" || string.IsNullOrWhiteSpace(txtProductKey.Text)) ? "VK7JG-NPHTM-C97JM-9MPGT-3V66T" : txtProductKey.Text.Trim();
+                bool isDomain = chkDomain.Checked;
+                bool isEntra = chkEntra.Checked;
+                bool isEdition = chkEdition.Checked;
+
+                if (!string.IsNullOrEmpty(pcName) && !SystemPropertiesEngine.IsValidComputerName(pcName)) {
+                    btnOK.Text = "OK";
+                    btnOK.Enabled = true;
+                    MessageBox.Show("Invalid Computer Name. Must be 1-15 characters, alphanumeric/hyphens only.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                await Task.Run(() => {
+                    if (isEdition) {
+                        SystemPropertiesEngine.UpgradeToProEdition(productKey);
+                    }
+                    if (!string.IsNullOrEmpty(pcName) && !pcName.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)) {
+                        SystemPropertiesEngine.RenameComputer(pcName);
+                    }
+                    if (isDomain && !string.IsNullOrEmpty(domainName)) {
+                        SystemPropertiesEngine.JoinDomain(domainName);
+                    }
+                    if (isEntra) {
+                        SystemPropertiesEngine.OpenWorkplaceSettings();
+                    }
+                });
+
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            };
+            this.Controls.Add(btnOK);
+            this.AcceptButton = btnOK;
+
+            this.ClientSize = DarkTheme.Scale(new Size(320, y + 55));
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+
+        private void SetupPlaceholder(DarkTextBox txt, string placeholder) {
+            txt.Text = placeholder;
+            txt.ForeColor = DarkTheme.TextMuted;
+            txt.GotFocus += (s, e) => {
+                if (txt.Text == placeholder) {
+                    txt.Text = "";
+                    txt.ForeColor = DarkTheme.TextMain;
+                }
+            };
+            txt.LostFocus += (s, e) => {
+                if (string.IsNullOrWhiteSpace(txt.Text)) {
+                    txt.Text = placeholder;
+                    txt.ForeColor = DarkTheme.TextMuted;
+                }
+            };
+        }
+
+        private void UpdateOKButtonState() {
+            string rawName = txtPCName.Text.Trim();
+            bool hasValidName = !string.IsNullOrWhiteSpace(rawName) && rawName != "Computer Name" && SystemPropertiesEngine.IsValidComputerName(rawName);
+            string rawDomain = txtDomain.Text.Trim();
+            bool hasValidDomain = chkDomain.Checked && !string.IsNullOrWhiteSpace(rawDomain) && rawDomain != "Domain Name" && rawDomain != "Edition: Home";
+            bool isEntra = chkEntra.Checked;
+            bool isEdition = chkEdition.Checked;
+
+            if (isAlreadyJoined) {
+                btnOK.Enabled = hasValidName || isEdition;
+            } else {
+                btnOK.Enabled = hasValidName || hasValidDomain || isEntra || isEdition;
+            }
         }
     }
 
@@ -876,12 +1199,12 @@ namespace HMT.Forms {
             this.Controls.Add(lblHeader);
 
             var tweaks = new Tuple<string, string, bool>[] {
-                Tuple.Create("Enable NumLock on Startup", "numlock", true),
-                Tuple.Create("Restore Classic Windows 11 Context Menu", "classic_context", true),
-                Tuple.Create("Disable Windows Hello PIN Setup Reminder", "disable_pin", true),
-                Tuple.Create("Disable PCIe ASPM Power Saving (Prevents DPCs)", "disable_aspm", true),
-                Tuple.Create("Disable Sticky Keys Keyboard Shortcut Prompt", "disable_sticky", true),
-                Tuple.Create("Enable Windows Hibernation (powercfg /h on)", "enable_hibernation", true)
+                Tuple.Create("Enable NumLock on Startup", "numlock", false),
+                Tuple.Create("Restore Classic Windows 11 Context Menu", "classic_context", false),
+                Tuple.Create("Disable Windows Hello PIN Setup Reminder", "disable_pin", false),
+                Tuple.Create("Disable PCIe ASPM Power Saving (Prevents DPCs)", "disable_aspm", false),
+                Tuple.Create("Disable Sticky Keys Keyboard Shortcut Prompt", "disable_sticky", false),
+                Tuple.Create("Enable Windows Hibernation (powercfg /h on)", "enable_hibernation", false)
             };
 
             int y = 46;
@@ -1010,7 +1333,12 @@ namespace HMT.Forms {
         private Button btnInstall;
         private Button btnSkip;
         private bool isInstalling = false;
-        private bool skipCurrent = false;
+        private CancellationTokenSource currentProgCts;
+        private CancellationTokenSource officeCts;
+        private int skipPendingCount = 0;
+        private int activeWingetIndex = 0;
+        private int totalWingetCount = 0;
+        private TaskCompletionSource<bool> officeSkipTcs;
 
         public ProgramsForm(string stepTitle) {
             this.Text = stepTitle;
@@ -1213,7 +1541,35 @@ namespace HMT.Forms {
                 Enabled = false
             };
             DarkTheme.StyleButton(btnSkip, DarkTheme.SurfaceHighlight);
-            btnSkip.Click += (s, e) => { skipCurrent = true; };
+            btnSkip.Click += (s, e) => {
+                if (activeWingetIndex < totalWingetCount) {
+                    // Winget installs are currently queued or running
+                    skipPendingCount++;
+                    if (currentProgCts != null && !currentProgCts.IsCancellationRequested) {
+                        try { currentProgCts.Cancel(); } catch { }
+                    }
+                    lblStatus.Text = "Skipping current installer...";
+                    lblDetail.Text = "Cancelling and advancing...";
+
+                    // If user spammed skip more times than remaining Winget items, and Office is running, cancel Office too
+                    int remainingWinget = totalWingetCount - activeWingetIndex;
+                    if (skipPendingCount >= remainingWinget && officeCts != null && !officeCts.IsCancellationRequested) {
+                        try { officeCts.Cancel(); } catch { }
+                        officeSkipTcs?.TrySetResult(true);
+                        lblMsStatus.Text = "Microsoft Office: Skipped by user";
+                        lblMsDetail.Text = "Installation cancelled.";
+                        msProgressBar.Value = 100;
+                    }
+                } else if (officeCts != null && !officeCts.IsCancellationRequested) {
+                    // Only office is remaining
+                    try { officeCts.Cancel(); } catch { }
+                    officeSkipTcs?.TrySetResult(true);
+                    lblMsStatus.Text = "Microsoft Office: Skipped by user";
+                    lblMsDetail.Text = "Installation cancelled.";
+                    msProgressBar.Value = 100;
+                    btnSkip.Enabled = false;
+                }
+            };
             this.Controls.Add(btnSkip);
 
             this.ClientSize = DarkTheme.Scale(new Size(580, y + 54));
@@ -1267,6 +1623,8 @@ namespace HMT.Forms {
                 }
             }
 
+            officeCts = new CancellationTokenSource();
+            officeSkipTcs = new TaskCompletionSource<bool>();
             Task officeTask = null;
             if (officeItem != null) {
                 lblMsStatus.Visible = true;
@@ -1280,39 +1638,105 @@ namespace HMT.Forms {
                     msProgressBar.Value = info.ProgressPercentage;
                 });
 
-                officeTask = ProgramInstallerEngine.DeployOfficeAsync(isAll, msProgress, CancellationToken.None);
+                officeTask = Task.Run(async () => {
+                    try {
+                        await ProgramInstallerEngine.DeployOfficeAsync(isAll, msProgress, officeCts.Token);
+                    } catch (OperationCanceledException) {
+                        if (!this.IsDisposed) {
+                            try {
+                                this.BeginInvoke((Action)(() => {
+                                    lblMsStatus.Text = "Microsoft Office: Cancelled";
+                                    lblMsDetail.Text = "Skipped by user.";
+                                }));
+                            } catch { }
+                        }
+                    } catch (Exception ex) {
+                        if (!this.IsDisposed) {
+                            try {
+                                this.BeginInvoke((Action)(() => {
+                                    lblMsStatus.Text = "Microsoft Office: Error";
+                                    lblMsDetail.Text = ex.Message;
+                                }));
+                            } catch { }
+                        }
+                    }
+                });
             }
 
-            // Install WinGet packages sequentially
+            // Install standard programs sequentially with individual CancellationTokenSource
             var wingetItems = new List<SoftwareItem>();
             foreach (var item in selectedItems) {
                 if (item.Type == "Winget") wingetItems.Add(item);
             }
 
-            int totalWinget = wingetItems.Count;
-            for (int i = 0; i < totalWinget; i++) {
-                if (skipCurrent) {
-                    skipCurrent = false;
+            totalWingetCount = wingetItems.Count;
+            skipPendingCount = 0;
+            activeWingetIndex = 0;
+
+            for (int i = 0; i < totalWingetCount; i++) {
+                activeWingetIndex = i;
+                var item = wingetItems[i];
+
+                if (skipPendingCount > 0) {
+                    skipPendingCount--;
+                    lblStatus.Text = "Skipped: " + item.Name;
+                    lblDetail.Text = "Skipped by user request.";
+                    int subPct = (int)(((i + 1.0) / Math.Max(1, totalWingetCount)) * 100);
+                    progressBar.Value = Math.Max(0, Math.Min(100, subPct));
                     continue;
                 }
 
-                var item = wingetItems[i];
-                lblStatus.Text = string.Format("Installing {0} of {1}: {2}", i + 1, totalWinget, item.Name);
-                lblDetail.Text = "Running winget package installer...";
-                progressBar.Value = (int)(((i + 1.0) / totalWinget) * 100);
+                currentProgCts = new CancellationTokenSource();
+                btnSkip.Enabled = true;
 
-                var statusProgress = new Progress<string>(s => lblDetail.Text = s);
-                await ProgramInstallerEngine.InstallWingetPackageAsync(item.WingetID, statusProgress, CancellationToken.None);
+                var progProgress = new Progress<ProgramProgressInfo>(info => {
+                    lblStatus.Text = info.StatusText;
+                    lblDetail.Text = info.DetailText;
+                    int subPct = (int)(((i + (info.ProgressPercentage / 100.0)) / Math.Max(1, totalWingetCount)) * 100);
+                    progressBar.Value = Math.Max(0, Math.Min(100, subPct));
+                });
+
+                try {
+                    await ProgramInstallerEngine.InstallProgramDirectAsync(item, i, totalWingetCount, progProgress, currentProgCts.Token);
+                    if (currentProgCts.IsCancellationRequested) {
+                        lblStatus.Text = "Skipped: " + item.Name;
+                        lblDetail.Text = "Moving to next program...";
+                    }
+                } catch (OperationCanceledException) {
+                    lblStatus.Text = "Skipped: " + item.Name;
+                    lblDetail.Text = "Moving to next program...";
+                } catch (Exception ex) {
+                    lblStatus.Text = "Failed: " + item.Name;
+                    lblDetail.Text = ex.Message;
+                } finally {
+                    if (currentProgCts != null) {
+                        try { currentProgCts.Dispose(); } catch { }
+                        currentProgCts = null;
+                    }
+                }
             }
 
-            if (officeTask != null) {
-                lblStatus.Text = "Waiting for Microsoft Office Click-to-Run deployment to finish...";
-                await officeTask;
+            activeWingetIndex = totalWingetCount;
+            currentProgCts = null;
+
+            if (officeTask != null && !officeTask.IsCompleted) {
+                if (officeCts.IsCancellationRequested) {
+                    lblStatus.Text = "Microsoft Office skipped.";
+                } else {
+                    lblStatus.Text = "Waiting for Microsoft Office deployment to finish...";
+                    lblDetail.Text = "Click 'Skip Current' to abort Office payload and proceed.";
+                    progressBar.Value = 100;
+                    btnSkip.Enabled = true;
+                    try {
+                        await Task.WhenAny(officeTask, officeSkipTcs.Task);
+                    } catch { }
+                }
             }
 
             lblStatus.Text = "All selected installations completed!";
             lblDetail.Text = "";
             progressBar.Value = 100;
+            btnSkip.Enabled = false;
             await Task.Delay(800);
 
             if (chkAutoExit.Checked) {
@@ -1553,7 +1977,7 @@ namespace HMT.Forms {
         private DarkTextBox txtOutput;
         private Button btnAbort;
         private Button btnClose;
-        private Process process;
+        private ProcessRunnerEngine engine;
         private readonly DateTime startTime = DateTime.Now;
         private int currentPercent = 0;
         private string currentStage = "";
@@ -1561,6 +1985,8 @@ namespace HMT.Forms {
         private readonly string cmdArgs;
         private bool isDetached = false;
         private bool hasDiskErrors = false;
+        private int currentStageNum = 1;
+        private int totalStages = 3;
 
         public CommandRunnerForm(string title, string description, string commandName, string arguments) {
             this.cmdName = commandName ?? "";
@@ -1628,7 +2054,7 @@ namespace HMT.Forms {
                 if (MessageBox.Show("Are you sure you want to abort the running operation?", "Abort Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
                     try {
                         isDetached = false;
-                        if (process != null && !process.HasExited) process.Kill();
+                        if (engine != null) engine.Kill();
                     } catch { }
                     this.Close();
                 }
@@ -1651,128 +2077,41 @@ namespace HMT.Forms {
 
             this.FormClosing += (s, e) => {
                 isDetached = true;
+                if (engine != null) {
+                    try { engine.Dispose(); } catch { }
+                }
             };
 
             this.Shown += async (s, e) => {
-                await Task.Run(async () => {
+                await Task.Run(() => {
                     try {
-                        var psi = new ProcessStartInfo {
-                            FileName = commandName,
-                            Arguments = arguments,
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            CreateNoWindow = true
+                        engine = new ProcessRunnerEngine();
+                        engine.OnLineReceived += line => {
+                            if (isDetached || this.IsDisposed) return;
+                            try {
+                                this.BeginInvoke((Action)(() => {
+                                    UpdateOutput(line);
+                                    ParseProgress(line);
+                                }));
+                            } catch { }
                         };
 
-                        process = new Process { StartInfo = psi };
-                        process.Start();
-
-                        var outTask = Task.Run(async () => {
+                        engine.OnProcessExited += exitCode => {
+                            if (isDetached || this.IsDisposed) return;
                             try {
-                                var stream = process.StandardOutput;
-                                char[] buffer = new char[256];
-                                var lineBuilder = new StringBuilder();
-                                int read;
-                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0) {
-                                    string textChunk = new string(buffer, 0, read);
-                                    for (int i = 0; i < read; i++) {
-                                        char ch = buffer[i];
-                                        if (ch == '\r' || ch == '\n') {
-                                            if (lineBuilder.Length > 0) {
-                                                string completedLine = lineBuilder.ToString();
-                                                lineBuilder.Clear();
-                                                if (!isDetached && !this.IsDisposed) {
-                                                    try { this.BeginInvoke((Action)(() => ParseProgress(completedLine))); } catch { }
-                                                }
-                                            }
-                                        } else {
-                                            lineBuilder.Append(ch);
-                                        }
-                                    }
-                                    if (!isDetached && !this.IsDisposed) {
-                                        try {
-                                            this.BeginInvoke((Action)(() => {
-                                                txtOutput.AppendText(textChunk);
-                                            }));
-                                        } catch { }
-                                    }
-                                }
-                                if (lineBuilder.Length > 0 && !isDetached && !this.IsDisposed) {
-                                    string finalLine = lineBuilder.ToString();
-                                    try { this.BeginInvoke((Action)(() => ParseProgress(finalLine))); } catch { }
-                                }
+                                this.BeginInvoke((Action)(() => {
+                                    HandleProcessExited(exitCode);
+                                }));
                             } catch { }
-                        });
+                        };
 
-                        var errTask = Task.Run(async () => {
-                            try {
-                                var stream = process.StandardError;
-                                char[] buffer = new char[256];
-                                int read;
-                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0) {
-                                    string errChunk = new string(buffer, 0, read);
-                                    if (!isDetached && !this.IsDisposed) {
-                                        try {
-                                            this.BeginInvoke((Action)(() => {
-                                                txtOutput.AppendText(errChunk);
-                                            }));
-                                        } catch { }
-                                    }
-                                }
-                            } catch { }
-                        });
-
-                        await Task.WhenAll(outTask, errTask);
-                        process.WaitForExit();
-
-                        if (!isDetached && !this.IsDisposed) {
-                            this.BeginInvoke((Action)(() => {
-                                progressBar.ShowShimmer = false;
-                                progressBar.Value = 100;
-                                btnAbort.Visible = false;
-                                btnClose.Text = "Close";
-                                DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
-
-                                if (process.ExitCode == 0) {
-                                    lblDesc.Text = "Operation completed successfully! (Exit Code: 0)";
-                                    lblDesc.ForeColor = DarkTheme.AccentSuccess;
-                                } else {
-                                    lblDesc.Text = "Command completed with Exit Code: " + process.ExitCode;
-                                    lblDesc.ForeColor = DarkTheme.AccentDanger;
-                                }
-
-                                if (hasDiskErrors) {
-                                    string driveLetter = "C:";
-                                    var mDrive = Regex.Match(cmdArgs ?? "", @"([A-Za-z]:)");
-                                    if (mDrive.Success) driveLetter = mDrive.Groups[1].Value.ToUpper();
-
-                                    if (MessageBox.Show(string.Format("ChkDsk detected file system errors on drive {0}.\n\nWould you like Hat's Multitool to schedule a disk repair check (chkdsk /f) on the next system restart?", driveLetter), "File System Errors Detected", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
-                                        try {
-                                            var psiFix = new ProcessStartInfo {
-                                                FileName = "fsutil.exe",
-                                                Arguments = "dirty set " + driveLetter,
-                                                CreateNoWindow = true,
-                                                UseShellExecute = false
-                                            };
-                                            using (var pFix = Process.Start(psiFix)) {
-                                                pFix.WaitForExit();
-                                            }
-                                            DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Drive {0} has been marked dirty. Windows will automatically scan and repair file system errors upon the next system restart.", driveLetter), true);
-                                        } catch {
-                                            try {
-                                                Process.Start(new ProcessStartInfo {
-                                                    FileName = "cmd.exe",
-                                                    Arguments = string.Format("/c echo y | chkdsk {0} /f", driveLetter),
-                                                    CreateNoWindow = true,
-                                                    UseShellExecute = false
-                                                });
-                                                DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Offline repair has been scheduled for drive {0} on next reboot.", driveLetter), true);
-                                            } catch { }
-                                        }
-                                    }
-                                }
-                            }));
+                        bool started = engine.Start(cmdName, cmdArgs);
+                        if (!started && !string.IsNullOrEmpty(engine.ErrorMessage)) {
+                            if (!isDetached && !this.IsDisposed) {
+                                this.BeginInvoke((Action)(() => {
+                                    txtOutput.AppendText("Failed to start command: " + engine.ErrorMessage + Environment.NewLine);
+                                }));
+                            }
                         }
                     } catch (Exception ex) {
                         if (!isDetached && !this.IsDisposed) {
@@ -1789,6 +2128,83 @@ namespace HMT.Forms {
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
 
+        private bool lastLineWasProgress = false;
+        private int lastLineLength = 0;
+
+        private void UpdateOutput(string line) {
+            if (string.IsNullOrEmpty(line)) return;
+
+            // Check if this line is an in-place verification percentage or stage update
+            bool isProgressLine = line.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                  (line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   Regex.IsMatch(line, @"\b\d{1,3}%"));
+
+            if (isProgressLine && lastLineWasProgress && txtOutput.TextLength >= lastLineLength) {
+                try {
+                    txtOutput.Select(txtOutput.TextLength - lastLineLength, lastLineLength);
+                    string newText = line + Environment.NewLine;
+                    txtOutput.SelectedText = newText;
+                    lastLineLength = newText.Length;
+                    txtOutput.SelectionStart = txtOutput.TextLength;
+                    txtOutput.ScrollToCaret();
+                    return;
+                } catch { }
+            }
+
+            string toAppend = line + Environment.NewLine;
+            lastLineLength = toAppend.Length;
+            lastLineWasProgress = isProgressLine;
+            txtOutput.AppendText(toAppend);
+        }
+
+        private void HandleProcessExited(int exitCode) {
+            progressBar.ShowShimmer = false;
+            progressBar.Value = 100;
+            btnAbort.Visible = false;
+            btnClose.Text = "Close";
+            DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
+
+            if (exitCode == 0) {
+                lblDesc.Text = "Operation completed successfully! (Exit Code: 0)";
+                lblDesc.ForeColor = DarkTheme.AccentSuccess;
+            } else {
+                lblDesc.Text = "Command completed with Exit Code: " + exitCode;
+                lblDesc.ForeColor = DarkTheme.AccentDanger;
+            }
+
+            if (hasDiskErrors) {
+                string driveLetter = "C:";
+                var mDrive = Regex.Match(cmdArgs ?? "", @"([A-Za-z]:)");
+                if (mDrive.Success) driveLetter = mDrive.Groups[1].Value.ToUpper();
+
+                if (MessageBox.Show(string.Format("ChkDsk detected file system errors on drive {0}.\n\nWould you like Hat's Multitool to schedule a disk repair check (chkdsk /f) on the next system restart?", driveLetter), "File System Errors Detected", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
+                    try {
+                        var psiFix = new ProcessStartInfo {
+                            FileName = "fsutil.exe",
+                            Arguments = "dirty set " + driveLetter,
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        using (var pFix = Process.Start(psiFix)) {
+                            pFix.WaitForExit();
+                        }
+                        DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Drive {0} has been marked dirty. Windows will automatically scan and repair file system errors upon the next system restart.", driveLetter), true);
+                    } catch {
+                        try {
+                            Process.Start(new ProcessStartInfo {
+                                FileName = "cmd.exe",
+                                Arguments = string.Format("/c echo y | chkdsk {0} /f", driveLetter),
+                                CreateNoWindow = true,
+                                UseShellExecute = false
+                            });
+                            DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Offline repair has been scheduled for drive {0} on next reboot.", driveLetter), true);
+                        } catch { }
+                    }
+                }
+            }
+        }
+
         private void ParseProgress(string line) {
             if (string.IsNullOrEmpty(line)) return;
             string l = line.Trim();
@@ -1796,43 +2212,44 @@ namespace HMT.Forms {
 
             // 1. DISM & Feature Enablement Progress & Phase Tracking
             if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Deployment Image", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/online", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (cmdArgs.IndexOf("Enable-Feature", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Enabling feature", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Enabling Feature Components & Downloading Packages";
-                    updated = true;
-                } else if (cmdArgs.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Restoring Component Store & Downloading Source Files";
-                    updated = true;
-                } else if (cmdArgs.IndexOf("ScanHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Scanning Component Store Corruption";
-                    updated = true;
-                } else if (cmdArgs.IndexOf("CheckHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Verifying Image Store Health";
-                    updated = true;
-                } else if (l.IndexOf("Image Version", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Initializing", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Initializing Image Servicing Engine";
-                    updated = true;
-                } else if (l.IndexOf("completed successfully", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Operation Completed Successfully";
-                    currentPercent = 100;
-                    updated = true;
-                }
+                var mDism = Regex.Match(l, @"\[[\s=]*([\d\.]+)%[\s=]*\]");
+                if (!mDism.Success) mDism = Regex.Match(l, @"([\d\.]+)%\s*\]");
+                if (!mDism.Success) mDism = Regex.Match(l, @"\b([\d\.]+)%");
 
-                var mDism = Regex.Match(l, @"\[\s*=*\s*([\d\.]+)%\s*=*\]");
                 if (mDism.Success) {
                     double p;
                     if (double.TryParse(mDism.Groups[1].Value, out p)) {
                         currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
                         updated = true;
                     }
-                } else {
-                    var mDism2 = Regex.Match(l, @"([\d\.]+)%\s*\]");
-                    if (mDism2.Success) {
-                        double p;
-                        if (double.TryParse(mDism2.Groups[1].Value, out p)) {
-                            currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
-                            updated = true;
-                        }
+                }
+
+                if (cmdArgs.IndexOf("Enable-Feature", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Enabling feature", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = (currentPercent < 50) ? "DISM: Initializing & Verifying Packages" : "DISM: Enabling Feature & Downloading Components";
+                    updated = true;
+                } else if (cmdArgs.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    if (currentPercent < 20) {
+                        currentStage = "DISM: Initializing Image Store & Scanning Manifests";
+                    } else if (currentPercent < 50) {
+                        currentStage = "DISM: Scanning Component Store Corruption";
+                    } else if (currentPercent < 85) {
+                        currentStage = "DISM: Downloading Payload & Restoring Components";
+                    } else if (currentPercent < 100) {
+                        currentStage = "DISM: Finalizing Package Installation";
+                    } else {
+                        currentStage = "DISM: Image Health Restore Completed";
                     }
+                    updated = true;
+                } else if (cmdArgs.IndexOf("ScanHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = (currentPercent < 100) ? "DISM: Scanning Component Store Corruption" : "DISM: Scan Completed";
+                    updated = true;
+                } else if (cmdArgs.IndexOf("CheckHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Verifying Image Store Health";
+                    updated = true;
+                } else if (l.IndexOf("completed successfully", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStage = "DISM: Operation Completed Successfully";
+                    currentPercent = 100;
+                    updated = true;
                 }
             }
             // 2. SFC Progress & Phase Tracking
@@ -1840,7 +2257,7 @@ namespace HMT.Forms {
                 if (l.IndexOf("Beginning system scan", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "SFC: Initializing System Scan";
                     updated = true;
-                } else if (l.IndexOf("verification phase", StringComparison.OrdinalIgnoreCase) >= 0) {
+                } else if (l.IndexOf("verification phase", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStage = "SFC: Verifying System Protected Files";
                     updated = true;
                 } else if (l.IndexOf("did not find any integrity violations", StringComparison.OrdinalIgnoreCase) >= 0) {
@@ -1853,18 +2270,21 @@ namespace HMT.Forms {
                     updated = true;
                 }
 
-                var mSfc = Regex.Match(l, @"Verification\s+([\d\.]+)%\s+complete", RegexOptions.IgnoreCase);
+                var mSfc = Regex.Match(l, @"(?:Verification\s+)?(\d{1,3})%\s*complete", RegexOptions.IgnoreCase);
+                if (!mSfc.Success) mSfc = Regex.Match(l, @"\b(\d{1,3})%");
                 if (mSfc.Success) {
                     double p;
                     if (double.TryParse(mSfc.Groups[1].Value, out p)) {
                         currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
-                        currentStage = "SFC: Verifying System Protected Files";
+                        if (string.IsNullOrEmpty(currentStage) || currentStage.StartsWith("Running")) {
+                            currentStage = "SFC: Verifying System Protected Files";
+                        }
                         updated = true;
                     }
                 }
             }
             // 3. ChkDsk Stage & Progress Tracking
-            else if (cmdName.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage ", StringComparison.OrdinalIgnoreCase) >= 0) {
+            else if (cmdName.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage ", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0) {
                 if (l.IndexOf("found problems", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     l.IndexOf("Errors found", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     l.IndexOf("Corruption was found", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -1873,62 +2293,52 @@ namespace HMT.Forms {
                     hasDiskErrors = true;
                 }
 
-                int totalStages = 3;
-                if (cmdArgs.IndexOf("/r", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/scan", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
+                if (cmdArgs.IndexOf("/r", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/scan", StringComparison.OrdinalIgnoreCase) >= 0) {
                     totalStages = 5;
                 }
 
-                int stageNum = 1;
                 if (l.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = string.Format("ChkDsk: Stage 1/{0} - Examining Basic File System Structure", totalStages);
-                    stageNum = 1;
+                    currentStageNum = 1;
+                    currentStage = string.Format("ChkDsk: Stage 1/{0} - Examining Basic File Structure", totalStages);
                     updated = true;
                 } else if (l.IndexOf("Stage 2", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStageNum = 2;
                     currentStage = string.Format("ChkDsk: Stage 2/{0} - Examining File Name Linkage", totalStages);
-                    stageNum = 2;
                     updated = true;
                 } else if (l.IndexOf("Stage 3", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStageNum = 3;
                     currentStage = string.Format("ChkDsk: Stage 3/{0} - Examining Security Descriptors", totalStages);
-                    stageNum = 3;
                     updated = true;
                 } else if (l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStageNum = 4;
+                    totalStages = 5;
                     currentStage = "ChkDsk: Stage 4/5 - Scanning User File Data";
-                    stageNum = 4;
                     updated = true;
                 } else if (l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentStageNum = 5;
+                    totalStages = 5;
                     currentStage = "ChkDsk: Stage 5/5 - Scanning Free Space & Clusters";
-                    stageNum = 5;
                     updated = true;
-                } else if (l.IndexOf("found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("made corrections", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    if (stageNum >= totalStages) {
-                        currentStage = "ChkDsk: File System Check Completed";
-                        currentPercent = 100;
-                        updated = true;
-                    }
+                } else if (l.IndexOf("scanned the file system and found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || (currentStageNum >= totalStages && l.IndexOf("verification completed", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                    currentStage = "ChkDsk: File System Check Completed";
+                    currentPercent = 100;
+                    updated = true;
                 }
 
                 var mChkPct = Regex.Match(l, @"\((\d+)%\)");
+                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"(\d+)\s+percent completed", RegexOptions.IgnoreCase);
+
                 if (mChkPct.Success) {
                     int stagePct;
                     if (int.TryParse(mChkPct.Groups[1].Value, out stagePct)) {
-                        int overall = ((stageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
-                        currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
+                        int overall = ((currentStageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
+                        currentPercent = Math.Max(currentPercent, Math.Min(99, overall));
                         updated = true;
-                    }
-                } else {
-                    var mChkPct2 = Regex.Match(l, @"(\d+)\s+percent completed", RegexOptions.IgnoreCase);
-                    if (mChkPct2.Success) {
-                        int stagePct;
-                        if (int.TryParse(mChkPct2.Groups[1].Value, out stagePct)) {
-                            int overall = ((stageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
-                            currentPercent = Math.Max(currentPercent, Math.Min(100, overall));
-                            updated = true;
-                        }
                     }
                 }
             }
-            // 4. Generic percentage fallback
-            if (!updated) {
+            // 4. Generic percentage fallback (ONLY if NOT ChkDsk/SFC/DISM to avoid sub-stage 100% false triggers)
+            else if (!updated) {
                 var mGen = Regex.Match(l, @"\b(\d{1,3})%");
                 if (mGen.Success) {
                     int p;
@@ -1944,14 +2354,19 @@ namespace HMT.Forms {
                 progressBar.ShowShimmer = (currentPercent < 100);
 
                 string etaStr = "Calculating...";
-                if (currentPercent >= 3 && currentPercent < 100) {
+                if (currentPercent >= 5 && currentPercent < 100) {
                     double elapsed = (DateTime.Now - startTime).TotalSeconds;
-                    double totalEst = (elapsed / currentPercent) * 100.0;
-                    double rem = Math.Max(0, totalEst - elapsed);
-                    if (rem < 60) {
-                        etaStr = string.Format("{0:F0}s remaining", rem);
-                    } else {
-                        etaStr = string.Format("{0}m {1:F0}s remaining", (int)(rem / 60), rem % 60);
+                    if (elapsed > 3) {
+                        double rate = currentPercent / elapsed;
+                        double rem = (100.0 - currentPercent) / rate;
+                        if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 && currentPercent < 80) {
+                            rem = Math.Max(rem, (100.0 - currentPercent) * 1.5);
+                        }
+                        if (rem < 60) {
+                            etaStr = string.Format("~{0:F0}s remaining", rem);
+                        } else {
+                            etaStr = string.Format("~{0}m {1:F0}s remaining", (int)(rem / 60), rem % 60);
+                        }
                     }
                 } else if (currentPercent >= 100) {
                     etaStr = "Complete";
@@ -2035,24 +2450,41 @@ namespace HMT.Forms {
                         string fileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
                         string downloadFile = Path.Combine(targetFolder, fileName);
 
-                        using (var client = new HttpClient()) {
+                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                        using (var client = new HttpClient(handler)) {
                             client.Timeout = TimeSpan.FromMinutes(10);
-                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0");
                             using (var resp = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cts.Token)) {
                                 resp.EnsureSuccessStatusCode();
                                 long total = resp.Content.Headers.ContentLength ?? -1L;
                                 using (var stream = await resp.Content.ReadAsStreamAsync())
-                                using (var fs = new FileStream(downloadFile, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true)) {
-                                    byte[] buf = new byte[65536];
+                                using (var fs = new FileStream(downloadFile, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                    byte[] buf = new byte[262144];
                                     long totalRead = 0;
+                                    long lastBytes = 0;
                                     int read;
+                                    var swUi = Stopwatch.StartNew();
+                                    var swWindow = Stopwatch.StartNew();
+                                    double speedMbps = 0.0;
                                     while ((read = await stream.ReadAsync(buf, 0, buf.Length, cts.Token)) > 0) {
                                         await fs.WriteAsync(buf, 0, read, cts.Token);
                                         totalRead += read;
-                                        if (total > 0) {
-                                            int pct = (int)((totalRead * 100) / total);
-                                            progressBar.Value = pct;
-                                            lblStatus.Text = string.Format("Downloading... {0}% ({1:F1} MB / {2:F1} MB)", pct, totalRead / 1048576.0, total / 1048576.0);
+
+                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                            swUi.Restart();
+                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                            long delta = totalRead - lastBytes;
+                                            lastBytes = totalRead;
+                                            swWindow.Restart();
+                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+
+                                            if (total > 0) {
+                                                int pct = (int)((totalRead * 100) / total);
+                                                progressBar.Value = pct;
+                                                lblStatus.Text = string.Format("Downloading... {0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, totalRead / 1048576.0, total / 1048576.0, speedMbps);
+                                            } else {
+                                                lblStatus.Text = string.Format("Downloading... {0:F1} MB @ {1:F1} Mbps", totalRead / 1048576.0, speedMbps);
+                                            }
                                         }
                                     }
                                 }
