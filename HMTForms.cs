@@ -801,6 +801,7 @@ namespace HMT.Forms {
                 ClearAccountFields();
                 lblStatus.ForeColor = DarkTheme.AccentSuccess;
                 lblStatus.Text = string.Format("✓ Account '{0}' saved. Add another or click Close.", user);
+                txtUsername.Focus();
             };
             this.Controls.Add(btnCreate);
 
@@ -1111,7 +1112,7 @@ namespace HMT.Forms {
                 if (!string.IsNullOrEmpty(pcName) && !SystemPropertiesEngine.IsValidComputerName(pcName)) {
                     btnOK.Text = "OK";
                     btnOK.Enabled = true;
-                    MessageBox.Show("Invalid Computer Name. Must be 1-15 characters, alphanumeric/hyphens only.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    DarkTheme.ShowStyledMessageBox("Validation Error", "Invalid Computer Name. Must be 1-15 characters, alphanumeric/hyphens only.", false);
                     return;
                 }
 
@@ -1541,33 +1542,44 @@ namespace HMT.Forms {
                 Enabled = false
             };
             DarkTheme.StyleButton(btnSkip, DarkTheme.SurfaceHighlight);
-            btnSkip.Click += (s, e) => {
-                if (activeWingetIndex < totalWingetCount) {
-                    // Winget installs are currently queued or running
-                    skipPendingCount++;
-                    if (currentProgCts != null && !currentProgCts.IsCancellationRequested) {
-                        try { currentProgCts.Cancel(); } catch { }
-                    }
-                    lblStatus.Text = "Skipping current installer...";
-                    lblDetail.Text = "Cancelling and advancing...";
+            bool isSkipping = false;
+            btnSkip.Click += async (s, e) => {
+                if (isSkipping) return;
+                isSkipping = true;
+                btnSkip.Enabled = false;
+                try {
+                    if (activeWingetIndex < totalWingetCount) {
+                        // Winget installs are currently queued or running
+                        skipPendingCount++;
+                        if (currentProgCts != null && !currentProgCts.IsCancellationRequested) {
+                            try { currentProgCts.Cancel(); } catch { }
+                        }
+                        lblStatus.Text = "Skipping current installer...";
+                        lblDetail.Text = "Cancelling and advancing...";
 
-                    // If user spammed skip more times than remaining Winget items, and Office is running, cancel Office too
-                    int remainingWinget = totalWingetCount - activeWingetIndex;
-                    if (skipPendingCount >= remainingWinget && officeCts != null && !officeCts.IsCancellationRequested) {
+                        // If user spammed skip more times than remaining Winget items, and Office is running, cancel Office too
+                        int remainingWinget = totalWingetCount - activeWingetIndex;
+                        if (skipPendingCount >= remainingWinget && officeCts != null && !officeCts.IsCancellationRequested) {
+                            try { officeCts.Cancel(); } catch { }
+                            officeSkipTcs?.TrySetResult(true);
+                            lblMsStatus.Text = "Microsoft Office: Skipped by user";
+                            lblMsDetail.Text = "Installation cancelled.";
+                            msProgressBar.Value = 100;
+                        }
+                    } else if (officeCts != null && !officeCts.IsCancellationRequested) {
+                        // Only office is remaining
                         try { officeCts.Cancel(); } catch { }
                         officeSkipTcs?.TrySetResult(true);
                         lblMsStatus.Text = "Microsoft Office: Skipped by user";
                         lblMsDetail.Text = "Installation cancelled.";
                         msProgressBar.Value = 100;
                     }
-                } else if (officeCts != null && !officeCts.IsCancellationRequested) {
-                    // Only office is remaining
-                    try { officeCts.Cancel(); } catch { }
-                    officeSkipTcs?.TrySetResult(true);
-                    lblMsStatus.Text = "Microsoft Office: Skipped by user";
-                    lblMsDetail.Text = "Installation cancelled.";
-                    msProgressBar.Value = 100;
-                    btnSkip.Enabled = false;
+                    await Task.Delay(350);
+                } finally {
+                    isSkipping = false;
+                    if (!this.IsDisposed && isInstalling && (activeWingetIndex < totalWingetCount || (officeCts != null && !officeCts.IsCancellationRequested))) {
+                        btnSkip.Enabled = true;
+                    }
                 }
             };
             this.Controls.Add(btnSkip);
@@ -1875,7 +1887,7 @@ namespace HMT.Forms {
                     ExecuteSpecialTool(tool.Target);
                 }
             } catch (Exception ex) {
-                MessageBox.Show("Failed to launch tool: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DarkTheme.ShowStyledMessageBox("Launch Failed", "Failed to launch tool:\n" + ex.Message, false);
             }
         }
 
@@ -2135,10 +2147,11 @@ namespace HMT.Forms {
             if (string.IsNullOrEmpty(line)) return;
 
             // Check if this line is an in-place verification percentage or stage update
-            bool isProgressLine = line.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                  (line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   Regex.IsMatch(line, @"\b\d{1,3}%"));
+            bool isProgressLine = (line.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                   (line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    Regex.IsMatch(line, @"\b\d{1,3}%"))) ||
+                                  (line.IndexOf('%') >= 0 && (line.IndexOf('[') >= 0 || line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 || line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0));
 
             if (isProgressLine && lastLineWasProgress && txtOutput.TextLength >= lastLineLength) {
                 try {
@@ -2583,7 +2596,24 @@ namespace HMT.Forms {
                             WorkingDirectory = Path.GetDirectoryName(targetExe),
                             UseShellExecute = true
                         };
-                        Process.Start(psi);
+                        var proc = Process.Start(psi);
+                        if (proc != null) {
+                            _ = Task.Run(async () => {
+                                for (int i = 0; i < 30; i++) {
+                                    await Task.Delay(300);
+                                    try {
+                                        proc.Refresh();
+                                        if (proc.HasExited) break;
+                                        IntPtr hWnd = proc.MainWindowHandle;
+                                        if (hWnd != IntPtr.Zero) {
+                                            NativeMethods.ShowWindow(hWnd, 9); // SW_RESTORE
+                                            NativeMethods.SetForegroundWindow(hWnd);
+                                            break;
+                                        }
+                                    } catch { }
+                                }
+                            });
+                        }
                     } else {
                         throw new FileNotFoundException("Could not locate executable: " + effectiveExe);
                     }
@@ -4595,7 +4625,7 @@ namespace HMT.Forms {
                 string host = txtHost.Text.Trim();
                 int port;
                 if (!int.TryParse(txtPort.Text.Trim(), out port) || port < 1 || port > 65535) {
-                    MessageBox.Show("Please enter a valid port between 1 and 65535.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    DarkTheme.ShowStyledMessageBox("Validation Error", "Please enter a valid port between 1 and 65535.", false);
                     return;
                 }
 
@@ -4702,7 +4732,7 @@ namespace HMT.Forms {
             btnCopy.Click += (s, e) => {
                 if (!string.IsNullOrEmpty(txtKey.Text)) {
                     Clipboard.SetText(txtKey.Text);
-                    MessageBox.Show("Key copied to clipboard!", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    DarkTheme.ShowStyledMessageBox("Copied", "Key copied to clipboard!", true);
                 }
             };
             this.Controls.Add(btnCopy);
