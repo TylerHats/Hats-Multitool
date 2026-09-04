@@ -2445,11 +2445,34 @@ namespace HMT.Forms {
                     string targetFolder = Path.Combine(extDir, Regex.Replace(toolName, @"[^\w\.-]", ""));
                     if (!Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
 
-                    string targetExe = Path.Combine(targetFolder, exeInsideArchive);
-                    if (!File.Exists(targetExe)) {
-                        string fileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
-                        string downloadFile = Path.Combine(targetFolder, fileName);
+                    Func<string> findTargetExe = () => {
+                        if (string.IsNullOrEmpty(exeInsideArchive)) return null;
+                        string direct = Path.Combine(targetFolder, exeInsideArchive);
+                        if (File.Exists(direct)) return direct;
+                        if (Directory.Exists(targetFolder)) {
+                            try {
+                                var files = Directory.GetFiles(targetFolder, "*.exe", SearchOption.AllDirectories);
+                                foreach (var f in files) {
+                                    if (string.Equals(Path.GetFileName(f), exeInsideArchive, StringComparison.OrdinalIgnoreCase)) {
+                                        return f;
+                                    }
+                                }
+                                string targetBase = Path.GetFileNameWithoutExtension(exeInsideArchive);
+                                foreach (var f in files) {
+                                    string fn = Path.GetFileNameWithoutExtension(f);
+                                    if (fn.IndexOf(targetBase, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                        targetBase.IndexOf(fn, StringComparison.OrdinalIgnoreCase) >= 0) {
+                                        return f;
+                                    }
+                                }
+                                if (files.Length == 1) return files[0];
+                            } catch { }
+                        }
+                        return null;
+                    };
 
+                    string targetExe = findTargetExe();
+                    if (targetExe == null) {
                         using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
                         using (var client = new HttpClient(handler)) {
                             client.Timeout = TimeSpan.FromMinutes(10);
@@ -2457,6 +2480,25 @@ namespace HMT.Forms {
                             using (var resp = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cts.Token)) {
                                 resp.EnsureSuccessStatusCode();
                                 long total = resp.Content.Headers.ContentLength ?? -1L;
+
+                                string fileName = null;
+                                if (resp.RequestMessage?.RequestUri != null) {
+                                    string cand = Path.GetFileName(resp.RequestMessage.RequestUri.AbsolutePath);
+                                    if (!string.IsNullOrEmpty(cand) && Path.HasExtension(cand)) {
+                                        fileName = cand;
+                                    }
+                                }
+                                if (string.IsNullOrEmpty(fileName)) {
+                                    string cand = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+                                    if (!string.IsNullOrEmpty(cand) && Path.HasExtension(cand)) {
+                                        fileName = cand;
+                                    }
+                                }
+                                if (string.IsNullOrEmpty(fileName)) {
+                                    fileName = !string.IsNullOrEmpty(exeInsideArchive) ? exeInsideArchive : "download.tmp";
+                                }
+
+                                string downloadFile = Path.Combine(targetFolder, fileName);
                                 using (var stream = await resp.Content.ReadAsStreamAsync())
                                 using (var fs = new FileStream(downloadFile, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
                                     byte[] buf = new byte[262144];
@@ -2488,27 +2530,54 @@ namespace HMT.Forms {
                                         }
                                     }
                                 }
-                            }
-                        }
 
-                        if (downloadFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) {
-                            lblStatus.Text = "Extracting files...";
-                            await Task.Run(() => {
-                                ZipFile.ExtractToDirectory(downloadFile, targetFolder);
-                            });
+                                if (downloadFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) {
+                                    lblStatus.Text = "Extracting files...";
+                                    await Task.Run(() => {
+                                        using (var archive = ZipFile.OpenRead(downloadFile)) {
+                                            foreach (var entry in archive.Entries) {
+                                                string normalizedPath = entry.FullName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                                                string destPath = Path.Combine(targetFolder, normalizedPath);
+                                                if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\")) {
+                                                    if (!Directory.Exists(destPath)) Directory.CreateDirectory(destPath);
+                                                    continue;
+                                                }
+                                                string parent = Path.GetDirectoryName(destPath);
+                                                if (!string.IsNullOrEmpty(parent) && !Directory.Exists(parent)) {
+                                                    Directory.CreateDirectory(parent);
+                                                }
+                                                entry.ExtractToFile(destPath, true);
+                                            }
+                                        }
+                                    });
+                                }
+
+                                targetExe = findTargetExe();
+                                if (targetExe == null && File.Exists(downloadFile) && downloadFile.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) {
+                                    targetExe = downloadFile;
+                                }
+                            }
                         }
                     }
 
                     lblStatus.Text = "Launching " + toolName + "...";
-                    if (File.Exists(targetExe)) {
-                        Process.Start(targetExe);
+                    progressBar.Value = 100;
+                    if (!string.IsNullOrEmpty(targetExe) && File.Exists(targetExe)) {
+                        var psi = new ProcessStartInfo {
+                            FileName = targetExe,
+                            WorkingDirectory = Path.GetDirectoryName(targetExe),
+                            UseShellExecute = true
+                        };
+                        Process.Start(psi);
+                    } else {
+                        throw new FileNotFoundException("Could not locate executable: " + exeInsideArchive);
                     }
                     await Task.Delay(400);
                     this.DialogResult = DialogResult.OK;
                     this.Close();
                 } catch (Exception ex) {
                     if (!cts.IsCancellationRequested) {
-                        MessageBox.Show("Download failed: " + ex.Message, "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DarkTheme.ShowStyledMessageBox("Download Failed", "Failed to launch " + toolName + ":\n" + ex.Message, false);
                         this.Close();
                     }
                 }
