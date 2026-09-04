@@ -2445,19 +2445,33 @@ namespace HMT.Forms {
                     string targetFolder = Path.Combine(extDir, Regex.Replace(toolName, @"[^\w\.-]", ""));
                     if (!Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
 
+                    string effectiveUrl = downloadUrl;
+                    string effectiveExe = exeInsideArchive;
+
+                    try {
+                        lblStatus.Text = "Checking latest version for " + toolName + "...";
+                        var resolved = await ToolVersionResolver.ResolveToolAsync(toolName, downloadUrl, exeInsideArchive);
+                        if (resolved != null && !string.IsNullOrEmpty(resolved.DownloadUrl)) {
+                            effectiveUrl = resolved.DownloadUrl;
+                            if (!string.IsNullOrEmpty(resolved.ExeInsideArchive)) {
+                                effectiveExe = resolved.ExeInsideArchive;
+                            }
+                        }
+                    } catch { }
+
                     Func<string> findTargetExe = () => {
-                        if (string.IsNullOrEmpty(exeInsideArchive)) return null;
-                        string direct = Path.Combine(targetFolder, exeInsideArchive);
+                        if (string.IsNullOrEmpty(effectiveExe)) return null;
+                        string direct = Path.Combine(targetFolder, effectiveExe);
                         if (File.Exists(direct)) return direct;
                         if (Directory.Exists(targetFolder)) {
                             try {
                                 var files = Directory.GetFiles(targetFolder, "*.exe", SearchOption.AllDirectories);
                                 foreach (var f in files) {
-                                    if (string.Equals(Path.GetFileName(f), exeInsideArchive, StringComparison.OrdinalIgnoreCase)) {
+                                    if (string.Equals(Path.GetFileName(f), effectiveExe, StringComparison.OrdinalIgnoreCase)) {
                                         return f;
                                     }
                                 }
-                                string targetBase = Path.GetFileNameWithoutExtension(exeInsideArchive);
+                                string targetBase = Path.GetFileNameWithoutExtension(effectiveExe);
                                 foreach (var f in files) {
                                     string fn = Path.GetFileNameWithoutExtension(f);
                                     if (fn.IndexOf(targetBase, StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -2473,11 +2487,12 @@ namespace HMT.Forms {
 
                     string targetExe = findTargetExe();
                     if (targetExe == null) {
+                        lblStatus.Text = "Connecting to download server...";
                         using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
                         using (var client = new HttpClient(handler)) {
                             client.Timeout = TimeSpan.FromMinutes(10);
                             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0");
-                            using (var resp = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cts.Token)) {
+                            using (var resp = await client.GetAsync(effectiveUrl, HttpCompletionOption.ResponseHeadersRead, cts.Token)) {
                                 resp.EnsureSuccessStatusCode();
                                 long total = resp.Content.Headers.ContentLength ?? -1L;
 
@@ -2489,13 +2504,13 @@ namespace HMT.Forms {
                                     }
                                 }
                                 if (string.IsNullOrEmpty(fileName)) {
-                                    string cand = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+                                    string cand = Path.GetFileName(new Uri(effectiveUrl).AbsolutePath);
                                     if (!string.IsNullOrEmpty(cand) && Path.HasExtension(cand)) {
                                         fileName = cand;
                                     }
                                 }
                                 if (string.IsNullOrEmpty(fileName)) {
-                                    fileName = !string.IsNullOrEmpty(exeInsideArchive) ? exeInsideArchive : "download.tmp";
+                                    fileName = !string.IsNullOrEmpty(effectiveExe) ? effectiveExe : "download.tmp";
                                 }
 
                                 string downloadFile = Path.Combine(targetFolder, fileName);
@@ -2570,7 +2585,7 @@ namespace HMT.Forms {
                         };
                         Process.Start(psi);
                     } else {
-                        throw new FileNotFoundException("Could not locate executable: " + exeInsideArchive);
+                        throw new FileNotFoundException("Could not locate executable: " + effectiveExe);
                     }
                     await Task.Delay(400);
                     this.DialogResult = DialogResult.OK;

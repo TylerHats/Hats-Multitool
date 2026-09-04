@@ -1508,6 +1508,135 @@ namespace HMT.Engines {
         }
     }
 
+    public class ResolvedToolInfo {
+        public string ToolName { get; set; }
+        public string Version { get; set; }
+        public string DownloadUrl { get; set; }
+        public string ExeInsideArchive { get; set; }
+    }
+
+    public static class ToolVersionResolver {
+        private static readonly Dictionary<string, ResolvedToolInfo> _cache = new Dictionary<string, ResolvedToolInfo>(StringComparer.OrdinalIgnoreCase);
+        private static bool _manifestFetched = false;
+        private static readonly object _lock = new object();
+
+        public static async Task<ResolvedToolInfo> ResolveToolAsync(string toolName, string currentUrl, string currentExe) {
+            if (string.IsNullOrEmpty(toolName)) {
+                return new ResolvedToolInfo { ToolName = toolName, DownloadUrl = currentUrl, ExeInsideArchive = currentExe };
+            }
+
+            // 1. Check in-memory cache
+            lock (_lock) {
+                if (_cache.TryGetValue(toolName, out var cached) && cached != null) {
+                    return cached;
+                }
+            }
+
+            // 2. Fast Dynamic Client-Side Scrapers
+            if (toolName.Equals("BleachBit", StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    using (var cts = new CancellationTokenSource(2500))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromSeconds(3);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                        string html = await client.GetStringAsync("https://www.bleachbit.org/download/windows");
+                        var m = Regex.Match(html, @"https://download\.bleachbit\.org/(?:get/)?(BleachBit-([0-9\.]+)-portable\.zip)", RegexOptions.IgnoreCase);
+                        if (m.Success) {
+                            var info = new ResolvedToolInfo {
+                                ToolName = toolName,
+                                Version = m.Groups[2].Value,
+                                DownloadUrl = "https://download.bleachbit.org/" + m.Groups[1].Value,
+                                ExeInsideArchive = "bleachbit.exe"
+                            };
+                            lock (_lock) { _cache[toolName] = info; }
+                            return info;
+                        }
+                    }
+                } catch { }
+            } else if (toolName.Equals("WizTree", StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    using (var cts = new CancellationTokenSource(2500))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromSeconds(3);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                        string html = await client.GetStringAsync("https://diskanalyzer.com/download");
+                        var m = Regex.Match(html, @"files/(wiztree_([0-9_]+)_portable\.zip)", RegexOptions.IgnoreCase);
+                        if (m.Success) {
+                            var info = new ResolvedToolInfo {
+                                ToolName = toolName,
+                                Version = m.Groups[2].Value.Replace('_', '.'),
+                                DownloadUrl = "https://antibodysoftware-17031.kxcdn.com/files/" + m.Groups[1].Value,
+                                ExeInsideArchive = "WizTree64.exe"
+                            };
+                            lock (_lock) { _cache[toolName] = info; }
+                            return info;
+                        }
+                    }
+                } catch { }
+            }
+
+            // 3. Remote Central Manifest on hatsthings.com
+            await EnsureManifestLoadedAsync();
+
+            lock (_lock) {
+                if (_cache.TryGetValue(toolName, out var manifestInfo) && manifestInfo != null) {
+                    return manifestInfo;
+                }
+            }
+
+            // 4. Fallback to default
+            var fallback = new ResolvedToolInfo {
+                ToolName = toolName,
+                DownloadUrl = currentUrl,
+                ExeInsideArchive = currentExe
+            };
+            lock (_lock) { _cache[toolName] = fallback; }
+            return fallback;
+        }
+
+        private static async Task EnsureManifestLoadedAsync() {
+            if (_manifestFetched) return;
+            _manifestFetched = true;
+
+            try {
+                using (var cts = new CancellationTokenSource(3000))
+                using (var client = new HttpClient()) {
+                    client.Timeout = TimeSpan.FromSeconds(3);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                    string json = await client.GetStringAsync("https://hatsthings.com/MultitoolFiles/ExternalTools.json");
+                    ParseManifestJson(json);
+                }
+            } catch { }
+        }
+
+        private static void ParseManifestJson(string json) {
+            if (string.IsNullOrEmpty(json)) return;
+            try {
+                var blockMatches = Regex.Matches(json, @"""([^""]+)""\s*:\s*\{([^}]+)\}");
+                foreach (Match bm in blockMatches) {
+                    string tool = bm.Groups[1].Value;
+                    string body = bm.Groups[2].Value;
+
+                    var mUrl = Regex.Match(body, @"""url""\s*:\s*""([^""]+)""");
+                    var mExe = Regex.Match(body, @"""exe""\s*:\s*""([^""]+)""");
+                    var mVer = Regex.Match(body, @"""version""\s*:\s*""([^""]+)""");
+
+                    if (mUrl.Success) {
+                        var info = new ResolvedToolInfo {
+                            ToolName = tool,
+                            DownloadUrl = mUrl.Groups[1].Value,
+                            ExeInsideArchive = mExe.Success ? mExe.Groups[1].Value : "",
+                            Version = mVer.Success ? mVer.Groups[1].Value : ""
+                        };
+                        lock (_lock) {
+                            _cache[tool] = info;
+                        }
+                    }
+                }
+            } catch { }
+        }
+    }
+
     public static class ExternalToolsEngine {
         public static string GetExtProgramDir() {
             string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT", "ExtPrograms");
@@ -1531,8 +1660,8 @@ namespace HMT.Engines {
 
         public static List<ExternalToolItem> GetDiskTools() {
             return new List<ExternalToolItem> {
-                new ExternalToolItem("WizTree", "Scans a selected drive or folder and displays all contents and relative disk space.", "Disk & Storage", "Download", "", "", "https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_26_portable.zip", "WizTree64.exe"),
-                new ExternalToolItem("BleachBit", "System and program temporary data cleaner to reclaim drive space.", "Disk & Storage", "Download", "", "", "https://download.bleachbit.org/BleachBit-4.6.2-portable.zip", "bleachbit.exe"),
+                new ExternalToolItem("WizTree", "Scans a selected drive or folder and displays all contents and relative disk space.", "Disk & Storage", "Download", "", "", "https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_32_portable.zip", "WizTree64.exe"),
+                new ExternalToolItem("BleachBit", "System and program temporary data cleaner to reclaim drive space.", "Disk & Storage", "Download", "", "", "https://download.bleachbit.org/BleachBit-6.0.2-portable.zip", "bleachbit.exe"),
                 new ExternalToolItem("Patch Cleaner", "Scans and allows safe removal of orphaned installer/driver store files.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/PatchCleanerPortable-1-4-2-0.zip", "PatchCleaner.exe"),
                 new ExternalToolItem("Windows Disk Cleanup", "Launches the native Windows Disk Cleanup utility.", "Disk & Storage", "Command", "cleanmgr.exe", ""),
                 new ExternalToolItem("SMART Info & Benchmarking", "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark.", "Disk & Storage", "InternalDialog", "storage_health"),

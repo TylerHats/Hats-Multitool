@@ -3045,7 +3045,42 @@ namespace HMT.Tools {
                     _hasExited = true;
                     finalEc = _exitCode;
                 }
-                CleanupConPtyResources();
+
+                // 1. Close PseudoConsole first to signal EOF to output pipe
+                lock (_lock) {
+                    if (_hPC != IntPtr.Zero) {
+                        try { ClosePseudoConsole(_hPC); } catch { }
+                        _hPC = IntPtr.Zero;
+                    }
+                    if (_hPipeInWrite != IntPtr.Zero) {
+                        try { CloseHandle(_hPipeInWrite); } catch { }
+                        _hPipeInWrite = IntPtr.Zero;
+                    }
+                }
+
+                // 2. Wait for the output reader thread to consume all buffered EOF data
+                try {
+                    if (_outThread != null && _outThread.IsAlive) {
+                        _outThread.Join(2500);
+                    }
+                } catch { }
+
+                // 3. Now safely release the pipe read handle and process/thread handles
+                lock (_lock) {
+                    if (_hPipeOutRead != IntPtr.Zero) {
+                        try { CloseHandle(_hPipeOutRead); } catch { }
+                        _hPipeOutRead = IntPtr.Zero;
+                    }
+                    if (_hThread != IntPtr.Zero) {
+                        try { CloseHandle(_hThread); } catch { }
+                        _hThread = IntPtr.Zero;
+                    }
+                    if (_hProcess != IntPtr.Zero) {
+                        try { CloseHandle(_hProcess); } catch { }
+                        _hProcess = IntPtr.Zero;
+                    }
+                }
+
                 try { OnProcessExited?.Invoke(finalEc); } catch { }
             }
         }
@@ -3158,12 +3193,25 @@ namespace HMT.Tools {
         private void ReadStreamWithAnsiFilter(Stream stream, Encoding encoding) {
             if (stream == null) return;
             var sb = new StringBuilder();
-            byte[] buffer = new byte[512];
-            char[] chars = new char[512];
+            byte[] buffer = new byte[1024];
+            char[] chars = new char[1024];
             Decoder decoder = (encoding ?? Encoding.Default).GetDecoder();
             int bytesRead;
             int ansiState = 0; // 0=normal, 1=ESC, 2=CSI, 3=OSC, 4=Charset/2byte
             bool wasOsc = false;
+
+            Action flushLine = () => {
+                if (sb.Length > 0) {
+                    string line = CleanLine(sb.ToString());
+                    sb.Length = 0;
+                    if (!string.IsNullOrEmpty(line)) {
+                        lock (_lock) {
+                            _outputQueue.Add(line);
+                        }
+                        try { OnLineReceived?.Invoke(line); } catch { }
+                    }
+                }
+            };
 
             try {
                 using (stream) {
@@ -3176,16 +3224,7 @@ namespace HMT.Tools {
                                 if (c == '\x1B') {
                                     ansiState = 1;
                                 } else if (c == '\r' || c == '\n') {
-                                    if (sb.Length > 0) {
-                                        string line = CleanLine(sb.ToString());
-                                        sb.Length = 0;
-                                        if (!string.IsNullOrEmpty(line)) {
-                                            lock (_lock) {
-                                                _outputQueue.Add(line);
-                                            }
-                                            try { OnLineReceived?.Invoke(line); } catch { }
-                                        }
-                                    }
+                                    flushLine();
                                 } else if (c != '\0' && c != '\b' && c != '\a') {
                                     sb.Append(c);
                                 }
@@ -3207,9 +3246,12 @@ namespace HMT.Tools {
                                 // In CSI sequence, parameters are 0x20-0x3F, command terminates on 0x40-0x7E
                                 if (c >= 0x40 && c <= 0x7E) {
                                     ansiState = 0;
+                                    // Cursor positioning or line clearing commands in VT terminals mark line/update boundaries
+                                    if (c == 'H' || c == 'f' || c == 'G' || c == '`' || c == 'd' || c == 'K' || c == 'J') {
+                                        flushLine();
+                                    }
                                 }
                             } else if (ansiState == 3) {
-                                // In OSC sequence, ends on BEL (\a) or ESC
                                 if (c == '\a') {
                                     ansiState = 0;
                                     wasOsc = false;
@@ -3220,18 +3262,18 @@ namespace HMT.Tools {
                                 ansiState = 0;
                             }
                         }
-                    }
-                }
-                if (sb.Length > 0) {
-                    string line = CleanLine(sb.ToString());
-                    if (!string.IsNullOrEmpty(line)) {
-                        lock (_lock) {
-                            _outputQueue.Add(line);
+
+                        // Periodic / chunk-level progress flush:
+                        // If buffer read ended and sb has accumulated percentage or completion text, flush immediately
+                        if (sb.Length > 0 && (sb.ToString().IndexOf('%') >= 0 || sb.ToString().IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                            flushLine();
                         }
-                        try { OnLineReceived?.Invoke(line); } catch { }
                     }
                 }
             } catch { }
+            finally {
+                flushLine();
+            }
         }
 
         private static string CleanLine(string line) {
@@ -3264,9 +3306,7 @@ namespace HMT.Tools {
                     _hasExited = true;
                 } else if (_process != null) {
                     try {
-                        if (!_process.HasExited) {
-                            _process.Kill();
-                        }
+                        if (!_process.HasExited) _process.Kill();
                     } catch { }
                     _hasExited = true;
                 }
