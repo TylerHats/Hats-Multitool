@@ -2747,9 +2747,9 @@ namespace HMT.Tools {
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern bool CreateProcess(
             string lpApplicationName,
-            StringBuilder lpCommandLine,
-            ref SECURITY_ATTRIBUTES lpProcessAttributes,
-            ref SECURITY_ATTRIBUTES lpThreadAttributes,
+            string lpCommandLine,
+            IntPtr lpProcessAttributes,
+            IntPtr lpThreadAttributes,
             bool bInheritHandles,
             uint dwCreationFlags,
             IntPtr lpEnvironment,
@@ -2934,14 +2934,34 @@ namespace HMT.Tools {
                 return false;
             }
 
-            if (!UpdateProcThreadAttribute(
+            bool updated = UpdateProcThreadAttribute(
                     lpAttributeList,
                     0,
                     (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
                     hPC,
                     (IntPtr)IntPtr.Size,
                     IntPtr.Zero,
-                    IntPtr.Zero)) {
+                    IntPtr.Zero);
+
+            if (!updated) {
+                IntPtr pVal = Marshal.AllocHGlobal(IntPtr.Size);
+                Marshal.WriteIntPtr(pVal, hPC);
+                try {
+                    updated = UpdateProcThreadAttribute(
+                        lpAttributeList,
+                        0,
+                        (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+                        pVal,
+                        (IntPtr)IntPtr.Size,
+                        IntPtr.Zero,
+                        IntPtr.Zero);
+                } finally {
+                    Marshal.FreeHGlobal(pVal);
+                }
+            }
+
+            if (!updated) {
+                _errorMessage = "UpdateProcThreadAttribute failed: " + Marshal.GetLastWin32Error();
                 DeleteProcThreadAttributeList(lpAttributeList);
                 Marshal.FreeHGlobal(lpAttributeList);
                 ClosePseudoConsole(hPC);
@@ -2954,17 +2974,12 @@ namespace HMT.Tools {
             siex.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
             siex.lpAttributeList = lpAttributeList;
 
-            SECURITY_ATTRIBUTES saProc = new SECURITY_ATTRIBUTES();
-            saProc.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
-            SECURITY_ATTRIBUTES saThread = new SECURITY_ATTRIBUTES();
-            saThread.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
-
             PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
             bool success = CreateProcess(
                 null,
-                new StringBuilder(commandLine),
-                ref saProc,
-                ref saThread,
+                commandLine,
+                IntPtr.Zero,
+                IntPtr.Zero,
                 false,
                 EXTENDED_STARTUPINFO_PRESENT,
                 IntPtr.Zero,
@@ -2976,6 +2991,7 @@ namespace HMT.Tools {
             Marshal.FreeHGlobal(lpAttributeList);
 
             if (!success) {
+                _errorMessage = "ConPTY CreateProcess failed: " + Marshal.GetLastWin32Error();
                 ClosePseudoConsole(hPC);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
@@ -3221,8 +3237,8 @@ namespace HMT.Tools {
         private static string CleanLine(string line) {
             if (string.IsNullOrEmpty(line)) return "";
             line = line.Trim();
-            if (line.StartsWith("\uFEFF")) line = line.Substring(1).Trim();
-            if (line.StartsWith("ÿþ")) line = line.Substring(2).Trim();
+            line = line.TrimStart('\uFEFF').Trim();
+            if (line.StartsWith("ÿþ", StringComparison.Ordinal)) line = line.Substring(2).Trim();
             return line;
         }
 

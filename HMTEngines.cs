@@ -1229,7 +1229,14 @@ namespace HMT.Engines {
                     });
 
                     try {
-                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                        try {
+                            var sp = ServicePointManager.FindServicePoint(new Uri(cdnUrl));
+                            sp.ConnectionLimit = 64;
+                            sp.UseNagleAlgorithm = false;
+                            sp.Expect100Continue = false;
+                        } catch { }
+
+                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.None })
                         using (var client = new HttpClient(handler)) {
                         client.Timeout = TimeSpan.FromMinutes(30);
                         client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
@@ -1251,14 +1258,10 @@ namespace HMT.Engines {
                             }
                         } catch { }
 
-                        int workerCount = (supportsRange && totalBytes > 50 * 1024 * 1024) ? 8 : 1;
+                        int workerCount = (supportsRange && totalBytes > 50 * 1024 * 1024) ? 12 : 1;
 
                         if (workerCount > 1) {
-                            // Multi-Part Parallel Range Downloader
-                            using (var fsInit = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) {
-                                fsInit.SetLength(totalBytes);
-                            }
-
+                            // Multi-Part Parallel Range Downloader with independent part files (zero disk contention)
                             long chunkSize = (totalBytes + workerCount - 1) / workerCount;
                             long totalRead = 0;
                             long lastBytes = 0;
@@ -1269,9 +1272,12 @@ namespace HMT.Engines {
 
                             var downloadTasks = new List<Task>();
                             for (int w = 0; w < workerCount; w++) {
-                                long start = w * chunkSize;
+                                int workerIndex = w;
+                                long start = workerIndex * chunkSize;
                                 long end = Math.Min(totalBytes - 1, start + chunkSize - 1);
                                 if (start > end) break;
+
+                                string partPath = zipPath + ".part" + workerIndex;
 
                                 downloadTasks.Add(Task.Run(async () => {
                                     var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
@@ -1281,23 +1287,23 @@ namespace HMT.Engines {
                                     using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
                                         resp.EnsureSuccessStatusCode();
                                         using (var stream = await resp.Content.ReadAsStreamAsync())
-                                        using (var fs = new FileStream(zipPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 262144, true)) {
-                                            fs.Seek(start, SeekOrigin.Begin);
-                                            byte[] buf = new byte[262144];
+                                        using (var fs = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                            byte[] buf = new byte[131072];
                                             int read;
                                             while ((read = await stream.ReadAsync(buf, 0, buf.Length, ct)) > 0) {
                                                 await fs.WriteAsync(buf, 0, read, ct);
                                                 long cur = Interlocked.Add(ref totalRead, read);
 
-                                                if (swUi.ElapsedMilliseconds >= 150) {
+                                                if (swUi.ElapsedMilliseconds >= 120) {
                                                     lock (syncObj) {
-                                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                                        if (swUi.ElapsedMilliseconds >= 120) {
                                                             swUi.Restart();
                                                             double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
                                                             long delta = cur - lastBytes;
                                                             lastBytes = cur;
                                                             swWindow.Restart();
-                                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+                                                            double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
+                                                            speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
 
                                                             int pct = (int)((cur * 75.0) / totalBytes);
                                                             double mbRead = Math.Round(cur / 1048576.0, 1);
@@ -1319,6 +1325,29 @@ namespace HMT.Engines {
                             }
 
                             await Task.WhenAll(downloadTasks);
+
+                            // High-speed sequential file assembly
+                            progress?.Report(new BloatProgressInfo {
+                                Status = "Finalizing " + displayName + " download...",
+                                Detail = "Assembling multi-stream package...",
+                                ProgressPercentage = 75
+                            });
+
+                            using (var outputFs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
+                                byte[] mergeBuf = new byte[1048576];
+                                for (int w = 0; w < workerCount; w++) {
+                                    string partPath = zipPath + ".part" + w;
+                                    if (File.Exists(partPath)) {
+                                        using (var partFs = new FileStream(partPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, true)) {
+                                            int r;
+                                            while ((r = await partFs.ReadAsync(mergeBuf, 0, mergeBuf.Length, ct)) > 0) {
+                                                await outputFs.WriteAsync(mergeBuf, 0, r, ct);
+                                            }
+                                        }
+                                        try { File.Delete(partPath); } catch { }
+                                    }
+                                }
+                            }
                         } else {
                             // High-speed single-stream fallback
                             var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
@@ -1341,13 +1370,14 @@ namespace HMT.Engines {
                                         await fileStream.WriteAsync(buffer, 0, read, ct);
                                         totalRead += read;
 
-                                        if (swUi.ElapsedMilliseconds >= 150) {
+                                        if (swUi.ElapsedMilliseconds >= 120) {
                                             swUi.Restart();
                                             double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
                                             long delta = totalRead - lastBytes;
                                             lastBytes = totalRead;
                                             swWindow.Restart();
-                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+                                            double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
+                                            speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
 
                                             double mbRead = Math.Round(totalRead / 1048576.0, 1);
                                             double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
@@ -1369,6 +1399,9 @@ namespace HMT.Engines {
                     }
                     } catch {
                         try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
+                        for (int w = 0; w < 16; w++) {
+                            try { string p = zipPath + ".part" + w; if (File.Exists(p)) File.Delete(p); } catch { }
+                        }
                         throw;
                     }
                 }
