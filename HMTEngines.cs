@@ -1788,16 +1788,6 @@ namespace HMT.Engines {
             };
         }
 
-        public static List<ExternalToolItem> GetPasswordTools() {
-            return new List<ExternalToolItem> {
-                new ExternalToolItem("WebBrowserPassView", "Password recovery tool for all major web browsers (Edge, Chrome, Firefox, Opera).", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/webbrowserpassview.zip", "WebBrowserPassView.exe"),
-                new ExternalToolItem("WirelessKeyView", "Recovers all wireless network keys (WEP/WPA/WPA2/WPA3) stored in Windows.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/wirelesskeyview-x64.zip", "WirelessKeyView.exe"),
-                new ExternalToolItem("Dialupass", "Recovers passwords for VPN, Dialup, and RAS connections.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/dialupass.zip", "Dialupass.exe"),
-                new ExternalToolItem("CredentialFileView", "Decrypts and displays credentials stored inside Windows Credentials files.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/credentialfileview.zip", "CredentialsFileView.exe"),
-                new ExternalToolItem("VaultPasswordView", "Decrypts and displays passwords stored in Windows Vault and Windows Credentials Manager.", "Password & Keys", "Download", "", "", "https://hatsthings.com/MultitoolFiles/vaultpasswordview.zip", "VaultPasswordView.exe")
-            };
-        }
-
         public static string ReadOemProductKey() {
             try {
                 var psi = new ProcessStartInfo {

@@ -1806,7 +1806,6 @@ namespace HMT.Forms {
             AddCategoryTab("Disk & Storage", ExternalToolsEngine.GetDiskTools());
             AddCategoryTab("Network & Connectivity", ExternalToolsEngine.GetNetworkTools());
             AddCategoryTab("Viewers & Utilities", ExternalToolsEngine.GetViewerTools());
-            AddCategoryTab("Password & Keys", ExternalToolsEngine.GetPasswordTools());
 
             var btnClose = new Button {
                 Text = "Close",

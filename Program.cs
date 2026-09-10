@@ -55,7 +55,7 @@ namespace HMT {
                 }
             }
 
-            string version = "6.2.9";
+            string version = "6.3.0";
             try {
                 var asm = Assembly.GetExecutingAssembly();
                 var ver = asm.GetName().Version;
