@@ -3415,7 +3415,7 @@ namespace HMT.Tools {
                     if (key != null) {
                         byte[] bytes = key.GetValue(valName) as byte[];
                         if (bytes != null && bytes.Length > 0) {
-                            if (bytes[0] == 0x03 || bytes[0] == 0x01) {
+                            if ((bytes[0] & 1) != 0 || bytes[0] == 0x03 || bytes[0] == 0x01) {
                                 return "Disabled";
                             }
                         }
@@ -3423,6 +3423,21 @@ namespace HMT.Tools {
                 }
             } catch { }
             return "Enabled";
+        }
+
+        private static void SetStartupApprovedBinary(RegistryKey root, string subKeyPath, string valName, bool enabled) {
+            try {
+                using (var key = root.CreateSubKey(subKeyPath, RegistryKeyPermissionCheck.ReadWriteSubTree)) {
+                    if (key != null) {
+                        byte[] val = new byte[12];
+                        val[0] = enabled ? (byte)0x02 : (byte)0x03;
+                        long ft = DateTime.UtcNow.ToFileTimeUtc();
+                        byte[] ftBytes = BitConverter.GetBytes(ft);
+                        Array.Copy(ftBytes, 0, val, 4, Math.Min(8, ftBytes.Length));
+                        key.SetValue(valName, val, RegistryValueKind.Binary);
+                    }
+                }
+            } catch { }
         }
 
         public static List<StartupItem> ScanAll() {
@@ -3505,10 +3520,28 @@ namespace HMT.Tools {
                 string userDir = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
                 string apprFolder = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder";
                 if (!string.IsNullOrEmpty(userDir) && Directory.Exists(userDir)) {
-                    foreach (var file in Directory.GetFiles(userDir)) {
+                    foreach (var rawFile in Directory.GetFiles(userDir)) {
+                        string file = rawFile;
                         string fn = Path.GetFileName(file);
-                        bool isDis = fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
-                        string st = isDis ? "Disabled" : CheckStartupApproved(Registry.CurrentUser, apprFolder, fn);
+                        if (string.Equals(fn, "desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        // Auto-migrate legacy .disabled files back to clean filename and mark Disabled in registry
+                        if (fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase)) {
+                            string cleanFn = fn.Substring(0, fn.Length - 9);
+                            string cleanPath = Path.Combine(userDir, cleanFn);
+                            try {
+                                if (!File.Exists(cleanPath)) {
+                                    File.Move(file, cleanPath);
+                                } else {
+                                    File.Delete(file);
+                                }
+                                file = cleanPath;
+                                fn = cleanFn;
+                                SetStartupApprovedBinary(Registry.CurrentUser, apprFolder, fn, false);
+                            } catch { }
+                        }
+
+                        string st = CheckStartupApproved(Registry.CurrentUser, apprFolder, fn);
                         items.Add(new StartupItem {
                             Name = fn,
                             Category = "Startup Folder",
@@ -3528,10 +3561,28 @@ namespace HMT.Tools {
                 string commonDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup);
                 string apprFolder = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder";
                 if (!string.IsNullOrEmpty(commonDir) && Directory.Exists(commonDir)) {
-                    foreach (var file in Directory.GetFiles(commonDir)) {
+                    foreach (var rawFile in Directory.GetFiles(commonDir)) {
+                        string file = rawFile;
                         string fn = Path.GetFileName(file);
-                        bool isDis = fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
-                        string st = isDis ? "Disabled" : CheckStartupApproved(Registry.LocalMachine, apprFolder, fn);
+                        if (string.Equals(fn, "desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        // Auto-migrate legacy .disabled files back to clean filename and mark Disabled in registry
+                        if (fn.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase)) {
+                            string cleanFn = fn.Substring(0, fn.Length - 9);
+                            string cleanPath = Path.Combine(commonDir, cleanFn);
+                            try {
+                                if (!File.Exists(cleanPath)) {
+                                    File.Move(file, cleanPath);
+                                } else {
+                                    File.Delete(file);
+                                }
+                                file = cleanPath;
+                                fn = cleanFn;
+                                SetStartupApprovedBinary(Registry.LocalMachine, apprFolder, fn, false);
+                            } catch { }
+                        }
+
+                        string st = CheckStartupApproved(Registry.LocalMachine, apprFolder, fn);
                         items.Add(new StartupItem {
                             Name = fn,
                             Category = "Startup Folder",
@@ -3627,33 +3678,13 @@ namespace HMT.Tools {
             string newStatus = currentlyEnabled ? "Disabled" : "Enabled";
 
             try {
-                if (item.Type == "Registry" && !string.IsNullOrEmpty(item.ApprPath)) {
+                if ((item.Type == "Registry" || item.Type == "File") && !string.IsNullOrEmpty(item.ApprPath)) {
                     bool isHkcu = item.ApprPath.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase);
                     string subKeyPath = item.ApprPath.Substring(item.ApprPath.IndexOf(@"\") + 1);
                     RegistryKey root = isHkcu ? Registry.CurrentUser : Registry.LocalMachine;
-                    using (var key = root.CreateSubKey(subKeyPath, RegistryKeyPermissionCheck.ReadWriteSubTree)) {
-                        if (key != null) {
-                            byte[] val = currentlyEnabled
-                                ? new byte[] { 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
-                                : new byte[] { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-                            key.SetValue(item.Name, val, RegistryValueKind.Binary);
-                            item.Status = newStatus;
-                            return true;
-                        }
-                    }
-                } else if (item.Type == "File" && !string.IsNullOrEmpty(item.FilePath)) {
-                    if (File.Exists(item.FilePath)) {
-                        string newPath = currentlyEnabled
-                            ? item.FilePath + ".disabled"
-                            : (item.FilePath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? item.FilePath.Substring(0, item.FilePath.Length - 9) : item.FilePath);
-                        if (newPath != item.FilePath) {
-                            File.Move(item.FilePath, newPath);
-                            item.FilePath = newPath;
-                            item.Name = Path.GetFileName(newPath);
-                            item.Status = newStatus;
-                            return true;
-                        }
-                    }
+                    SetStartupApprovedBinary(root, subKeyPath, item.Name, !currentlyEnabled);
+                    item.Status = newStatus;
+                    return true;
                 } else if (item.Type == "Service" && !string.IsNullOrEmpty(item.ServiceName)) {
                     using (var scKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + item.ServiceName, true)) {
                         if (scKey != null) {
@@ -3692,8 +3723,21 @@ namespace HMT.Tools {
                 } else if (item.Type == "File" && !string.IsNullOrEmpty(item.FilePath)) {
                     if (File.Exists(item.FilePath)) {
                         File.Delete(item.FilePath);
-                        return true;
                     }
+                    if (File.Exists(item.FilePath + ".disabled")) {
+                        try { File.Delete(item.FilePath + ".disabled"); } catch { }
+                    }
+                    if (!string.IsNullOrEmpty(item.ApprPath)) {
+                        bool isHkcu = item.ApprPath.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase);
+                        string apprSubKey = item.ApprPath.Substring(item.ApprPath.IndexOf(@"\") + 1);
+                        RegistryKey root = isHkcu ? Registry.CurrentUser : Registry.LocalMachine;
+                        using (var apprKey = root.OpenSubKey(apprSubKey, true)) {
+                            if (apprKey != null) {
+                                apprKey.DeleteValue(item.Name, false);
+                            }
+                        }
+                    }
+                    return true;
                 }
             } catch { }
             return false;

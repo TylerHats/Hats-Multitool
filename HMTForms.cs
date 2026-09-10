@@ -1235,7 +1235,8 @@ namespace HMT.Forms {
                     ForeColor = DarkTheme.TextMain,
                     Location = DarkTheme.Scale(new Point(24, y)),
                     Size = DarkTheme.Scale(new Size(410, 24)),
-                    Font = DarkTheme.GetScaledFont(10.5f)
+                    Font = DarkTheme.GetScaledFont(10.5f),
+                    UseMnemonic = false
                 };
                 optionCheckBoxes.Add(cb);
                 this.Controls.Add(cb);
