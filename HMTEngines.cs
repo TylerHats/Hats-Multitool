@@ -600,7 +600,35 @@ namespace HMT.Engines {
                 using (var proc = Process.Start(psi)) {
                     proc.WaitForExit();
                 }
-                Logger.Log("Enabled Windows Hibernation.", "Success");
+
+                // Explicitly enable the Hibernate option in the Windows Start / Power menu
+                try {
+                    using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings")) {
+                        if (key != null) key.SetValue("ShowHibernateOption", 1, RegistryValueKind.DWord);
+                    }
+                } catch { }
+                try {
+                    using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings")) {
+                        if (key != null) key.SetValue("ShowHibernateOption", 1, RegistryValueKind.DWord);
+                    }
+                } catch { }
+                try {
+                    using (var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\Explorer")) {
+                        if (key != null) key.SetValue("ShowHibernateOption", 1, RegistryValueKind.DWord);
+                    }
+                } catch { }
+                try {
+                    using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Policies\Microsoft\Windows\Explorer")) {
+                        if (key != null) key.SetValue("ShowHibernateOption", 1, RegistryValueKind.DWord);
+                    }
+                } catch { }
+                try {
+                    using (var key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Power")) {
+                        if (key != null) key.SetValue("HibernateEnabled", 1, RegistryValueKind.DWord);
+                    }
+                } catch { }
+
+                Logger.Log("Enabled Windows Hibernation and added Hibernate to Power menu.", "Success");
             } catch (Exception ex) {
                 Logger.Log("Failed to enable hibernation: " + ex.Message, "Warning");
             }
@@ -1734,7 +1762,7 @@ namespace HMT.Engines {
                 new ExternalToolItem("WizTree", "Scans a selected drive or folder and displays all contents and relative disk space.", "Disk & Storage", "Download", "", "", "https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_32_portable.zip", "WizTree64.exe"),
                 new ExternalToolItem("BleachBit", "System and program temporary data cleaner to reclaim drive space.", "Disk & Storage", "Download", "", "", "https://download.bleachbit.org/BleachBit-6.0.2-portable.zip", "bleachbit.exe"),
                 new ExternalToolItem("Patch Cleaner", "Scans and allows safe removal of orphaned installer/driver store files.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/PatchCleanerPortable-1-4-2-0.zip", "PatchCleaner.exe"),
-                new ExternalToolItem("Windows Disk Cleanup", "Launches the native Windows Disk Cleanup utility.", "Disk & Storage", "Command", "cleanmgr.exe", ""),
+                new ExternalToolItem("Windows Disk Cleanup", "Launches the native Windows Disk Cleanup utility.", "Disk & Storage", "Gui", "cleanmgr.exe", ""),
                 new ExternalToolItem("SMART Info & Benchmarking", "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark.", "Disk & Storage", "InternalDialog", "storage_health"),
                 new ExternalToolItem("Display Driver Uninstaller", "Runs Display Driver Uninstaller (DDU) to clean graphics/audio drivers for fresh installs.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/DDU.zip", "Display Driver Uninstaller.exe"),
                 new ExternalToolItem("HDDScan", "Runs HDDScan to verify block health and SMART diagnostics.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/HDDScan-4.1.zip", "HDDScan.exe"),
@@ -1767,7 +1795,7 @@ namespace HMT.Engines {
                 new ExternalToolItem("User Profile Wizard", "Migrates user profile data between domains or computers (Profwiz).", "Viewers & Utilities", "Download", "", "", "https://hatsthings.com/MultitoolFiles/Profwiz.exe", "Profwiz.exe"),
                 new ExternalToolItem("Generate Battery Report", "Generates and opens a detailed HTML report of laptop battery health and cycle history.", "Viewers & Utilities", "Special", "battery_report"),
                 new ExternalToolItem("Startup & Autoruns Manager", "Inspect, enable, disable, or remove startup applications and registry autorun entries.", "Viewers & Utilities", "InternalDialog", "startup_manager"),
-                new ExternalToolItem("Reliability Monitor", "Opens Windows Reliability Monitor timeline to view crash and software install history.", "Viewers & Utilities", "Command", "perfmon.exe", "/rel"),
+                new ExternalToolItem("Reliability Monitor", "Opens Windows Reliability Monitor timeline to view crash and software install history.", "Viewers & Utilities", "Gui", "perfmon.exe", "/rel"),
                 new ExternalToolItem("Read OEM OS Key", "Reads OEM Windows product key embedded in BIOS/ACPI MSDM table.", "Viewers & Utilities", "InternalDialog", "oem_key"),
                 new ExternalToolItem("Enable Safe Boot (w/Network)", "Configures BCD to boot into Safe Mode with networking enabled.", "Viewers & Utilities", "Special", "safeboot_net"),
                 new ExternalToolItem("Disable Safe Boot (Normal Boot)", "Removes Safe Boot configuration from BCD and restores normal Windows startup.", "Viewers & Utilities", "Special", "safeboot_disable"),

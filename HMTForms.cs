@@ -267,6 +267,24 @@ namespace HMT.Forms {
         }
     }
 
+    public class DarkMenuColorTable : ProfessionalColorTable {
+        public override Color ToolStripDropDownBackground { get { return DarkTheme.Surface; } }
+        public override Color ImageMarginGradientBegin { get { return DarkTheme.Surface; } }
+        public override Color ImageMarginGradientMiddle { get { return DarkTheme.Surface; } }
+        public override Color ImageMarginGradientEnd { get { return DarkTheme.Surface; } }
+        public override Color MenuBorder { get { return DarkTheme.Border; } }
+        public override Color MenuItemBorder { get { return Color.Transparent; } }
+        public override Color MenuItemSelected { get { return DarkTheme.SurfaceHighlight; } }
+        public override Color MenuStripGradientBegin { get { return DarkTheme.Surface; } }
+        public override Color MenuStripGradientEnd { get { return DarkTheme.Surface; } }
+        public override Color MenuItemSelectedGradientBegin { get { return DarkTheme.SurfaceHighlight; } }
+        public override Color MenuItemSelectedGradientEnd { get { return DarkTheme.SurfaceHighlight; } }
+        public override Color MenuItemPressedGradientBegin { get { return DarkTheme.SurfaceHighlight; } }
+        public override Color MenuItemPressedGradientEnd { get { return DarkTheme.SurfaceHighlight; } }
+        public override Color SeparatorDark { get { return DarkTheme.Border; } }
+        public override Color SeparatorLight { get { return DarkTheme.Border; } }
+    }
+
     // --- Main Menu Form ---
     public class MainMenuForm : Form {
         public string NextAction { get; private set; }
@@ -1205,7 +1223,7 @@ namespace HMT.Forms {
                 Tuple.Create("Disable Windows Hello PIN Setup Reminder", "disable_pin", false),
                 Tuple.Create("Disable PCIe ASPM Power Saving (Prevents DPCs)", "disable_aspm", false),
                 Tuple.Create("Disable Sticky Keys Keyboard Shortcut Prompt", "disable_sticky", false),
-                Tuple.Create("Enable Windows Hibernation (powercfg /h on)", "enable_hibernation", false)
+                Tuple.Create("Enable Windows Hibernation & Power Menu Option", "enable_hibernation", false)
             };
 
             int y = 46;
@@ -1852,8 +1870,31 @@ namespace HMT.Forms {
 
         private void ExecuteTool(ExternalToolItem tool) {
             try {
-                if (tool.ActionType == "Command") {
-                    DarkTheme.LaunchModelessForm(() => new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments));
+                if (tool.ActionType == "Gui" || tool.ActionType == "Executable") {
+                    try {
+                        Process.Start(new ProcessStartInfo {
+                            FileName = tool.Target,
+                            Arguments = tool.Arguments ?? "",
+                            UseShellExecute = true
+                        });
+                    } catch (Exception ex) {
+                        DarkTheme.ShowStyledMessageBox("Launch Failed", "Failed to launch " + tool.Name + ":\n" + ex.Message, false);
+                    }
+                } else if (tool.ActionType == "Command") {
+                    if (tool.Target.Equals("perfmon.exe", StringComparison.OrdinalIgnoreCase) ||
+                        tool.Target.Equals("cleanmgr.exe", StringComparison.OrdinalIgnoreCase)) {
+                        try {
+                            Process.Start(new ProcessStartInfo {
+                                FileName = tool.Target,
+                                Arguments = tool.Arguments ?? "",
+                                UseShellExecute = true
+                            });
+                        } catch (Exception ex) {
+                            DarkTheme.ShowStyledMessageBox("Launch Failed", "Failed to launch " + tool.Name + ":\n" + ex.Message, false);
+                        }
+                    } else {
+                        DarkTheme.LaunchModelessForm(() => new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments));
+                    }
                 } else if (tool.ActionType == "Download") {
                     DarkTheme.LaunchModelessForm(() => new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive));
                 } else if (tool.ActionType == "InternalDialog") {
@@ -2313,24 +2354,40 @@ namespace HMT.Forms {
                 if (l.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStageNum = 1;
                     currentStage = string.Format("ChkDsk: Stage 1/{0} - Examining Basic File Structure", totalStages);
+                    currentPercent = Math.Max(currentPercent, Math.Max(5, (int)(100.0 / totalStages * 0.15)));
                     updated = true;
                 } else if (l.IndexOf("Stage 2", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStageNum = 2;
                     currentStage = string.Format("ChkDsk: Stage 2/{0} - Examining File Name Linkage", totalStages);
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 1.0));
                     updated = true;
                 } else if (l.IndexOf("Stage 3", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStageNum = 3;
                     currentStage = string.Format("ChkDsk: Stage 3/{0} - Examining Security Descriptors", totalStages);
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 2.0));
                     updated = true;
                 } else if (l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStageNum = 4;
                     totalStages = 5;
                     currentStage = "ChkDsk: Stage 4/5 - Scanning User File Data";
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 3.0));
                     updated = true;
                 } else if (l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
                     currentStageNum = 5;
                     totalStages = 5;
                     currentStage = "ChkDsk: Stage 5/5 - Scanning Free Space & Clusters";
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 4.0));
+                    updated = true;
+                }
+
+                if (l.IndexOf("File verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 1.0));
+                    updated = true;
+                } else if (l.IndexOf("Index verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 2.0));
+                    updated = true;
+                } else if (l.IndexOf("Security descriptor verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    currentPercent = Math.Max(currentPercent, (totalStages == 3 ? 100 : (int)(100.0 / totalStages * 3.0)));
                     updated = true;
                 } else if (l.IndexOf("scanned the file system and found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || (currentStageNum >= totalStages && l.IndexOf("verification completed", StringComparison.OrdinalIgnoreCase) >= 0)) {
                     currentStage = "ChkDsk: File System Check Completed";
@@ -2339,14 +2396,29 @@ namespace HMT.Forms {
                 }
 
                 var mChkPct = Regex.Match(l, @"\((\d+)%\)");
-                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"(\d+)\s+percent completed", RegexOptions.IgnoreCase);
+                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"(\d+)\s+percent\s+(?:complete|completed)?", RegexOptions.IgnoreCase);
+                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"\b(\d{1,3})%\s*(?:complete|completed)?", RegexOptions.IgnoreCase);
 
                 if (mChkPct.Success) {
                     int stagePct;
-                    if (int.TryParse(mChkPct.Groups[1].Value, out stagePct)) {
-                        int overall = ((currentStageNum - 1) * (100 / totalStages)) + (int)(stagePct * (1.0 / totalStages));
+                    if (int.TryParse(mChkPct.Groups[1].Value, out stagePct) && stagePct >= 0 && stagePct <= 100) {
+                        int stageBase = (currentStageNum - 1) * (100 / totalStages);
+                        int overall = stageBase + (int)(stagePct * (1.0 / totalStages));
                         currentPercent = Math.Max(currentPercent, Math.Min(99, overall));
                         updated = true;
+                    }
+                } else {
+                    var mItems = Regex.Match(l, @"(\d+)\s+of\s+(\d+)", RegexOptions.IgnoreCase);
+                    if (mItems.Success) {
+                        double curItem, totItem;
+                        if (double.TryParse(mItems.Groups[1].Value, out curItem) &&
+                            double.TryParse(mItems.Groups[2].Value, out totItem) && totItem > 0) {
+                            double stageFraction = Math.Max(0.0, Math.Min(1.0, curItem / totItem));
+                            int stageBase = (currentStageNum - 1) * (100 / totalStages);
+                            int overall = stageBase + (int)(stageFraction * (100.0 / totalStages));
+                            currentPercent = Math.Max(currentPercent, Math.Min(99, overall));
+                            updated = true;
+                        }
                     }
                 }
             }
@@ -4500,13 +4572,60 @@ namespace HMT.Forms {
             lvStartup = new DarkListView {
                 Location = DarkTheme.Scale(new Point(20, 52)),
                 Size = DarkTheme.Scale(new Size(760, 390)),
-                Font = DarkTheme.GetScaledFont(10.5f)
+                Font = DarkTheme.GetScaledFont(10.5f),
+                MultiSelect = true
             };
             lvStartup.Columns.Add("Program / Service Name", DarkTheme.Scale(200));
             lvStartup.Columns.Add("Status", DarkTheme.Scale(80));
             lvStartup.Columns.Add("Category & Location", DarkTheme.Scale(170));
             lvStartup.Columns.Add("Command / Binary Path", DarkTheme.Scale(300));
+            lvStartup.SelectedIndexChanged += (s, e) => {
+                int count = lvStartup.SelectedItems.Count;
+                if (count > 1) {
+                    btnToggle.Text = string.Format("Enable / Disable ({0})", count);
+                    btnDelete.Text = string.Format("Delete ({0})", count);
+                } else {
+                    btnToggle.Text = "Enable / Disable";
+                    btnDelete.Text = "Delete Item";
+                }
+            };
             this.Controls.Add(lvStartup);
+
+            var ctxMenu = new ContextMenuStrip();
+            ctxMenu.Renderer = new ToolStripProfessionalRenderer(new DarkMenuColorTable());
+            ctxMenu.ShowImageMargin = false;
+            ctxMenu.BackColor = DarkTheme.Surface;
+            ctxMenu.ForeColor = DarkTheme.TextMain;
+
+            var miToggle = new ToolStripMenuItem("Enable / Disable");
+            miToggle.Click += (s, e) => ToggleSelectedItems();
+
+            var miDelete = new ToolStripMenuItem("Delete Item");
+            miDelete.Click += (s, e) => DeleteSelectedItems();
+
+            ctxMenu.Items.Add(miToggle);
+            ctxMenu.Items.Add(new ToolStripSeparator());
+            ctxMenu.Items.Add(miDelete);
+
+            ctxMenu.Opening += (s, e) => {
+                bool hasSelection = lvStartup.SelectedItems.Count > 0;
+                miToggle.Enabled = hasSelection;
+                miDelete.Enabled = hasSelection;
+                if (hasSelection) {
+                    miToggle.Text = lvStartup.SelectedItems.Count == 1
+                        ? "Enable / Disable"
+                        : string.Format("Enable / Disable ({0} selected)", lvStartup.SelectedItems.Count);
+                    miDelete.Text = lvStartup.SelectedItems.Count == 1
+                        ? "Delete Item"
+                        : string.Format("Delete ({0} selected)", lvStartup.SelectedItems.Count);
+                } else {
+                    miToggle.Text = "Enable / Disable";
+                    miDelete.Text = "Delete Item";
+                }
+            };
+
+            lvStartup.ContextMenuStrip = ctxMenu;
+            lvStartup.DoubleClick += (s, e) => ToggleSelectedItems();
 
             btnToggle = new Button {
                 Text = "Enable / Disable",
@@ -4515,15 +4634,7 @@ namespace HMT.Forms {
                 UseMnemonic = false
             };
             DarkTheme.StyleButton(btnToggle, DarkTheme.AccentPrimary);
-            btnToggle.Click += (s, e) => {
-                if (lvStartup.SelectedItems.Count > 0 && lvStartup.SelectedItems[0].Tag is StartupItem item) {
-                    if (StartupScanner.ToggleItem(item)) {
-                        RefreshEntries();
-                    } else {
-                        DarkTheme.ShowStyledMessageBox("Toggle Failed", "Unable to modify startup state for '" + item.Name + "'. Administrator privileges may be required.", false);
-                    }
-                }
-            };
+            btnToggle.Click += (s, e) => ToggleSelectedItems();
             this.Controls.Add(btnToggle);
 
             btnDelete = new Button {
@@ -4533,21 +4644,84 @@ namespace HMT.Forms {
                 UseMnemonic = false
             };
             DarkTheme.StyleButton(btnDelete, DarkTheme.AccentDanger);
-            btnDelete.Click += (s, e) => {
-                if (lvStartup.SelectedItems.Count > 0 && lvStartup.SelectedItems[0].Tag is StartupItem item) {
-                    if (MessageBox.Show("Are you sure you want to permanently delete startup entry '" + item.Name + "'?", "Confirm Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
-                        if (StartupScanner.DeleteItem(item)) {
-                            RefreshEntries();
-                        } else {
-                            DarkTheme.ShowStyledMessageBox("Delete Failed", "Unable to delete startup item. Access might be restricted.", false);
-                        }
-                    }
-                }
-            };
+            btnDelete.Click += (s, e) => DeleteSelectedItems();
             this.Controls.Add(btnDelete);
 
             this.Shown += (s, e) => RefreshEntries();
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
+        }
+
+        private void ToggleSelectedItems() {
+            if (lvStartup.SelectedItems.Count == 0) return;
+            var selectedList = new List<StartupItem>();
+            foreach (ListViewItem lvi in lvStartup.SelectedItems) {
+                if (lvi.Tag is StartupItem item) {
+                    selectedList.Add(item);
+                }
+            }
+            if (selectedList.Count == 0) return;
+
+            int successCount = 0;
+            var failed = new List<string>();
+
+            foreach (var item in selectedList) {
+                if (StartupScanner.ToggleItem(item)) {
+                    successCount++;
+                } else {
+                    failed.Add(item.Name ?? "Unknown");
+                }
+            }
+
+            if (successCount > 0) {
+                RefreshEntries();
+            }
+
+            if (failed.Count > 0) {
+                string msg = failed.Count == 1
+                    ? string.Format("Unable to modify startup state for '{0}'. Administrator privileges may be required.", failed[0])
+                    : string.Format("Unable to modify startup state for {0} items:\n{1}\n\nAdministrator privileges may be required.", failed.Count, string.Join(", ", failed.ToArray()));
+                DarkTheme.ShowStyledMessageBox("Toggle Failed", msg, false);
+            }
+        }
+
+        private void DeleteSelectedItems() {
+            if (lvStartup.SelectedItems.Count == 0) return;
+            var selectedList = new List<StartupItem>();
+            foreach (ListViewItem lvi in lvStartup.SelectedItems) {
+                if (lvi.Tag is StartupItem item) {
+                    selectedList.Add(item);
+                }
+            }
+            if (selectedList.Count == 0) return;
+
+            string confirmMsg = selectedList.Count == 1
+                ? string.Format("Are you sure you want to permanently delete startup entry '{0}'?", selectedList[0].Name)
+                : string.Format("Are you sure you want to permanently delete {0} selected startup entries?", selectedList.Count);
+
+            if (MessageBox.Show(confirmMsg, "Confirm Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) {
+                return;
+            }
+
+            int successCount = 0;
+            var failed = new List<string>();
+            foreach (var item in selectedList) {
+                if (StartupScanner.DeleteItem(item)) {
+                    successCount++;
+                } else {
+                    failed.Add(item.Name ?? "Unknown");
+                }
+            }
+
+            if (successCount > 0) {
+                RefreshEntries();
+            }
+
+            if (failed.Count > 0) {
+                string msg = failed.Count == 1
+                    ? string.Format("Unable to delete startup item '{0}'. Access might be restricted.", failed[0])
+                    : string.Format("Unable to delete {0} startup items:\n{1}\n\nAccess might be restricted.", failed.Count, string.Join(", ", failed.ToArray()));
+                DarkTheme.ShowStyledMessageBox("Delete Failed", msg, false);
+            }
         }
 
         private void RefreshEntries() {

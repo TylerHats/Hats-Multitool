@@ -1285,6 +1285,28 @@ namespace HMT.Tools {
                 return;
             }
 
+            const int WM_RBUTTONDOWN = 0x0204;
+            const int WM_RBUTTONUP = 0x0205;
+            if (m.Msg == WM_RBUTTONDOWN) {
+                int x = unchecked((short)(long)m.LParam);
+                int y = unchecked((short)((long)m.LParam >> 16));
+                ListViewItem hitItem = this.GetItemAt(x, y);
+                if (hitItem != null && hitItem.Selected && this.SelectedItems.Count > 1) {
+                    this.Focus();
+                    m.Result = IntPtr.Zero;
+                    return;
+                }
+            } else if (m.Msg == WM_RBUTTONUP) {
+                int x = unchecked((short)(long)m.LParam);
+                int y = unchecked((short)((long)m.LParam >> 16));
+                ListViewItem hitItem = this.GetItemAt(x, y);
+                if (hitItem != null && hitItem.Selected && this.SelectedItems.Count > 1 && this.ContextMenuStrip != null) {
+                    this.ContextMenuStrip.Show(this, new Point(x, y));
+                    m.Result = IntPtr.Zero;
+                    return;
+                }
+            }
+
             base.WndProc(ref m);
 
             if (m.Msg == WM_PAINT) {
