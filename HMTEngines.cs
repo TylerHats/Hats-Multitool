@@ -611,66 +611,17 @@ namespace HMT.Engines {
     public static class SetupOptionsEngine {
         public static void SetNumLockOn() {
             try {
-                // 1. Logon screen / LocalSystem account
+                // In Windows 10 and 11, InitialKeyboardIndicators must be set to 2147483650 (0x80000002).
+                // Setting 2147483650 on .DEFAULT configures NumLock ON for both the logon screen and newly initialized user profiles.
                 using (var key = Registry.Users.CreateSubKey(@".DEFAULT\Control Panel\Keyboard")) {
-                    if (key != null) key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
+                    if (key != null) key.SetValue("InitialKeyboardIndicators", "2147483650", RegistryValueKind.String);
                 }
 
-                // 2. Current user account
                 using (var key = Registry.CurrentUser.CreateSubKey(@"Control Panel\Keyboard")) {
-                    if (key != null) key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
+                    if (key != null) key.SetValue("InitialKeyboardIndicators", "2147483650", RegistryValueKind.String);
                 }
 
-                // 3. All currently loaded user profiles in HKEY_USERS
-                try {
-                    foreach (string userSid in Registry.Users.GetSubKeyNames()) {
-                        if (!string.IsNullOrEmpty(userSid) && !userSid.EndsWith("_Classes", StringComparison.OrdinalIgnoreCase)) {
-                            using (var key = Registry.Users.OpenSubKey(userSid + @"\Control Panel\Keyboard", true)) {
-                                if (key != null) {
-                                    key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
-                                }
-                            }
-                        }
-                    }
-                } catch { }
-
-                // 4. Default User profile template (C:\Users\Default\NTUSER.DAT)
-                // When new users (domain users or local users) log on for the first time, Windows copies this template.
-                try {
-                    string sysDrive = Environment.GetEnvironmentVariable("SystemDrive") ?? "C:";
-                    string defaultUserDat = Path.Combine(sysDrive, @"Users\Default\NTUSER.DAT");
-                    if (File.Exists(defaultUserDat)) {
-                        var psiLoad = new ProcessStartInfo {
-                            FileName = "reg.exe",
-                            Arguments = string.Format("load HKU\\HMT_DefaultUser \"{0}\"", defaultUserDat),
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        };
-                        using (var pLoad = Process.Start(psiLoad)) {
-                            pLoad?.WaitForExit(4000);
-                        }
-
-                        using (var key = Registry.Users.OpenSubKey(@"HMT_DefaultUser\Control Panel\Keyboard", true)) {
-                            if (key != null) {
-                                key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
-                            }
-                        }
-
-                        var psiUnload = new ProcessStartInfo {
-                            FileName = "reg.exe",
-                            Arguments = "unload HKU\\HMT_DefaultUser",
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        };
-                        using (var pUnload = Process.Start(psiUnload)) {
-                            pUnload?.WaitForExit(4000);
-                        }
-                    }
-                } catch (Exception exDef) {
-                    Logger.Log("Failed setting NumLock in Default User hive: " + exDef.Message, "Warning");
-                }
-
-                Logger.Log("Enabled NumLock on boot, for all existing profiles, and for new profile templates.", "Success");
+                Logger.Log("Configured NumLock on boot and default profile indicators (2147483650).", "Success");
             } catch (Exception ex) {
                 Logger.Log("Failed to set NumLock: " + ex.Message, "Warning");
             }

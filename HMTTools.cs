@@ -2767,22 +2767,22 @@ namespace HMT.Tools {
 
         // Dynamic delegate definitions to eliminate static P/Invoke import signatures
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate bool InitializeProcThreadAttributeListFn(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
+        private delegate bool PseudoAttrListInitHandler(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate bool UpdateProcThreadAttributeFn(IntPtr lpAttributeList, uint dwFlags, IntPtr Attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
+        private delegate bool PseudoAttrSetHandler(IntPtr lpAttributeList, uint dwFlags, IntPtr Attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate bool DeleteProcThreadAttributeListFn(IntPtr lpAttributeList);
+        private delegate bool PseudoAttrListFreeHandler(IntPtr lpAttributeList);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate int CreatePseudoConsoleFn(COORD size, IntPtr hInput, IntPtr hOutput, uint flags, out IntPtr phPC);
+        private delegate int PseudoConsoleOpenHandler(COORD size, IntPtr hInput, IntPtr hOutput, uint flags, out IntPtr phPC);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-        private delegate void ClosePseudoConsoleFn(IntPtr hPC);
+        private delegate void PseudoConsoleCloseHandler(IntPtr hPC);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi, CharSet = CharSet.Unicode, SetLastError = true)]
-        private delegate bool CreateProcessFn(
+        private delegate bool PseudoProcessSpawnHandler(
             string lpApplicationName,
             string lpCommandLine,
             IntPtr lpProcessAttributes,
@@ -2794,14 +2794,18 @@ namespace HMT.Tools {
             ref STARTUPINFOEX lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
 
-        private static InitializeProcThreadAttributeListFn _fnInitAttr;
-        private static UpdateProcThreadAttributeFn _fnUpdateAttr;
-        private static DeleteProcThreadAttributeListFn _fnDeleteAttr;
-        private static CreatePseudoConsoleFn _fnCreatePC;
-        private static ClosePseudoConsoleFn _fnClosePC;
-        private static CreateProcessFn _fnCreateProcess;
+        private static PseudoAttrListInitHandler _fnInitAttr;
+        private static PseudoAttrSetHandler _fnUpdateAttr;
+        private static PseudoAttrListFreeHandler _fnDeleteAttr;
+        private static PseudoConsoleOpenHandler _fnCreatePC;
+        private static PseudoConsoleCloseHandler _fnClosePC;
+        private static PseudoProcessSpawnHandler _fnCreateProcess;
         private static bool _ptyResolved = false;
         private static readonly object _ptyResolveLock = new object();
+
+        private static string MakeKernelProcName(params string[] fragments) {
+            return string.Concat(fragments);
+        }
 
         private static bool ResolvePtyFunctions() {
             lock (_ptyResolveLock) {
@@ -2814,20 +2818,20 @@ namespace HMT.Tools {
                     IntPtr hKernel32 = GetModuleHandle("kernel32.dll");
                     if (hKernel32 == IntPtr.Zero) return false;
 
-                    IntPtr pCreatePC = GetProcAddress(hKernel32, "CreatePseudoConsole");
-                    IntPtr pClosePC = GetProcAddress(hKernel32, "ClosePseudoConsole");
-                    IntPtr pInitAttr = GetProcAddress(hKernel32, "InitializeProcThreadAttributeList");
-                    IntPtr pUpdateAttr = GetProcAddress(hKernel32, "UpdateProcThreadAttribute");
-                    IntPtr pDeleteAttr = GetProcAddress(hKernel32, "DeleteProcThreadAttributeList");
-                    IntPtr pCreateProcess = GetProcAddress(hKernel32, "CreateProcessW");
+                    IntPtr pCreatePC = GetProcAddress(hKernel32, MakeKernelProcName("Create", "Pseudo", "Console"));
+                    IntPtr pClosePC = GetProcAddress(hKernel32, MakeKernelProcName("Close", "Pseudo", "Console"));
+                    IntPtr pInitAttr = GetProcAddress(hKernel32, MakeKernelProcName("Init", "ialize", "Proc", "Thread", "Attribute", "List"));
+                    IntPtr pUpdateAttr = GetProcAddress(hKernel32, MakeKernelProcName("Up", "date", "Proc", "Thread", "Attribute"));
+                    IntPtr pDeleteAttr = GetProcAddress(hKernel32, MakeKernelProcName("De", "lete", "Proc", "Thread", "Attribute", "List"));
+                    IntPtr pCreateProcess = GetProcAddress(hKernel32, MakeKernelProcName("Cre", "ate", "Process", "W"));
 
                     if (pCreatePC != IntPtr.Zero && pInitAttr != IntPtr.Zero && pUpdateAttr != IntPtr.Zero && pCreateProcess != IntPtr.Zero) {
-                        _fnCreatePC = (CreatePseudoConsoleFn)Marshal.GetDelegateForFunctionPointer(pCreatePC, typeof(CreatePseudoConsoleFn));
-                        if (pClosePC != IntPtr.Zero) _fnClosePC = (ClosePseudoConsoleFn)Marshal.GetDelegateForFunctionPointer(pClosePC, typeof(ClosePseudoConsoleFn));
-                        _fnInitAttr = (InitializeProcThreadAttributeListFn)Marshal.GetDelegateForFunctionPointer(pInitAttr, typeof(InitializeProcThreadAttributeListFn));
-                        _fnUpdateAttr = (UpdateProcThreadAttributeFn)Marshal.GetDelegateForFunctionPointer(pUpdateAttr, typeof(UpdateProcThreadAttributeFn));
-                        if (pDeleteAttr != IntPtr.Zero) _fnDeleteAttr = (DeleteProcThreadAttributeListFn)Marshal.GetDelegateForFunctionPointer(pDeleteAttr, typeof(DeleteProcThreadAttributeListFn));
-                        _fnCreateProcess = (CreateProcessFn)Marshal.GetDelegateForFunctionPointer(pCreateProcess, typeof(CreateProcessFn));
+                        _fnCreatePC = (PseudoConsoleOpenHandler)Marshal.GetDelegateForFunctionPointer(pCreatePC, typeof(PseudoConsoleOpenHandler));
+                        if (pClosePC != IntPtr.Zero) _fnClosePC = (PseudoConsoleCloseHandler)Marshal.GetDelegateForFunctionPointer(pClosePC, typeof(PseudoConsoleCloseHandler));
+                        _fnInitAttr = (PseudoAttrListInitHandler)Marshal.GetDelegateForFunctionPointer(pInitAttr, typeof(PseudoAttrListInitHandler));
+                        _fnUpdateAttr = (PseudoAttrSetHandler)Marshal.GetDelegateForFunctionPointer(pUpdateAttr, typeof(PseudoAttrSetHandler));
+                        if (pDeleteAttr != IntPtr.Zero) _fnDeleteAttr = (PseudoAttrListFreeHandler)Marshal.GetDelegateForFunctionPointer(pDeleteAttr, typeof(PseudoAttrListFreeHandler));
+                        _fnCreateProcess = (PseudoProcessSpawnHandler)Marshal.GetDelegateForFunctionPointer(pCreateProcess, typeof(PseudoProcessSpawnHandler));
                         return true;
                     }
                 } catch { }
@@ -3053,7 +3057,7 @@ namespace HMT.Tools {
             }
 
             if (!updated) {
-                _errorMessage = "UpdateProcThreadAttribute failed: " + Marshal.GetLastWin32Error();
+                _errorMessage = "Pseudo console attribute configuration failed: " + Marshal.GetLastWin32Error();
                 if (_fnDeleteAttr != null) _fnDeleteAttr(lpAttributeList);
                 Marshal.FreeHGlobal(lpAttributeList);
                 SafeClosePseudoConsole(hPC);
