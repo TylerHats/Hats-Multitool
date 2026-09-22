@@ -448,21 +448,9 @@ namespace HMT.Engines {
                     uint ret = (uint)(outParams["ReturnValue"] ?? 1);
                     return ret == 0;
                 }
-            } catch {
-                try {
-                    var psi = new ProcessStartInfo {
-                        FileName = "wmic.exe",
-                        Arguments = string.Format("computersystem where caption='{0}' rename '{1}'", Environment.MachineName, newName),
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    };
-                    using (var proc = Process.Start(psi)) {
-                        proc.WaitForExit();
-                        return proc.ExitCode == 0;
-                    }
-                } catch {
-                    return false;
-                }
+            } catch (Exception ex) {
+                Logger.Log("Failed to rename computer: " + ex.Message, "Error");
+                return false;
             }
         }
 
@@ -690,7 +678,7 @@ namespace HMT.Engines {
 
                     var psi = new ProcessStartInfo {
                         FileName = "powershell.exe",
-                        Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + psBatchScript + "\"",
+                        Arguments = "-NoProfile -NonInteractive -Command \"" + psBatchScript + "\"",
                         CreateNoWindow = true,
                         UseShellExecute = false,
                         RedirectStandardOutput = true
@@ -1790,27 +1778,20 @@ namespace HMT.Engines {
 
         public static string ReadOemProductKey() {
             try {
-                var psi = new ProcessStartInfo {
-                    FileName = "wmic.exe",
-                    Arguments = "path softwarelicensingservice get OA3xOriginalProductKey",
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                };
-                using (var proc = Process.Start(psi)) {
-                    string output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit();
-                    var lines = output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var line in lines) {
-                        string trimmed = line.Trim();
-                        if (!string.IsNullOrEmpty(trimmed) && trimmed.IndexOf("OA3xOriginalProductKey", StringComparison.OrdinalIgnoreCase) < 0) {
-                            if (Regex.IsMatch(trimmed, @"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")) {
-                                return trimmed;
+                using (var searcher = new ManagementObjectSearcher("SELECT OA3xOriginalProductKey FROM SoftwareLicensingService")) {
+                    foreach (ManagementObject obj in searcher.Get()) {
+                        object val = obj["OA3xOriginalProductKey"];
+                        if (val != null) {
+                            string key = val.ToString().Trim();
+                            if (Regex.IsMatch(key, @"^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$")) {
+                                return key;
                             }
                         }
                     }
                 }
-            } catch { }
+            } catch (Exception ex) {
+                Logger.Log("Failed to query OEM Product Key via WMI: " + ex.Message, "Warning");
+            }
             return "No OEM Product Key found in BIOS / ACPI MSDM table.";
         }
     }

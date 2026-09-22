@@ -33,11 +33,23 @@ namespace HMT {
 
             // Configure Standard Reliable TLS 1.2 / TLS 1.3 / High Performance Networking
             try {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls | (SecurityProtocolType)12288;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | (SecurityProtocolType)12288;
                 ServicePointManager.DefaultConnectionLimit = 128;
                 ServicePointManager.Expect100Continue = false;
                 ServicePointManager.UseNagleAlgorithm = false;
             } catch { }
+
+            // Check for cleanup-on-exit flag
+            bool cleanupOnExit = false;
+            if (args != null && args.Length > 0) {
+                foreach (var arg in args) {
+                    if (string.Equals(arg, "--cleanup-on-exit", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "--temp-run", StringComparison.OrdinalIgnoreCase)) {
+                        cleanupOnExit = true;
+                        break;
+                    }
+                }
+            }
 
             // Ensure Single Instance / Admin Elevation is active
             if (!NativeMethods.IsAdministrator()) {
@@ -45,6 +57,7 @@ namespace HMT {
                     string exePath = Process.GetCurrentProcess().MainModule.FileName;
                     var psi = new ProcessStartInfo {
                         FileName = exePath,
+                        Arguments = args != null && args.Length > 0 ? string.Join(" ", args) : "",
                         UseShellExecute = true,
                         Verb = "runas"
                     };
@@ -55,7 +68,7 @@ namespace HMT {
                 }
             }
 
-            string version = "6.3.0";
+            string version = "6.3.1";
             try {
                 var asm = Assembly.GetExecutingAssembly();
                 var ver = asm.GetName().Version;
@@ -85,9 +98,10 @@ namespace HMT {
                 }
             } catch { }
 
-            // Check for updates asynchronously in background
+            // Check for updates asynchronously in background (delayed to prevent immediate network beacon on launch)
             Task.Run(async () => {
                 try {
+                    await Task.Delay(3000);
                     Version remoteVer = await UpdateEngine.CheckRemoteVersionAsync();
                     Version localVer;
                     if (remoteVer != null && Version.TryParse(version, out localVer)) {
@@ -123,7 +137,7 @@ namespace HMT {
                 }
             }
 
-            NativeMethods.PerformBackgroundCleanupAndExit();
+            NativeMethods.PerformBackgroundCleanupAndExit(cleanupExe: cleanupOnExit);
             return 0;
         }
 

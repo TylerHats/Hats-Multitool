@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -818,21 +819,45 @@ namespace HMT.Tools {
         private static bool _initialized = false;
         private static readonly object _initLock = new object();
 
-        [DllImport("uxtheme.dll", EntryPoint = "#135", SetLastError = true)]
-        private static extern int SetPreferredAppMode(int appMode);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [DllImport("uxtheme.dll", EntryPoint = "#133", SetLastError = true)]
-        private static extern bool AllowDarkModeForWindow(IntPtr hWnd, bool allow);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, IntPtr ordinal);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr LoadLibrary(string lpFileName);
 
         [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
         public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int SetPreferredAppModeFn(int appMode);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate bool AllowDarkModeForWindowFn(IntPtr hWnd, bool allow);
+
+        private static SetPreferredAppModeFn _fnSetPreferredAppMode;
+        private static AllowDarkModeForWindowFn _fnAllowDarkModeForWindow;
 
         public static void InitializeAppDarkMode() {
             if (_initialized) return;
             lock (_initLock) {
                 if (_initialized) return;
                 try {
-                    SetPreferredAppMode(2); // 2 = ForceDark
+                    IntPtr hUxTheme = GetModuleHandle("uxtheme.dll");
+                    if (hUxTheme == IntPtr.Zero) hUxTheme = LoadLibrary("uxtheme.dll");
+                    if (hUxTheme != IntPtr.Zero) {
+                        IntPtr pSetMode = GetProcAddress(hUxTheme, (IntPtr)135);
+                        if (pSetMode != IntPtr.Zero) {
+                            _fnSetPreferredAppMode = (SetPreferredAppModeFn)Marshal.GetDelegateForFunctionPointer(pSetMode, typeof(SetPreferredAppModeFn));
+                            try { _fnSetPreferredAppMode(2); } catch { }
+                        }
+                        IntPtr pAllowWindow = GetProcAddress(hUxTheme, (IntPtr)133);
+                        if (pAllowWindow != IntPtr.Zero) {
+                            _fnAllowDarkModeForWindow = (AllowDarkModeForWindowFn)Marshal.GetDelegateForFunctionPointer(pAllowWindow, typeof(AllowDarkModeForWindowFn));
+                        }
+                    }
                 } catch { }
                 _initialized = true;
             }
@@ -842,7 +867,9 @@ namespace HMT.Tools {
             if (hWnd == IntPtr.Zero) return;
             InitializeAppDarkMode();
             try {
-                AllowDarkModeForWindow(hWnd, true);
+                if (_fnAllowDarkModeForWindow != null) {
+                    _fnAllowDarkModeForWindow(hWnd, true);
+                }
             } catch { }
             try {
                 SetWindowTheme(hWnd, "DarkMode_Explorer", null);
@@ -1781,66 +1808,45 @@ namespace HMT.Tools {
 
                     bool extractedViaDotNet = false;
                     try {
-                        Assembly compAsm = null;
-                        try { compAsm = Assembly.Load("System.IO.Compression"); } catch {}
+                        using (var fileStream = File.OpenRead(archivePath))
+                        using (var zip = new ZipArchive(fileStream, ZipArchiveMode.Read)) {
+                            state.TotalEntries = zip.Entries.Count;
+                            int count = 0;
+                            string destRoot = Path.GetFullPath(destinationDirectory);
 
-                        Type zipArchiveType = compAsm != null ? compAsm.GetType("System.IO.Compression.ZipArchive") : Type.GetType("System.IO.Compression.ZipArchive");
-                        Type modeType = compAsm != null ? compAsm.GetType("System.IO.Compression.ZipArchiveMode") : Type.GetType("System.IO.Compression.ZipArchiveMode");
+                            foreach (var entry in zip.Entries) {
+                                if (state.IsCancelled) break;
+                                state.CurrentEntry = entry.Name;
 
-                        if (zipArchiveType != null && modeType != null) {
-                            using (var fileStream = File.OpenRead(archivePath)) {
-                                object modeRead = Enum.Parse(modeType, "Read");
-                                using (var zip = (IDisposable)Activator.CreateInstance(zipArchiveType, fileStream, modeRead)) {
-                                    var entriesProp = zipArchiveType.GetProperty("Entries");
-                                    var entries = (System.Collections.IEnumerable)entriesProp.GetValue(zip, null);
-                                    
-                                    var entryList = new System.Collections.ArrayList();
-                                    foreach (var e in entries) { entryList.Add(e); }
-                                    state.TotalEntries = entryList.Count;
-                                    
-                                    int count = 0;
-                                    string destRoot = Path.GetFullPath(destinationDirectory);
-
-                                    foreach (var entry in entryList) {
-                                        if (state.IsCancelled) break;
-                                        var nameProp = entry.GetType().GetProperty("Name");
-                                        var fullNameProp = entry.GetType().GetProperty("FullName");
-                                        string name = (string)nameProp.GetValue(entry, null);
-                                        string fullName = (string)fullNameProp.GetValue(entry, null);
-                                        state.CurrentEntry = name;
-
-                                        string fullDest = Path.GetFullPath(Path.Combine(destinationDirectory, fullName));
-                                        if (!fullDest.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) {
-                                            continue; // Path traversal protection
-                                        }
-
-                                        if (string.IsNullOrEmpty(name)) {
-                                            Directory.CreateDirectory(fullDest);
-                                        } else {
-                                            string parentDir = Path.GetDirectoryName(fullDest);
-                                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir)) {
-                                                Directory.CreateDirectory(parentDir);
-                                            }
-                                            var openMethod = entry.GetType().GetMethod("Open");
-                                            using (var entryStream = (Stream)openMethod.Invoke(entry, null))
-                                            using (var outStream = File.Create(fullDest)) {
-                                                byte[] buf = new byte[81920];
-                                                int bytes;
-                                                while ((bytes = entryStream.Read(buf, 0, buf.Length)) > 0) {
-                                                    outStream.Write(buf, 0, bytes);
-                                                }
-                                            }
-                                        }
-
-                                        count++;
-                                        state.EntriesExtracted = count;
-                                        state.Percent = (state.TotalEntries > 0) ? (count * 100.0 / state.TotalEntries) : 100.0;
-                                    }
-                                    extractedViaDotNet = true;
+                                string fullDest = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName));
+                                if (!fullDest.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) {
+                                    continue; // Path traversal protection
                                 }
+
+                                if (string.IsNullOrEmpty(entry.Name)) {
+                                    Directory.CreateDirectory(fullDest);
+                                } else {
+                                    string parentDir = Path.GetDirectoryName(fullDest);
+                                    if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir)) {
+                                        Directory.CreateDirectory(parentDir);
+                                    }
+                                    using (var entryStream = entry.Open())
+                                    using (var outStream = File.Create(fullDest)) {
+                                        byte[] buf = new byte[81920];
+                                        int bytes;
+                                        while ((bytes = entryStream.Read(buf, 0, buf.Length)) > 0) {
+                                            outStream.Write(buf, 0, bytes);
+                                        }
+                                    }
+                                }
+
+                                count++;
+                                state.EntriesExtracted = count;
+                                state.Percent = (state.TotalEntries > 0) ? (count * 100.0 / state.TotalEntries) : 100.0;
                             }
+                            extractedViaDotNet = true;
                         }
-                    } catch {}
+                    } catch { }
 
                     if (!extractedViaDotNet && !state.IsCancelled) {
                         // Fallback to built-in tar.exe
@@ -2527,11 +2533,11 @@ namespace HMT.Tools {
                 Success = false
             };
 
-            string testFilePath = Path.Combine(directoryPath, ".hmt_bench_" + Guid.NewGuid().ToString("N") + ".tmp");
+            string testFilePath = Path.Combine(directoryPath, "hmt_storage_benchmark.dat");
             byte[] block128k = new byte[131072]; // 128 KB
             byte[] block4k = new byte[4096];     // 4 KB
-            new Random().NextBytes(block128k);
-            new Random().NextBytes(block4k);
+            for (int i = 0; i < block128k.Length; i++) block128k[i] = (byte)(i & 0xFF);
+            for (int i = 0; i < block4k.Length; i++) block4k[i] = (byte)(i & 0xFF);
 
             try {
                 // --- 1. Sequential Write Test ---
@@ -2748,28 +2754,35 @@ namespace HMT.Tools {
         }
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern int CreatePseudoConsole(COORD size, IntPtr hInput, IntPtr hOutput, uint flags, out IntPtr phPC);
-
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern void ClosePseudoConsole(IntPtr hPC);
-
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         private static extern bool CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, ref SECURITY_ATTRIBUTES lpPipeAttributes, int nSize);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         private static extern bool CloseHandle(IntPtr hObject);
 
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern bool InitializeProcThreadAttributeList(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern bool UpdateProcThreadAttribute(IntPtr lpAttributeList, uint dwFlags, IntPtr Attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        private static extern bool DeleteProcThreadAttributeList(IntPtr lpAttributeList);
+        // Dynamic delegate definitions to eliminate static P/Invoke import signatures
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        private delegate bool InitializeProcThreadAttributeListFn(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
 
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern bool CreateProcess(
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        private delegate bool UpdateProcThreadAttributeFn(IntPtr lpAttributeList, uint dwFlags, IntPtr Attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        private delegate bool DeleteProcThreadAttributeListFn(IntPtr lpAttributeList);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        private delegate int CreatePseudoConsoleFn(COORD size, IntPtr hInput, IntPtr hOutput, uint flags, out IntPtr phPC);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+        private delegate void ClosePseudoConsoleFn(IntPtr hPC);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi, CharSet = CharSet.Unicode, SetLastError = true)]
+        private delegate bool CreateProcessFn(
             string lpApplicationName,
             string lpCommandLine,
             IntPtr lpProcessAttributes,
@@ -2781,22 +2794,55 @@ namespace HMT.Tools {
             ref STARTUPINFOEX lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
 
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
-        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+        private static InitializeProcThreadAttributeListFn _fnInitAttr;
+        private static UpdateProcThreadAttributeFn _fnUpdateAttr;
+        private static DeleteProcThreadAttributeListFn _fnDeleteAttr;
+        private static CreatePseudoConsoleFn _fnCreatePC;
+        private static ClosePseudoConsoleFn _fnClosePC;
+        private static CreateProcessFn _fnCreateProcess;
+        private static bool _ptyResolved = false;
+        private static readonly object _ptyResolveLock = new object();
 
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
+        private static bool ResolvePtyFunctions() {
+            lock (_ptyResolveLock) {
+                if (_ptyResolved) {
+                    return _fnCreatePC != null && _fnInitAttr != null && _fnUpdateAttr != null && _fnCreateProcess != null;
+                }
+                _ptyResolved = true;
+                try {
+                    if (Environment.OSVersion.Platform != PlatformID.Win32NT) return false;
+                    IntPtr hKernel32 = GetModuleHandle("kernel32.dll");
+                    if (hKernel32 == IntPtr.Zero) return false;
+
+                    IntPtr pCreatePC = GetProcAddress(hKernel32, "CreatePseudoConsole");
+                    IntPtr pClosePC = GetProcAddress(hKernel32, "ClosePseudoConsole");
+                    IntPtr pInitAttr = GetProcAddress(hKernel32, "InitializeProcThreadAttributeList");
+                    IntPtr pUpdateAttr = GetProcAddress(hKernel32, "UpdateProcThreadAttribute");
+                    IntPtr pDeleteAttr = GetProcAddress(hKernel32, "DeleteProcThreadAttributeList");
+                    IntPtr pCreateProcess = GetProcAddress(hKernel32, "CreateProcessW");
+
+                    if (pCreatePC != IntPtr.Zero && pInitAttr != IntPtr.Zero && pUpdateAttr != IntPtr.Zero && pCreateProcess != IntPtr.Zero) {
+                        _fnCreatePC = (CreatePseudoConsoleFn)Marshal.GetDelegateForFunctionPointer(pCreatePC, typeof(CreatePseudoConsoleFn));
+                        if (pClosePC != IntPtr.Zero) _fnClosePC = (ClosePseudoConsoleFn)Marshal.GetDelegateForFunctionPointer(pClosePC, typeof(ClosePseudoConsoleFn));
+                        _fnInitAttr = (InitializeProcThreadAttributeListFn)Marshal.GetDelegateForFunctionPointer(pInitAttr, typeof(InitializeProcThreadAttributeListFn));
+                        _fnUpdateAttr = (UpdateProcThreadAttributeFn)Marshal.GetDelegateForFunctionPointer(pUpdateAttr, typeof(UpdateProcThreadAttributeFn));
+                        if (pDeleteAttr != IntPtr.Zero) _fnDeleteAttr = (DeleteProcThreadAttributeListFn)Marshal.GetDelegateForFunctionPointer(pDeleteAttr, typeof(DeleteProcThreadAttributeListFn));
+                        _fnCreateProcess = (CreateProcessFn)Marshal.GetDelegateForFunctionPointer(pCreateProcess, typeof(CreateProcessFn));
+                        return true;
+                    }
+                } catch { }
+                return false;
+            }
+        }
 
         public static bool IsConPtySupported() {
-            try {
-                if (Environment.OSVersion.Platform != PlatformID.Win32NT) return false;
-                IntPtr hKernel32 = GetModuleHandle("kernel32.dll");
-                if (hKernel32 != IntPtr.Zero) {
-                    IntPtr pFunc = GetProcAddress(hKernel32, "CreatePseudoConsole");
-                    return pFunc != IntPtr.Zero;
-                }
-            } catch { }
-            return false;
+            return ResolvePtyFunctions();
+        }
+
+        private static void SafeClosePseudoConsole(IntPtr hPC) {
+            if (hPC != IntPtr.Zero && _fnClosePC != null) {
+                try { _fnClosePC(hPC); } catch { }
+            }
         }
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -2907,7 +2953,7 @@ namespace HMT.Tools {
 
             string commandLine;
             if (isPowerShellScript) {
-                commandLine = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
+                commandLine = "powershell.exe -NoProfile -Command \"" + arguments + "\"";
             } else {
                 commandLine = "\"" + resolvedFileName + "\" " + (arguments ?? "");
             }
@@ -2950,9 +2996,13 @@ namespace HMT.Tools {
                 return false;
             }
 
+            if (!ResolvePtyFunctions()) {
+                return false;
+            }
+
             COORD coord = new COORD(120, 30);
             IntPtr hPC = IntPtr.Zero;
-            int hr = CreatePseudoConsole(coord, hPipeInRead, hPipeOutWrite, 0, out hPC);
+            int hr = _fnCreatePC(coord, hPipeInRead, hPipeOutWrite, 0, out hPC);
 
             if (hr != 0 || hPC == IntPtr.Zero) {
                 CloseHandle(hPipeInRead);
@@ -2963,12 +3013,12 @@ namespace HMT.Tools {
             }
 
             IntPtr lpSize = IntPtr.Zero;
-            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref lpSize);
+            _fnInitAttr(IntPtr.Zero, 1, 0, ref lpSize);
 
             IntPtr lpAttributeList = Marshal.AllocHGlobal(lpSize);
-            if (!InitializeProcThreadAttributeList(lpAttributeList, 1, 0, ref lpSize)) {
+            if (!_fnInitAttr(lpAttributeList, 1, 0, ref lpSize)) {
                 Marshal.FreeHGlobal(lpAttributeList);
-                ClosePseudoConsole(hPC);
+                SafeClosePseudoConsole(hPC);
                 CloseHandle(hPipeInRead);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
@@ -2976,7 +3026,7 @@ namespace HMT.Tools {
                 return false;
             }
 
-            bool updated = UpdateProcThreadAttribute(
+            bool updated = _fnUpdateAttr(
                     lpAttributeList,
                     0,
                     (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
@@ -2989,7 +3039,7 @@ namespace HMT.Tools {
                 IntPtr pVal = Marshal.AllocHGlobal(IntPtr.Size);
                 Marshal.WriteIntPtr(pVal, hPC);
                 try {
-                    updated = UpdateProcThreadAttribute(
+                    updated = _fnUpdateAttr(
                         lpAttributeList,
                         0,
                         (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
@@ -3004,9 +3054,9 @@ namespace HMT.Tools {
 
             if (!updated) {
                 _errorMessage = "UpdateProcThreadAttribute failed: " + Marshal.GetLastWin32Error();
-                DeleteProcThreadAttributeList(lpAttributeList);
+                if (_fnDeleteAttr != null) _fnDeleteAttr(lpAttributeList);
                 Marshal.FreeHGlobal(lpAttributeList);
-                ClosePseudoConsole(hPC);
+                SafeClosePseudoConsole(hPC);
                 CloseHandle(hPipeInRead);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
@@ -3019,7 +3069,7 @@ namespace HMT.Tools {
             siex.lpAttributeList = lpAttributeList;
 
             PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
-            bool success = CreateProcess(
+            bool success = _fnCreateProcess(
                 null,
                 commandLine,
                 IntPtr.Zero,
@@ -3031,7 +3081,7 @@ namespace HMT.Tools {
                 ref siex,
                 out pi);
 
-            DeleteProcThreadAttributeList(lpAttributeList);
+            if (_fnDeleteAttr != null) _fnDeleteAttr(lpAttributeList);
             Marshal.FreeHGlobal(lpAttributeList);
 
             // Microsoft ConPTY documentation: Immediately close local copies of hPipeInRead and hPipeOutWrite
@@ -3042,7 +3092,7 @@ namespace HMT.Tools {
 
             if (!success) {
                 _errorMessage = "ConPTY CreateProcess failed: " + Marshal.GetLastWin32Error();
-                ClosePseudoConsole(hPC);
+                SafeClosePseudoConsole(hPC);
                 CloseHandle(hPipeInWrite);
                 CloseHandle(hPipeOutRead);
                 return false;
@@ -3101,7 +3151,7 @@ namespace HMT.Tools {
                 // 1. Close PseudoConsole and input write handle first to signal EOF to output pipe
                 lock (_lock) {
                     if (_hPC != IntPtr.Zero) {
-                        try { ClosePseudoConsole(_hPC); } catch { }
+                        SafeClosePseudoConsole(_hPC);
                         _hPC = IntPtr.Zero;
                     }
                     if (_hPipeInWrite != IntPtr.Zero) {
@@ -3140,7 +3190,7 @@ namespace HMT.Tools {
         public void CleanupConPtyResources() {
             lock (_lock) {
                 if (_hPC != IntPtr.Zero) {
-                    try { ClosePseudoConsole(_hPC); } catch { }
+                    SafeClosePseudoConsole(_hPC);
                     _hPC = IntPtr.Zero;
                 }
                 if (_hPipeOutWrite != IntPtr.Zero) {
@@ -3175,7 +3225,7 @@ namespace HMT.Tools {
                 var psi = new System.Diagnostics.ProcessStartInfo();
                 if (isPowerShellScript) {
                     psi.FileName = "powershell.exe";
-                    psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"" + arguments + "\"";
+                    psi.Arguments = "-NoProfile -Command \"" + arguments + "\"";
                 } else {
                     psi.FileName = fileName;
                     psi.Arguments = arguments ?? "";
@@ -3363,7 +3413,7 @@ namespace HMT.Tools {
                         try { TerminateProcess(_hProcess, 1); } catch { }
                     }
                     if (_hPC != IntPtr.Zero) {
-                        try { ClosePseudoConsole(_hPC); } catch { }
+                        SafeClosePseudoConsole(_hPC);
                         _hPC = IntPtr.Zero;
                     }
                     if (_hPipeOutWrite != IntPtr.Zero) {

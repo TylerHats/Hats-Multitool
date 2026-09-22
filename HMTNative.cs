@@ -84,11 +84,11 @@ namespace HMT {
             }
         }
 
-        public static void CleanupAndExit(string appDir = null, string irmTarget = null) {
-            PerformBackgroundCleanupAndExit(appDir, irmTarget);
+        public static void CleanupAndExit(string appDir = null, string irmTarget = null, bool cleanupExe = false) {
+            PerformBackgroundCleanupAndExit(appDir, irmTarget, cleanupExe);
         }
 
-        public static void PerformBackgroundCleanupAndExit(string appDir = null, string irmTarget = null) {
+        public static void PerformBackgroundCleanupAndExit(string appDir = null, string irmTarget = null, bool cleanupExe = false) {
             try {
                 foreach (System.Windows.Forms.Form form in System.Windows.Forms.Application.OpenForms) {
                     try { form.Hide(); } catch { }
@@ -104,34 +104,46 @@ namespace HMT {
                     ? irmTarget
                     : System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
-                bool isDownloads = exePath.IndexOf("Downloads", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   exePath.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   exePath.IndexOf("Hats-Multitool", StringComparison.OrdinalIgnoreCase) >= 0;
+                // Only clean up the executable if explicitly instructed via flag (--cleanup-on-exit / --temp-run)
+                // or if an explicit irmTarget was passed. Never delete during standard or sandbox runs.
+                if (cleanupExe || !string.IsNullOrEmpty(irmTarget)) {
+                    string batPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hmt_cleanup_" + Guid.NewGuid().ToString("N") + ".bat");
+                    string batContent = string.Format(
+                        "@echo off\r\n" +
+                        "timeout /t 2 /nobreak >nul\r\n" +
+                        "if exist \"{0}\" del /f /q \"{0}\"\r\n" +
+                        "if exist \"{1}\" rmdir /s /q \"{1}\"\r\n" +
+                        "del \"%~f0\"\r\n",
+                        exePath, hmtLocalDir
+                    );
+                    System.IO.File.WriteAllText(batPath, batContent);
 
-                string delExePart = isDownloads ? string.Format("(if exist \"{0}\" del /f /q \"{0}\" 2>nul) & ", exePath) : "";
-                string checkExePart = isDownloads ? string.Format("if not exist \"{0}\" ", exePath) : "";
-
-                // Background cmd monitor loop up to 40 retries (~40s) until folder and downloaded exe are removed
-                string cmdArgs = string.Format(
-                    "/c \"for /l %x in (1,1,40) do ((if exist \"{0}\" rmdir /s /q \"{0}\" 2>nul) & {1}if not exist \"{0}\" {2}exit || timeout /t 1 /nobreak >nul)\"",
-                    hmtLocalDir, delExePart, checkExePart
-                );
-
-                var psi = new System.Diagnostics.ProcessStartInfo {
-                    FileName = "cmd.exe",
-                    Arguments = cmdArgs,
-                    CreateNoWindow = true,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                    UseShellExecute = false
-                };
-                System.Diagnostics.Process.Start(psi);
+                    var psi = new System.Diagnostics.ProcessStartInfo {
+                        FileName = "cmd.exe",
+                        Arguments = string.Format("/c \"{0}\"", batPath),
+                        CreateNoWindow = true,
+                        WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                        UseShellExecute = false
+                    };
+                    System.Diagnostics.Process.Start(psi);
+                } else {
+                    // Standard exit: Clean up temporary runtime directory if needed, preserving the main executable
+                    if (System.IO.Directory.Exists(hmtLocalDir)) {
+                        try {
+                            string extPrograms = System.IO.Path.Combine(hmtLocalDir, "ExtPrograms");
+                            if (System.IO.Directory.Exists(extPrograms)) {
+                                System.IO.Directory.Delete(extPrograms, true);
+                            }
+                        } catch { }
+                    }
+                }
             } catch { }
 
             try {
                 System.Windows.Forms.Application.Exit();
             } catch { }
             try {
-                System.Diagnostics.Process.GetCurrentProcess().Kill();
+                Environment.Exit(0);
             } catch { }
         }
 
@@ -155,7 +167,7 @@ namespace HMT {
             } catch { }
 
             try {
-                System.Diagnostics.Process.GetCurrentProcess().Kill();
+                Environment.Exit(0);
             } catch { }
         }
     }

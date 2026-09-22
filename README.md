@@ -37,6 +37,13 @@ Access a curated library of essential sysadmin and maintenance utilities directl
 
 Hat's Multitool is a **single, portable, self-contained standalone executable** with **no installation** required.
 
+### Option 1: PowerShell Quick Launch (Recommended)
+Open PowerShell as Administrator and run:
+```powershell
+irm mt.htsth.app | iex
+```
+
+### Option 2: Standalone Executable
 Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-Multitool/releases)**. The executable is portable and self-updating with EV Code Signing.
 
 ---
@@ -47,7 +54,8 @@ Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-M
 - **`HMTForms.cs`**: Native dark-themed WinForms UI implementations (`MainMenuForm`, `SetupSelectorForm`, `ToolsForm`, `ProgramsForm`, `BloatCleanupForm`, `SpeedTestForm`, `StartupManagerForm`, etc.).
 - **`HMTEngines.cs`**: Core background execution engines (`UpdateEngine`, `TimeZoneEngine`, `AccountEngine`, `BloatCleanupEngine`, `ProgramInstallerEngine`, `SetupOptionsEngine`).
 - **`HMTNative.cs`**: Low-level Win32 P/Invoke interop library for DPI awareness, window theming, and hardware storage descriptor queries.
-- **`HMTTools.cs`**: Custom GDI+ WinForms controls (`DarkButton`, `DarkTextBox`, `DarkTabControl`, `SmoothProgressBar`, `SmoothGraphControl`) and `FastSpeedTestEngine`.
+- **`HMTTools.cs`**: Custom GDI+ WinForms controls (`DarkButton`, `DarkTextBox`, `DarkTabControl`, `SmoothProgressBar`, `SmoothGraphControl`), `FastSpeedTestEngine`, and `ConPtyProcess`.
+- **`OneLineRun.ps1`**: Web downloader and bootstrap runner script for seamless one-liner execution.
 - **`app.manifest`**: Application manifest requesting elevation (`requireAdministrator`) and Per-Monitor V2 DPI awareness.
 
 ---
@@ -59,6 +67,7 @@ To compile the standalone Windows executable from source:
 ```bash
 mcs -target:winexe \
     -platform:anycpu \
+    -optimize+ \
     -win32manifest:app.manifest \
     -win32icon:HMTIcon.ico \
     -r:System.Windows.Forms \
@@ -68,8 +77,10 @@ mcs -target:winexe \
     -r:System.Net.Http \
     -r:System.ServiceProcess \
     -r:System.Management \
+    -resource:HMTIcon.ico,HMTIcon.ico \
     -resource:HMTIcon.png,HMTIcon.png \
     -resource:Splash.png,Splash.png \
+    -resource:AppManifest.json,AppManifest.json \
     -out:Hats-Multitool.exe \
     HMTNative.cs HMTTools.cs HMTEngines.cs HMTForms.cs Program.cs
 ```
