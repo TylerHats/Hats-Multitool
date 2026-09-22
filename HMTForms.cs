@@ -611,10 +611,33 @@ namespace HMT.Forms {
             };
             var zones = TimeZoneEngine.GetAvailableTimeZones();
             cbTimeZones.Items.AddRange(zones.ToArray());
-            string currentZone = TimeZoneEngine.GetCurrentTimeZoneId();
-            int idx = cbTimeZones.Items.IndexOf(currentZone);
-            cbTimeZones.SelectedIndex = idx >= 0 ? idx : (cbTimeZones.Items.Count > 0 ? 0 : -1);
+            int estIdx = cbTimeZones.Items.IndexOf("Eastern Standard Time");
+            int currentIdx = cbTimeZones.Items.IndexOf(TimeZoneEngine.GetCurrentTimeZoneId());
+            if (estIdx >= 0) {
+                cbTimeZones.SelectedIndex = estIdx;
+            } else if (currentIdx >= 0) {
+                cbTimeZones.SelectedIndex = currentIdx;
+            } else if (cbTimeZones.Items.Count > 0) {
+                cbTimeZones.SelectedIndex = 0;
+            }
             this.Controls.Add(cbTimeZones);
+
+            bool userInteracted = false;
+            cbTimeZones.SelectionChangeCommitted += (s, e) => userInteracted = true;
+            cbTimeZones.DropDown += (s, e) => userInteracted = true;
+
+            this.Shown += async (s, e) => {
+                try {
+                    string detected = await TimeZoneEngine.DetectTimeZoneFromIpAsync();
+                    if (!string.IsNullOrEmpty(detected) && !userInteracted && !this.IsDisposed) {
+                        int detectedIdx = cbTimeZones.Items.IndexOf(detected);
+                        if (detectedIdx >= 0) {
+                            cbTimeZones.SelectedIndex = detectedIdx;
+                            lblHeader.Text = "Select System Time Zone (Detected: " + detected + "):";
+                        }
+                    }
+                } catch { }
+            };
 
             chkNtp = new CheckBox {
                 Text = "Configure NTP servers (pool.ntp.org) & resync clock",
@@ -709,14 +732,14 @@ namespace HMT.Forms {
             y += 26;
             var lblUser = new Label { Text = "Username:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblUser);
-            txtUsername = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)) };
+            txtUsername = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)), TabIndex = 0 };
             SetupPlaceholder(txtUsername, "Username", false);
             this.Controls.Add(txtUsername);
 
             y += 36;
             var lblPass = new Label { Text = "Password:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblPass);
-            txtPassword = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(230, 26)) };
+            txtPassword = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(230, 26)), TabIndex = 1 };
             SetupPlaceholder(txtPassword, "Password", true);
             this.Controls.Add(txtPassword);
 
@@ -726,7 +749,8 @@ namespace HMT.Forms {
                 Size = DarkTheme.Scale(new Size(36, 26)),
                 Font = DarkTheme.GetScaledFont(10f),
                 Cursor = Cursors.Hand,
-                UseMnemonic = false
+                UseMnemonic = false,
+                TabStop = false
             };
             DarkTheme.StyleButton(btnPeek, DarkTheme.SurfaceHighlight);
             btnPeek.Click += (s, e) => {
@@ -744,20 +768,20 @@ namespace HMT.Forms {
             y += 36;
             var lblConf = new Label { Text = "Confirm:", ForeColor = DarkTheme.TextMuted, Location = DarkTheme.Scale(new Point(20, y)), Size = DarkTheme.Scale(new Size(120, 20)), Font = DarkTheme.GetScaledFont(10.5f) };
             this.Controls.Add(lblConf);
-            txtConfirm = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)) };
+            txtConfirm = new DarkTextBox { Location = DarkTheme.Scale(new Point(140, y - 2)), Size = DarkTheme.Scale(new Size(270, 26)), TabIndex = 2 };
             SetupPlaceholder(txtConfirm, "Confirm Password", true);
             this.Controls.Add(txtConfirm);
 
             y += 38;
-            chkAutoLogon = new CheckBox { Text = "Configure Automatic Logon", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            chkAutoLogon = new CheckBox { Text = "Configure Automatic Logon", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f), TabIndex = 3 };
             this.Controls.Add(chkAutoLogon);
 
             y += 28;
-            chkAdmin = new CheckBox { Text = "Add to Local Administrators Group", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            chkAdmin = new CheckBox { Text = "Add to Local Administrators Group", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f), TabIndex = 4 };
             this.Controls.Add(chkAdmin);
 
             y += 28;
-            chkNeverExpire = new CheckBox { Text = "Set Password to Never Expire", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f) };
+            chkNeverExpire = new CheckBox { Text = "Set Password to Never Expire", Checked = false, ForeColor = DarkTheme.TextMain, Location = DarkTheme.Scale(new Point(24, y)), Size = DarkTheme.Scale(new Size(390, 24)), Font = DarkTheme.GetScaledFont(10.5f), TabIndex = 5 };
             this.Controls.Add(chkNeverExpire);
 
             y += 30;
@@ -776,7 +800,8 @@ namespace HMT.Forms {
                 Text = "Create / Update Account",
                 Location = DarkTheme.Scale(new Point(20, y)),
                 Size = DarkTheme.Scale(new Size(220, 42)),
-                DialogResult = DialogResult.None
+                DialogResult = DialogResult.None,
+                TabIndex = 6
             };
             DarkTheme.StyleButton(btnCreate, DarkTheme.AccentPurple);
             btnCreate.Click += (s, e) => {
@@ -827,7 +852,8 @@ namespace HMT.Forms {
                 Text = "Close",
                 Location = DarkTheme.Scale(new Point(250, y)),
                 Size = DarkTheme.Scale(new Size(160, 42)),
-                DialogResult = DialogResult.OK
+                DialogResult = DialogResult.OK,
+                TabIndex = 7
             };
             DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
             btnClose.Click += (s, e) => this.Close();
@@ -1134,6 +1160,10 @@ namespace HMT.Forms {
                     return;
                 }
 
+                string domainErr = null;
+                bool domainJoinAttempted = false;
+                bool domainJoinSuccess = false;
+
                 await Task.Run(() => {
                     if (isEdition) {
                         SystemPropertiesEngine.UpgradeToProEdition(productKey);
@@ -1142,12 +1172,24 @@ namespace HMT.Forms {
                         SystemPropertiesEngine.RenameComputer(pcName);
                     }
                     if (isDomain && !string.IsNullOrEmpty(domainName)) {
-                        SystemPropertiesEngine.JoinDomain(domainName);
+                        domainJoinAttempted = true;
+                        domainJoinSuccess = SystemPropertiesEngine.JoinDomain(domainName, out domainErr);
                     }
                     if (isEntra) {
                         SystemPropertiesEngine.OpenWorkplaceSettings();
                     }
                 });
+
+                if (domainJoinAttempted) {
+                    if (domainJoinSuccess) {
+                        DarkTheme.ShowStyledMessageBox("Domain Joined", "Successfully joined the domain '" + domainName + "'. A restart will be required to complete the process.", false);
+                    } else {
+                        DarkTheme.ShowStyledMessageBox("Domain Join Failed", "Failed to join domain '" + domainName + "'.\n\n" + (string.IsNullOrEmpty(domainErr) ? "Please verify network connectivity, domain controller availability, and administrator credentials." : domainErr), false);
+                        btnOK.Text = "OK";
+                        btnOK.Enabled = true;
+                        return;
+                    }
+                }
 
                 this.DialogResult = DialogResult.OK;
                 this.Close();

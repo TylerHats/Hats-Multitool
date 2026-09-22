@@ -98,12 +98,81 @@ namespace HMT.Engines {
             return list;
         }
 
+        private static readonly Dictionary<string, string> IanaToWindowsMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            { "America/New_York", "Eastern Standard Time" },
+            { "America/Detroit", "Eastern Standard Time" },
+            { "America/Kentucky/Louisville", "Eastern Standard Time" },
+            { "America/Kentucky/Monticello", "Eastern Standard Time" },
+            { "America/Indiana/Indianapolis", "Eastern Standard Time" },
+            { "America/Indiana/Vincennes", "Eastern Standard Time" },
+            { "America/Indiana/Winamac", "Eastern Standard Time" },
+            { "America/Indiana/Marengo", "Eastern Standard Time" },
+            { "America/Indiana/Petersburg", "Eastern Standard Time" },
+            { "America/Indiana/Vevay", "Eastern Standard Time" },
+            { "America/Toronto", "Eastern Standard Time" },
+            { "America/Montreal", "Eastern Standard Time" },
+            { "America/Chicago", "Central Standard Time" },
+            { "America/Indiana/Knox", "Central Standard Time" },
+            { "America/Indiana/Tell_City", "Central Standard Time" },
+            { "America/Menominee", "Central Standard Time" },
+            { "America/North_Dakota/Center", "Central Standard Time" },
+            { "America/North_Dakota/New_Salem", "Central Standard Time" },
+            { "America/North_Dakota/Beulah", "Central Standard Time" },
+            { "America/Winnipeg", "Central Standard Time" },
+            { "America/Denver", "Mountain Standard Time" },
+            { "America/Boise", "Mountain Standard Time" },
+            { "America/Edmonton", "Mountain Standard Time" },
+            { "America/Phoenix", "US Mountain Standard Time" },
+            { "America/Los_Angeles", "Pacific Standard Time" },
+            { "America/Vancouver", "Pacific Standard Time" },
+            { "America/Tijuana", "Pacific Standard Time" },
+            { "America/Anchorage", "Alaskan Standard Time" },
+            { "America/Juneau", "Alaskan Standard Time" },
+            { "America/Sitka", "Alaskan Standard Time" },
+            { "America/Metlakatla", "Alaskan Standard Time" },
+            { "America/Nome", "Alaskan Standard Time" },
+            { "America/Yakutat", "Alaskan Standard Time" },
+            { "America/Honolulu", "Hawaiian Standard Time" },
+            { "Europe/London", "GMT Standard Time" },
+            { "Europe/Dublin", "GMT Standard Time" },
+            { "Europe/Paris", "W. Europe Standard Time" },
+            { "Europe/Berlin", "W. Europe Standard Time" },
+            { "Europe/Rome", "W. Europe Standard Time" },
+            { "Europe/Madrid", "W. Europe Standard Time" },
+            { "Europe/Amsterdam", "W. Europe Standard Time" },
+            { "Europe/Brussels", "W. Europe Standard Time" }
+        };
+
         public static string GetCurrentTimeZoneId() {
             try {
                 return TimeZoneInfo.Local.Id;
             } catch {
                 return "Eastern Standard Time";
             }
+        }
+
+        public static async Task<string> DetectTimeZoneFromIpAsync(CancellationToken ct = default(CancellationToken)) {
+            try {
+                using (var client = new HttpClient()) {
+                    client.Timeout = TimeSpan.FromSeconds(2.5);
+                    client.DefaultRequestHeaders.Add("User-Agent", "HMT-Client");
+                    string json = await client.GetStringAsync("http://ip-api.com/json/?fields=timezone");
+                    var match = Regex.Match(json, @"""timezone""\s*:\s*""([^""]+)""");
+                    if (match.Success) {
+                        string iana = match.Groups[1].Value.Trim();
+                        string winId;
+                        if (IanaToWindowsMap.TryGetValue(iana, out winId)) {
+                            return winId;
+                        }
+                        foreach (var tz in TimeZoneInfo.GetSystemTimeZones()) {
+                            if (tz.Id.Equals(iana, StringComparison.OrdinalIgnoreCase)) {
+                                return tz.Id;
+                            }
+                        }
+                    }
+                }
+            } catch { }
+            return null;
         }
 
         public static void SetTimeZone(string timeZoneId) {
@@ -454,17 +523,53 @@ namespace HMT.Engines {
             }
         }
 
-        public static void JoinDomain(string domainName) {
+        public static bool JoinDomain(string domainName) {
+            string err;
+            return JoinDomain(domainName, out err);
+        }
+
+        public static bool JoinDomain(string domainName, out string errorMessage) {
+            errorMessage = string.Empty;
             try {
+                string psCommand = string.Format(
+                    "$ErrorActionPreference = 'Stop'; " +
+                    "try {{ " +
+                    "    Write-Host 'Attempting to join domain: {0}...' -ForegroundColor Cyan; " +
+                    "    Add-Computer -DomainName '{0}' -Credential (Get-Credential) -Restart:$false -Verbose; " +
+                    "    Write-Host 'Successfully joined domain {0}!' -ForegroundColor Green; " +
+                    "    Start-Sleep -Seconds 2; " +
+                    "    exit 0; " +
+                    "}} catch {{ " +
+                    "    Write-Host ('Domain join failed: ' + $_.Exception.Message) -ForegroundColor Red; " +
+                    "    Write-Host 'Press any key to continue...'; " +
+                    "    [Console]::ReadKey() | Out-Null; " +
+                    "    exit 1; " +
+                    "}}", domainName);
+
                 var psi = new ProcessStartInfo {
                     FileName = "powershell.exe",
-                    Arguments = string.Format("-NoProfile -NonInteractive -Command \"Add-Computer -DomainName '{0}' -Credential (Get-Credential) -ErrorAction Stop\"", domainName),
+                    Arguments = "-NoProfile -Command \"" + psCommand + "\"",
                     UseShellExecute = true
                 };
-                Process.Start(psi);
+                using (var proc = Process.Start(psi)) {
+                    if (proc != null) {
+                        proc.WaitForExit();
+                        bool success = (proc.ExitCode == 0);
+                        if (success) {
+                            Logger.Log("Joined domain successfully: " + domainName, "Success");
+                        } else {
+                            errorMessage = "Domain join was cancelled or failed.";
+                            Logger.Log("Domain join failed or cancelled for: " + domainName, "Warning");
+                        }
+                        return success;
+                    }
+                }
             } catch (Exception ex) {
+                errorMessage = ex.Message;
                 Logger.Log("Failed to join domain: " + ex.Message, "Error");
+                return false;
             }
+            return false;
         }
 
         public static void OpenWorkplaceSettings() {
@@ -506,13 +611,66 @@ namespace HMT.Engines {
     public static class SetupOptionsEngine {
         public static void SetNumLockOn() {
             try {
+                // 1. Logon screen / LocalSystem account
                 using (var key = Registry.Users.CreateSubKey(@".DEFAULT\Control Panel\Keyboard")) {
                     if (key != null) key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
                 }
+
+                // 2. Current user account
                 using (var key = Registry.CurrentUser.CreateSubKey(@"Control Panel\Keyboard")) {
                     if (key != null) key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
                 }
-                Logger.Log("Enabled NumLock on boot.", "Success");
+
+                // 3. All currently loaded user profiles in HKEY_USERS
+                try {
+                    foreach (string userSid in Registry.Users.GetSubKeyNames()) {
+                        if (!string.IsNullOrEmpty(userSid) && !userSid.EndsWith("_Classes", StringComparison.OrdinalIgnoreCase)) {
+                            using (var key = Registry.Users.OpenSubKey(userSid + @"\Control Panel\Keyboard", true)) {
+                                if (key != null) {
+                                    key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
+                                }
+                            }
+                        }
+                    }
+                } catch { }
+
+                // 4. Default User profile template (C:\Users\Default\NTUSER.DAT)
+                // When new users (domain users or local users) log on for the first time, Windows copies this template.
+                try {
+                    string sysDrive = Environment.GetEnvironmentVariable("SystemDrive") ?? "C:";
+                    string defaultUserDat = Path.Combine(sysDrive, @"Users\Default\NTUSER.DAT");
+                    if (File.Exists(defaultUserDat)) {
+                        var psiLoad = new ProcessStartInfo {
+                            FileName = "reg.exe",
+                            Arguments = string.Format("load HKU\\HMT_DefaultUser \"{0}\"", defaultUserDat),
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        using (var pLoad = Process.Start(psiLoad)) {
+                            pLoad?.WaitForExit(4000);
+                        }
+
+                        using (var key = Registry.Users.OpenSubKey(@"HMT_DefaultUser\Control Panel\Keyboard", true)) {
+                            if (key != null) {
+                                key.SetValue("InitialKeyboardIndicators", "2", RegistryValueKind.String);
+                            }
+                        }
+
+                        var psiUnload = new ProcessStartInfo {
+                            FileName = "reg.exe",
+                            Arguments = "unload HKU\\HMT_DefaultUser",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        using (var pUnload = Process.Start(psiUnload)) {
+                            pUnload?.WaitForExit(4000);
+                        }
+                    }
+                } catch (Exception exDef) {
+                    Logger.Log("Failed setting NumLock in Default User hive: " + exDef.Message, "Warning");
+                }
+
+                Logger.Log("Enabled NumLock on boot, for all existing profiles, and for new profile templates.", "Success");
             } catch (Exception ex) {
                 Logger.Log("Failed to set NumLock: " + ex.Message, "Warning");
             }
@@ -1067,57 +1225,81 @@ namespace HMT.Engines {
                     }
                     string tempFile = Path.Combine(Path.GetTempPath(), "hmt_installer_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ext);
 
-                    try {
-                        using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
-                        using (var client = new HttpClient(handler)) {
-                            client.Timeout = TimeSpan.FromMinutes(15);
-                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-                            client.DefaultRequestHeaders.Add("Accept", "*/*");
+                    bool downloaded = false;
+                    for (int attempt = 1; attempt <= 3; attempt++) {
+                        ct.ThrowIfCancellationRequested();
+                        if (attempt > 1) {
+                            progress?.Report(new ProgramProgressInfo {
+                                StatusText = phase,
+                                DetailText = string.Format("Connection interrupted. Retrying download (attempt {0}/3)...", attempt),
+                                ProgressPercentage = 10
+                            });
+                            try { File.Delete(tempFile); } catch { }
+                            try { await Task.Delay(2000, ct); } catch (OperationCanceledException) { throw; }
+                        }
 
-                            using (var response = await client.GetAsync(info.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                                response.EnsureSuccessStatusCode();
-                                long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                        try {
+                            using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
+                            using (var client = new HttpClient(handler)) {
+                                client.Timeout = TimeSpan.FromMinutes(15);
+                                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+                                client.DefaultRequestHeaders.Add("Accept", "*/*");
 
-                                using (var stream = await response.Content.ReadAsStreamAsync())
-                                using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
-                                    byte[] buffer = new byte[262144];
-                                    long totalRead = 0;
-                                    long lastBytes = 0;
-                                    int read;
-                                    var swUi = Stopwatch.StartNew();
-                                    var swWindow = Stopwatch.StartNew();
-                                    double speedMbps = 0.0;
+                                using (var response = await client.GetAsync(info.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                    response.EnsureSuccessStatusCode();
+                                    long totalBytes = response.Content.Headers.ContentLength ?? -1L;
 
-                                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
-                                        await fileStream.WriteAsync(buffer, 0, read, ct);
-                                        totalRead += read;
+                                    using (var stream = await response.Content.ReadAsStreamAsync())
+                                    using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                        byte[] buffer = new byte[262144];
+                                        long totalRead = 0;
+                                        long lastBytes = 0;
+                                        int read;
+                                        var swUi = Stopwatch.StartNew();
+                                        var swWindow = Stopwatch.StartNew();
+                                        double speedMbps = 0.0;
 
-                                        if (swUi.ElapsedMilliseconds >= 150) {
-                                            swUi.Restart();
-                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
-                                            long delta = totalRead - lastBytes;
-                                            lastBytes = totalRead;
-                                            swWindow.Restart();
-                                            speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
+                                        while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
+                                            await fileStream.WriteAsync(buffer, 0, read, ct);
+                                            totalRead += read;
 
-                                            double mbRead = Math.Round(totalRead / 1048576.0, 1);
-                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
-                                            int pct = totalBytes > 0 ? (int)((totalRead * 70.0) / totalBytes) : 40;
-                                            string detail = (totalBytes > 0)
-                                                ? string.Format("Downloading... {0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
-                                                : string.Format("Downloading... {0:F1} MB @ {1:F1} Mbps", mbRead, speedMbps);
+                                            if (swUi.ElapsedMilliseconds >= 150) {
+                                                swUi.Restart();
+                                                double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                                long delta = totalRead - lastBytes;
+                                                lastBytes = totalRead;
+                                                swWindow.Restart();
+                                                speedMbps = ((delta * 8.0) / 1048576.0) / winSec;
 
-                                            progress?.Report(new ProgramProgressInfo {
-                                                StatusText = phase,
-                                                DetailText = detail,
-                                                ProgressPercentage = pct
-                                            });
+                                                double mbRead = Math.Round(totalRead / 1048576.0, 1);
+                                                double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                                int pct = totalBytes > 0 ? (int)((totalRead * 70.0) / totalBytes) : 40;
+                                                string detail = (totalBytes > 0)
+                                                    ? string.Format("Downloading... {0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
+                                                    : string.Format("Downloading... {0:F1} MB @ {1:F1} Mbps", mbRead, speedMbps);
+
+                                                progress?.Report(new ProgramProgressInfo {
+                                                    StatusText = phase,
+                                                    DetailText = detail,
+                                                    ProgressPercentage = pct
+                                                });
+                                            }
                                         }
                                     }
                                 }
                             }
+                            downloaded = true;
+                            break;
+                        } catch (OperationCanceledException) {
+                            try { File.Delete(tempFile); } catch { }
+                            throw;
+                        } catch (Exception ex) {
+                            Logger.Log(string.Format("Direct download attempt {0}/3 failed for {1}: {2}", attempt, item.Name, ex.Message), "Warning");
+                            try { File.Delete(tempFile); } catch { }
                         }
+                    }
 
+                    if (downloaded && File.Exists(tempFile)) {
                         ct.ThrowIfCancellationRequested();
 
                         // 3. Direct Execution
@@ -1177,11 +1359,6 @@ namespace HMT.Engines {
                             ProgressPercentage = 100
                         });
                         return true;
-                    } catch (OperationCanceledException) {
-                        try { File.Delete(tempFile); } catch { }
-                        throw;
-                    } catch {
-                        try { File.Delete(tempFile); } catch { }
                     }
                 }
 
@@ -1250,193 +1427,225 @@ namespace HMT.Engines {
             } else {
                 // Download office payload from CDN with authentication token
                 if (!File.Exists(zipPath)) {
-                    progress?.Report(new BloatProgressInfo {
-                        Status = "Starting " + displayName + " download...",
-                        Detail = "Connecting to CDN...",
-                        ProgressPercentage = 5
-                    });
-
-                    try {
-                        try {
-                            ServicePointManager.DefaultConnectionLimit = 64;
-                            ServicePointManager.UseNagleAlgorithm = false;
-                            ServicePointManager.Expect100Continue = false;
-                            var sp = ServicePointManager.FindServicePoint(new Uri(cdnUrl));
-                            sp.ConnectionLimit = 64;
-                            sp.UseNagleAlgorithm = false;
-                            sp.Expect100Continue = false;
-                        } catch { }
-
-                        using (var handler = new HttpClientHandler {
-                            AutomaticDecompression = DecompressionMethods.None,
-                            MaxConnectionsPerServer = 64
-                        })
-                        using (var client = new HttpClient(handler)) {
-                        client.Timeout = TimeSpan.FromMinutes(30);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-
-                        // 1. Probe CDN for Content-Length and Range support
-                        long totalBytes = -1L;
-                        bool supportsRange = false;
-                        try {
-                            var headReq = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
-                            headReq.Headers.Add("X-HMT-Token", "HMTDAT1");
-                            headReq.Headers.Range = new RangeHeaderValue(0, 0);
-                            using (var probeResp = await client.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                                if (probeResp.StatusCode == HttpStatusCode.PartialContent) {
-                                    supportsRange = true;
-                                    totalBytes = probeResp.Content.Headers.ContentRange?.Length ?? -1L;
-                                } else if (probeResp.IsSuccessStatusCode) {
-                                    totalBytes = probeResp.Content.Headers.ContentLength ?? -1L;
-                                }
+                    bool downloadedOffice = false;
+                    for (int oAttempt = 1; oAttempt <= 3; oAttempt++) {
+                        ct.ThrowIfCancellationRequested();
+                        if (oAttempt > 1) {
+                            progress?.Report(new BloatProgressInfo {
+                                Status = "CDN connection interrupted...",
+                                Detail = string.Format("Retrying {0} download (attempt {1}/3)...", displayName, oAttempt),
+                                ProgressPercentage = 5
+                            });
+                            try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
+                            for (int w = 0; w < 16; w++) {
+                                try { string p = zipPath + ".part" + w; if (File.Exists(p)) File.Delete(p); } catch { }
                             }
-                        } catch { }
+                            try { await Task.Delay(2500, ct); } catch (OperationCanceledException) { throw; }
+                        }
 
-                        int workerCount = (supportsRange && totalBytes > 50 * 1024 * 1024) ? 12 : 1;
+                        progress?.Report(new BloatProgressInfo {
+                            Status = "Starting " + displayName + " download...",
+                            Detail = "Connecting to CDN...",
+                            ProgressPercentage = 5
+                        });
 
-                        if (workerCount > 1) {
-                            // Multi-Part Parallel Range Downloader with independent part files (zero disk contention)
-                            long chunkSize = (totalBytes + workerCount - 1) / workerCount;
-                            long totalRead = 0;
-                            long lastBytes = 0;
-                            var swWindow = Stopwatch.StartNew();
-                            var swUi = Stopwatch.StartNew();
-                            double speedMbps = 0.0;
-                            object syncObj = new object();
+                        try {
+                            try {
+                                ServicePointManager.DefaultConnectionLimit = 64;
+                                ServicePointManager.UseNagleAlgorithm = false;
+                                ServicePointManager.Expect100Continue = false;
+                                var sp = ServicePointManager.FindServicePoint(new Uri(cdnUrl));
+                                sp.ConnectionLimit = 64;
+                                sp.UseNagleAlgorithm = false;
+                                sp.Expect100Continue = false;
+                            } catch { }
 
-                            var downloadTasks = new List<Task>();
-                            for (int w = 0; w < workerCount; w++) {
-                                int workerIndex = w;
-                                long start = workerIndex * chunkSize;
-                                long end = Math.Min(totalBytes - 1, start + chunkSize - 1);
-                                if (start > end) break;
+                            using (var handler = new HttpClientHandler {
+                                AutomaticDecompression = DecompressionMethods.None,
+                                MaxConnectionsPerServer = 64
+                            })
+                            using (var client = new HttpClient(handler)) {
+                                client.Timeout = TimeSpan.FromMinutes(30);
+                                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
 
-                                string partPath = zipPath + ".part" + workerIndex;
+                                // 1. Probe CDN for Content-Length and Range support
+                                long totalBytes = -1L;
+                                bool supportsRange = false;
+                                try {
+                                    var headReq = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                                    headReq.Headers.Add("X-HMT-Token", "HMTDAT1");
+                                    headReq.Headers.Range = new RangeHeaderValue(0, 0);
+                                    using (var probeResp = await client.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                        if (probeResp.StatusCode == HttpStatusCode.PartialContent) {
+                                            supportsRange = true;
+                                            totalBytes = probeResp.Content.Headers.ContentRange?.Length ?? -1L;
+                                        } else if (probeResp.IsSuccessStatusCode) {
+                                            totalBytes = probeResp.Content.Headers.ContentLength ?? -1L;
+                                        }
+                                    }
+                                } catch { }
 
-                                downloadTasks.Add(Task.Run(async () => {
-                                    var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
-                                    req.Headers.Add("X-HMT-Token", "HMTDAT1");
-                                    req.Headers.Range = new RangeHeaderValue(start, end);
+                                int workerCount = (supportsRange && totalBytes > 50 * 1024 * 1024) ? 12 : 1;
 
-                                    using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                                        resp.EnsureSuccessStatusCode();
-                                        using (var stream = await resp.Content.ReadAsStreamAsync())
-                                        using (var fs = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
-                                            byte[] buf = new byte[262144];
-                                            int read;
-                                            while ((read = await stream.ReadAsync(buf, 0, buf.Length, ct)) > 0) {
-                                                await fs.WriteAsync(buf, 0, read, ct);
-                                                long cur = Interlocked.Add(ref totalRead, read);
+                                if (workerCount > 1) {
+                                    // Multi-Part Parallel Range Downloader with independent part files (zero disk contention)
+                                    long chunkSize = (totalBytes + workerCount - 1) / workerCount;
+                                    long totalRead = 0;
+                                    long lastBytes = 0;
+                                    var swWindow = Stopwatch.StartNew();
+                                    var swUi = Stopwatch.StartNew();
+                                    double speedMbps = 0.0;
+                                    object syncObj = new object();
 
-                                                if (swUi.ElapsedMilliseconds >= 120) {
-                                                    lock (syncObj) {
+                                    var downloadTasks = new List<Task>();
+                                    for (int w = 0; w < workerCount; w++) {
+                                        int workerIndex = w;
+                                        long start = workerIndex * chunkSize;
+                                        long end = Math.Min(totalBytes - 1, start + chunkSize - 1);
+                                        if (start > end) break;
+
+                                        string partPath = zipPath + ".part" + workerIndex;
+
+                                        downloadTasks.Add(Task.Run(async () => {
+                                            var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                                            req.Headers.Add("X-HMT-Token", "HMTDAT1");
+                                            req.Headers.Range = new RangeHeaderValue(start, end);
+
+                                            using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                                resp.EnsureSuccessStatusCode();
+                                                using (var stream = await resp.Content.ReadAsStreamAsync())
+                                                using (var fs = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, true)) {
+                                                    byte[] buf = new byte[262144];
+                                                    int read;
+                                                    while ((read = await stream.ReadAsync(buf, 0, buf.Length, ct)) > 0) {
+                                                        await fs.WriteAsync(buf, 0, read, ct);
+                                                        long cur = Interlocked.Add(ref totalRead, read);
+
                                                         if (swUi.ElapsedMilliseconds >= 120) {
-                                                            swUi.Restart();
-                                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
-                                                            long delta = cur - lastBytes;
-                                                            lastBytes = cur;
-                                                            swWindow.Restart();
-                                                            double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
-                                                            speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
+                                                            lock (syncObj) {
+                                                                if (swUi.ElapsedMilliseconds >= 120) {
+                                                                    swUi.Restart();
+                                                                    double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                                                    long delta = cur - lastBytes;
+                                                                    lastBytes = cur;
+                                                                    swWindow.Restart();
+                                                                    double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
+                                                                    speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
 
-                                                            int pct = (int)((cur * 75.0) / totalBytes);
-                                                            double mbRead = Math.Round(cur / 1048576.0, 1);
-                                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
-                                                            string detail = string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps);
+                                                                    int pct = (int)((cur * 75.0) / totalBytes);
+                                                                    double mbRead = Math.Round(cur / 1048576.0, 1);
+                                                                    double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                                                    string detail = string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps);
 
-                                                            progress?.Report(new BloatProgressInfo {
-                                                                Status = "Downloading " + displayName + " (Multi-Stream)...",
-                                                                Detail = detail,
-                                                                ProgressPercentage = pct
-                                                            });
+                                                                    progress?.Report(new BloatProgressInfo {
+                                                                        Status = "Downloading " + displayName + " (Multi-Stream)...",
+                                                                        Detail = detail,
+                                                                        ProgressPercentage = pct
+                                                                    });
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
-                                        }
+                                        }, ct));
                                     }
-                                }, ct));
-                            }
 
-                            await Task.WhenAll(downloadTasks);
+                                    await Task.WhenAll(downloadTasks);
 
-                            // High-speed sequential file assembly
-                            progress?.Report(new BloatProgressInfo {
-                                Status = "Finalizing " + displayName + " download...",
-                                Detail = "Assembling multi-stream package...",
-                                ProgressPercentage = 75
-                            });
+                                    // High-speed sequential file assembly
+                                    progress?.Report(new BloatProgressInfo {
+                                        Status = "Finalizing " + displayName + " download...",
+                                        Detail = "Assembling multi-stream package...",
+                                        ProgressPercentage = 75
+                                    });
 
-                            using (var outputFs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 2097152, true)) {
-                                byte[] mergeBuf = new byte[2097152];
-                                for (int w = 0; w < workerCount; w++) {
-                                    string partPath = zipPath + ".part" + w;
-                                    if (File.Exists(partPath)) {
-                                        using (var partFs = new FileStream(partPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, true)) {
-                                            int r;
-                                            while ((r = await partFs.ReadAsync(mergeBuf, 0, mergeBuf.Length, ct)) > 0) {
-                                                await outputFs.WriteAsync(mergeBuf, 0, r, ct);
+                                    using (var outputFs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 2097152, true)) {
+                                        byte[] mergeBuf = new byte[2097152];
+                                        for (int w = 0; w < workerCount; w++) {
+                                            string partPath = zipPath + ".part" + w;
+                                            if (File.Exists(partPath)) {
+                                                using (var partFs = new FileStream(partPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, true)) {
+                                                    int r;
+                                                    while ((r = await partFs.ReadAsync(mergeBuf, 0, mergeBuf.Length, ct)) > 0) {
+                                                        await outputFs.WriteAsync(mergeBuf, 0, r, ct);
+                                                    }
+                                                }
+                                                try { File.Delete(partPath); } catch { }
                                             }
                                         }
-                                        try { File.Delete(partPath); } catch { }
                                     }
-                                }
-                            }
-                        } else {
-                            // High-speed single-stream fallback
-                            var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
-                            req.Headers.Add("X-HMT-Token", "HMTDAT1");
-                            using (var response = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
-                                response.EnsureSuccessStatusCode();
-                                if (totalBytes <= 0) totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                                } else {
+                                    // High-speed single-stream fallback
+                                    var req = new HttpRequestMessage(HttpMethod.Get, cdnUrl);
+                                    req.Headers.Add("X-HMT-Token", "HMTDAT1");
+                                    using (var response = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)) {
+                                        response.EnsureSuccessStatusCode();
+                                        if (totalBytes <= 0) totalBytes = response.Content.Headers.ContentLength ?? -1L;
 
-                                using (var stream = await response.Content.ReadAsStreamAsync())
-                                using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
-                                    byte[] buffer = new byte[262144];
-                                    long totalRead = 0;
-                                    long lastBytes = 0;
-                                    int read;
-                                    var swUi = Stopwatch.StartNew();
-                                    var swWindow = Stopwatch.StartNew();
-                                    double speedMbps = 0.0;
+                                        using (var stream = await response.Content.ReadAsStreamAsync())
+                                        using (var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 262144, true)) {
+                                            byte[] buffer = new byte[262144];
+                                            long totalRead = 0;
+                                            long lastBytes = 0;
+                                            int read;
+                                            var swUi = Stopwatch.StartNew();
+                                            var swWindow = Stopwatch.StartNew();
+                                            double speedMbps = 0.0;
 
-                                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
-                                        await fileStream.WriteAsync(buffer, 0, read, ct);
-                                        totalRead += read;
+                                            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
+                                                await fileStream.WriteAsync(buffer, 0, read, ct);
+                                                totalRead += read;
 
-                                        if (swUi.ElapsedMilliseconds >= 120) {
-                                            swUi.Restart();
-                                            double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
-                                            long delta = totalRead - lastBytes;
-                                            lastBytes = totalRead;
-                                            swWindow.Restart();
-                                            double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
-                                            speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
+                                                if (swUi.ElapsedMilliseconds >= 120) {
+                                                    swUi.Restart();
+                                                    double winSec = Math.Max(0.05, swWindow.Elapsed.TotalSeconds);
+                                                    long delta = totalRead - lastBytes;
+                                                    lastBytes = totalRead;
+                                                    swWindow.Restart();
+                                                    double instSpeed = ((delta * 8.0) / 1048576.0) / winSec;
+                                                    speedMbps = speedMbps <= 0.0 ? instSpeed : (speedMbps * 0.7 + instSpeed * 0.3);
 
-                                            double mbRead = Math.Round(totalRead / 1048576.0, 1);
-                                            double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
-                                            int pct = totalBytes > 0 ? (int)((totalRead * 75.0) / totalBytes) : 40;
-                                            string detail = (totalBytes > 0)
-                                                ? string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
-                                                : string.Format("{0:F1} MB downloaded @ {1:F1} Mbps", mbRead, speedMbps);
+                                                    double mbRead = Math.Round(totalRead / 1048576.0, 1);
+                                                    double mbTotal = Math.Round(totalBytes / 1048576.0, 1);
+                                                    int pct = totalBytes > 0 ? (int)((totalRead * 75.0) / totalBytes) : 40;
+                                                    string detail = (totalBytes > 0)
+                                                        ? string.Format("{0}% ({1:F1} MB / {2:F1} MB @ {3:F1} Mbps)", pct, mbRead, mbTotal, speedMbps)
+                                                        : string.Format("{0:F1} MB downloaded @ {1:F1} Mbps", mbRead, speedMbps);
 
-                                            progress?.Report(new BloatProgressInfo {
-                                                Status = "Downloading " + displayName + "...",
-                                                Detail = detail,
-                                                ProgressPercentage = pct
-                                            });
+                                                    progress?.Report(new BloatProgressInfo {
+                                                        Status = "Downloading " + displayName + "...",
+                                                        Detail = detail,
+                                                        ProgressPercentage = pct
+                                                    });
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                            }
+
+                            if (File.Exists(zipPath) && new FileInfo(zipPath).Length > 1024 * 1024) {
+                                downloadedOffice = true;
+                                break;
+                            }
+                        } catch (OperationCanceledException) {
+                            try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
+                            for (int w = 0; w < 16; w++) {
+                                try { string p = zipPath + ".part" + w; if (File.Exists(p)) File.Delete(p); } catch { }
+                            }
+                            throw;
+                        } catch (Exception ex) {
+                            Logger.Log(string.Format("Office download attempt {0}/3 failed: {1}", oAttempt, ex.Message), "Warning");
+                            try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
+                            for (int w = 0; w < 16; w++) {
+                                try { string p = zipPath + ".part" + w; if (File.Exists(p)) File.Delete(p); } catch { }
                             }
                         }
                     }
-                    } catch {
-                        try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
-                        for (int w = 0; w < 16; w++) {
-                            try { string p = zipPath + ".part" + w; if (File.Exists(p)) File.Delete(p); } catch { }
-                        }
-                        throw;
+
+                    if (!downloadedOffice) {
+                        throw new InvalidOperationException("Failed to download Office package from CDN after 3 attempts. Please check internet connectivity.");
                     }
                 }
 
