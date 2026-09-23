@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>HatsMultitool</RootNamespace>
+    <AssemblyName>Hats-Multitool</AssemblyName>
+    <ApplicationIcon>HMTIcon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Deterministic>true</Deterministic>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Assembly & PE Version Info -->
+    <Title>Hat's Multitool</Title>
+    <AssemblyTitle>Hat's Multitool</AssemblyTitle>
+    <Product>Hat's Multitool</Product>
+    <Description>System Setup, Maintenance &amp; Diagnostic Utilities</Description>
+    <Company>Hat's Things LLC</Company>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Management" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="HMTIcon.ico">
+      <LogicalName>HMTIcon.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="HMTIcon.png">
+      <LogicalName>HMTIcon.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Splash.png">
+      <LogicalName>Splash.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AppManifest.json">
+      <LogicalName>AppManifest.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

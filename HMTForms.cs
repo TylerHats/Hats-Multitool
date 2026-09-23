@@ -1849,6 +1849,27 @@ namespace HMT.Forms {
             AddCategoryTab("Network & Connectivity", ExternalToolsEngine.GetNetworkTools());
             AddCategoryTab("Viewers & Utilities", ExternalToolsEngine.GetViewerTools());
 
+            var btnFetchOnline = new Button {
+                Text = "🌐 Load Online Tools",
+                Location = DarkTheme.Scale(new Point(18, 460)),
+                Size = DarkTheme.Scale(new Size(175, 38))
+            };
+            DarkTheme.StyleButton(btnFetchOnline, DarkTheme.SurfaceHighlight);
+
+            var lblFetchStatus = new Label {
+                Location = DarkTheme.Scale(new Point(202, 468)),
+                Size = DarkTheme.Scale(new Size(270, 24)),
+                ForeColor = DarkTheme.TextMuted,
+                Font = DarkTheme.GetScaledFont(9.5f),
+                Text = ""
+            };
+
+            btnFetchOnline.Click += async (s, e) => {
+                await LoadOnlineToolsAsync(btnFetchOnline, lblFetchStatus);
+            };
+            this.Controls.Add(btnFetchOnline);
+            this.Controls.Add(lblFetchStatus);
+
             var btnClose = new Button {
                 Text = "Close",
                 Location = DarkTheme.Scale(new Point(652, 460)),
@@ -1877,7 +1898,7 @@ namespace HMT.Forms {
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
 
-        private void AddCategoryTab(string title, List<ExternalToolItem> tools) {
+        private TabPage AddCategoryTab(string title, List<ExternalToolItem> tools) {
             var tab = new TabPage(title) {
                 BackColor = DarkTheme.Background
             };
@@ -1893,11 +1914,13 @@ namespace HMT.Forms {
             lv.Columns.Add("Tool Name", DarkTheme.Scale(240));
             lv.Columns.Add("Description", DarkTheme.Scale(475));
 
-            foreach (var t in tools) {
-                var lvi = new ListViewItem(t.Name);
-                lvi.SubItems.Add(t.Description);
-                lvi.Tag = t;
-                lv.Items.Add(lvi);
+            if (tools != null) {
+                foreach (var t in tools) {
+                    var lvi = new ListViewItem(t.Name);
+                    lvi.SubItems.Add(t.Description);
+                    lvi.Tag = t;
+                    lv.Items.Add(lvi);
+                }
             }
 
             lv.DoubleClick += (s, e) => {
@@ -1908,6 +1931,77 @@ namespace HMT.Forms {
 
             tab.Controls.Add(lv);
             tabControl.TabPages.Add(tab);
+            return tab;
+        }
+
+        private TabPage GetOrCreateCategoryTab(string title) {
+            foreach (TabPage tab in tabControl.TabPages) {
+                if (tab.Text.Equals(title, StringComparison.OrdinalIgnoreCase)) {
+                    return tab;
+                }
+            }
+            return AddCategoryTab(title, new List<ExternalToolItem>());
+        }
+
+        private async Task LoadOnlineToolsAsync(Button btn, Label statusLabel) {
+            btn.Enabled = false;
+            statusLabel.ForeColor = DarkTheme.AccentPurple;
+            statusLabel.Text = "Fetching tools catalog...";
+            try {
+                var tools = await ToolVersionResolver.FetchRemoteToolsCatalogAsync();
+                if (tools == null || tools.Count == 0) {
+                    statusLabel.ForeColor = DarkTheme.AccentDanger;
+                    statusLabel.Text = "No online tools loaded.";
+                    btn.Enabled = true;
+                    return;
+                }
+
+                int addedCount = 0;
+                foreach (var t in tools) {
+                    if (t == null || string.IsNullOrEmpty(t.Category)) continue;
+
+                    var tab = GetOrCreateCategoryTab(t.Category);
+                    if (tab.Controls.Count > 0 && tab.Controls[0] is DarkListView lv) {
+                        bool exists = false;
+                        foreach (ListViewItem existing in lv.Items) {
+                            if (existing.Text.Equals(t.Name, StringComparison.OrdinalIgnoreCase)) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            var lvi = new ListViewItem(t.Name);
+                            lvi.SubItems.Add(t.Description);
+                            lvi.Tag = t;
+                            lv.Items.Add(lvi);
+                            addedCount++;
+                        }
+                    }
+                }
+
+                statusLabel.ForeColor = DarkTheme.AccentSuccess;
+                statusLabel.Text = string.Format("Loaded {0} online tools.", addedCount);
+                btn.Text = "✓ Tools Loaded";
+            } catch (Exception ex) {
+                statusLabel.ForeColor = DarkTheme.AccentDanger;
+                statusLabel.Text = "Error: " + ex.Message;
+                btn.Enabled = true;
+            }
+        }
+
+        private void LaunchStandaloneConsoleTool(string toolName, string target, string arguments) {
+            try {
+                string cmdArgs = string.Format("/k \"title Hat's Multitool - {0} && {1} {2}\"", toolName, target, arguments ?? "");
+                var psi = new ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                Process.Start(psi);
+            } catch (Exception ex) {
+                DarkTheme.ShowStyledMessageBox("Launch Failed", "Failed to launch " + toolName + ":\n" + ex.Message, false);
+            }
         }
 
         private void ExecuteTool(ExternalToolItem tool) {
@@ -1935,7 +2029,7 @@ namespace HMT.Forms {
                             DarkTheme.ShowStyledMessageBox("Launch Failed", "Failed to launch " + tool.Name + ":\n" + ex.Message, false);
                         }
                     } else {
-                        DarkTheme.LaunchModelessForm(() => new CommandRunnerForm(tool.Name, tool.Description, tool.Target, tool.Arguments));
+                        LaunchStandaloneConsoleTool(tool.Name, tool.Target, tool.Arguments);
                     }
                 } else if (tool.ActionType == "Download") {
                     DarkTheme.LaunchModelessForm(() => new DownloadDialogForm(tool.Name, tool.Description, tool.DownloadUrl, tool.ExeInsideArchive));
@@ -2051,7 +2145,7 @@ namespace HMT.Forms {
                     try {
                         var psi = new ProcessStartInfo {
                             FileName = "powershell.exe",
-                            Arguments = "-NoProfile -Command \"Get-Service -Name '*Ninja*' | Stop-Service -Force; Get-WmiObject -Class Win32_Product | Where-Object Name -like '*Ninja*' | ForEach-Object { $_.Uninstall() }\"",
+                            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $s = (Invoke-RestMethod 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1'); Invoke-Expression $s }\"",
                             UseShellExecute = true,
                             Verb = "runas"
                         };
@@ -2060,447 +2154,6 @@ namespace HMT.Forms {
                         DarkTheme.ShowStyledMessageBox("Error", "Failed to run Ninja removal: " + ex.Message, false);
                     }
                     break;
-            }
-        }
-    }
-
-    // --- Command Runner Form with Stage Tracking, Progress Parsing & Smart ETA ---
-    public class CommandRunnerForm : Form {
-        private Label lblTitle;
-        private Label lblDesc;
-        private SmoothProgressBar progressBar;
-        private DarkTextBox txtOutput;
-        private Button btnAbort;
-        private Button btnClose;
-        private ProcessRunnerEngine engine;
-        private readonly DateTime startTime = DateTime.Now;
-        private int currentPercent = 0;
-        private string currentStage = "";
-        private readonly string cmdName;
-        private readonly string cmdArgs;
-        private bool isDetached = false;
-        private bool hasDiskErrors = false;
-        private int currentStageNum = 1;
-        private int totalStages = 3;
-
-        public CommandRunnerForm(string title, string description, string commandName, string arguments) {
-            this.cmdName = commandName ?? "";
-            this.cmdArgs = arguments ?? "";
-            this.Text = title;
-            this.BackColor = DarkTheme.Background;
-            this.AutoScaleDimensions = new SizeF(96F, 96F);
-            this.AutoScaleMode = AutoScaleMode.None;
-            this.ClientSize = DarkTheme.Scale(new Size(680, 480));
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.Icon = DarkTheme.AppIcon;
-            this.Font = DarkTheme.GetScaledFont(12f);
-
-            lblTitle = new Label {
-                Text = title,
-                ForeColor = DarkTheme.TextMain,
-                Location = DarkTheme.Scale(new Point(18, 14)),
-                Size = DarkTheme.Scale(new Size(644, 24)),
-                Font = DarkTheme.GetScaledFont(13f, FontStyle.Bold),
-                UseMnemonic = false
-            };
-            this.Controls.Add(lblTitle);
-
-            lblDesc = new Label {
-                Text = description,
-                ForeColor = DarkTheme.TextMuted,
-                Location = DarkTheme.Scale(new Point(18, 40)),
-                Size = DarkTheme.Scale(new Size(644, 20)),
-                Font = DarkTheme.GetScaledFont(10f),
-                UseMnemonic = false
-            };
-            this.Controls.Add(lblDesc);
-
-            progressBar = new SmoothProgressBar {
-                Location = DarkTheme.Scale(new Point(18, 65)),
-                Size = DarkTheme.Scale(new Size(644, 18)),
-                BorderRadius = DarkTheme.Scale(4),
-                ProgressColor = DarkTheme.AccentPrimary,
-                ProgressColorEnd = DarkTheme.AccentSuccess,
-                ShowShimmer = true,
-                Value = 0
-            };
-            this.Controls.Add(progressBar);
-
-            txtOutput = new DarkTextBox {
-                Location = DarkTheme.Scale(new Point(18, 92)),
-                Size = DarkTheme.Scale(new Size(644, 330)),
-                Multiline = true,
-                ReadOnly = true,
-                ScrollBars = ScrollBars.Vertical,
-                Font = new Font("Consolas", (float)Math.Max(8.0, Math.Round(11.0 * DarkTheme.ScaleFactor)), GraphicsUnit.Pixel)
-            };
-            this.Controls.Add(txtOutput);
-
-            btnAbort = new Button {
-                Text = "Cancel Task",
-                Location = DarkTheme.Scale(new Point(330, 432)),
-                Size = DarkTheme.Scale(new Size(125, 36)),
-                UseMnemonic = false
-            };
-            DarkTheme.StyleButton(btnAbort, DarkTheme.SurfaceHighlight);
-            btnAbort.Click += (s, e) => {
-                if (MessageBox.Show("Are you sure you want to abort the running operation?", "Abort Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
-                    try {
-                        isDetached = false;
-                        if (engine != null) engine.Kill();
-                    } catch { }
-                    this.Close();
-                }
-            };
-            this.Controls.Add(btnAbort);
-
-            btnClose = new Button {
-                Text = "Close (Run in Background)",
-                Location = DarkTheme.Scale(new Point(465, 432)),
-                Size = DarkTheme.Scale(new Size(197, 36)),
-                DialogResult = DialogResult.OK,
-                UseMnemonic = false
-            };
-            DarkTheme.StyleButton(btnClose, DarkTheme.SurfaceHighlight);
-            btnClose.Click += (s, e) => {
-                isDetached = true;
-                this.Close();
-            };
-            this.Controls.Add(btnClose);
-
-            this.FormClosing += (s, e) => {
-                isDetached = true;
-                if (engine != null) {
-                    try { engine.Dispose(); } catch { }
-                }
-            };
-
-            this.Shown += async (s, e) => {
-                await Task.Run(() => {
-                    try {
-                        engine = new ProcessRunnerEngine();
-                        engine.OnLineReceived += line => {
-                            if (isDetached || this.IsDisposed) return;
-                            try {
-                                this.BeginInvoke((Action)(() => {
-                                    UpdateOutput(line);
-                                    ParseProgress(line);
-                                }));
-                            } catch { }
-                        };
-
-                        engine.OnProcessExited += exitCode => {
-                            if (isDetached || this.IsDisposed) return;
-                            try {
-                                this.BeginInvoke((Action)(() => {
-                                    HandleProcessExited(exitCode);
-                                }));
-                            } catch { }
-                        };
-
-                        bool started = engine.Start(cmdName, cmdArgs);
-                        if (!started && !string.IsNullOrEmpty(engine.ErrorMessage)) {
-                            if (!isDetached && !this.IsDisposed) {
-                                this.BeginInvoke((Action)(() => {
-                                    txtOutput.AppendText("Failed to start command: " + engine.ErrorMessage + Environment.NewLine);
-                                }));
-                            }
-                        }
-                    } catch (Exception ex) {
-                        if (!isDetached && !this.IsDisposed) {
-                            try {
-                                this.BeginInvoke((Action)(() => {
-                                    txtOutput.AppendText("\nExecution Error: " + ex.Message + Environment.NewLine);
-                                }));
-                            } catch { }
-                        }
-                    }
-                });
-            };
-
-            this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
-        }
-
-        private bool lastLineWasProgress = false;
-        private int lastLineLength = 0;
-
-        private void UpdateOutput(string line) {
-            if (string.IsNullOrEmpty(line)) return;
-
-            // Check if this line is an in-place verification percentage or stage update
-            bool isProgressLine = (line.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                   (line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                    line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                    Regex.IsMatch(line, @"\b\d{1,3}%"))) ||
-                                  (line.IndexOf('%') >= 0 && (line.IndexOf('[') >= 0 || line.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 || line.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0));
-
-            if (isProgressLine && lastLineWasProgress && txtOutput.TextLength >= lastLineLength) {
-                try {
-                    txtOutput.Select(txtOutput.TextLength - lastLineLength, lastLineLength);
-                    string newText = line + Environment.NewLine;
-                    txtOutput.SelectedText = newText;
-                    lastLineLength = newText.Length;
-                    txtOutput.SelectionStart = txtOutput.TextLength;
-                    txtOutput.ScrollToCaret();
-                    return;
-                } catch { }
-            }
-
-            string toAppend = line + Environment.NewLine;
-            lastLineLength = toAppend.Length;
-            lastLineWasProgress = isProgressLine;
-            txtOutput.AppendText(toAppend);
-        }
-
-        private void HandleProcessExited(int exitCode) {
-            progressBar.ShowShimmer = false;
-            progressBar.Value = 100;
-            btnAbort.Visible = false;
-            btnClose.Text = "Close";
-            DarkTheme.StyleButton(btnClose, DarkTheme.AccentSuccess);
-
-            if (exitCode == 0) {
-                lblDesc.Text = "Operation completed successfully! (Exit Code: 0)";
-                lblDesc.ForeColor = DarkTheme.AccentSuccess;
-            } else {
-                lblDesc.Text = "Command completed with Exit Code: " + exitCode;
-                lblDesc.ForeColor = DarkTheme.AccentDanger;
-            }
-
-            if (hasDiskErrors) {
-                string driveLetter = "C:";
-                var mDrive = Regex.Match(cmdArgs ?? "", @"([A-Za-z]:)");
-                if (mDrive.Success) driveLetter = mDrive.Groups[1].Value.ToUpper();
-
-                if (MessageBox.Show(string.Format("ChkDsk detected file system errors on drive {0}.\n\nWould you like Hat's Multitool to schedule a disk repair check (chkdsk /f) on the next system restart?", driveLetter), "File System Errors Detected", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
-                    try {
-                        var psiFix = new ProcessStartInfo {
-                            FileName = "fsutil.exe",
-                            Arguments = "dirty set " + driveLetter,
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        };
-                        using (var pFix = Process.Start(psiFix)) {
-                            pFix.WaitForExit();
-                        }
-                        DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Drive {0} has been marked dirty. Windows will automatically scan and repair file system errors upon the next system restart.", driveLetter), true);
-                    } catch {
-                        try {
-                            Process.Start(new ProcessStartInfo {
-                                FileName = "cmd.exe",
-                                Arguments = string.Format("/c echo y | chkdsk {0} /f", driveLetter),
-                                CreateNoWindow = true,
-                                UseShellExecute = false
-                            });
-                            DarkTheme.ShowStyledMessageBox("Repair Scheduled", string.Format("Offline repair has been scheduled for drive {0} on next reboot.", driveLetter), true);
-                        } catch { }
-                    }
-                }
-            }
-        }
-
-        private void ParseProgress(string line) {
-            if (string.IsNullOrEmpty(line)) return;
-            string l = line.Trim();
-            bool updated = false;
-
-            // 1. DISM & Feature Enablement Progress & Phase Tracking
-            if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Deployment Image", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/online", StringComparison.OrdinalIgnoreCase) >= 0) {
-                var mDism = Regex.Match(l, @"\[[\s=]*([\d\.]+)%[\s=]*\]");
-                if (!mDism.Success) mDism = Regex.Match(l, @"([\d\.]+)%\s*\]");
-                if (!mDism.Success) mDism = Regex.Match(l, @"\b([\d\.]+)%");
-
-                if (mDism.Success) {
-                    double p;
-                    if (double.TryParse(mDism.Groups[1].Value, out p)) {
-                        currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
-                        updated = true;
-                    }
-                }
-
-                if (cmdArgs.IndexOf("Enable-Feature", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Enabling feature", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = (currentPercent < 50) ? "DISM: Initializing & Verifying Packages" : "DISM: Enabling Feature & Downloading Components";
-                    updated = true;
-                } else if (cmdArgs.IndexOf("RestoreHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Restoring", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    if (currentPercent < 20) {
-                        currentStage = "DISM: Initializing Image Store & Scanning Manifests";
-                    } else if (currentPercent < 50) {
-                        currentStage = "DISM: Scanning Component Store Corruption";
-                    } else if (currentPercent < 85) {
-                        currentStage = "DISM: Downloading Payload & Restoring Components";
-                    } else if (currentPercent < 100) {
-                        currentStage = "DISM: Finalizing Package Installation";
-                    } else {
-                        currentStage = "DISM: Image Health Restore Completed";
-                    }
-                    updated = true;
-                } else if (cmdArgs.IndexOf("ScanHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Scanning", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = (currentPercent < 100) ? "DISM: Scanning Component Store Corruption" : "DISM: Scan Completed";
-                    updated = true;
-                } else if (cmdArgs.IndexOf("CheckHealth", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Checking", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Verifying Image Store Health";
-                    updated = true;
-                } else if (l.IndexOf("completed successfully", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "DISM: Operation Completed Successfully";
-                    currentPercent = 100;
-                    updated = true;
-                }
-            }
-            // 2. SFC Progress & Phase Tracking
-            else if (cmdName.IndexOf("sfc", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Windows Resource Protection", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (l.IndexOf("Beginning system scan", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "SFC: Initializing System Scan";
-                    updated = true;
-                } else if (l.IndexOf("verification phase", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Verification", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "SFC: Verifying System Protected Files";
-                    updated = true;
-                } else if (l.IndexOf("did not find any integrity violations", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "SFC: Scan Complete (No Violations Found)";
-                    currentPercent = 100;
-                    updated = true;
-                } else if (l.IndexOf("found corrupt files and successfully repaired them", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStage = "SFC: Scan Complete (Corrupt Files Repaired)";
-                    currentPercent = 100;
-                    updated = true;
-                }
-
-                var mSfc = Regex.Match(l, @"(?:Verification\s+)?(\d{1,3})%\s*complete", RegexOptions.IgnoreCase);
-                if (!mSfc.Success) mSfc = Regex.Match(l, @"\b(\d{1,3})%");
-                if (mSfc.Success) {
-                    double p;
-                    if (double.TryParse(mSfc.Groups[1].Value, out p)) {
-                        currentPercent = (int)Math.Max(currentPercent, Math.Min(100, Math.Round(p)));
-                        if (string.IsNullOrEmpty(currentStage) || currentStage.StartsWith("Running")) {
-                            currentStage = "SFC: Verifying System Protected Files";
-                        }
-                        updated = true;
-                    }
-                }
-            }
-            // 3. ChkDsk Stage & Progress Tracking
-            else if (cmdName.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0 || l.IndexOf("Stage ", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("chkdsk", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (l.IndexOf("found problems", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    l.IndexOf("Errors found", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    l.IndexOf("Corruption was found", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    l.IndexOf("is dirty", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    l.IndexOf("cannot continue in read-only mode", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    hasDiskErrors = true;
-                }
-
-                if (cmdArgs.IndexOf("/r", StringComparison.OrdinalIgnoreCase) >= 0 || cmdArgs.IndexOf("/scan", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    totalStages = 5;
-                }
-
-                if (l.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStageNum = 1;
-                    currentStage = string.Format("ChkDsk: Stage 1/{0} - Examining Basic File Structure", totalStages);
-                    currentPercent = Math.Max(currentPercent, Math.Max(5, (int)(100.0 / totalStages * 0.15)));
-                    updated = true;
-                } else if (l.IndexOf("Stage 2", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStageNum = 2;
-                    currentStage = string.Format("ChkDsk: Stage 2/{0} - Examining File Name Linkage", totalStages);
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 1.0));
-                    updated = true;
-                } else if (l.IndexOf("Stage 3", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStageNum = 3;
-                    currentStage = string.Format("ChkDsk: Stage 3/{0} - Examining Security Descriptors", totalStages);
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 2.0));
-                    updated = true;
-                } else if (l.IndexOf("Stage 4", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStageNum = 4;
-                    totalStages = 5;
-                    currentStage = "ChkDsk: Stage 4/5 - Scanning User File Data";
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 3.0));
-                    updated = true;
-                } else if (l.IndexOf("Stage 5", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentStageNum = 5;
-                    totalStages = 5;
-                    currentStage = "ChkDsk: Stage 5/5 - Scanning Free Space & Clusters";
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 4.0));
-                    updated = true;
-                }
-
-                if (l.IndexOf("File verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 1.0));
-                    updated = true;
-                } else if (l.IndexOf("Index verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentPercent = Math.Max(currentPercent, (int)(100.0 / totalStages * 2.0));
-                    updated = true;
-                } else if (l.IndexOf("Security descriptor verification completed", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    currentPercent = Math.Max(currentPercent, (totalStages == 3 ? 100 : (int)(100.0 / totalStages * 3.0)));
-                    updated = true;
-                } else if (l.IndexOf("scanned the file system and found no problems", StringComparison.OrdinalIgnoreCase) >= 0 || (currentStageNum >= totalStages && l.IndexOf("verification completed", StringComparison.OrdinalIgnoreCase) >= 0)) {
-                    currentStage = "ChkDsk: File System Check Completed";
-                    currentPercent = 100;
-                    updated = true;
-                }
-
-                var mChkPct = Regex.Match(l, @"\((\d+)%\)");
-                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"(\d+)\s+percent\s+(?:complete|completed)?", RegexOptions.IgnoreCase);
-                if (!mChkPct.Success) mChkPct = Regex.Match(l, @"\b(\d{1,3})%\s*(?:complete|completed)?", RegexOptions.IgnoreCase);
-
-                if (mChkPct.Success) {
-                    int stagePct;
-                    if (int.TryParse(mChkPct.Groups[1].Value, out stagePct) && stagePct >= 0 && stagePct <= 100) {
-                        int stageBase = (currentStageNum - 1) * (100 / totalStages);
-                        int overall = stageBase + (int)(stagePct * (1.0 / totalStages));
-                        currentPercent = Math.Max(currentPercent, Math.Min(99, overall));
-                        updated = true;
-                    }
-                } else {
-                    var mItems = Regex.Match(l, @"(\d+)\s+of\s+(\d+)", RegexOptions.IgnoreCase);
-                    if (mItems.Success) {
-                        double curItem, totItem;
-                        if (double.TryParse(mItems.Groups[1].Value, out curItem) &&
-                            double.TryParse(mItems.Groups[2].Value, out totItem) && totItem > 0) {
-                            double stageFraction = Math.Max(0.0, Math.Min(1.0, curItem / totItem));
-                            int stageBase = (currentStageNum - 1) * (100 / totalStages);
-                            int overall = stageBase + (int)(stageFraction * (100.0 / totalStages));
-                            currentPercent = Math.Max(currentPercent, Math.Min(99, overall));
-                            updated = true;
-                        }
-                    }
-                }
-            }
-            // 4. Generic percentage fallback (ONLY if NOT ChkDsk/SFC/DISM to avoid sub-stage 100% false triggers)
-            else if (!updated) {
-                var mGen = Regex.Match(l, @"\b(\d{1,3})%");
-                if (mGen.Success) {
-                    int p;
-                    if (int.TryParse(mGen.Groups[1].Value, out p) && p >= 0 && p <= 100) {
-                        currentPercent = Math.Max(currentPercent, p);
-                        updated = true;
-                    }
-                }
-            }
-
-            if (updated || currentPercent > 0) {
-                progressBar.Value = Math.Max(0, Math.Min(100, currentPercent));
-                progressBar.ShowShimmer = (currentPercent < 100);
-
-                string etaStr = "Calculating...";
-                if (currentPercent >= 5 && currentPercent < 100) {
-                    double elapsed = (DateTime.Now - startTime).TotalSeconds;
-                    if (elapsed > 3) {
-                        double rate = currentPercent / elapsed;
-                        double rem = (100.0 - currentPercent) / rate;
-                        if (cmdName.IndexOf("dism", StringComparison.OrdinalIgnoreCase) >= 0 && currentPercent < 80) {
-                            rem = Math.Max(rem, (100.0 - currentPercent) * 1.5);
-                        }
-                        if (rem < 60) {
-                            etaStr = string.Format("~{0:F0}s remaining", rem);
-                        } else {
-                            etaStr = string.Format("~{0}m {1:F0}s remaining", (int)(rem / 60), rem % 60);
-                        }
-                    }
-                } else if (currentPercent >= 100) {
-                    etaStr = "Complete";
-                }
-
-                string displayStage = string.IsNullOrEmpty(currentStage) ? "Running Diagnostic Tool..." : currentStage;
-                lblDesc.Text = string.Format("{0}  •  {1}%  •  {2}", displayStage, currentPercent, etaStr);
             }
         }
     }

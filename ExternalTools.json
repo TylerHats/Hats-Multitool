@@ -1,0 +1,156 @@
+{
+  "tools": [
+    {
+      "name": "WizTree",
+      "description": "Scans a selected drive or folder and displays all contents and relative disk space.",
+      "category": "Disk & Storage",
+      "version": "4.32",
+      "url": "https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_32_portable.zip",
+      "exe": "WizTree64.exe"
+    },
+    {
+      "name": "BleachBit",
+      "description": "System and program temporary data cleaner to reclaim drive space.",
+      "category": "Disk & Storage",
+      "version": "6.0.2",
+      "url": "https://download.bleachbit.org/BleachBit-6.0.2-portable.zip",
+      "exe": "bleachbit.exe"
+    },
+    {
+      "name": "Patch Cleaner",
+      "description": "Scans and allows safe removal of orphaned installer/driver store files.",
+      "category": "Disk & Storage",
+      "version": "1.4.2.0",
+      "url": "https://hatsthings.com/MultitoolFiles/PatchCleanerPortable-1-4-2-0.zip",
+      "exe": "PatchCleaner.exe"
+    },
+    {
+      "name": "Display Driver Uninstaller",
+      "description": "Runs Display Driver Uninstaller (DDU) to clean graphics/audio drivers for fresh installs.",
+      "category": "Disk & Storage",
+      "version": "18.1.3.9",
+      "url": "https://hatsthings.com/MultitoolFiles/DDU.zip",
+      "exe": "Display Driver Uninstaller.exe"
+    },
+    {
+      "name": "HDDScan",
+      "description": "Runs HDDScan to verify block health and SMART diagnostics.",
+      "category": "Disk & Storage",
+      "version": "4.1",
+      "url": "https://hatsthings.com/MultitoolFiles/HDDScan-4.1.zip",
+      "exe": "HDDScan.exe"
+    },
+    {
+      "name": "Crystal Disk Mark",
+      "description": "SSD/HDD storage benchmark utility.",
+      "category": "Disk & Storage",
+      "version": "8.0.4c",
+      "url": "https://hatsthings.com/MultitoolFiles/CrystalDiskMark8_0_4c.zip",
+      "exe": "DiskMark64.exe"
+    },
+    {
+      "name": "Crystal Disk Info",
+      "description": "Drive health and temperature monitoring utility.",
+      "category": "Disk & Storage",
+      "version": "9.2.3",
+      "url": "https://hatsthings.com/MultitoolFiles/CrystalDiskInfo9_2_3.zip",
+      "exe": "DiskInfo64.exe"
+    },
+    {
+      "name": "Advanced IP Scanner",
+      "description": "Fast network scanner for remote subnet discovery and device inventory.",
+      "category": "Network & Connectivity",
+      "version": "portable",
+      "url": "https://hatsthings.com/MultitoolFiles/advanced_ip_scanner_portable.exe",
+      "exe": "advanced_ip_scanner_portable.exe"
+    },
+    {
+      "name": "PuTTY",
+      "description": "SSH and Telnet client for Windows.",
+      "category": "Network & Connectivity",
+      "version": "latest",
+      "url": "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe",
+      "exe": "putty.exe"
+    },
+    {
+      "name": "CurrPorts",
+      "description": "Displays all currently opened TCP/IP and UDP ports with process owner details.",
+      "category": "Network & Connectivity",
+      "version": "x64",
+      "url": "https://www.nirsoft.net/utils/cports-x64.zip",
+      "exe": "cports.exe"
+    },
+    {
+      "name": "BlueScreenView",
+      "description": "Memory dump & minidump reader to identify crash causes and BSOD drivers.",
+      "category": "Viewers & Utilities",
+      "version": "x64",
+      "url": "https://www.nirsoft.net/utils/bluescreenview-x64.zip",
+      "exe": "BlueScreenView.exe"
+    },
+    {
+      "name": "USBDeview",
+      "description": "Lists all USB devices currently connected or previously used on this system.",
+      "category": "Viewers & Utilities",
+      "version": "x64",
+      "url": "https://www.nirsoft.net/utils/usbdeview-x64.zip",
+      "exe": "USBDeview.exe"
+    },
+    {
+      "name": "DriverView",
+      "description": "Lists all installed device drivers loaded in the operating system.",
+      "category": "Viewers & Utilities",
+      "version": "x64",
+      "url": "https://www.nirsoft.net/utils/driverview-x64.zip",
+      "exe": "DriverView.exe"
+    },
+    {
+      "name": "UninstallView",
+      "description": "Fast, comprehensive viewer for installed software with batch uninstall options.",
+      "category": "Viewers & Utilities",
+      "version": "x64",
+      "url": "https://www.nirsoft.net/utils/uninstallview-x64.zip",
+      "exe": "UninstallView.exe"
+    },
+    {
+      "name": "DISM++",
+      "description": "Advanced GUI based around DISM for Windows image management and optimization.",
+      "category": "Viewers & Utilities",
+      "version": "10.1.1002.1",
+      "url": "https://hatsthings.com/MultitoolFiles/Dism++10.1.1002.1.zip",
+      "exe": "Dism++x64.exe"
+    },
+    {
+      "name": "ProfileShift",
+      "description": "Collects and migrates user and system profile data for transferring to new machines.",
+      "category": "Viewers & Utilities",
+      "version": "latest",
+      "url": "https://hatsthings.com/MultitoolFiles/ProfileShift.exe",
+      "exe": "ProfileShift.exe"
+    },
+    {
+      "name": "User Profile Wizard",
+      "description": "Migrates user profile data between domains or computers (Profwiz).",
+      "category": "Viewers & Utilities",
+      "version": "Profwiz",
+      "url": "https://hatsthings.com/MultitoolFiles/Profwiz.exe",
+      "exe": "Profwiz.exe"
+    },
+    {
+      "name": "McAfee MCPR Tool",
+      "description": "Official McAfee Consumer Product Removal tool.",
+      "category": "Viewers & Utilities",
+      "version": "MCPR",
+      "url": "https://hatsthings.com/MultitoolFiles/MCPR.exe",
+      "exe": "MCPR.exe"
+    },
+    {
+      "name": "Win11 Upgrade Assistant",
+      "description": "Runs Microsoft Windows 11 Upgrade Assistant.",
+      "category": "Viewers & Utilities",
+      "version": "latest",
+      "url": "https://go.microsoft.com/fwlink/?linkid=2171764",
+      "exe": "Windows11InstallationAssistant.exe"
+    }
+  ]
+}

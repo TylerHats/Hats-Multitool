@@ -1711,8 +1711,90 @@ namespace HMT.Engines {
 
     public static class ToolVersionResolver {
         private static readonly Dictionary<string, ResolvedToolInfo> _cache = new Dictionary<string, ResolvedToolInfo>(StringComparer.OrdinalIgnoreCase);
-        private static bool _manifestFetched = false;
+        private static List<ExternalToolItem> _cachedCatalog = null;
         private static readonly object _lock = new object();
+        private const string PrimaryManifestUrl = "https://raw.githubusercontent.com/TylerHats/Hats-Multitool/main/ExternalTools.json";
+        private const string FallbackManifestUrl = "https://hatsthings.com/MultitoolFiles/ExternalTools.json";
+
+        public static async Task<List<ExternalToolItem>> FetchRemoteToolsCatalogAsync() {
+            lock (_lock) {
+                if (_cachedCatalog != null && _cachedCatalog.Count > 0) {
+                    return _cachedCatalog;
+                }
+            }
+
+            string json = null;
+            // 1. Try raw GitHub repository
+            try {
+                using (var cts = new CancellationTokenSource(5000))
+                using (var client = new HttpClient()) {
+                    client.Timeout = TimeSpan.FromSeconds(5);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                    json = await client.GetStringAsync(PrimaryManifestUrl);
+                }
+            } catch { }
+
+            // 2. Try web server fallback
+            if (string.IsNullOrEmpty(json)) {
+                try {
+                    using (var cts = new CancellationTokenSource(4000))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromSeconds(4);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                        json = await client.GetStringAsync(FallbackManifestUrl);
+                    }
+                } catch { }
+            }
+
+            if (!string.IsNullOrEmpty(json)) {
+                var tools = ParseCatalogJson(json);
+                if (tools != null && tools.Count > 0) {
+                    lock (_lock) {
+                        _cachedCatalog = tools;
+                        foreach (var t in tools) {
+                            _cache[t.Name] = new ResolvedToolInfo {
+                                ToolName = t.Name,
+                                DownloadUrl = t.DownloadUrl,
+                                ExeInsideArchive = t.ExeInsideArchive,
+                                Version = ""
+                            };
+                        }
+                    }
+                    return tools;
+                }
+            }
+
+            return new List<ExternalToolItem>();
+        }
+
+        public static List<ExternalToolItem> ParseCatalogJson(string json) {
+            var result = new List<ExternalToolItem>();
+            if (string.IsNullOrEmpty(json)) return result;
+
+            try {
+                var objectMatches = Regex.Matches(json, @"\{([^{}]+)\}");
+                foreach (Match om in objectMatches) {
+                    string block = om.Groups[1].Value;
+                    var mName = Regex.Match(block, @"""name""\s*:\s*""([^""]+)""");
+                    if (!mName.Success) continue;
+
+                    string name = mName.Groups[1].Value;
+                    var mDesc = Regex.Match(block, @"""description""\s*:\s*""([^""]+)""");
+                    var mCat = Regex.Match(block, @"""category""\s*:\s*""([^""]+)""");
+                    var mUrl = Regex.Match(block, @"""url""\s*:\s*""([^""]+)""");
+                    var mExe = Regex.Match(block, @"""exe""\s*:\s*""([^""]*)""");
+
+                    string desc = mDesc.Success ? mDesc.Groups[1].Value : "";
+                    string cat = mCat.Success ? mCat.Groups[1].Value : "Viewers & Utilities";
+                    string url = mUrl.Success ? mUrl.Groups[1].Value : "";
+                    string exe = mExe.Success ? mExe.Groups[1].Value : "";
+
+                    result.Add(new ExternalToolItem(name, desc, cat, "Download", "", "", url, exe));
+                }
+            } catch { }
+
+            return result;
+        }
 
         public static async Task<ResolvedToolInfo> ResolveToolAsync(string toolName, string currentUrl, string currentExe) {
             if (string.IsNullOrEmpty(toolName)) {
@@ -1721,99 +1803,21 @@ namespace HMT.Engines {
 
             // 1. Check in-memory cache
             lock (_lock) {
-                if (_cache.TryGetValue(toolName, out var cached) && cached != null) {
+                if (_cache.TryGetValue(toolName, out var cached) && cached != null && !string.IsNullOrEmpty(cached.DownloadUrl)) {
                     return cached;
                 }
             }
 
-            // 2. Fast Dynamic Client-Side Scrapers
-            if (toolName.Equals("BleachBit", StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    using (var cts = new CancellationTokenSource(2500))
-                    using (var client = new HttpClient()) {
-                        client.Timeout = TimeSpan.FromSeconds(3);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-                        string html = await client.GetStringAsync("https://www.bleachbit.org/download/windows");
-                        var m = Regex.Match(html, @"https://download\.bleachbit\.org/(?:get/)?(BleachBit-([0-9\.]+)-portable\.zip)", RegexOptions.IgnoreCase);
-                        if (m.Success) {
-                            var info = new ResolvedToolInfo {
-                                ToolName = toolName,
-                                Version = m.Groups[2].Value,
-                                DownloadUrl = "https://download.bleachbit.org/" + m.Groups[1].Value,
-                                ExeInsideArchive = "bleachbit.exe"
-                            };
-                            lock (_lock) { _cache[toolName] = info; }
-                            return info;
-                        }
-                    }
-                } catch { }
-            } else if (toolName.Equals("WizTree", StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    using (var cts = new CancellationTokenSource(2500))
-                    using (var client = new HttpClient()) {
-                        client.Timeout = TimeSpan.FromSeconds(3);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-                        string html = await client.GetStringAsync("https://diskanalyzer.com/download");
-                        var m = Regex.Match(html, @"files/(wiztree_([0-9_]+)_portable\.zip)", RegexOptions.IgnoreCase);
-                        if (m.Success) {
-                            var info = new ResolvedToolInfo {
-                                ToolName = toolName,
-                                Version = m.Groups[2].Value.Replace('_', '.'),
-                                DownloadUrl = "https://antibodysoftware-17031.kxcdn.com/files/" + m.Groups[1].Value,
-                                ExeInsideArchive = "WizTree64.exe"
-                            };
-                            lock (_lock) { _cache[toolName] = info; }
-                            return info;
-                        }
-                    }
-                } catch { }
-            } else if (toolName.IndexOf("Display Driver Uninstaller", StringComparison.OrdinalIgnoreCase) >= 0 || toolName.Equals("DDU", StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    using (var cts = new CancellationTokenSource(2500))
-                    using (var client = new HttpClient()) {
-                        client.Timeout = TimeSpan.FromSeconds(3);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-                        string html = await client.GetStringAsync("https://www.wagnardsoft.com/display-driver-uninstaller-ddu");
-                        var m = Regex.Match(html, @"/content/Download-Display-Driver-Uninstaller-DDU-([0-9]+)", RegexOptions.IgnoreCase);
-                        if (m.Success) {
-                            string rawDigits = m.Groups[1].Value;
-                            string formattedVer = rawDigits;
-                            if (rawDigits.Length >= 5) {
-                                formattedVer = rawDigits.Substring(0, 2) + "." + rawDigits.Substring(2, 1) + "." + rawDigits.Substring(3, 1) + "." + rawDigits.Substring(4);
-                            }
-                            var info = new ResolvedToolInfo {
-                                ToolName = toolName,
-                                Version = formattedVer,
-                                DownloadUrl = currentUrl,
-                                ExeInsideArchive = "Display Driver Uninstaller.exe"
-                            };
-                            lock (_lock) { _cache[toolName] = info; }
-                        }
-                    }
-                } catch { }
-            } else if (toolName.Equals("PuTTY", StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    var info = new ResolvedToolInfo {
-                        ToolName = toolName,
-                        Version = "latest",
-                        DownloadUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe",
-                        ExeInsideArchive = "putty.exe"
-                    };
-                    lock (_lock) { _cache[toolName] = info; }
-                    return info;
-                } catch { }
-            }
-
-            // 3. Remote Central Manifest on hatsthings.com
-            await EnsureManifestLoadedAsync();
+            // 2. Fetch catalog if not loaded
+            await FetchRemoteToolsCatalogAsync();
 
             lock (_lock) {
-                if (_cache.TryGetValue(toolName, out var manifestInfo) && manifestInfo != null) {
+                if (_cache.TryGetValue(toolName, out var manifestInfo) && manifestInfo != null && !string.IsNullOrEmpty(manifestInfo.DownloadUrl)) {
                     return manifestInfo;
                 }
             }
 
-            // 4. Fallback to default
+            // 3. Fallback
             var fallback = new ResolvedToolInfo {
                 ToolName = toolName,
                 DownloadUrl = currentUrl,
@@ -1821,48 +1825,6 @@ namespace HMT.Engines {
             };
             lock (_lock) { _cache[toolName] = fallback; }
             return fallback;
-        }
-
-        private static async Task EnsureManifestLoadedAsync() {
-            if (_manifestFetched) return;
-            _manifestFetched = true;
-
-            try {
-                using (var cts = new CancellationTokenSource(3000))
-                using (var client = new HttpClient()) {
-                    client.Timeout = TimeSpan.FromSeconds(3);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-                    string json = await client.GetStringAsync("https://hatsthings.com/MultitoolFiles/ExternalTools.json");
-                    ParseManifestJson(json);
-                }
-            } catch { }
-        }
-
-        private static void ParseManifestJson(string json) {
-            if (string.IsNullOrEmpty(json)) return;
-            try {
-                var blockMatches = Regex.Matches(json, @"""([^""]+)""\s*:\s*\{([^}]+)\}");
-                foreach (Match bm in blockMatches) {
-                    string tool = bm.Groups[1].Value;
-                    string body = bm.Groups[2].Value;
-
-                    var mUrl = Regex.Match(body, @"""url""\s*:\s*""([^""]+)""");
-                    var mExe = Regex.Match(body, @"""exe""\s*:\s*""([^""]+)""");
-                    var mVer = Regex.Match(body, @"""version""\s*:\s*""([^""]+)""");
-
-                    if (mUrl.Success) {
-                        var info = new ResolvedToolInfo {
-                            ToolName = tool,
-                            DownloadUrl = mUrl.Groups[1].Value,
-                            ExeInsideArchive = mExe.Success ? mExe.Groups[1].Value : "",
-                            Version = mVer.Success ? mVer.Groups[1].Value : ""
-                        };
-                        lock (_lock) {
-                            _cache[tool] = info;
-                        }
-                    }
-                }
-            } catch { }
         }
     }
 
@@ -1877,10 +1839,10 @@ namespace HMT.Engines {
 
         public static List<ExternalToolItem> GetSystemRepairTools() {
             return new List<ExternalToolItem> {
-                new ExternalToolItem("DISM Repair", "Launches DISM image health restore with live progress in a styled console.", "System Repair", "Command", "dism.exe", "/Online /Cleanup-Image /RestoreHealth"),
-                new ExternalToolItem("SFC Repair", "Executes System File Checker (sfc /scannow) in a styled console window.", "System Repair", "Command", "sfc.exe", "/scannow"),
-                new ExternalToolItem("Check Disk (Read Only)", "Runs Check Disk (chkdsk C:) in read-only mode to check for file system errors.", "System Repair", "Command", "chkdsk.exe", "C:"),
-                new ExternalToolItem(".NET 3.5 (Includes v2 and v3)", "Installs .NET Framework 3.5/2.0/3.0 via DISM with live status output.", "System Repair", "Command", "dism.exe", "/Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart"),
+                new ExternalToolItem("DISM Repair", "Launches DISM image health restore in a dedicated console window.", "System Repair", "Command", "dism.exe", "/Online /Cleanup-Image /RestoreHealth"),
+                new ExternalToolItem("SFC Repair", "Executes System File Checker (sfc /scannow) in a dedicated console window.", "System Repair", "Command", "sfc.exe", "/scannow"),
+                new ExternalToolItem("Check Disk (Read Only)", "Runs Check Disk (chkdsk C:) in read-only mode in a dedicated console window.", "System Repair", "Command", "chkdsk.exe", "C:"),
+                new ExternalToolItem(".NET 3.5 (Includes v2 and v3)", "Installs .NET Framework 3.5/2.0/3.0 via DISM in a dedicated console window.", "System Repair", "Command", "dism.exe", "/Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart"),
                 new ExternalToolItem("Windows Update Reset", "Stops update services, clears SoftwareDistribution & catroot2 caches, and resets components.", "System Repair", "InternalDialog", "winupdate_reset"),
                 new ExternalToolItem("Reset HOSTS File to Default", "Resets Windows HOSTS file back to clean Microsoft default (creates a backup .bak).", "System Repair", "Special", "hosts_reset"),
                 new ExternalToolItem("Reset Settings Page Visibility", "Clears SettingsPageVisibility registry policy to unhide blocked Windows Settings pages.", "System Repair", "Special", "settings_visibility")
@@ -1889,15 +1851,8 @@ namespace HMT.Engines {
 
         public static List<ExternalToolItem> GetDiskTools() {
             return new List<ExternalToolItem> {
-                new ExternalToolItem("WizTree", "Scans a selected drive or folder and displays all contents and relative disk space.", "Disk & Storage", "Download", "", "", "https://antibodysoftware-17031.kxcdn.com/files/wiztree_4_32_portable.zip", "WizTree64.exe"),
-                new ExternalToolItem("BleachBit", "System and program temporary data cleaner to reclaim drive space.", "Disk & Storage", "Download", "", "", "https://download.bleachbit.org/BleachBit-6.0.2-portable.zip", "bleachbit.exe"),
-                new ExternalToolItem("Patch Cleaner", "Scans and allows safe removal of orphaned installer/driver store files.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/PatchCleanerPortable-1-4-2-0.zip", "PatchCleaner.exe"),
                 new ExternalToolItem("Windows Disk Cleanup", "Launches the native Windows Disk Cleanup utility.", "Disk & Storage", "Gui", "cleanmgr.exe", ""),
                 new ExternalToolItem("SMART Info & Benchmarking", "Hardware health summary, wearout gauge, temperature, and built-in direct sequential & 4K random speed benchmark.", "Disk & Storage", "InternalDialog", "storage_health"),
-                new ExternalToolItem("Display Driver Uninstaller", "Runs Display Driver Uninstaller (DDU) to clean graphics/audio drivers for fresh installs.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/DDU.zip", "Display Driver Uninstaller.exe"),
-                new ExternalToolItem("HDDScan", "Runs HDDScan to verify block health and SMART diagnostics.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/HDDScan-4.1.zip", "HDDScan.exe"),
-                new ExternalToolItem("Crystal Disk Mark", "SSD/HDD storage benchmark utility.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/CrystalDiskMark8_0_4c.zip", "DiskMark64.exe"),
-                new ExternalToolItem("Crystal Disk Info", "Drive health and temperature monitoring utility.", "Disk & Storage", "Download", "", "", "https://hatsthings.com/MultitoolFiles/CrystalDiskInfo9_2_3.zip", "DiskInfo64.exe"),
                 new ExternalToolItem("BitLocker Management", "Inspect status, enable/disable encryption, manage recovery keys, and unlock locked drives.", "Disk & Storage", "InternalDialog", "bitlocker_manager")
             };
         }
@@ -1907,22 +1862,12 @@ namespace HMT.Engines {
                 new ExternalToolItem("Internet Speed Test", "Native, real-time speed test against Cloudflare Anycast measuring Ping, Jitter, Download, and Upload.", "Network & Connectivity", "InternalDialog", "speed_test"),
                 new ExternalToolItem("Packet Loss & Latency Test", "High-precision async latency & packet loss tester with real-time jitter, loss metrics, and smooth GDI+ graph.", "Network & Connectivity", "InternalDialog", "packet_loss"),
                 new ExternalToolItem("TCP Port & Connection Checker", "Tests IP/hostname reachability and open TCP ports with response time.", "Network & Connectivity", "InternalDialog", "tcp_checker"),
-                new ExternalToolItem("Flush DNS & Reset IP", "Releases/renews IP, flushes DNS client cache, and clears ARP entries.", "Network & Connectivity", "Special", "flush_dns"),
-                new ExternalToolItem("Advanced IP Scanner", "Fast network scanner for remote subnet discovery and device inventory.", "Network & Connectivity", "Download", "", "", "https://hatsthings.com/MultitoolFiles/advanced_ip_scanner_portable.exe", "advanced_ip_scanner_portable.exe"),
-                new ExternalToolItem("PuTTY", "SSH and Telnet client for Windows.", "Network & Connectivity", "Download", "", "", "https://hatsthings.com/MultitoolFiles/putty.exe", "putty.exe"),
-                new ExternalToolItem("CurrPorts", "Displays all currently opened TCP/IP and UDP ports with process owner details.", "Network & Connectivity", "Download", "", "", "https://www.nirsoft.net/utils/cports-x64.zip", "cports.exe")
+                new ExternalToolItem("Flush DNS & Reset IP", "Releases/renews IP, flushes DNS client cache, and clears ARP entries.", "Network & Connectivity", "Special", "flush_dns")
             };
         }
 
         public static List<ExternalToolItem> GetViewerTools() {
             return new List<ExternalToolItem> {
-                new ExternalToolItem("BlueScreenView", "Memory dump & minidump reader to identify crash causes and BSOD drivers.", "Viewers & Utilities", "Download", "", "", "https://www.nirsoft.net/utils/bluescreenview-x64.zip", "BlueScreenView.exe"),
-                new ExternalToolItem("USBDeview", "Lists all USB devices currently connected or previously used on this system.", "Viewers & Utilities", "Download", "", "", "https://www.nirsoft.net/utils/usbdeview-x64.zip", "USBDeview.exe"),
-                new ExternalToolItem("DriverView", "Lists all installed device drivers loaded in the operating system.", "Viewers & Utilities", "Download", "", "", "https://www.nirsoft.net/utils/driverview-x64.zip", "DriverView.exe"),
-                new ExternalToolItem("UninstallView", "Fast, comprehensive viewer for installed software with batch uninstall options.", "Viewers & Utilities", "Download", "", "", "https://www.nirsoft.net/utils/uninstallview-x64.zip", "UninstallView.exe"),
-                new ExternalToolItem("DISM++", "Advanced GUI based around DISM for Windows image management and optimization.", "Viewers & Utilities", "Download", "", "", "https://hatsthings.com/MultitoolFiles/Dism++10.1.1002.1.zip", "Dism++x64.exe"),
-                new ExternalToolItem("ProfileShift", "Collects and migrates user and system profile data for transferring to new machines.", "Viewers & Utilities", "Download", "", "", "https://hatsthings.com/MultitoolFiles/ProfileShift.exe", "ProfileShift.exe"),
-                new ExternalToolItem("User Profile Wizard", "Migrates user profile data between domains or computers (Profwiz).", "Viewers & Utilities", "Download", "", "", "https://hatsthings.com/MultitoolFiles/Profwiz.exe", "Profwiz.exe"),
                 new ExternalToolItem("Generate Battery Report", "Generates and opens a detailed HTML report of laptop battery health and cycle history.", "Viewers & Utilities", "Special", "battery_report"),
                 new ExternalToolItem("Startup & Autoruns Manager", "Inspect, enable, disable, or remove startup applications and registry autorun entries.", "Viewers & Utilities", "InternalDialog", "startup_manager"),
                 new ExternalToolItem("Reliability Monitor", "Opens Windows Reliability Monitor timeline to view crash and software install history.", "Viewers & Utilities", "Gui", "perfmon.exe", "/rel"),
@@ -1930,9 +1875,7 @@ namespace HMT.Engines {
                 new ExternalToolItem("Enable Safe Boot (w/Network)", "Configures BCD to boot into Safe Mode with networking enabled.", "Viewers & Utilities", "Special", "safeboot_net"),
                 new ExternalToolItem("Disable Safe Boot (Normal Boot)", "Removes Safe Boot configuration from BCD and restores normal Windows startup.", "Viewers & Utilities", "Special", "safeboot_disable"),
                 new ExternalToolItem("Restart Windows Explorer", "Forcefully kills and restarts explorer.exe to resolve frozen taskbars or stuck folders.", "Viewers & Utilities", "Special", "restart_explorer"),
-                new ExternalToolItem("McAfee MCPR Tool", "Official McAfee Consumer Product Removal tool.", "Viewers & Utilities", "Download", "", "", "https://hatsthings.com/MultitoolFiles/MCPR.exe", "MCPR.exe"),
-                new ExternalToolItem("Ninja Removal Script", "Launches the NinjaOne Agent removal script.", "Viewers & Utilities", "Special", "ninja_removal"),
-                new ExternalToolItem("Win11 Upgrade Assistant", "Runs Microsoft Windows 11 Upgrade Assistant.", "Viewers & Utilities", "Download", "", "", "https://go.microsoft.com/fwlink/?linkid=2171764", "Windows11InstallationAssistant.exe")
+                new ExternalToolItem("Ninja Removal Script", "Launches the NinjaOne Agent removal script.", "Viewers & Utilities", "Special", "ninja_removal")
             };
         }
 

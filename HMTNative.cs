@@ -104,38 +104,29 @@ namespace HMT {
                     ? irmTarget
                     : System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
-                // Only clean up the executable if explicitly instructed via flag (--cleanup-on-exit / --temp-run)
-                // or if an explicit irmTarget was passed. Never delete during standard or sandbox runs.
-                if (cleanupExe || !string.IsNullOrEmpty(irmTarget)) {
-                    string batPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hmt_cleanup_" + Guid.NewGuid().ToString("N") + ".bat");
-                    string batContent = string.Format(
-                        "@echo off\r\n" +
-                        "timeout /t 2 /nobreak >nul\r\n" +
-                        "if exist \"{0}\" del /f /q \"{0}\"\r\n" +
-                        "if exist \"{1}\" rmdir /s /q \"{1}\"\r\n" +
-                        "del \"%~f0\"\r\n",
-                        exePath, hmtLocalDir
-                    );
-                    System.IO.File.WriteAllText(batPath, batContent);
+                // Clean up temporary downloaded external programs and O365 setup payload directory directly in C#
+                if (System.IO.Directory.Exists(hmtLocalDir)) {
+                    try {
+                        string extPrograms = System.IO.Path.Combine(hmtLocalDir, "ExtPrograms");
+                        if (System.IO.Directory.Exists(extPrograms)) {
+                            System.IO.Directory.Delete(extPrograms, true);
+                        }
+                    } catch { }
+                }
 
-                    var psi = new System.Diagnostics.ProcessStartInfo {
-                        FileName = "cmd.exe",
-                        Arguments = string.Format("/c \"{0}\"", batPath),
-                        CreateNoWindow = true,
-                        WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                        UseShellExecute = false
-                    };
-                    System.Diagnostics.Process.Start(psi);
-                } else {
-                    // Standard exit: Clean up temporary runtime directory if needed, preserving the main executable
-                    if (System.IO.Directory.Exists(hmtLocalDir)) {
-                        try {
-                            string extPrograms = System.IO.Path.Combine(hmtLocalDir, "ExtPrograms");
-                            if (System.IO.Directory.Exists(extPrograms)) {
-                                System.IO.Directory.Delete(extPrograms, true);
-                            }
-                        } catch { }
-                    }
+                // Only clean up the executable if explicitly instructed via flag (--cleanup-on-exit / --temp-run)
+                // or if an explicit irmTarget was passed. Never drop a batch file to disk.
+                if (cleanupExe || !string.IsNullOrEmpty(irmTarget)) {
+                    try {
+                        var psi = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "cmd.exe",
+                            Arguments = string.Format("/c timeout /t 2 /nobreak >nul & if exist \"{0}\" del /f /q \"{0}\"", exePath),
+                            CreateNoWindow = true,
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                            UseShellExecute = false
+                        };
+                        System.Diagnostics.Process.Start(psi);
+                    } catch { }
                 }
             } catch { }
 

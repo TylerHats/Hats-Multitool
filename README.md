@@ -62,28 +62,14 @@ Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-M
 
 ## 📦 Building
 
-To compile the standalone Windows executable from source:
+To compile the standalone Windows executable from source using the .NET SDK:
 
 ```bash
-mcs -target:winexe \
-    -platform:anycpu \
-    -optimize+ \
-    -win32manifest:app.manifest \
-    -win32icon:HMTIcon.ico \
-    -r:System.Windows.Forms \
-    -r:System.Drawing \
-    -r:System.IO.Compression \
-    -r:System.IO.Compression.FileSystem \
-    -r:System.Net.Http \
-    -r:System.ServiceProcess \
-    -r:System.Management \
-    -resource:HMTIcon.ico,HMTIcon.ico \
-    -resource:HMTIcon.png,HMTIcon.png \
-    -resource:Splash.png,Splash.png \
-    -resource:AppManifest.json,AppManifest.json \
-    -out:Hats-Multitool.exe \
-    HMTNative.cs HMTTools.cs HMTEngines.cs HMTForms.cs Program.cs
+dotnet build HatsMultitool.csproj -c Release -p:Version=6.3.4
 ```
+
+The resulting standalone executable will be located at:
+`bin/Release/net48/Hats-Multitool.exe`
 
 ---
 

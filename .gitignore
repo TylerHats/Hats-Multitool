@@ -12,3 +12,5 @@ AssemblyInfo_temp.cs
 # IDE and temporary files
 .vscode/
 *.log
+bin/
+obj/
