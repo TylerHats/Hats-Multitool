@@ -113,22 +113,6 @@
       "exe": "UninstallView.exe"
     },
     {
-      "name": "DISM++",
-      "description": "Advanced GUI based around DISM for Windows image management and optimization.",
-      "category": "Viewers & Utilities",
-      "version": "10.1.1002.1",
-      "url": "https://hatsthings.com/MultitoolFiles/Dism++10.1.1002.1.zip",
-      "exe": "Dism++x64.exe"
-    },
-    {
-      "name": "ProfileShift",
-      "description": "Collects and migrates user and system profile data for transferring to new machines.",
-      "category": "Viewers & Utilities",
-      "version": "latest",
-      "url": "https://hatsthings.com/MultitoolFiles/ProfileShift.exe",
-      "exe": "ProfileShift.exe"
-    },
-    {
       "name": "User Profile Wizard",
       "description": "Migrates user profile data between domains or computers (Profwiz).",
       "category": "Viewers & Utilities",

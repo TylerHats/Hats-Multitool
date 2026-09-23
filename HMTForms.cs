@@ -1991,10 +1991,11 @@ namespace HMT.Forms {
 
         private void LaunchStandaloneConsoleTool(string toolName, string target, string arguments) {
             try {
-                string cmdArgs = string.Format("/k \"title Hat's Multitool - {0} && {1} {2}\"", toolName, target, arguments ?? "");
+                string cmdArgs = string.Format("/c \"title Hat's Multitool - {0} & {1} {2} & echo. & pause\"", toolName, target, arguments ?? "");
                 var psi = new ProcessStartInfo {
                     FileName = "cmd.exe",
                     Arguments = cmdArgs,
+                    WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System),
                     UseShellExecute = true,
                     Verb = "runas"
                 };

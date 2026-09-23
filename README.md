@@ -65,7 +65,7 @@ Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-M
 To compile the standalone Windows executable from source using the .NET SDK:
 
 ```bash
-dotnet build HatsMultitool.csproj -c Release -p:Version=6.3.4
+dotnet build HatsMultitool.csproj -c Release -p:Version=6.3.5
 ```
 
 The resulting standalone executable will be located at:
