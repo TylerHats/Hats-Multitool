@@ -4,7 +4,7 @@
   <p><b>A high-performance, native C# .NET utility for Windows PC setup, optimization, and troubleshooting.</b></p>
 
   <p>
-    <a href="https://github.com/TylerHats/Hats-Multitool/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/TylerHats/Hats-Multitool/build.yml?branch=main&style=flat-square&logo=github&logoColor=white&label=Build&labelColor=202225&color=2ea44f" alt="Build Status" /></a>
+    <a href="https://github.com/TylerHats/Hats-Multitool/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/TylerHats/Hats-Multitool/build.yml?branch=main&style=flat-square&logo=github&logoColor=white&label=Build&labelColor=202225" alt="Build Status" /></a>
     <a href="https://github.com/TylerHats/Hats-Multitool/releases/latest"><img src="https://img.shields.io/github/v/release/TylerHats/Hats-Multitool?style=flat-square&label=Release&labelColor=202225&color=6f1fde" alt="Latest Release" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/TylerHats/Hats-Multitool?style=flat-square&label=License&labelColor=202225&color=238636" alt="License" /></a>
     <img src="https://img.shields.io/badge/.NET%20Framework-4.8-512BD4?style=flat-square&logo=dotnet&logoColor=white&labelColor=202225" alt=".NET Framework 4.8" />
