@@ -1,33 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using HMT.Engines;
 using HMT.Forms;
 
 namespace HMT {
     public static class Program {
-        [DllImport("user32.dll")]
-        private static extern bool SetProcessDPIAware();
-
-        [DllImport("shcore.dll")]
-        private static extern int SetProcessDpiAwareness(int awareness);
-
         [STAThread]
         public static int Main(string[] args) {
-            // Enable Visual Styles & Modern DPI Awareness
-            try {
-                SetProcessDpiAwareness(2); // Per-Monitor High-DPI Aware
-            } catch {
-                try { SetProcessDPIAware(); } catch { }
-            }
-
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
@@ -51,24 +33,7 @@ namespace HMT {
                 }
             }
 
-            // Ensure Single Instance / Admin Elevation is active
-            if (!NativeMethods.IsAdministrator()) {
-                try {
-                    string exePath = Process.GetCurrentProcess().MainModule.FileName;
-                    var psi = new ProcessStartInfo {
-                        FileName = exePath,
-                        Arguments = args != null && args.Length > 0 ? string.Join(" ", args) : "",
-                        UseShellExecute = true,
-                        Verb = "runas"
-                    };
-                    Process.Start(psi);
-                    return 0;
-                } catch {
-                    return 1;
-                }
-            }
-
-            string version = "6.3.5";
+            string version = "6.3.6";
             try {
                 var asm = Assembly.GetExecutingAssembly();
                 var ver = asm.GetName().Version;
@@ -97,20 +62,6 @@ namespace HMT {
                     }
                 }
             } catch { }
-
-            // Check for updates asynchronously in background (delayed to prevent immediate network beacon on launch)
-            Task.Run(async () => {
-                try {
-                    await Task.Delay(3000);
-                    Version remoteVer = await UpdateEngine.CheckRemoteVersionAsync();
-                    Version localVer;
-                    if (remoteVer != null && Version.TryParse(version, out localVer)) {
-                        if (remoteVer > localVer) {
-                            Logger.Log(string.Format("New version available: v{0} (Current: v{1})", remoteVer, localVer), "Info");
-                        }
-                    }
-                } catch { }
-            });
 
             // Main Application Loop
             while (true) {

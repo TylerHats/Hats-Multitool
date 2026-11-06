@@ -689,6 +689,7 @@ namespace HMT.Forms {
         private DarkTextBox txtPassword;
         private DarkTextBox txtConfirm;
         private Button btnPeek;
+        private Button btnCreate;
         private CheckBox chkAutoLogon;
         private CheckBox chkAdmin;
         private CheckBox chkNeverExpire;
@@ -696,6 +697,11 @@ namespace HMT.Forms {
         private Label lblStatus;
         private bool isPeeking = false;
         private PasswordPolicy currentPolicy = new PasswordPolicy();
+        private HashSet<string> existingUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> adminUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private bool currentEnteredUserExists = false;
+        private bool currentEnteredUserIsAdmin = false;
+        private int lookupVersion = 0;
 
         public LocalAccountsForm(string stepTitle) {
             this.Text = stepTitle;
@@ -796,18 +802,23 @@ namespace HMT.Forms {
             this.Controls.Add(lblStatus);
 
             y += 28;
-            var btnCreate = new Button {
-                Text = "Create / Update Account",
+            btnCreate = new Button {
+                Text = "Create Account",
                 Location = DarkTheme.Scale(new Point(20, y)),
                 Size = DarkTheme.Scale(new Size(220, 42)),
                 DialogResult = DialogResult.None,
                 TabIndex = 6
             };
             DarkTheme.StyleButton(btnCreate, DarkTheme.AccentPurple);
+
+            txtUsername.TextChanged += (s, e) => OnUsernameChanged();
+            txtUsername.GotFocus += (s, e) => OnUsernameChanged();
+            txtUsername.LostFocus += (s, e) => OnUsernameChanged();
+
             btnCreate.Click += (s, e) => {
-                string user = (txtUsername.Text == "Username") ? "" : txtUsername.Text.Trim();
-                string pass = (txtPassword.Text == "Password") ? "" : txtPassword.Text;
-                string conf = (txtConfirm.Text == "Confirm Password") ? "" : txtConfirm.Text;
+                string user = (txtUsername.Text == "Username" && txtUsername.ForeColor == DarkTheme.TextMuted) ? "" : txtUsername.Text.Trim();
+                string pass = (txtPassword.Text == "Password" && txtPassword.ForeColor == DarkTheme.TextMuted) ? "" : txtPassword.Text;
+                string conf = (txtConfirm.Text == "Confirm Password" && txtConfirm.ForeColor == DarkTheme.TextMuted) ? "" : txtConfirm.Text;
 
                 if (string.IsNullOrEmpty(user)) {
                     lblStatus.ForeColor = DarkTheme.AccentDanger;
@@ -822,7 +833,21 @@ namespace HMT.Forms {
                     return;
                 }
 
-                if (currentPolicy != null && currentPolicy.MinLength > 0 && pass.Length < currentPolicy.MinLength) {
+                // Verify live account status before executing
+                bool existsNow = existingUsers.Contains(user);
+                bool isAdminNow = adminUsers.Contains(user);
+                bool probedExists, probedAdmin;
+                AccountEngine.QuerySingleUserAccountStatus(user, out probedExists, out probedAdmin);
+                if (probedExists) {
+                    existsNow = true;
+                    isAdminNow = probedAdmin;
+                }
+
+                bool hasPasswordInput = !string.IsNullOrEmpty(pass) || !string.IsNullOrEmpty(conf);
+                bool hasOtherModification = chkAdmin.Checked || chkNeverExpire.Checked || chkAutoLogon.Checked;
+                bool shouldUpdatePassword = !existsNow || hasPasswordInput || !hasOtherModification;
+
+                if (shouldUpdatePassword && currentPolicy != null && currentPolicy.MinLength > 0 && pass.Length < currentPolicy.MinLength) {
                     lblStatus.ForeColor = DarkTheme.AccentDanger;
                     lblStatus.Text = string.Format("Password must be at least {0} characters to meet policy.", currentPolicy.MinLength);
                     txtPassword.Focus();
@@ -830,20 +855,25 @@ namespace HMT.Forms {
                 }
 
                 string errorMsg;
-                bool ok = AccountEngine.CreateUser(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked, out errorMsg);
-                if (!ok) {
-                    string updateError;
-                    bool updated = AccountEngine.UpdateUserPassword(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked, out updateError);
-                    if (!updated) {
-                        lblStatus.ForeColor = DarkTheme.AccentDanger;
-                        lblStatus.Text = !string.IsNullOrEmpty(errorMsg) ? errorMsg : (!string.IsNullOrEmpty(updateError) ? updateError : "Failed to create or update account.");
-                        return;
-                    }
+                bool ok;
+                if (existsNow) {
+                    bool addToAdmin = !isAdminNow && chkAdmin.Checked;
+                    bool removeFromAdmin = isAdminNow && chkAdmin.Checked;
+                    ok = AccountEngine.ModifyUser(user, pass, shouldUpdatePassword, chkAutoLogon.Checked, addToAdmin, removeFromAdmin, chkNeverExpire.Checked, out errorMsg);
+                } else {
+                    ok = AccountEngine.CreateUser(user, pass, chkAutoLogon.Checked, chkAdmin.Checked, chkNeverExpire.Checked, out errorMsg);
                 }
 
+                if (!ok) {
+                    lblStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblStatus.Text = !string.IsNullOrEmpty(errorMsg) ? errorMsg : (existsNow ? "Failed to modify account." : "Failed to create account.");
+                    return;
+                }
+
+                RefreshUserAndAdminCacheAsync();
                 ClearAccountFields();
                 lblStatus.ForeColor = DarkTheme.AccentSuccess;
-                lblStatus.Text = string.Format("✓ Account '{0}' saved. Add another or click Close.", user);
+                lblStatus.Text = string.Format("✓ Account '{0}' {1}. Add another or click Close.", user, existsNow ? "modified" : "created");
                 txtUsername.Focus();
             };
             this.Controls.Add(btnCreate);
@@ -862,6 +892,7 @@ namespace HMT.Forms {
             this.ClientSize = DarkTheme.Scale(new Size(440, y + 58));
             this.Load += (s, e) => {
                 DarkTheme.ApplyDarkTitleBar(this);
+                RefreshUserAndAdminCacheAsync();
                 Task.Run(() => {
                     var pol = AccountEngine.GetPasswordPolicy();
                     if (!this.IsDisposed && this.IsHandleCreated) {
@@ -873,6 +904,73 @@ namespace HMT.Forms {
                     }
                 });
             };
+        }
+
+        private void RefreshUserAndAdminCacheAsync() {
+            Task.Run(() => {
+                HashSet<string> users, admins;
+                AccountEngine.GetLocalUsersAndAdmins(out users, out admins);
+                if (!this.IsDisposed && this.IsHandleCreated) {
+                    this.BeginInvoke((Action)(() => {
+                        existingUsers = users;
+                        adminUsers = admins;
+                        OnUsernameChanged();
+                    }));
+                }
+            });
+        }
+
+        private void OnUsernameChanged() {
+            if (btnCreate == null || chkAdmin == null || txtUsername == null) return;
+
+            string rawUser = (txtUsername.Text == "Username" && txtUsername.ForeColor == DarkTheme.TextMuted) ? "" : txtUsername.Text.Trim();
+            if (string.IsNullOrEmpty(rawUser)) {
+                ApplyUserAccountUiState(false, false);
+                return;
+            }
+
+            bool existsFast = existingUsers.Contains(rawUser);
+            bool isAdminFast = existsFast && adminUsers.Contains(rawUser);
+            ApplyUserAccountUiState(existsFast, isAdminFast);
+
+            int myVersion = Interlocked.Increment(ref lookupVersion);
+            Task.Run(async () => {
+                await Task.Delay(180);
+                if (myVersion != lookupVersion || this.IsDisposed) return;
+
+                bool existsExact, isAdminExact;
+                AccountEngine.QuerySingleUserAccountStatus(rawUser, out existsExact, out isAdminExact);
+                if (myVersion != lookupVersion || this.IsDisposed || !this.IsHandleCreated) return;
+
+                this.BeginInvoke((Action)(() => {
+                    if (myVersion != lookupVersion || this.IsDisposed) return;
+                    if (existsExact) {
+                        existingUsers.Add(rawUser);
+                        if (isAdminExact) adminUsers.Add(rawUser); else adminUsers.Remove(rawUser);
+                    }
+                    ApplyUserAccountUiState(existsExact, isAdminExact);
+                }));
+            });
+        }
+
+        private void ApplyUserAccountUiState(bool userExists, bool userIsAdmin) {
+            bool stateChanged = (currentEnteredUserExists != userExists) || (currentEnteredUserIsAdmin != userIsAdmin);
+            currentEnteredUserExists = userExists;
+            currentEnteredUserIsAdmin = userExists && userIsAdmin;
+
+            string desiredButtonText = userExists ? "Modify Account" : "Create Account";
+            if (btnCreate.Text != desiredButtonText) {
+                btnCreate.Text = desiredButtonText;
+            }
+
+            string desiredAdminCheckboxText = (userExists && userIsAdmin)
+                ? "Remove from Local Administrators Group"
+                : "Add to Local Administrators Group";
+
+            if (chkAdmin.Text != desiredAdminCheckboxText || stateChanged) {
+                chkAdmin.Text = desiredAdminCheckboxText;
+                chkAdmin.Checked = false;
+            }
         }
 
         private void ClearAccountFields() {
@@ -893,6 +991,8 @@ namespace HMT.Forms {
             chkAutoLogon.Checked = false;
             chkAdmin.Checked = false;
             chkNeverExpire.Checked = false;
+
+            ApplyUserAccountUiState(false, false);
         }
 
         private void SetupPlaceholder(DarkTextBox txt, string placeholder, bool isPassword) {
@@ -901,7 +1001,7 @@ namespace HMT.Forms {
             if (isPassword) txt.PasswordChar = '\0';
 
             txt.GotFocus += (s, e) => {
-                if (txt.Text == placeholder) {
+                if (txt.Text == placeholder && txt.ForeColor == DarkTheme.TextMuted) {
                     txt.Text = "";
                     txt.ForeColor = DarkTheme.TextMain;
                     if (isPassword && !isPeeking) txt.PasswordChar = '•';
@@ -1395,6 +1495,8 @@ namespace HMT.Forms {
         private Button btnInstall;
         private Button btnSkip;
         private bool isInstalling = false;
+        private bool isLoadingCatalog = false;
+        private bool catalogLoaded = false;
         private CancellationTokenSource currentProgCts;
         private CancellationTokenSource officeCts;
         private int skipPendingCount = 0;
@@ -1414,97 +1516,13 @@ namespace HMT.Forms {
             this.Icon = DarkTheme.AppIcon;
             this.Font = DarkTheme.GetScaledFont(12f);
 
-            var catalog = ProgramInstallerEngine.GetCategorizedCatalog();
-
-            // 1. Tab Control for Categories
+            // 1. Tab Control for Categories (tabs load dynamically from the parsed manifest)
             tabControl = new DarkTabControl {
                 Location = DarkTheme.Scale(new Point(15, 12)),
                 Size = DarkTheme.Scale(new Size(550, 270)),
                 Font = DarkTheme.GetScaledFont(11f)
             };
             this.Controls.Add(tabControl);
-
-            string[] tabOrder = new string[] { "Browsers & Comms", "Productivity", "IT & Dev Tools", "Media & Design", "Cloud & Gaming" };
-
-            foreach (var tabName in tabOrder) {
-                if (!catalog.ContainsKey(tabName)) continue;
-                var items = catalog[tabName];
-
-                var tab = new TabPage(tabName) {
-                    BackColor = DarkTheme.Background
-                };
-                tabControl.TabPages.Add(tab);
-
-                var container = new Panel {
-                    Dock = DockStyle.Fill,
-                    BackColor = Color.Transparent,
-                    Padding = DarkTheme.Scale(new Padding(10))
-                };
-                tab.Controls.Add(container);
-
-                var col1 = new FlowLayoutPanel {
-                    Location = DarkTheme.Scale(new Point(10, 8)),
-                    Size = DarkTheme.Scale(new Size(255, 195)),
-                    FlowDirection = FlowDirection.TopDown,
-                    WrapContents = false,
-                    BackColor = Color.Transparent
-                };
-                container.Controls.Add(col1);
-
-                var col2 = new FlowLayoutPanel {
-                    Location = DarkTheme.Scale(new Point(275, 8)),
-                    Size = DarkTheme.Scale(new Size(255, 195)),
-                    FlowDirection = FlowDirection.TopDown,
-                    WrapContents = false,
-                    BackColor = Color.Transparent
-                };
-                container.Controls.Add(col2);
-
-                int half = (int)Math.Ceiling(items.Count / 2.0);
-                for (int i = 0; i < items.Count; i++) {
-                    var prog = items[i];
-                    var cb = new CheckBox {
-                        Text = prog.Name,
-                        ForeColor = DarkTheme.TextMain,
-                        AutoSize = true,
-                        Font = DarkTheme.GetScaledFont(10.5f),
-                        Margin = DarkTheme.Scale(new Padding(0, 0, 0, 4)),
-                        Tag = prog
-                    };
-                    if (i < half) {
-                        col1.Controls.Add(cb);
-                    } else {
-                        col2.Controls.Add(cb);
-                    }
-                    checkBoxes[prog.Name] = cb;
-                }
-            }
-
-            // Mutual exclusivity for Office 64-Bit vs Outlook Classic
-            if (checkBoxes.ContainsKey("Outlook Classic") && checkBoxes.ContainsKey("Microsoft Office (64-Bit)")) {
-                var outlookCb = checkBoxes["Outlook Classic"];
-                var officeCb = checkBoxes["Microsoft Office (64-Bit)"];
-
-                outlookCb.CheckedChanged += (s, e) => {
-                    if (isInstalling) return;
-                    if (outlookCb.Checked) {
-                        officeCb.Enabled = false;
-                        officeCb.Checked = false;
-                    } else {
-                        officeCb.Enabled = true;
-                    }
-                };
-
-                officeCb.CheckedChanged += (s, e) => {
-                    if (isInstalling) return;
-                    if (officeCb.Checked) {
-                        outlookCb.Enabled = false;
-                        outlookCb.Checked = false;
-                    } else {
-                        outlookCb.Enabled = true;
-                    }
-                };
-            }
 
             int y = 290;
             chkAutoExit = new CheckBox {
@@ -1518,7 +1536,7 @@ namespace HMT.Forms {
 
             y += 26;
             lblStatus = new Label {
-                Text = "Status: Idle",
+                Text = "Status: Prepping WinGet & Loading Software Catalog...",
                 ForeColor = DarkTheme.TextMain,
                 Location = DarkTheme.Scale(new Point(20, y)),
                 Size = DarkTheme.Scale(new Size(540, 20)),
@@ -1529,7 +1547,7 @@ namespace HMT.Forms {
 
             y += 20;
             lblDetail = new Label {
-                Text = "",
+                Text = "Checking internet connectivity...",
                 ForeColor = DarkTheme.TextMuted,
                 Location = DarkTheme.Scale(new Point(20, y)),
                 Size = DarkTheme.Scale(new Size(540, 20)),
@@ -1590,10 +1608,17 @@ namespace HMT.Forms {
             btnInstall = new Button {
                 Text = "Install Selected",
                 Location = DarkTheme.Scale(new Point(170, y)),
-                Size = DarkTheme.Scale(new Size(120, 38))
+                Size = DarkTheme.Scale(new Size(120, 38)),
+                Enabled = false
             };
             DarkTheme.StyleButton(btnInstall, DarkTheme.AccentSuccess);
-            btnInstall.Click += async (s, e) => await StartInstallation();
+            btnInstall.Click += async (s, e) => {
+                if (!catalogLoaded) {
+                    await InitializeProgramsModuleAsync(true);
+                } else {
+                    await StartInstallation();
+                }
+            };
             this.Controls.Add(btnInstall);
 
             btnSkip = new Button {
@@ -1647,33 +1672,184 @@ namespace HMT.Forms {
 
             this.ClientSize = DarkTheme.Scale(new Size(580, y + 54));
 
-            // Background check for already installed software to shade/note them
-            Task.Run(() => {
-                try {
-                    var installed = ProgramInstallerEngine.GetInstalledDisplayNames();
-                    this.BeginInvoke((Action)(() => {
-                        foreach (var kvp in checkBoxes) {
-                            var cb = kvp.Value;
-                            if (cb.Tag is SoftwareItem sItem && ProgramInstallerEngine.IsProgramInstalled(sItem, installed)) {
-                                cb.ForeColor = Color.FromArgb(130, 210, 150); // subtle greenish tint
-                            }
-                        }
-                    }));
-                } catch { }
-            });
+            this.Shown += async (s, e) => {
+                await InitializeProgramsModuleAsync(false);
+            };
 
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
 
-        private async Task StartInstallation() {
-            isInstalling = true;
+        private async Task InitializeProgramsModuleAsync(bool forceRefresh) {
+            if (isLoadingCatalog || isInstalling) return;
+            isLoadingCatalog = true;
             btnInstall.Enabled = false;
-            btnSkip.Enabled = true;
+            lblStatus.ForeColor = DarkTheme.TextMain;
+            lblStatus.Text = "Status: Prepping WinGet & Loading Software Catalog...";
+            lblDetail.ForeColor = DarkTheme.TextMuted;
+            lblDetail.Text = "Checking internet connectivity...";
+            progressBar.Value = 15;
 
-            foreach (var cb in checkBoxes.Values) {
-                cb.Enabled = false;
+            try {
+                // 1. Proactive internet connectivity check
+                var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+                if (!netCheck.Item1) {
+                    lblStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblStatus.Text = "Error: No Internet Connection";
+                    lblDetail.Text = netCheck.Item2;
+                    progressBar.Value = 0;
+                    btnInstall.Text = "Retry Load";
+                    btnInstall.Enabled = true;
+                    DarkTheme.ShowStyledMessageBox("No Internet Connection", "Internet access is required to prep WinGet and load the software installation manifest.\n\n" + netCheck.Item2, false);
+                    return;
+                }
+
+                var statusProgress = new Progress<string>(msg => {
+                    if (!this.IsDisposed) {
+                        lblDetail.Text = msg;
+                    }
+                });
+
+                // 2. Prep WinGet and obtain/parse repo manifest concurrently
+                progressBar.Value = 40;
+                var wingetPrepTask = ProgramInstallerEngine.PrepareWinGetAsync(statusProgress);
+                var catalogTask = ProgramInstallerEngine.FetchSoftwareCatalogAsync(statusProgress, forceRefresh);
+
+                var catalog = await catalogTask;
+                progressBar.Value = 80;
+                await wingetPrepTask;
+
+                // 3. Dynamically populate tabs from parsed manifest
+                BuildDynamicTabsFromCatalog(catalog);
+                catalogLoaded = true;
+
+                // 4. Shade already-installed programs
+                lblDetail.Text = "Scanning installed software...";
+                var installed = await Task.Run(() => ProgramInstallerEngine.GetInstalledDisplayNames());
+                int installedMatchCount = 0;
+                foreach (var kvp in checkBoxes) {
+                    var cb = kvp.Value;
+                    if (cb.Tag is SoftwareItem sItem && ProgramInstallerEngine.IsProgramInstalled(sItem, installed)) {
+                        cb.ForeColor = Color.FromArgb(130, 210, 150); // subtle greenish tint
+                        installedMatchCount++;
+                    }
+                }
+
+                lblStatus.ForeColor = DarkTheme.TextMain;
+                lblStatus.Text = "Status: Idle";
+                lblDetail.ForeColor = DarkTheme.TextMuted;
+                lblDetail.Text = string.Format("Ready — {0} packages loaded across {1} categories ({2} detected as installed).", checkBoxes.Count, catalog.Count, installedMatchCount);
+                progressBar.Value = 0;
+                btnInstall.Text = "Install Selected";
+                btnInstall.Enabled = true;
+            } catch (Exception ex) {
+                catalogLoaded = false;
+                lblStatus.ForeColor = DarkTheme.AccentDanger;
+                lblStatus.Text = "Error: Software Manifest Load Failed";
+                lblDetail.Text = ex.Message.Replace("\r", " ").Replace("\n", " ");
+                progressBar.Value = 0;
+                btnInstall.Text = "Retry Load";
+                btnInstall.Enabled = true;
+                DarkTheme.ShowStyledMessageBox("Software Catalog Load Failed", ex.Message, false);
+            } finally {
+                isLoadingCatalog = false;
+            }
+        }
+
+        private void BuildDynamicTabsFromCatalog(Dictionary<string, List<SoftwareItem>> catalog) {
+            tabControl.SuspendLayout();
+            tabControl.TabPages.Clear();
+            checkBoxes.Clear();
+
+            if (catalog != null) {
+                foreach (var kvp in catalog) {
+                    string tabName = kvp.Key;
+                    var items = kvp.Value;
+                    if (items == null || items.Count == 0) continue;
+
+                    var tab = new TabPage(tabName) {
+                        BackColor = DarkTheme.Background
+                    };
+                    tabControl.TabPages.Add(tab);
+
+                    var container = new Panel {
+                        Dock = DockStyle.Fill,
+                        BackColor = Color.Transparent,
+                        Padding = DarkTheme.Scale(new Padding(10)),
+                        AutoScroll = true
+                    };
+                    tab.Controls.Add(container);
+
+                    var col1 = new FlowLayoutPanel {
+                        Location = DarkTheme.Scale(new Point(10, 8)),
+                        Size = DarkTheme.Scale(new Size(255, 215)),
+                        FlowDirection = FlowDirection.TopDown,
+                        WrapContents = false,
+                        AutoSize = true,
+                        BackColor = Color.Transparent
+                    };
+                    container.Controls.Add(col1);
+
+                    var col2 = new FlowLayoutPanel {
+                        Location = DarkTheme.Scale(new Point(275, 8)),
+                        Size = DarkTheme.Scale(new Size(255, 215)),
+                        FlowDirection = FlowDirection.TopDown,
+                        WrapContents = false,
+                        AutoSize = true,
+                        BackColor = Color.Transparent
+                    };
+                    container.Controls.Add(col2);
+
+                    int half = (int)Math.Ceiling(items.Count / 2.0);
+                    for (int i = 0; i < items.Count; i++) {
+                        var prog = items[i];
+                        var cb = new CheckBox {
+                            Text = prog.Name,
+                            ForeColor = DarkTheme.TextMain,
+                            AutoSize = true,
+                            Font = DarkTheme.GetScaledFont(10.5f),
+                            Margin = DarkTheme.Scale(new Padding(0, 0, 0, 4)),
+                            Tag = prog
+                        };
+                        if (i < half) {
+                            col1.Controls.Add(cb);
+                        } else {
+                            col2.Controls.Add(cb);
+                        }
+                        checkBoxes[prog.Name] = cb;
+                    }
+                }
             }
 
+            // Mutual exclusivity for Office 64-Bit vs Outlook Classic
+            if (checkBoxes.ContainsKey("Outlook Classic") && checkBoxes.ContainsKey("Microsoft Office (64-Bit)")) {
+                var outlookCb = checkBoxes["Outlook Classic"];
+                var officeCb = checkBoxes["Microsoft Office (64-Bit)"];
+
+                outlookCb.CheckedChanged += (s, e) => {
+                    if (isInstalling) return;
+                    if (outlookCb.Checked) {
+                        officeCb.Enabled = false;
+                        officeCb.Checked = false;
+                    } else {
+                        officeCb.Enabled = true;
+                    }
+                };
+
+                officeCb.CheckedChanged += (s, e) => {
+                    if (isInstalling) return;
+                    if (officeCb.Checked) {
+                        outlookCb.Enabled = false;
+                        outlookCb.Checked = false;
+                    } else {
+                        outlookCb.Enabled = true;
+                    }
+                };
+            }
+
+            tabControl.ResumeLayout();
+        }
+
+        private async Task StartInstallation() {
             var selectedItems = new List<SoftwareItem>();
             foreach (var cb in checkBoxes.Values) {
                 if (cb.Checked && cb.Tag is SoftwareItem item) {
@@ -1685,6 +1861,21 @@ namespace HMT.Forms {
                 this.DialogResult = DialogResult.OK;
                 this.Close();
                 return;
+            }
+
+            // Verify internet access before starting installation batch
+            var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+            if (!netCheck.Item1) {
+                DarkTheme.ShowStyledMessageBox("No Internet Connection", "Cannot start software installation without internet access.\n\n" + netCheck.Item2, false);
+                return;
+            }
+
+            isInstalling = true;
+            btnInstall.Enabled = false;
+            btnSkip.Enabled = true;
+
+            foreach (var cb in checkBoxes.Values) {
+                cb.Enabled = false;
             }
 
             // Check if Office/Outlook is selected to run in parallel
@@ -1895,6 +2086,26 @@ namespace HMT.Forms {
             };
             this.Controls.Add(btnLaunch);
 
+            this.Shown += async (s, e) => {
+                lblFetchStatus.ForeColor = DarkTheme.TextMuted;
+                lblFetchStatus.Text = "Checking internet access...";
+                var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+                if (this.IsDisposed) return;
+
+                if (!netCheck.Item1) {
+                    lblFetchStatus.ForeColor = DarkTheme.AccentDanger;
+                    lblFetchStatus.Text = "Offline — no internet access detected.";
+                    DarkTheme.ShowStyledMessageBox(
+                        "No Internet Connection",
+                        "Internet access is currently unavailable.\n\n" + netCheck.Item2 + "\n\nBuilt-in offline system utilities can still be used, but loading online tools or downloading external utilities requires an active internet connection.",
+                        false
+                    );
+                } else {
+                    lblFetchStatus.ForeColor = DarkTheme.TextMuted;
+                    lblFetchStatus.Text = "Click 'Load Online Tools' to fetch remote tools.";
+                }
+            };
+
             this.Load += (s, e) => DarkTheme.ApplyDarkTitleBar(this);
         }
 
@@ -1946,13 +2157,31 @@ namespace HMT.Forms {
         private async Task LoadOnlineToolsAsync(Button btn, Label statusLabel) {
             btn.Enabled = false;
             statusLabel.ForeColor = DarkTheme.AccentPurple;
-            statusLabel.Text = "Fetching tools catalog...";
+            statusLabel.Text = "Checking internet connectivity...";
             try {
-                var tools = await ToolVersionResolver.FetchRemoteToolsCatalogAsync();
+                var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+                if (!netCheck.Item1) {
+                    statusLabel.ForeColor = DarkTheme.AccentDanger;
+                    statusLabel.Text = "Error: No internet connection.";
+                    btn.Text = "🌐 Retry Online Tools";
+                    btn.Enabled = true;
+                    DarkTheme.ShowStyledMessageBox("No Internet Connection", "Cannot load the online tools catalog without internet access.\n\n" + netCheck.Item2, false);
+                    return;
+                }
+
+                var progress = new Progress<string>(msg => {
+                    if (!this.IsDisposed) {
+                        statusLabel.Text = msg;
+                    }
+                });
+
+                var tools = await ToolVersionResolver.FetchRemoteToolsCatalogAsync(progress, true);
                 if (tools == null || tools.Count == 0) {
                     statusLabel.ForeColor = DarkTheme.AccentDanger;
-                    statusLabel.Text = "No online tools loaded.";
+                    statusLabel.Text = "No online tools found in manifest.";
+                    btn.Text = "🌐 Retry Online Tools";
                     btn.Enabled = true;
+                    DarkTheme.ShowStyledMessageBox("Online Tools Empty", "The remote tools manifest returned no tools.", false);
                     return;
                 }
 
@@ -1984,8 +2213,10 @@ namespace HMT.Forms {
                 btn.Text = "✓ Tools Loaded";
             } catch (Exception ex) {
                 statusLabel.ForeColor = DarkTheme.AccentDanger;
-                statusLabel.Text = "Error: " + ex.Message;
+                statusLabel.Text = "Failed to load online tools (click Retry).";
+                btn.Text = "🌐 Retry Online Tools";
                 btn.Enabled = true;
+                DarkTheme.ShowStyledMessageBox("Online Tools Load Error", ex.Message, false);
             }
         }
 
@@ -2143,17 +2374,36 @@ namespace HMT.Forms {
                     }
                     break;
                 case "ninja_removal":
-                    try {
-                        var psi = new ProcessStartInfo {
-                            FileName = "powershell.exe",
-                            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $s = (Invoke-RestMethod 'https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1'); Invoke-Expression $s }\"",
-                            UseShellExecute = true,
-                            Verb = "runas"
-                        };
-                        Process.Start(psi);
-                    } catch (Exception ex) {
-                        DarkTheme.ShowStyledMessageBox("Error", "Failed to run Ninja removal: " + ex.Message, false);
-                    }
+                    _ = Task.Run(async () => {
+                        try {
+                            var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+                            if (!netCheck.Item1) {
+                                this.BeginInvoke((Action)(() => {
+                                    DarkTheme.ShowStyledMessageBox("No Internet Connection", "Cannot download the NinjaOne removal script without internet access.\n\n" + netCheck.Item2, false);
+                                }));
+                                return;
+                            }
+                            string tempScript = Path.Combine(Path.GetTempPath(), "NinjaOneAgentRemoval.ps1");
+                            using (var client = new HttpClient()) {
+                                client.Timeout = TimeSpan.FromSeconds(15);
+                                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                                string scriptText = await client.GetStringAsync("https://hatsthings.com/MultitoolFiles/NinjaOneAgentRemoval.ps1");
+                                File.WriteAllText(tempScript, scriptText, Encoding.UTF8);
+                            }
+                            var psi = new ProcessStartInfo {
+                                FileName = "powershell.exe",
+                                Arguments = string.Format("-NoProfile -File \"{0}\"", tempScript),
+                                UseShellExecute = true,
+                                Verb = "runas"
+                            };
+                            Process.Start(psi);
+                        } catch (Exception ex) {
+                            string formatted = NetworkConnectivityHelper.FormatNetworkException(ex, "NinjaOneAgentRemoval.ps1");
+                            this.BeginInvoke((Action)(() => {
+                                DarkTheme.ShowStyledMessageBox("Error", "Failed to run Ninja removal:\n" + formatted, false);
+                            }));
+                        }
+                    });
                     break;
             }
         }
@@ -2229,17 +2479,6 @@ namespace HMT.Forms {
                     string effectiveUrl = downloadUrl;
                     string effectiveExe = exeInsideArchive;
 
-                    try {
-                        lblStatus.Text = "Checking latest version for " + toolName + "...";
-                        var resolved = await ToolVersionResolver.ResolveToolAsync(toolName, downloadUrl, exeInsideArchive);
-                        if (resolved != null && !string.IsNullOrEmpty(resolved.DownloadUrl)) {
-                            effectiveUrl = resolved.DownloadUrl;
-                            if (!string.IsNullOrEmpty(resolved.ExeInsideArchive)) {
-                                effectiveExe = resolved.ExeInsideArchive;
-                            }
-                        }
-                    } catch { }
-
                     Func<string> findTargetExe = () => {
                         if (string.IsNullOrEmpty(effectiveExe)) return null;
                         string direct = Path.Combine(targetFolder, effectiveExe);
@@ -2268,6 +2507,23 @@ namespace HMT.Forms {
 
                     string targetExe = findTargetExe();
                     if (targetExe == null) {
+                        lblStatus.Text = "Checking internet connectivity...";
+                        var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+                        if (!netCheck.Item1) {
+                            throw new InvalidOperationException(netCheck.Item2);
+                        }
+
+                        try {
+                            lblStatus.Text = "Checking latest version for " + toolName + "...";
+                            var resolved = await ToolVersionResolver.ResolveToolAsync(toolName, downloadUrl, exeInsideArchive);
+                            if (resolved != null && !string.IsNullOrEmpty(resolved.DownloadUrl)) {
+                                effectiveUrl = resolved.DownloadUrl;
+                                if (!string.IsNullOrEmpty(resolved.ExeInsideArchive)) {
+                                    effectiveExe = resolved.ExeInsideArchive;
+                                }
+                            }
+                        } catch { }
+
                         lblStatus.Text = "Connecting to download server...";
                         using (var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate })
                         using (var client = new HttpClient(handler)) {
@@ -2330,7 +2586,8 @@ namespace HMT.Forms {
                                 if (downloadFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) {
                                     lblStatus.Text = "Extracting files...";
                                     await Task.Run(() => {
-                                        using (var archive = ZipFile.OpenRead(downloadFile)) {
+                                        using (var zipStream = File.OpenRead(downloadFile))
+                                        using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Read)) {
                                             foreach (var entry in archive.Entries) {
                                                 string normalizedPath = entry.FullName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
                                                 string destPath = Path.Combine(targetFolder, normalizedPath);
@@ -2342,7 +2599,10 @@ namespace HMT.Forms {
                                                 if (!string.IsNullOrEmpty(parent) && !Directory.Exists(parent)) {
                                                     Directory.CreateDirectory(parent);
                                                 }
-                                                entry.ExtractToFile(destPath, true);
+                                                using (var entryStream = entry.Open())
+                                                using (var outStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                                                    entryStream.CopyTo(outStream);
+                                                }
                                             }
                                         }
                                     });
@@ -2390,7 +2650,8 @@ namespace HMT.Forms {
                     this.Close();
                 } catch (Exception ex) {
                     if (!cts.IsCancellationRequested) {
-                        DarkTheme.ShowStyledMessageBox("Download Failed", "Failed to launch " + toolName + ":\n" + ex.Message, false);
+                        string detailedMsg = NetworkConnectivityHelper.FormatNetworkException(ex, toolName);
+                        DarkTheme.ShowStyledMessageBox("Download Failed", "Failed to download or launch " + toolName + ":\n\n" + detailedMsg, false);
                         this.Close();
                     }
                 }
@@ -3103,7 +3364,7 @@ namespace HMT.Forms {
                         lvi.SubItems.Add((info.VendorId + " " + info.ProductId).Trim());
                         lvi.SubItems.Add(info.BusTypeName);
                         lvi.SubItems.Add(info.IsSSD ? "SSD" : "HDD");
-                        lvi.SubItems.Add("~512 GB");
+                        lvi.SubItems.Add(!string.IsNullOrEmpty(info.CapacityText) ? info.CapacityText : "~512 GB");
                         lvi.SubItems.Add("99%");
                         lvi.SubItems.Add("12.4 TB");
                         lvi.SubItems.Add("Good (OK)");

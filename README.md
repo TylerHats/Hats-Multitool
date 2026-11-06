@@ -27,9 +27,9 @@ The multitool is divided into primary categories, each packed with a robust set 
 ### 🛠️ PC Setup & Configuration
 Automate the tedious parts of Windows setup with built-in modules:
 - **Time Zone:** Automatically set or correct the system's time zone and configure reliable NTP servers with auto-sync.
-- **Local Accounts:** Easily create or modify local user accounts, set passwords with hold-to-peek toggle, and grant administrator rights.
+- **Local Accounts:** Easily create or modify local user accounts with live account existence detection, set passwords with a peek toggle, and dynamically grant or remove Local Administrators group membership.
 - **Bloat Cleanup:** Remove common OEM and consumer bloatware (e.g., TikTok, Spotify, McAfee, promotional AppX packages), disable telemetry/diagnostic tracking services, and apply search privacy policies.
-- **Programs:** Automate the installation of essential software with WinGet integration and high-speed Microsoft Office 365 Click-to-Run deployment.
+- **Programs:** Automate the installation of essential software via a dynamically loaded remote manifest (`SoftwareCatalog.json`), automatic WinGet source preparation, and high-speed Microsoft Office 365 Click-to-Run deployment.
 - **System Properties & Setup Options:** Rename computers with NetBIOS validation, join domains/EntraID, configure classic Windows 11 context menus, enable hibernation, and optimize power savings.
 
 ### 🧰 Built-in Tools & Diagnostics
@@ -67,9 +67,10 @@ Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-M
 
 - **`Program.cs`**: Main application entry point, Per-Monitor DPI initialization, and module orchestration.
 - **`HMTForms.cs`**: Native dark-themed WinForms UI implementations (`MainMenuForm`, `SetupSelectorForm`, `ToolsForm`, `ProgramsForm`, `BloatCleanupForm`, `SpeedTestForm`, `StartupManagerForm`, etc.).
-- **`HMTEngines.cs`**: Core background execution engines (`UpdateEngine`, `TimeZoneEngine`, `AccountEngine`, `BloatCleanupEngine`, `ProgramInstallerEngine`, `SetupOptionsEngine`, and dynamic catalog resolver).
+- **`HMTEngines.cs`**: Core background execution engines (`NetworkConnectivityHelper`, `TimeZoneEngine`, `AccountEngine`, `BloatCleanupEngine`, `ProgramInstallerEngine`, `SetupOptionsEngine`, and dynamic catalog resolvers).
 - **`HMTNative.cs`**: Low-level Win32 P/Invoke interop library for DPI awareness, window theming, hardware storage queries, and in-memory cleanup.
 - **`HMTTools.cs`**: Custom GDI+ WinForms controls (`DarkButton`, `DarkTextBox`, `DarkTabControl`, `SmoothProgressBar`, `SmoothGraphControl`) and `FastSpeedTestEngine`.
+- **`SoftwareCatalog.json`**: Dynamic remote software installation catalog fetched and parsed on-demand when opening the Programs module.
 - **`ExternalTools.json`**: Dynamic remote tools catalog fetched on-demand at runtime.
 - **`OneLineRun.ps1`**: Web downloader and bootstrap runner script for seamless one-liner execution.
 - **`app.manifest`**: Application manifest requesting elevation (`requireAdministrator`) and Per-Monitor V2 DPI awareness.
@@ -82,7 +83,7 @@ Download the latest pre-packaged **[Release](https://github.com/TylerHats/Hats-M
 To compile the standalone Windows executable from source using the .NET SDK:
 
 ```bash
-dotnet build HatsMultitool.csproj -c Release -p:Version=6.3.5
+dotnet build HatsMultitool.csproj -c Release -p:Version=6.3.6
 ```
 
 The resulting standalone executable will be located at:

@@ -31,58 +31,188 @@ namespace HMT.Engines {
         }
     }
 
-    // --- Update Engine ---
-    public static class UpdateEngine {
-        public const string RemoteVersionUrl = "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt";
-        public const string ReleaseDownloadBase = "https://github.com/TylerHats/Hats-Multitool/releases/download/v{0}/Hats-Multitool-v{0}.exe";
+    // --- Network Connectivity & Diagnostics Helper ---
+    public static class NetworkConnectivityHelper {
+        private static readonly string[] ConnectivityProbeUrls = new string[] {
+            "http://www.msftconnecttest.com/connecttest.txt",
+            "https://raw.githubusercontent.com/TylerHats/Hats-Multitool/main/HatsMultitoolVersion.txt",
+            "https://hatsthings.com/MultitoolFiles/HatsMultitoolVersion.txt"
+        };
 
-        public static async Task<Version> CheckRemoteVersionAsync() {
+        public static bool HasActiveNetworkAdapter(out string adapterError) {
+            adapterError = null;
             try {
-                using (var client = new HttpClient()) {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Hats-Multitool");
-                    client.Timeout = TimeSpan.FromSeconds(5);
-                    string verStr = (await client.GetStringAsync(RemoteVersionUrl)).Trim();
-                    Version v;
-                    if (Version.TryParse(verStr, out v)) {
-                        return v;
+                if (!NetworkInterface.GetIsNetworkAvailable()) {
+                    adapterError = "No active network connection detected. Please connect an Ethernet cable or join a Wi-Fi network and try again.";
+                    return false;
+                }
+
+                var interfaces = NetworkInterface.GetAllNetworkInterfaces();
+                bool foundUp = false;
+                foreach (var ni in interfaces) {
+                    if (ni.OperationalStatus == OperationalStatus.Up &&
+                        ni.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                        ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel) {
+                        foundUp = true;
+                        break;
                     }
                 }
-            } catch (Exception ex) {
-                Logger.Log("Remote version check failed: " + ex.Message, "Warning");
+
+                if (!foundUp) {
+                    adapterError = "All network adapters are currently disconnected. Please verify your Ethernet or Wi-Fi connection.";
+                    return false;
+                }
+                return true;
+            } catch {
+                return true;
             }
-            return null;
         }
 
-        public static async Task<bool> DownloadUpdateAsync(Version remoteVersion, string destinationPath, IProgress<int> progress = null) {
-            try {
-                string downloadUrl = string.Format(ReleaseDownloadBase, remoteVersion.ToString());
-                using (var client = new HttpClient()) {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Hats-Multitool");
-                    client.Timeout = TimeSpan.FromMinutes(5);
-                    using (var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead)) {
-                        response.EnsureSuccessStatusCode();
-                        long totalBytes = response.Content.Headers.ContentLength ?? -1L;
-                        using (var stream = await response.Content.ReadAsStreamAsync())
-                        using (var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true)) {
-                            byte[] buffer = new byte[65536];
-                            long totalRead = 0;
-                            int read;
-                            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0) {
-                                await fileStream.WriteAsync(buffer, 0, read);
-                                totalRead += read;
-                                if (totalBytes > 0 && progress != null) {
-                                    int pct = (int)((totalRead * 100) / totalBytes);
-                                    progress.Report(pct);
-                                }
+        public static async Task<Tuple<bool, string>> CheckInternetAccessAsync(int timeoutMs = 4000) {
+            string adapterErr;
+            if (!HasActiveNetworkAdapter(out adapterErr)) {
+                return Tuple.Create(false, adapterErr);
+            }
+
+            Exception lastException = null;
+            foreach (var probeUrl in ConnectivityProbeUrls) {
+                try {
+                    using (var cts = new CancellationTokenSource(timeoutMs))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromMilliseconds(timeoutMs);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                        using (var req = new HttpRequestMessage(HttpMethod.Get, probeUrl))
+                        using (var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token)) {
+                            if ((int)resp.StatusCode >= 200 && (int)resp.StatusCode < 500) {
+                                return Tuple.Create(true, string.Empty);
                             }
                         }
                     }
+                } catch (Exception ex) {
+                    lastException = ex;
                 }
-                return true;
-            } catch (Exception ex) {
-                Logger.Log("Download update failed: " + ex.Message, "Error");
-                return false;
             }
+
+            // Fallback ICMP ping test to 1.1.1.1 / 8.8.8.8 to distinguish DNS failure vs total offline
+            try {
+                using (var ping = new Ping()) {
+                    var reply = await ping.SendPingAsync("1.1.1.1", 2000);
+                    if (reply != null && reply.Status == IPStatus.Success) {
+                        if (lastException != null) {
+                            return Tuple.Create(false, "Network is connected to the internet, but DNS resolution or HTTPS traffic is failing: " + FormatNetworkException(lastException));
+                        }
+                        return Tuple.Create(true, string.Empty);
+                    }
+                }
+            } catch { }
+
+            string detail = lastException != null
+                ? FormatNetworkException(lastException)
+                : "Unable to reach external internet servers. Please check your gateway, firewall, or proxy settings.";
+            return Tuple.Create(false, "No internet access detected. " + detail);
+        }
+
+        public static string FormatNetworkException(Exception ex, string contextTarget = null) {
+            if (ex == null) return "Unknown network error.";
+
+            string adapterErr;
+            if (!HasActiveNetworkAdapter(out adapterErr)) {
+                return adapterErr;
+            }
+
+            string targetPrefix = string.IsNullOrEmpty(contextTarget) ? "" : ("[" + contextTarget + "] ");
+
+            // Unwrap AggregateException
+            while (ex is AggregateException && ex.InnerException != null) {
+                ex = ex.InnerException;
+            }
+
+            if (ex is TaskCanceledException || ex is OperationCanceledException || ex is System.TimeoutException) {
+                return targetPrefix + "The connection timed out while waiting for the remote server to respond.";
+            }
+
+            // Walk inner exceptions for SocketException / WebException
+            Exception cur = ex;
+            SocketException sockEx = null;
+            WebException webEx = null;
+            while (cur != null) {
+                if (sockEx == null && cur is SocketException) sockEx = (SocketException)cur;
+                if (webEx == null && cur is WebException) webEx = (WebException)cur;
+                cur = cur.InnerException;
+            }
+
+            if (sockEx != null) {
+                switch (sockEx.SocketErrorCode) {
+                    case SocketError.HostNotFound:
+                    case SocketError.NoData:
+                    case SocketError.TryAgain:
+                        return targetPrefix + "DNS resolution failed (could not resolve hostname). Please check your DNS server settings.";
+                    case SocketError.TimedOut:
+                        return targetPrefix + "Network connection timed out while contacting the remote host.";
+                    case SocketError.ConnectionRefused:
+                        return targetPrefix + "The remote server actively refused the connection.";
+                    case SocketError.ConnectionReset:
+                    case SocketError.ConnectionAborted:
+                        return targetPrefix + "The network connection was unexpectedly reset or aborted by the remote host or firewall.";
+                    case SocketError.NetworkUnreachable:
+                    case SocketError.HostUnreachable:
+                    case SocketError.NetworkDown:
+                        return targetPrefix + "The network or remote host is unreachable. Verify your default gateway and internet routing.";
+                }
+            }
+
+            if (webEx != null) {
+                switch (webEx.Status) {
+                    case WebExceptionStatus.NameResolutionFailure:
+                        return targetPrefix + "DNS lookup failed: the remote hostname could not be resolved.";
+                    case WebExceptionStatus.Timeout:
+                        return targetPrefix + "The network request timed out.";
+                    case WebExceptionStatus.ConnectFailure:
+                        return targetPrefix + "Unable to establish a TCP connection to the remote server.";
+                    case WebExceptionStatus.TrustFailure:
+                    case WebExceptionStatus.SecureChannelFailure:
+                        return targetPrefix + "SSL/TLS security handshake failed. Verify that the system clock is accurate and HTTPS inspection is not blocking traffic.";
+                    case WebExceptionStatus.ProtocolError:
+                        var httpResp = webEx.Response as HttpWebResponse;
+                        if (httpResp != null) {
+                            return string.Format("{0}Remote server returned HTTP {1} ({2}).", targetPrefix, (int)httpResp.StatusCode, httpResp.StatusDescription);
+                        }
+                        break;
+                }
+            }
+
+            // Inspect combined exception messages
+            var sb = new StringBuilder();
+            cur = ex;
+            while (cur != null) {
+                if (!string.IsNullOrWhiteSpace(cur.Message)) {
+                    if (sb.Length > 0) sb.Append(" -> ");
+                    sb.Append(cur.Message.Trim());
+                }
+                cur = cur.InnerException;
+            }
+            string combined = sb.ToString();
+
+            if (combined.IndexOf("remote name could not be resolved", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                combined.IndexOf("No such host is known", StringComparison.OrdinalIgnoreCase) >= 0) {
+                return targetPrefix + "DNS lookup failed: unable to resolve remote server hostname.";
+            }
+            if (combined.IndexOf("SSL", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                combined.IndexOf("TLS", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                combined.IndexOf("secure channel", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                combined.IndexOf("certificate", StringComparison.OrdinalIgnoreCase) >= 0) {
+                return targetPrefix + "SSL/TLS secure connection failed. Check system date/time or network firewall settings.";
+            }
+            var mStatus = Regex.Match(combined, @"\b([45]\d\d)\b");
+            if (mStatus.Success) {
+                string code = mStatus.Groups[1].Value;
+                if (code == "404") return targetPrefix + "Remote file or manifest was not found on the server (HTTP 404).";
+                if (code == "403") return targetPrefix + "Access to the remote resource was denied (HTTP 403 Forbidden).";
+                if (code == "429") return targetPrefix + "Too many requests to the remote server (HTTP 429 Rate Limited).";
+                if (code.StartsWith("5")) return targetPrefix + "Remote server encountered an internal error (HTTP " + code + ").";
+            }
+
+            return targetPrefix + (string.IsNullOrEmpty(combined) ? ex.Message : combined);
         }
     }
 
@@ -318,6 +448,107 @@ namespace HMT.Engines {
             return GetPasswordPolicy().MinLength;
         }
 
+        public static void GetLocalUsersAndAdmins(out HashSet<string> existingUsers, out HashSet<string> adminUsers) {
+            existingUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            adminUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            try {
+                var psiUsers = new ProcessStartInfo {
+                    FileName = "net.exe",
+                    Arguments = "user",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                };
+                using (var proc = Process.Start(psiUsers)) {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(3000);
+                    bool inBody = false;
+                    var lines = output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var rawLine in lines) {
+                        string line = rawLine.Trim();
+                        if (line.StartsWith("---")) {
+                            inBody = true;
+                            continue;
+                        }
+                        if (!inBody) continue;
+                        if (line.StartsWith("The command completed", StringComparison.OrdinalIgnoreCase)) break;
+
+                        // net.exe user prints in 25-character columns
+                        var parts = Regex.Split(rawLine, @"\s{2,}");
+                        foreach (var p in parts) {
+                            string u = p.Trim();
+                            if (!string.IsNullOrEmpty(u)) {
+                                existingUsers.Add(u);
+                            }
+                        }
+                    }
+                }
+            } catch { }
+
+            try {
+                var psiAdmins = new ProcessStartInfo {
+                    FileName = "net.exe",
+                    Arguments = "localgroup Administrators",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                };
+                using (var proc = Process.Start(psiAdmins)) {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(3000);
+                    bool inBody = false;
+                    var lines = output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var rawLine in lines) {
+                        string line = rawLine.Trim();
+                        if (line.StartsWith("---")) {
+                            inBody = true;
+                            continue;
+                        }
+                        if (!inBody) continue;
+                        if (line.StartsWith("The command completed", StringComparison.OrdinalIgnoreCase)) break;
+
+                        adminUsers.Add(line);
+                        int slashIdx = line.LastIndexOf('\\');
+                        if (slashIdx >= 0 && slashIdx + 1 < line.Length) {
+                            string shortName = line.Substring(slashIdx + 1).Trim();
+                            if (!string.IsNullOrEmpty(shortName)) {
+                                adminUsers.Add(shortName);
+                                existingUsers.Add(shortName);
+                            }
+                        }
+                    }
+                }
+            } catch { }
+        }
+
+        public static void QuerySingleUserAccountStatus(string username, out bool exists, out bool isAdmin) {
+            exists = false;
+            isAdmin = false;
+            if (string.IsNullOrWhiteSpace(username)) return;
+
+            try {
+                var psi = new ProcessStartInfo {
+                    FileName = "net.exe",
+                    Arguments = string.Format("user \"{0}\"", username.Trim()),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                using (var proc = Process.Start(psi)) {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(3000);
+                    if (proc.ExitCode == 0 && !string.IsNullOrEmpty(output)) {
+                        exists = true;
+                        if (Regex.IsMatch(output, @"\*\s*Administrators\b", RegexOptions.IgnoreCase)) {
+                            isAdmin = true;
+                        }
+                    }
+                }
+            } catch { }
+        }
+
         private static string ExtractProcessError(Process proc) {
             try {
                 string err = proc.StandardError.ReadToEnd();
@@ -397,34 +628,70 @@ namespace HMT.Engines {
             return CreateUser(username, password, isAutoLogin, isAdmin, isDontExpire, out err);
         }
 
-        public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire, out string errorMessage) {
+        public static bool ModifyUser(string username, string password, bool updatePassword, bool isAutoLogin, bool addToAdmin, bool removeFromAdmin, bool isDontExpire, out string errorMessage) {
             errorMessage = "";
             try {
-                var psi = new ProcessStartInfo {
-                    FileName = "net.exe",
-                    Arguments = string.Format("user \"{0}\" \"{1}\"", username, password),
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                using (var proc = Process.Start(psi)) {
-                    proc.WaitForExit();
-                    if (proc.ExitCode != 0) {
-                        errorMessage = ExtractProcessError(proc);
-                        return false;
+                if (updatePassword) {
+                    var psi = new ProcessStartInfo {
+                        FileName = "net.exe",
+                        Arguments = string.Format("user \"{0}\" \"{1}\"", username, password),
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+                    using (var proc = Process.Start(psi)) {
+                        proc.WaitForExit();
+                        if (proc.ExitCode != 0) {
+                            errorMessage = ExtractProcessError(proc);
+                            return false;
+                        }
                     }
                 }
 
-                if (isAdmin) {
+                if (addToAdmin) {
                     var psiAdmin = new ProcessStartInfo {
                         FileName = "net.exe",
                         Arguments = string.Format("localgroup Administrators \"{0}\" /add", username),
                         CreateNoWindow = true,
-                        UseShellExecute = false
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
                     };
                     using (var procAdmin = Process.Start(psiAdmin)) {
                         procAdmin.WaitForExit();
+                        if (procAdmin.ExitCode != 0 && !updatePassword) {
+                            errorMessage = ExtractProcessError(procAdmin);
+                            return false;
+                        }
+                    }
+                } else if (removeFromAdmin) {
+                    var psiRemoveAdmin = new ProcessStartInfo {
+                        FileName = "net.exe",
+                        Arguments = string.Format("localgroup Administrators \"{0}\" /delete", username),
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+                    using (var procRemoveAdmin = Process.Start(psiRemoveAdmin)) {
+                        procRemoveAdmin.WaitForExit();
+                        if (procRemoveAdmin.ExitCode != 0 && !updatePassword) {
+                            errorMessage = ExtractProcessError(procRemoveAdmin);
+                            return false;
+                        }
+                    }
+                }
+
+                if (isDontExpire) {
+                    var psiExpire = new ProcessStartInfo {
+                        FileName = "net.exe",
+                        Arguments = string.Format("user \"{0}\" /expires:never", username),
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using (var procExp = Process.Start(psiExpire)) {
+                        procExp.WaitForExit();
                     }
                 }
 
@@ -432,13 +699,17 @@ namespace HMT.Engines {
                     SetAutoLogon(username, password);
                 }
 
-                Logger.Log("Successfully updated password for: " + username, "Success");
+                Logger.Log("Successfully modified user: " + username, "Success");
                 return true;
             } catch (Exception ex) {
                 errorMessage = ex.Message;
-                Logger.Log("Password update failed: " + ex.Message, "Error");
+                Logger.Log("Account modification failed: " + ex.Message, "Error");
                 return false;
             }
+        }
+
+        public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire, out string errorMessage) {
+            return ModifyUser(username, password, true, isAutoLogin, isAdmin, false, isDontExpire, out errorMessage);
         }
 
         public static bool UpdateUserPassword(string username, string password, bool isAutoLogin, bool isAdmin, bool isDontExpire) {
@@ -467,7 +738,27 @@ namespace HMT.Engines {
 
         public static string GetSerialNumber() {
             try {
-                using (var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS")) {
+                using (var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\BIOS", false)) {
+                    if (key != null) {
+                        string sysSerial = (key.GetValue("SystemSerialNumber") as string)?.Trim();
+                        if (!string.IsNullOrEmpty(sysSerial) &&
+                            !sysSerial.Equals("System Serial Number", StringComparison.OrdinalIgnoreCase) &&
+                            !sysSerial.Equals("To be filled by O.E.M.", StringComparison.OrdinalIgnoreCase) &&
+                            !sysSerial.Equals("Default string", StringComparison.OrdinalIgnoreCase)) {
+                            return sysSerial;
+                        }
+                        string boardSerial = (key.GetValue("BaseBoardSerialNumber") as string)?.Trim();
+                        if (!string.IsNullOrEmpty(boardSerial) &&
+                            !boardSerial.Equals("To be filled by O.E.M.", StringComparison.OrdinalIgnoreCase) &&
+                            !boardSerial.Equals("Default string", StringComparison.OrdinalIgnoreCase)) {
+                            return boardSerial;
+                        }
+                    }
+                }
+            } catch { }
+
+            try {
+                using (var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_SystemEnclosure")) {
                     foreach (ManagementObject obj in searcher.Get()) {
                         string serial = obj["SerialNumber"]?.ToString();
                         if (!string.IsNullOrEmpty(serial)) return serial.Trim();
@@ -479,10 +770,16 @@ namespace HMT.Engines {
 
         public static string GetWindowsEdition() {
             try {
-                using (var searcher = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem")) {
-                    foreach (ManagementObject obj in searcher.Get()) {
-                        string caption = obj["Caption"]?.ToString();
-                        if (!string.IsNullOrEmpty(caption)) return caption.Trim();
+                using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion", false)) {
+                    if (key != null) {
+                        string editionId = key.GetValue("EditionID") as string;
+                        string productName = key.GetValue("ProductName") as string;
+                        if (!string.IsNullOrEmpty(productName)) {
+                            return productName.Trim();
+                        }
+                        if (!string.IsNullOrEmpty(editionId)) {
+                            return "Windows " + editionId.Trim();
+                        }
                     }
                 }
             } catch { }
@@ -492,11 +789,21 @@ namespace HMT.Engines {
         public static bool IsDomainJoined(out string domainName) {
             domainName = string.Empty;
             try {
-                using (var searcher = new ManagementObjectSearcher("SELECT PartOfDomain, Domain FROM Win32_ComputerSystem")) {
-                    foreach (ManagementObject obj in searcher.Get()) {
-                        bool partOfDomain = (bool)(obj["PartOfDomain"] ?? false);
-                        domainName = obj["Domain"]?.ToString() ?? "";
-                        return partOfDomain;
+                string ipDomain = IPGlobalProperties.GetIPGlobalProperties().DomainName;
+                if (!string.IsNullOrWhiteSpace(ipDomain)) {
+                    domainName = ipDomain.Trim();
+                    return true;
+                }
+            } catch { }
+
+            try {
+                using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters", false)) {
+                    if (key != null) {
+                        string regDomain = (key.GetValue("Domain") as string)?.Trim();
+                        if (!string.IsNullOrEmpty(regDomain)) {
+                            domainName = regDomain;
+                            return true;
+                        }
                     }
                 }
             } catch { }
@@ -828,14 +1135,10 @@ namespace HMT.Engines {
                             }
                         } catch { }
                         try {
-                            var psiSc = new ProcessStartInfo {
-                                FileName = "sc.exe",
-                                Arguments = "config " + s + " start= disabled",
-                                CreateNoWindow = true,
-                                UseShellExecute = false
-                            };
-                            using (var pSc = Process.Start(psiSc)) {
-                                pSc.WaitForExit(3000);
+                            using (var svcKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + s, true)) {
+                                if (svcKey != null) {
+                                    svcKey.SetValue("Start", 4, RegistryValueKind.DWord);
+                                }
                             }
                         } catch { }
                     }
@@ -916,12 +1219,18 @@ namespace HMT.Engines {
         public string Category { get; set; }
         public string WingetID { get; set; }
         public string Type { get; set; } // "Winget", "MSOffice", "MSOutlook"
+        public string DetectKeywords { get; set; }
+        public string DirectUrl { get; set; }
+        public string SilentArgs { get; set; }
 
-        public SoftwareItem(string name, string category, string wingetId, string type = "Winget") {
+        public SoftwareItem(string name, string category, string wingetId, string type = "Winget", string detectKeywords = "", string directUrl = "", string silentArgs = "") {
             Name = name;
             Category = category;
             WingetID = wingetId;
-            Type = type;
+            Type = string.IsNullOrEmpty(type) ? "Winget" : type;
+            DetectKeywords = detectKeywords ?? "";
+            DirectUrl = directUrl ?? "";
+            SilentArgs = silentArgs ?? "";
         }
     }
 
@@ -938,80 +1247,186 @@ namespace HMT.Engines {
     }
 
     public static class ProgramInstallerEngine {
-        public static Dictionary<string, List<SoftwareItem>> GetCategorizedCatalog() {
-            var cat = new Dictionary<string, List<SoftwareItem>>();
+        private static Dictionary<string, List<SoftwareItem>> _cachedCatalog = null;
+        private static readonly object _catalogLock = new object();
+        private const string PrimaryManifestUrl = "https://raw.githubusercontent.com/TylerHats/Hats-Multitool/main/SoftwareCatalog.json";
+        private const string FallbackManifestUrl = "https://hatsthings.com/MultitoolFiles/SoftwareCatalog.json";
 
-            // Browsers & Comms
-            cat["Browsers & Comms"] = new List<SoftwareItem> {
-                new SoftwareItem("Google Chrome", "Browsers & Comms", "Google.Chrome"),
-                new SoftwareItem("Mozilla Firefox", "Browsers & Comms", "Mozilla.Firefox"),
-                new SoftwareItem("Brave Browser", "Browsers & Comms", "Brave.Brave"),
-                new SoftwareItem("Discord", "Browsers & Comms", "Discord.Discord"),
-                new SoftwareItem("Microsoft Teams", "Browsers & Comms", "Microsoft.Teams"),
-                new SoftwareItem("Zoom", "Browsers & Comms", "Zoom.Zoom"),
-                new SoftwareItem("Slack", "Browsers & Comms", "SlackTechnologies.Slack"),
-                new SoftwareItem("Telegram Desktop", "Browsers & Comms", "Telegram.TelegramDesktop"),
-                new SoftwareItem("Mozilla Thunderbird", "Browsers & Comms", "Mozilla.Thunderbird")
-            };
+        public static async Task PrepareWinGetAsync(IProgress<string> statusProgress = null) {
+            await Task.Run(() => {
+                try {
+                    statusProgress?.Report("Prepping WinGet package manager...");
+                    var psi = new ProcessStartInfo {
+                        FileName = "winget.exe",
+                        Arguments = "source update --disable-interactivity",
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+                    using (var proc = Process.Start(psi)) {
+                        if (proc != null) {
+                            proc.WaitForExit(10000);
+                            if (!proc.HasExited) {
+                                try { proc.Kill(); } catch { }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    Logger.Log("WinGet prep warning: " + ex.Message, "Warning");
+                }
+            });
+        }
 
-            // Productivity
-            cat["Productivity"] = new List<SoftwareItem> {
-                new SoftwareItem("7-Zip", "Productivity", "7zip.7zip"),
-                new SoftwareItem("WinRAR", "Productivity", "RARLab.WinRAR"),
-                new SoftwareItem("Notepad++", "Productivity", "Notepad++.Notepad++"),
-                new SoftwareItem("Adobe Acrobat Reader", "Productivity", "Adobe.Acrobat.Reader.64-bit"),
-                new SoftwareItem("Adobe Creative Cloud", "Productivity", "Adobe.CreativeCloud"),
-                new SoftwareItem("Microsoft Office (64-Bit)", "Productivity", "", "MSOffice"),
-                new SoftwareItem("Outlook Classic", "Productivity", "", "MSOutlook"),
-                new SoftwareItem("LibreOffice", "Productivity", "TheDocumentFoundation.LibreOffice"),
-                new SoftwareItem("Microsoft PowerToys", "Productivity", "Microsoft.PowerToys"),
-                new SoftwareItem("Everything Search", "Productivity", "voidtools.Everything"),
-                new SoftwareItem("ShareX", "Productivity", "ShareX.ShareX"),
-                new SoftwareItem("Greenshot", "Productivity", "Greenshot.Greenshot")
-            };
+        public static async Task<Dictionary<string, List<SoftwareItem>>> FetchSoftwareCatalogAsync(IProgress<string> statusProgress = null, bool forceRefresh = false) {
+            if (!forceRefresh) {
+                lock (_catalogLock) {
+                    if (_cachedCatalog != null && _cachedCatalog.Count > 0) {
+                        return _cachedCatalog;
+                    }
+                }
+            }
 
-            // IT & Dev Tools
-            cat["IT & Dev Tools"] = new List<SoftwareItem> {
-                new SoftwareItem("Visual Studio Code", "IT & Dev Tools", "Microsoft.VisualStudioCode"),
-                new SoftwareItem("Git for Windows", "IT & Dev Tools", "Git.Git"),
-                new SoftwareItem("Python 3.12", "IT & Dev Tools", "Python.Python.3.12"),
-                new SoftwareItem("Node.js LTS", "IT & Dev Tools", "OpenJS.NodeJS.LTS"),
-                new SoftwareItem("Windows Terminal", "IT & Dev Tools", "Microsoft.WindowsTerminal"),
-                new SoftwareItem("PuTTY", "IT & Dev Tools", "PuTTY.PuTTY"),
-                new SoftwareItem("WinSCP", "IT & Dev Tools", "WinSCP.WinSCP"),
-                new SoftwareItem("Wireshark", "IT & Dev Tools", "WiresharkFoundation.Wireshark"),
-                new SoftwareItem("Twingate Client", "IT & Dev Tools", "Twingate.Client"),
-                new SoftwareItem("Tailscale", "IT & Dev Tools", "Tailscale.Tailscale"),
-                new SoftwareItem("AnyDesk", "IT & Dev Tools", "AnyDeskSoftwareGmbH.AnyDesk"),
-                new SoftwareItem("TeamViewer", "IT & Dev Tools", "TeamViewer.TeamViewer")
-            };
+            var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+            if (!netCheck.Item1) {
+                throw new InvalidOperationException(netCheck.Item2);
+            }
 
-            // Media & Design
-            cat["Media & Design"] = new List<SoftwareItem> {
-                new SoftwareItem("VLC Media Player", "Media & Design", "VideoLAN.VLC"),
-                new SoftwareItem("Spotify", "Media & Design", "Spotify.Spotify"),
-                new SoftwareItem("OBS Studio", "Media & Design", "OBSProject.OBSStudio"),
-                new SoftwareItem("Audacity", "Media & Design", "Audacity.Audacity"),
-                new SoftwareItem("HandBrake", "Media & Design", "HandBrake.HandBrake"),
-                new SoftwareItem("GIMP", "Media & Design", "GIMP.GIMP"),
-                new SoftwareItem("Inkscape", "Media & Design", "Inkscape.Inkscape"),
-                new SoftwareItem("K-Lite Codec Pack Mega", "Media & Design", "CodecGuide.K-LiteCodecPack.Mega")
-            };
+            string json = null;
+            Exception lastException = null;
+            bool gotHttp404Only = false;
+            const int maxAttempts = 3;
 
-            // Cloud & Gaming
-            cat["Cloud & Gaming"] = new List<SoftwareItem> {
-                new SoftwareItem("Google Drive", "Cloud & Gaming", "Google.Drive"),
-                new SoftwareItem("Dropbox", "Cloud & Gaming", "Dropbox.Dropbox"),
-                new SoftwareItem("Steam", "Cloud & Gaming", "Valve.Steam"),
-                new SoftwareItem("Epic Games Launcher", "Cloud & Gaming", "EpicGames.EpicGamesLauncher"),
-                new SoftwareItem("GOG Galaxy", "Cloud & Gaming", "GOG.Galaxy"),
-                new SoftwareItem("CPUID HWMonitor", "Cloud & Gaming", "CPUID.HWMonitor"),
-                new SoftwareItem("CPUID CPU-Z", "Cloud & Gaming", "CPUID.CPU-Z"),
-                new SoftwareItem("TechPowerUp GPU-Z", "Cloud & Gaming", "TechPowerUp.GPU-Z"),
-                new SoftwareItem("MSI Afterburner", "Cloud & Gaming", "Guru3D.Afterburner")
-            };
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (attempt == 1) {
+                    statusProgress?.Report("Obtaining software catalog manifest...");
+                } else {
+                    statusProgress?.Report(string.Format("Network error obtaining software manifest. Retrying (attempt {0}/{1})...", attempt, maxAttempts));
+                    await Task.Delay(1200 * (attempt - 1));
+                }
 
-            return cat;
+                // 1. Try primary GitHub repository manifest
+                try {
+                    using (var cts = new CancellationTokenSource(6000))
+                    using (var client = new HttpClient()) {
+                        client.Timeout = TimeSpan.FromSeconds(6);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                        using (var resp = await client.GetAsync(PrimaryManifestUrl, cts.Token)) {
+                            if (resp.StatusCode == HttpStatusCode.NotFound) {
+                                gotHttp404Only = true;
+                            }
+                            resp.EnsureSuccessStatusCode();
+                            json = await resp.Content.ReadAsStringAsync();
+                        }
+                    }
+                } catch (Exception ex) {
+                    lastException = ex;
+                    Logger.Log(string.Format("SoftwareCatalog primary fetch attempt {0}/{1} failed: {2}", attempt, maxAttempts, ex.Message), "Warning");
+                }
+
+                // 2. Try web server fallback manifest
+                if (string.IsNullOrEmpty(json)) {
+                    try {
+                        using (var cts = new CancellationTokenSource(5000))
+                        using (var client = new HttpClient()) {
+                            client.Timeout = TimeSpan.FromSeconds(5);
+                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                            using (var resp = await client.GetAsync(FallbackManifestUrl, cts.Token)) {
+                                if (resp.StatusCode == HttpStatusCode.NotFound) {
+                                    gotHttp404Only = true;
+                                }
+                                resp.EnsureSuccessStatusCode();
+                                json = await resp.Content.ReadAsStringAsync();
+                            }
+                        }
+                    } catch (Exception ex) {
+                        lastException = ex;
+                        Logger.Log(string.Format("SoftwareCatalog fallback fetch attempt {0}/{1} failed: {2}", attempt, maxAttempts, ex.Message), "Warning");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(json)) {
+                    break;
+                }
+            }
+
+            // Local repository file fallback if internet is up and remote returned 404 before initial deployment
+            if (string.IsNullOrEmpty(json) && gotHttp404Only) {
+                try {
+                    string localCandidates = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SoftwareCatalog.json");
+                    if (File.Exists(localCandidates)) {
+                        json = File.ReadAllText(localCandidates, Encoding.UTF8);
+                    } else if (File.Exists("SoftwareCatalog.json")) {
+                        json = File.ReadAllText("SoftwareCatalog.json", Encoding.UTF8);
+                    }
+                } catch { }
+            }
+
+            if (string.IsNullOrEmpty(json)) {
+                string reason = lastException != null
+                    ? NetworkConnectivityHelper.FormatNetworkException(lastException, "SoftwareCatalog.json")
+                    : "The remote software manifest returned an empty response.";
+                throw new InvalidOperationException("Failed to download the Software Catalog manifest after " + maxAttempts + " attempts.\n\n" + reason);
+            }
+
+            statusProgress?.Report("Parsing software catalog manifest...");
+            var parsed = ParseSoftwareCatalogJson(json);
+            if (parsed == null || parsed.Count == 0) {
+                throw new InvalidOperationException("The downloaded Software Catalog manifest could not be parsed or contained no valid entries.");
+            }
+
+            lock (_catalogLock) {
+                _cachedCatalog = parsed;
+            }
+            return parsed;
+        }
+
+        public static Dictionary<string, List<SoftwareItem>> ParseSoftwareCatalogJson(string json) {
+            var categorized = new Dictionary<string, List<SoftwareItem>>();
+            if (string.IsNullOrWhiteSpace(json)) return categorized;
+
+            try {
+                var objectMatches = Regex.Matches(json, @"\{([^{}]+)\}");
+                foreach (Match om in objectMatches) {
+                    string block = om.Groups[1].Value;
+                    var mName = Regex.Match(block, @"""name""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    if (!mName.Success) continue;
+
+                    string name = UnquoteJsonValue(mName.Groups[1].Value);
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    var mCat = Regex.Match(block, @"""category""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    var mWinget = Regex.Match(block, @"""wingetId""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    var mType = Regex.Match(block, @"""type""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    var mDetect = Regex.Match(block, @"""detect""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    var mUrl = Regex.Match(block, @"""url""\s*:\s*""((?:\\.|[^""\\])*)""");
+                    var mSilent = Regex.Match(block, @"""silentArgs""\s*:\s*""((?:\\.|[^""\\])*)""");
+
+                    string category = mCat.Success ? UnquoteJsonValue(mCat.Groups[1].Value) : "General";
+                    if (string.IsNullOrEmpty(category)) category = "General";
+                    string wingetId = mWinget.Success ? UnquoteJsonValue(mWinget.Groups[1].Value) : "";
+                    string type = mType.Success ? UnquoteJsonValue(mType.Groups[1].Value) : "Winget";
+                    string detect = mDetect.Success ? UnquoteJsonValue(mDetect.Groups[1].Value) : "";
+                    string url = mUrl.Success ? UnquoteJsonValue(mUrl.Groups[1].Value) : "";
+                    string silentArgs = mSilent.Success ? UnquoteJsonValue(mSilent.Groups[1].Value) : "";
+
+                    List<SoftwareItem> list;
+                    if (!categorized.TryGetValue(category, out list)) {
+                        list = new List<SoftwareItem>();
+                        categorized[category] = list;
+                    }
+                    list.Add(new SoftwareItem(name, category, wingetId, type, detect, url, silentArgs));
+                }
+            } catch (Exception ex) {
+                Logger.Log("Error parsing SoftwareCatalog.json: " + ex.Message, "Error");
+            }
+
+            return categorized;
+        }
+
+        private static string UnquoteJsonValue(string raw) {
+            if (string.IsNullOrEmpty(raw)) return string.Empty;
+            return raw.Replace("\\\"", "\"").Replace("\\\\", "\\").Trim();
         }
 
         public static HashSet<string> GetInstalledDisplayNames() {
@@ -1031,7 +1446,7 @@ namespace HMT.Engines {
                                             using (var appKey = key.OpenSubKey(appSubName, false)) {
                                                 if (appKey != null) {
                                                     var dn = appKey.GetValue("DisplayName") as string;
-                                                    if (!string.IsNullOrEmpty(dn)) set.Add(dn);
+                                                    if (!string.IsNullOrEmpty(dn)) set.Add(dn.Trim());
                                                 }
                                             }
                                         } catch { }
@@ -1047,64 +1462,61 @@ namespace HMT.Engines {
 
         public static bool IsProgramInstalled(SoftwareItem item, HashSet<string> installedSet) {
             if (item == null || installedSet == null) return false;
-            string pName = item.Name;
-            foreach (var dn in installedSet) {
-                if (dn.IndexOf(pName, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+            // Special path check for Google Drive for Desktop if not yet in Uninstall or to confirm presence
+            if (string.Equals(item.WingetID, "Google.Drive", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.Name, "Google Drive", StringComparison.OrdinalIgnoreCase)) {
+                foreach (var dn in installedSet) {
+                    if (dn.IndexOf("Google Drive", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        return true;
+                    }
+                }
+                try {
+                    string gdriveDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Drive File Stream");
+                    if (Directory.Exists(gdriveDir) && Directory.GetFiles(gdriveDir, "GoogleDriveFS.exe", SearchOption.AllDirectories).Length > 0) {
+                        return true;
+                    }
+                } catch { }
+                return false;
             }
-            if (!string.IsNullOrEmpty(item.WingetID)) {
-                string[] parts = item.WingetID.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts != null && parts.Length > 0) {
-                    string tail = parts[parts.Length - 1];
-                    if (tail.Length >= 4) {
-                        foreach (var dn in installedSet) {
-                            if (dn.IndexOf(tail, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-                        }
+
+            string keywordsRaw = !string.IsNullOrWhiteSpace(item.DetectKeywords) ? item.DetectKeywords : item.Name;
+            if (string.IsNullOrWhiteSpace(keywordsRaw)) return false;
+
+            string[] keywords = keywordsRaw.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var rawKw in keywords) {
+                string kw = rawKw.Trim();
+                if (string.IsNullOrEmpty(kw)) continue;
+
+                string pattern = @"(^|[^A-Za-z0-9])" + Regex.Escape(kw) + @"($|[^A-Za-z0-9])";
+                foreach (var dn in installedSet) {
+                    if (Regex.IsMatch(dn, pattern, RegexOptions.IgnoreCase)) {
+                        return true;
                     }
                 }
             }
+
             return false;
         }
 
-        public static InstallerPackageInfo GetWingetInstallerInfo(string wingetId, CancellationToken ct) {
+        public static InstallerPackageInfo GetWingetInstallerInfo(SoftwareItem item, CancellationToken ct) {
             var info = new InstallerPackageInfo();
-            if (string.IsNullOrEmpty(wingetId)) return info;
+            if (item == null) return info;
 
-            // App-specific fast-paths / verified overrides
-            if (wingetId.Equals("Adobe.Acrobat.Reader.64-bit", StringComparison.OrdinalIgnoreCase)) {
-                info.SilentArgs = "/sAll /rs /msi EULA_ACCEPT=YES /norestart";
-            } else if (wingetId.Equals("Valve.Steam", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe";
-                info.SilentArgs = "/S";
-                return info;
-            } else if (wingetId.IndexOf("Slack", StringComparison.OrdinalIgnoreCase) >= 0) {
-                info.InstallerUrl = "https://slack.com/ssb/download-win64";
-                info.SilentArgs = "/silent";
-                return info;
-            } else if (wingetId.IndexOf("AnyDesk", StringComparison.OrdinalIgnoreCase) >= 0) {
-                info.InstallerUrl = "https://download.anydesk.com/AnyDesk.exe";
-                info.SilentArgs = "--install \"" + Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) + "\\AnyDesk\" --start-with-win --silent";
-                return info;
-            } else if (wingetId.Equals("Google.Chrome", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B4F373802-9F19-C0FD-BA19-1EBE5394B73B%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dtrue%26ap%3Dx64-stable-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeStandaloneSetup64.exe";
-                info.SilentArgs = "/silent /install";
-                return info;
-            } else if (wingetId.Equals("Mozilla.Firefox", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US";
-                info.SilentArgs = "/S";
-                return info;
-            } else if (wingetId.Equals("7zip.7zip", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://www.7-zip.org/a/7z2408-x64.exe";
-                info.SilentArgs = "/S";
-                return info;
-            } else if (wingetId.Equals("Notepad++.Notepad++", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.9/npp.8.6.9.Installer.x64.exe";
-                info.SilentArgs = "/S";
-                return info;
-            } else if (wingetId.Equals("Git.Git", StringComparison.OrdinalIgnoreCase)) {
-                info.InstallerUrl = "https://github.com/git-for-windows/git/releases/download/v2.46.0.windows.1/Git-2.46.0-64-bit.exe";
-                info.SilentArgs = "/VERYSILENT /NORESTART";
+            // Use manifest-supplied direct URL and/or silent args when present
+            if (!string.IsNullOrEmpty(item.SilentArgs)) {
+                info.SilentArgs = Environment.ExpandEnvironmentVariables(item.SilentArgs);
+            }
+            if (!string.IsNullOrEmpty(item.DirectUrl)) {
+                info.InstallerUrl = item.DirectUrl;
+                if (string.IsNullOrEmpty(info.SilentArgs)) {
+                    info.SilentArgs = info.InstallerUrl.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ? "/qn /norestart" : "/S";
+                }
                 return info;
             }
+
+            string wingetId = item.WingetID;
+            if (string.IsNullOrEmpty(wingetId)) return info;
 
             try {
                 var psi = new ProcessStartInfo {
@@ -1164,8 +1576,8 @@ namespace HMT.Engines {
             });
 
             try {
-                // 1. Scrape package URL and silent args
-                var info = await Task.Run(() => GetWingetInstallerInfo(item.WingetID, ct));
+                // 1. Resolve package URL and silent args from manifest or WinGet
+                var info = await Task.Run(() => GetWingetInstallerInfo(item, ct));
                 ct.ThrowIfCancellationRequested();
 
                 if (!string.IsNullOrEmpty(info.InstallerUrl)) {
@@ -1285,14 +1697,6 @@ namespace HMT.Engines {
                                 }
                             } finally {
                                 if (ct.IsCancellationRequested && !proc.HasExited) {
-                                    try {
-                                        Process.Start(new ProcessStartInfo {
-                                            FileName = "taskkill.exe",
-                                            Arguments = string.Format("/F /T /PID {0}", proc.Id),
-                                            CreateNoWindow = true,
-                                            UseShellExecute = false
-                                        })?.WaitForExit(1000);
-                                    } catch { }
                                     try { proc.Kill(); } catch { }
                                 }
                             }
@@ -1329,14 +1733,6 @@ namespace HMT.Engines {
                 using (var proc = Process.Start(psiWinget)) {
                     while (!proc.HasExited) {
                         if (ct.IsCancellationRequested) {
-                            try {
-                                Process.Start(new ProcessStartInfo {
-                                    FileName = "taskkill.exe",
-                                    Arguments = string.Format("/F /T /PID {0}", proc.Id),
-                                    CreateNoWindow = true,
-                                    UseShellExecute = false
-                                })?.WaitForExit(1000);
-                            } catch { }
                             try { proc.Kill(); } catch { }
                             return false;
                         }
@@ -1610,7 +2006,8 @@ namespace HMT.Engines {
                 });
 
                 await Task.Run(() => {
-                    using (var archive = ZipFile.OpenRead(zipPath)) {
+                    using (var fs = File.OpenRead(zipPath))
+                    using (var archive = new ZipArchive(fs, ZipArchiveMode.Read)) {
                         int totalEntries = archive.Entries.Count;
                         int currentEntry = 0;
                         foreach (var entry in archive.Entries) {
@@ -1622,7 +2019,10 @@ namespace HMT.Engines {
                                 Directory.CreateDirectory(destDir);
                             }
                             if (!string.IsNullOrEmpty(entry.Name)) {
-                                entry.ExtractToFile(destinationPath, true);
+                                using (var entryStream = entry.Open())
+                                using (var outStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                                    entryStream.CopyTo(outStream);
+                                }
                             }
                             if (currentEntry % 5 == 0 || currentEntry == totalEntries) {
                                 int extractPct = 80 + (int)((currentEntry * 15.0) / Math.Max(1, totalEntries));
@@ -1666,8 +2066,8 @@ namespace HMT.Engines {
                 FileName = setupExe,
                 Arguments = "/configure \"" + xmlPath + "\"",
                 WorkingDirectory = setupDir,
-                WindowStyle = ProcessWindowStyle.Hidden,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                UseShellExecute = false
             };
             Process.Start(psiSetup);
 
@@ -1716,55 +2116,96 @@ namespace HMT.Engines {
         private const string PrimaryManifestUrl = "https://raw.githubusercontent.com/TylerHats/Hats-Multitool/main/ExternalTools.json";
         private const string FallbackManifestUrl = "https://hatsthings.com/MultitoolFiles/ExternalTools.json";
 
-        public static async Task<List<ExternalToolItem>> FetchRemoteToolsCatalogAsync() {
-            lock (_lock) {
-                if (_cachedCatalog != null && _cachedCatalog.Count > 0) {
-                    return _cachedCatalog;
+        public static async Task<List<ExternalToolItem>> FetchRemoteToolsCatalogAsync(IProgress<string> statusProgress = null, bool forceRefresh = false) {
+            if (!forceRefresh) {
+                lock (_lock) {
+                    if (_cachedCatalog != null && _cachedCatalog.Count > 0) {
+                        return _cachedCatalog;
+                    }
                 }
+            }
+
+            var netCheck = await NetworkConnectivityHelper.CheckInternetAccessAsync();
+            if (!netCheck.Item1) {
+                throw new InvalidOperationException(netCheck.Item2);
             }
 
             string json = null;
-            // 1. Try raw GitHub repository
-            try {
-                using (var cts = new CancellationTokenSource(5000))
-                using (var client = new HttpClient()) {
-                    client.Timeout = TimeSpan.FromSeconds(5);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
-                    json = await client.GetStringAsync(PrimaryManifestUrl);
+            Exception lastException = null;
+            const int maxAttempts = 3;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (attempt == 1) {
+                    statusProgress?.Report("Obtaining online tools manifest...");
+                } else {
+                    statusProgress?.Report(string.Format("Network error obtaining tools manifest. Retrying (attempt {0}/{1})...", attempt, maxAttempts));
+                    await Task.Delay(1200 * (attempt - 1));
                 }
-            } catch { }
 
-            // 2. Try web server fallback
-            if (string.IsNullOrEmpty(json)) {
+                // 1. Try raw GitHub repository
                 try {
-                    using (var cts = new CancellationTokenSource(4000))
+                    using (var cts = new CancellationTokenSource(5500))
                     using (var client = new HttpClient()) {
-                        client.Timeout = TimeSpan.FromSeconds(4);
+                        client.Timeout = TimeSpan.FromSeconds(5.5);
                         client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
-                        json = await client.GetStringAsync(FallbackManifestUrl);
-                    }
-                } catch { }
-            }
-
-            if (!string.IsNullOrEmpty(json)) {
-                var tools = ParseCatalogJson(json);
-                if (tools != null && tools.Count > 0) {
-                    lock (_lock) {
-                        _cachedCatalog = tools;
-                        foreach (var t in tools) {
-                            _cache[t.Name] = new ResolvedToolInfo {
-                                ToolName = t.Name,
-                                DownloadUrl = t.DownloadUrl,
-                                ExeInsideArchive = t.ExeInsideArchive,
-                                Version = ""
-                            };
+                        using (var resp = await client.GetAsync(PrimaryManifestUrl, cts.Token)) {
+                            resp.EnsureSuccessStatusCode();
+                            json = await resp.Content.ReadAsStringAsync();
                         }
                     }
-                    return tools;
+                } catch (Exception ex) {
+                    lastException = ex;
+                    Logger.Log(string.Format("ExternalTools primary fetch attempt {0}/{1} failed: {2}", attempt, maxAttempts, ex.Message), "Warning");
+                }
+
+                // 2. Try web server fallback
+                if (string.IsNullOrEmpty(json)) {
+                    try {
+                        using (var cts = new CancellationTokenSource(4500))
+                        using (var client = new HttpClient()) {
+                            client.Timeout = TimeSpan.FromSeconds(4.5);
+                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) HatsMultitool");
+                            using (var resp = await client.GetAsync(FallbackManifestUrl, cts.Token)) {
+                                resp.EnsureSuccessStatusCode();
+                                json = await resp.Content.ReadAsStringAsync();
+                            }
+                        }
+                    } catch (Exception ex) {
+                        lastException = ex;
+                        Logger.Log(string.Format("ExternalTools fallback fetch attempt {0}/{1} failed: {2}", attempt, maxAttempts, ex.Message), "Warning");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(json)) {
+                    break;
                 }
             }
 
-            return new List<ExternalToolItem>();
+            if (string.IsNullOrEmpty(json)) {
+                string reason = lastException != null
+                    ? NetworkConnectivityHelper.FormatNetworkException(lastException, "ExternalTools.json")
+                    : "The remote tools manifest returned an empty response.";
+                throw new InvalidOperationException("Failed to download the Online Tools manifest after " + maxAttempts + " attempts.\n\n" + reason);
+            }
+
+            statusProgress?.Report("Parsing online tools manifest...");
+            var tools = ParseCatalogJson(json);
+            if (tools != null && tools.Count > 0) {
+                lock (_lock) {
+                    _cachedCatalog = tools;
+                    foreach (var t in tools) {
+                        _cache[t.Name] = new ResolvedToolInfo {
+                            ToolName = t.Name,
+                            DownloadUrl = t.DownloadUrl,
+                            ExeInsideArchive = t.ExeInsideArchive,
+                            Version = ""
+                        };
+                    }
+                }
+                return tools;
+            }
+
+            throw new InvalidOperationException("The downloaded Online Tools manifest could not be parsed or contained no valid tool entries.");
         }
 
         public static List<ExternalToolItem> ParseCatalogJson(string json) {
@@ -1809,7 +2250,9 @@ namespace HMT.Engines {
             }
 
             // 2. Fetch catalog if not loaded
-            await FetchRemoteToolsCatalogAsync();
+            try {
+                await FetchRemoteToolsCatalogAsync();
+            } catch { }
 
             lock (_lock) {
                 if (_cache.TryGetValue(toolName, out var manifestInfo) && manifestInfo != null && !string.IsNullOrEmpty(manifestInfo.DownloadUrl)) {

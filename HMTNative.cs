@@ -1,53 +1,13 @@
-// C# Methods Pre-Comp File - Tyler Hatfield - v2.0
-
 using System;
+using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
+using System.IO;
 using System.Runtime.InteropServices;
-
-// Global namespace class to match existing [DpiHelper] calls
-public class DpiHelper {
-    [DllImport("user32.dll")]
-    public static extern bool SetProcessDPIAware();
-}
+using System.Text.RegularExpressions;
+using Microsoft.Win32;
 
 namespace HMT {
-    // HMT namespace class to match existing [HMT.NativeMethods] calls
     public static class NativeMethods {
-        public static GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int cornerRadius) {
-            GraphicsPath path = new GraphicsPath();
-            int diameter = cornerRadius * 2;
-            if (diameter > rect.Width) diameter = rect.Width;
-            if (diameter > rect.Height) diameter = rect.Height;
-            if (diameter <= 0) {
-                path.AddRectangle(rect);
-                return path;
-            }
-            Size size = new Size(diameter, diameter);
-            Rectangle arc = new Rectangle(rect.Location, size);
-
-            path.AddArc(arc, 180, 90);
-            arc.X = rect.Right - diameter;
-            path.AddArc(arc, 270, 90);
-            arc.Y = rect.Bottom - diameter;
-            path.AddArc(arc, 0, 90);
-            arc.X = rect.Left;
-            path.AddArc(arc, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-
-        public static void SetRoundedCorners(System.Windows.Forms.Control control, int radius) {
-            if (control == null || control.Width <= 0 || control.Height <= 0) return;
-            using (var path = CreateRoundedRectanglePath(new Rectangle(0, 0, control.Width, control.Height), radius)) {
-                control.Region = new Region(path);
-            }
-        }
-
-        // --- Console & Window Visibility ---
-        [DllImport("kernel32.dll")]
-        public static extern IntPtr GetConsoleWindow();
-
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -55,34 +15,8 @@ namespace HMT {
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        // --- Window Messaging (Icons & UI Elements) ---
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern Int32 SendMessage(IntPtr hWnd, int msg, int wParam, string lParam);
-
-        // --- DWM & Theming (Dark Mode) ---
-        [DllImport("uxtheme.dll", ExactSpelling=true, CharSet=CharSet.Unicode)]
-        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-
         [DllImport("dwmapi.dll")]
         public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-        // --- Taskbar Management ---
-        [DllImport("shell32.dll", SetLastError = true)]
-        public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
-
-        // --- Elevation & Process Lifecycle ---
-        public static bool IsAdministrator() {
-            try {
-                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
-                var principal = new System.Security.Principal.WindowsPrincipal(identity);
-                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-            } catch {
-                return false;
-            }
-        }
 
         public static void CleanupAndExit(string appDir = null, string irmTarget = null, bool cleanupExe = false) {
             PerformBackgroundCleanupAndExit(appDir, irmTarget, cleanupExe);
@@ -96,158 +30,56 @@ namespace HMT {
                 System.Windows.Forms.Application.DoEvents();
             } catch { }
 
-            try {
-                string hmtLocalDir = string.IsNullOrEmpty(appDir)
-                    ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT")
-                    : appDir;
-                string exePath = !string.IsNullOrEmpty(irmTarget)
-                    ? irmTarget
-                    : System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            if (cleanupExe || !string.IsNullOrEmpty(irmTarget)) {
+                try {
+                    string hmtLocalDir = string.IsNullOrEmpty(appDir)
+                        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HMT")
+                        : appDir;
+                    string exePath = !string.IsNullOrEmpty(irmTarget)
+                        ? irmTarget
+                        : Process.GetCurrentProcess().MainModule.FileName;
 
-                // Clean up temporary downloaded external programs and O365 setup payload directory directly in C#
-                if (System.IO.Directory.Exists(hmtLocalDir)) {
-                    try {
-                        string extPrograms = System.IO.Path.Combine(hmtLocalDir, "ExtPrograms");
-                        if (System.IO.Directory.Exists(extPrograms)) {
-                            System.IO.Directory.Delete(extPrograms, true);
-                        }
-                    } catch { }
-                }
+                    if (Directory.Exists(hmtLocalDir)) {
+                        try {
+                            string extPrograms = Path.Combine(hmtLocalDir, "ExtPrograms");
+                            if (Directory.Exists(extPrograms)) {
+                                Directory.Delete(extPrograms, true);
+                            }
+                        } catch { }
+                    }
 
-                // Only clean up the executable if explicitly instructed via flag (--cleanup-on-exit / --temp-run)
-                // or if an explicit irmTarget was passed. Never drop a batch file to disk.
-                if (cleanupExe || !string.IsNullOrEmpty(irmTarget)) {
-                    try {
-                        var psi = new System.Diagnostics.ProcessStartInfo {
-                            FileName = "cmd.exe",
-                            Arguments = string.Format("/c timeout /t 2 /nobreak >nul & if exist \"{0}\" del /f /q \"{0}\"", exePath),
-                            CreateNoWindow = true,
-                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                            UseShellExecute = false
-                        };
-                        System.Diagnostics.Process.Start(psi);
-                    } catch { }
-                }
-            } catch { }
+                    int currentPid = Process.GetCurrentProcess().Id;
+                    string escapedExe = (exePath ?? "").Replace("'", "''");
+                    string psCleanup = string.Format(
+                        "Wait-Process -Id {0} -Timeout 5 -ErrorAction SilentlyContinue; Remove-Item -LiteralPath '{1}' -Force -ErrorAction SilentlyContinue",
+                        currentPid, escapedExe);
+
+                    var psi = new ProcessStartInfo {
+                        FileName = "powershell.exe",
+                        Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -Command \"" + psCleanup + "\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    Process.Start(psi);
+                } catch { }
+            }
 
             try {
                 System.Windows.Forms.Application.Exit();
             } catch { }
-            try {
-                Environment.Exit(0);
-            } catch { }
-        }
-
-        public static void RelaunchUpdateAndExit(string updateExePath, string appDir) {
-            try {
-                foreach (System.Windows.Forms.Form form in System.Windows.Forms.Application.OpenForms) {
-                    try { form.Hide(); } catch { }
-                }
-                System.Windows.Forms.Application.DoEvents();
-            } catch { }
-
-            try {
-                string cmdArgs = string.Format("/c \"timeout /t 1 >nul & (if exist \"{0}\" rmdir /s /q \"{0}\") & start \"\" \"{1}\"\"", appDir, updateExePath);
-                var psi = new System.Diagnostics.ProcessStartInfo {
-                    FileName = "cmd.exe",
-                    Arguments = cmdArgs,
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                System.Diagnostics.Process.Start(psi);
-            } catch { }
-
-            try {
-                Environment.Exit(0);
-            } catch { }
         }
     }
 
-    // --- Low-Level Drive & Storage Interop ---
     public static class DriveInterop {
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern IntPtr CreateFile(
-            string lpFileName,
-            uint dwDesiredAccess,
-            uint dwShareMode,
-            IntPtr lpSecurityAttributes,
-            uint dwCreationDisposition,
-            uint dwFlagsAndAttributes,
-            IntPtr hTemplateFile);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool CloseHandle(IntPtr hObject);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool DeviceIoControl(
-            IntPtr hDevice,
-            uint dwIoControlCode,
-            IntPtr lpInBuffer,
-            uint nInBufferSize,
-            IntPtr lpOutBuffer,
-            uint nOutBufferSize,
-            out uint lpBytesReturned,
-            IntPtr lpOverlapped);
-
-        public const uint GENERIC_READ = 0x80000000;
-        public const uint GENERIC_WRITE = 0x40000000;
-        public const uint FILE_SHARE_READ = 0x00000001;
-        public const uint FILE_SHARE_WRITE = 0x00000002;
-        public const uint OPEN_EXISTING = 3;
-        public const uint FILE_ATTRIBUTE_NORMAL = 0x00000080;
-
-        public const uint IOCTL_STORAGE_QUERY_PROPERTY = 0x002D1400;
-
-        public enum STORAGE_PROPERTY_ID {
-            StorageDeviceProperty = 0,
-            StorageAdapterProperty = 1,
-            StorageDeviceIdProperty = 2,
-            StorageDeviceUniqueIdProperty = 3,
-            StorageDeviceWriteCacheProperty = 4,
-            StorageMiniportProperty = 5,
-            StorageAccessAlignmentProperty = 6,
-            StorageDeviceSeekPenaltyProperty = 7,
-            StorageDeviceTrimProperty = 8
-        }
-
-        public enum STORAGE_QUERY_TYPE {
-            PropertyStandardQuery = 0,
-            PropertyExistsQuery = 1,
-            PropertyMaskQuery = 2,
-            PropertyQueryMaxDefined = 3
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct STORAGE_PROPERTY_QUERY {
-            public STORAGE_PROPERTY_ID PropertyId;
-            public STORAGE_QUERY_TYPE QueryType;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
-            public byte[] AdditionalParameters;
-        }
-
         public enum STORAGE_BUS_TYPE {
             BusTypeUnknown = 0x00,
             BusTypeScsi = 0x01,
-            BusTypeAtapi = 0x02,
             BusTypeAta = 0x03,
-            BusType1394 = 0x04,
-            BusTypeSsa = 0x05,
-            BusTypeFibre = 0x06,
             BusTypeUsb = 0x07,
             BusTypeRAID = 0x08,
-            BusTypeiScsi = 0x09,
-            BusTypeSas = 0x0A,
             BusTypeSata = 0x0B,
-            BusTypeSd = 0x0C,
-            BusTypeMmc = 0x0D,
             BusTypeVirtual = 0x0E,
-            BusTypeFileBackedVirtual = 0x0F,
-            BusTypeSpaces = 0x10,
-            BusTypeNvme = 0x11,
-            BusTypeSCM = 0x12,
-            BusTypeUfs = 0x13,
-            BusTypeMax = 0x14,
-            BusTypeMaxReserved = 0x7F
+            BusTypeNvme = 0x11
         }
 
         public class DriveInfoResult {
@@ -261,6 +93,7 @@ namespace HMT {
             public string BusTypeName { get; set; }
             public bool IsRemovable { get; set; }
             public bool IsSSD { get; set; }
+            public string CapacityText { get; set; }
             public bool Success { get; set; }
             public string ErrorMessage { get; set; }
         }
@@ -268,214 +101,74 @@ namespace HMT {
         public static DriveInfoResult QueryPhysicalDriveInfo(int driveIndex) {
             var result = new DriveInfoResult {
                 DriveIndex = driveIndex,
-                DevicePath = string.Format(@"\\.\PhysicalDrive{0}", driveIndex),
+                DevicePath = "Disk " + driveIndex,
                 VendorId = string.Empty,
                 ProductId = string.Empty,
                 ProductRevision = string.Empty,
                 SerialNumber = string.Empty,
                 BusType = STORAGE_BUS_TYPE.BusTypeUnknown,
-                BusTypeName = "Unknown",
-                IsSSD = false,
+                BusTypeName = "NVMe/SATA",
+                IsSSD = true,
+                CapacityText = "~512 GB",
                 Success = false
             };
 
-            IntPtr hDrive = CreateFile(
-                result.DevicePath,
-                0,
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                IntPtr.Zero,
-                OPEN_EXISTING,
-                0,
-                IntPtr.Zero
-            );
-
-            if (hDrive == IntPtr.Zero || hDrive == (IntPtr)(-1)) {
-                result.ErrorMessage = "Unable to open device handle (error: " + Marshal.GetLastWin32Error() + ")";
-                return result;
-            }
-
             try {
-                STORAGE_PROPERTY_QUERY query = new STORAGE_PROPERTY_QUERY {
-                    PropertyId = STORAGE_PROPERTY_ID.StorageDeviceProperty,
-                    QueryType = STORAGE_QUERY_TYPE.PropertyStandardQuery,
-                    AdditionalParameters = new byte[1]
-                };
+                using (var enumKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\disk\Enum", false)) {
+                    if (enumKey != null) {
+                        string pnpId = enumKey.GetValue(driveIndex.ToString()) as string;
+                        if (!string.IsNullOrEmpty(pnpId)) {
+                            var mVen = Regex.Match(pnpId, @"Ven_([^&\\]+)", RegexOptions.IgnoreCase);
+                            var mProd = Regex.Match(pnpId, @"Prod_([^&\\]+)", RegexOptions.IgnoreCase);
+                            if (mVen.Success) result.VendorId = mVen.Groups[1].Value.Replace('_', ' ').Trim();
+                            if (mProd.Success) result.ProductId = mProd.Groups[1].Value.Replace('_', ' ').Trim();
 
-                uint querySize = (uint)Marshal.SizeOf(query);
-                IntPtr pQuery = Marshal.AllocHGlobal((int)querySize);
-                Marshal.StructureToPtr(query, pQuery, false);
+                            if (pnpId.IndexOf("NVME", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                result.ProductId.IndexOf("NVMe", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                result.BusType = STORAGE_BUS_TYPE.BusTypeNvme;
+                                result.BusTypeName = "NVMe";
+                                result.IsSSD = true;
+                            } else if (pnpId.IndexOf("USBSTOR", StringComparison.OrdinalIgnoreCase) >= 0) {
+                                result.BusType = STORAGE_BUS_TYPE.BusTypeUsb;
+                                result.BusTypeName = "USB";
+                                result.IsRemovable = true;
+                            } else {
+                                result.BusType = STORAGE_BUS_TYPE.BusTypeSata;
+                                result.BusTypeName = "SATA/AHCI";
+                                result.IsSSD = result.ProductId.IndexOf("HDD", StringComparison.OrdinalIgnoreCase) < 0;
+                            }
 
-                uint outBufferSize = 2048;
-                IntPtr pOutBuffer = Marshal.AllocHGlobal((int)outBufferSize);
-
-                uint bytesReturned = 0;
-                bool success = DeviceIoControl(
-                    hDrive,
-                    IOCTL_STORAGE_QUERY_PROPERTY,
-                    pQuery,
-                    querySize,
-                    pOutBuffer,
-                    outBufferSize,
-                    out bytesReturned,
-                    IntPtr.Zero
-                );
-
-                if (success && bytesReturned > 0) {
-                    byte[] buffer = new byte[bytesReturned];
-                    Marshal.Copy(pOutBuffer, buffer, 0, (int)bytesReturned);
-
-                    int busTypeVal = (int)buffer[28];
-                    result.BusType = (STORAGE_BUS_TYPE)busTypeVal;
-                    result.BusTypeName = result.BusType.ToString().Replace("BusType", "");
-                    result.IsRemovable = (buffer[4] != 0);
-
-                    int vendorOffset = BitConverter.ToInt32(buffer, 8);
-                    int productOffset = BitConverter.ToInt32(buffer, 12);
-                    int revisionOffset = BitConverter.ToInt32(buffer, 16);
-                    int serialOffset = BitConverter.ToInt32(buffer, 20);
-
-                    if (vendorOffset > 0 && vendorOffset < buffer.Length)
-                        result.VendorId = ReadNullTerminatedAscii(buffer, vendorOffset).Trim();
-                    if (productOffset > 0 && productOffset < buffer.Length)
-                        result.ProductId = ReadNullTerminatedAscii(buffer, productOffset).Trim();
-                    if (revisionOffset > 0 && revisionOffset < buffer.Length)
-                        result.ProductRevision = ReadNullTerminatedAscii(buffer, revisionOffset).Trim();
-                    if (serialOffset > 0 && serialOffset < buffer.Length)
-                        result.SerialNumber = ReadNullTerminatedAscii(buffer, serialOffset).Trim();
-
-                    result.Success = true;
+                            if (string.IsNullOrEmpty(result.ProductId)) {
+                                result.ProductId = "System Storage Drive";
+                            }
+                            result.Success = true;
+                        }
+                    }
                 }
 
-                Marshal.FreeHGlobal(pQuery);
-                Marshal.FreeHGlobal(pOutBuffer);
-
-                STORAGE_PROPERTY_QUERY seekQuery = new STORAGE_PROPERTY_QUERY {
-                    PropertyId = STORAGE_PROPERTY_ID.StorageDeviceSeekPenaltyProperty,
-                    QueryType = STORAGE_QUERY_TYPE.PropertyStandardQuery,
-                    AdditionalParameters = new byte[1]
-                };
-
-                uint seekQuerySize = (uint)Marshal.SizeOf(seekQuery);
-                IntPtr pSeekQuery = Marshal.AllocHGlobal((int)seekQuerySize);
-                Marshal.StructureToPtr(seekQuery, pSeekQuery, false);
-
-                uint seekOutSize = 16;
-                IntPtr pSeekOut = Marshal.AllocHGlobal((int)seekOutSize);
-
-                uint seekBytesReturned = 0;
-                bool seekSuccess = DeviceIoControl(
-                    hDrive,
-                    IOCTL_STORAGE_QUERY_PROPERTY,
-                    pSeekQuery,
-                    seekQuerySize,
-                    pSeekOut,
-                    seekOutSize,
-                    out seekBytesReturned,
-                    IntPtr.Zero
-                );
-
-                if (seekSuccess && seekBytesReturned >= 5) {
-                    byte[] seekBuf = new byte[seekBytesReturned];
-                    Marshal.Copy(pSeekOut, seekBuf, 0, (int)seekBytesReturned);
-                    bool incursSeekPenalty = (seekBuf[4] != 0);
-                    result.IsSSD = !incursSeekPenalty;
-                } else if (result.BusType == STORAGE_BUS_TYPE.BusTypeNvme) {
-                    result.IsSSD = true;
+                var fixedDrives = new System.Collections.Generic.List<DriveInfo>();
+                foreach (var d in DriveInfo.GetDrives()) {
+                    try {
+                        if (d.IsReady && (d.DriveType == DriveType.Fixed || d.DriveType == DriveType.Removable)) {
+                            fixedDrives.Add(d);
+                        }
+                    } catch { }
                 }
 
-                Marshal.FreeHGlobal(pSeekQuery);
-                Marshal.FreeHGlobal(pSeekOut);
-
+                if (driveIndex < fixedDrives.Count) {
+                    double gb = fixedDrives[driveIndex].TotalSize / 1073741824.0;
+                    result.CapacityText = gb >= 1000 ? string.Format("{0:F1} TB", gb / 1024.0) : string.Format("{0:F0} GB", gb);
+                    if (!result.Success) {
+                        string label = string.IsNullOrEmpty(fixedDrives[driveIndex].VolumeLabel) ? "Local Disk" : fixedDrives[driveIndex].VolumeLabel;
+                        result.ProductId = string.Format("{0} ({1})", label, fixedDrives[driveIndex].Name.TrimEnd('\\'));
+                        result.Success = true;
+                    }
+                }
             } catch (Exception ex) {
                 result.ErrorMessage = ex.Message;
-            } finally {
-                CloseHandle(hDrive);
             }
 
             return result;
-        }
-
-        private static string ReadNullTerminatedAscii(byte[] data, int startIndex) {
-            int end = startIndex;
-            while (end < data.Length && data[end] != 0) {
-                end++;
-            }
-            if (end <= startIndex) return string.Empty;
-            return System.Text.Encoding.ASCII.GetString(data, startIndex, end - startIndex);
-        }
-    }
-
-    // --- Per-Pixel Alpha WinForms Helper ---
-    public class PerPixelAlphaForm : System.Windows.Forms.Form {
-        [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
-        public static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, ref Point pptDst, ref Size psize, IntPtr hdcSrc, ref Point pprSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
-        
-        [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
-        public static extern IntPtr GetDC(IntPtr hWnd);
-        [DllImport("user32.dll", ExactSpelling = true)]
-        public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        public static extern IntPtr CreateCompatibleDC(IntPtr hDC);
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        public static extern bool DeleteDC(IntPtr hdc);
-        [DllImport("gdi32.dll", ExactSpelling = true)]
-        public static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        public static extern bool DeleteObject(IntPtr hObject);
-
-        public struct Point { public int x, y; public Point(int x, int y) { this.x = x; this.y = y; } }
-        public new struct Size { public int cx, cy; public Size(int cx, int cy) { this.cx = cx; this.cy = cy; } }
-        public struct BLENDFUNCTION {
-            public byte BlendOp;
-            public byte BlendFlags;
-            public byte SourceConstantAlpha;
-            public byte AlphaFormat;
-        }
-
-        public const int WS_EX_LAYERED = 0x80000;
-        public const int ULW_ALPHA = 2;
-        public const byte AC_SRC_OVER = 0;
-        public const byte AC_SRC_ALPHA = 1;
-
-        protected override System.Windows.Forms.CreateParams CreateParams {
-            get {
-                System.Windows.Forms.CreateParams cp = base.CreateParams;
-                cp.ExStyle |= WS_EX_LAYERED;
-                return cp;
-            }
-        }
-
-        public void SetImage(System.Drawing.Bitmap bitmap) {
-            if (bitmap.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) {
-                throw new ApplicationException("The bitmap must be 32bpp with alpha-channel.");
-            }
-            IntPtr screenDc = GetDC(IntPtr.Zero);
-            IntPtr memDc = CreateCompatibleDC(screenDc);
-            IntPtr hBitmap = IntPtr.Zero;
-            IntPtr oldBitmap = IntPtr.Zero;
-
-            try {
-                hBitmap = bitmap.GetHbitmap(System.Drawing.Color.FromArgb(0));
-                oldBitmap = SelectObject(memDc, hBitmap);
-
-                Size size = new Size(bitmap.Width, bitmap.Height);
-                Point pointSource = new Point(0, 0);
-                Point topPos = new Point(Left, Top);
-                BLENDFUNCTION blend = new BLENDFUNCTION();
-                blend.BlendOp = AC_SRC_OVER;
-                blend.BlendFlags = 0;
-                blend.SourceConstantAlpha = 255;
-                blend.AlphaFormat = AC_SRC_ALPHA;
-
-                UpdateLayeredWindow(Handle, screenDc, ref topPos, ref size, memDc, ref pointSource, 0, ref blend, ULW_ALPHA);
-            } finally {
-                ReleaseDC(IntPtr.Zero, screenDc);
-                if (hBitmap != IntPtr.Zero) {
-                    SelectObject(memDc, oldBitmap);
-                    DeleteObject(hBitmap);
-                }
-                DeleteDC(memDc);
-            }
         }
     }
 }

@@ -1,0 +1,391 @@
+{
+  "software": [
+    {
+      "name": "Google Chrome",
+      "category": "Browsers & Comms",
+      "wingetId": "Google.Chrome",
+      "type": "Winget",
+      "detect": "Google Chrome",
+      "url": "https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B4F373802-9F19-C0FD-BA19-1EBE5394B73B%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dtrue%26ap%3Dx64-stable-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeStandaloneSetup64.exe",
+      "silentArgs": "/silent /install"
+    },
+    {
+      "name": "Mozilla Firefox",
+      "category": "Browsers & Comms",
+      "wingetId": "Mozilla.Firefox",
+      "type": "Winget",
+      "detect": "Mozilla Firefox",
+      "url": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US",
+      "silentArgs": "/S"
+    },
+    {
+      "name": "Brave Browser",
+      "category": "Browsers & Comms",
+      "wingetId": "Brave.Brave",
+      "type": "Winget",
+      "detect": "Brave"
+    },
+    {
+      "name": "Discord",
+      "category": "Browsers & Comms",
+      "wingetId": "Discord.Discord",
+      "type": "Winget",
+      "detect": "Discord"
+    },
+    {
+      "name": "Microsoft Teams",
+      "category": "Browsers & Comms",
+      "wingetId": "Microsoft.Teams",
+      "type": "Winget",
+      "detect": "Microsoft Teams|Teams"
+    },
+    {
+      "name": "Zoom",
+      "category": "Browsers & Comms",
+      "wingetId": "Zoom.Zoom",
+      "type": "Winget",
+      "detect": "Zoom Workplace|Zoom"
+    },
+    {
+      "name": "Slack",
+      "category": "Browsers & Comms",
+      "wingetId": "SlackTechnologies.Slack",
+      "type": "Winget",
+      "detect": "Slack",
+      "url": "https://slack.com/ssb/download-win64",
+      "silentArgs": "/silent"
+    },
+    {
+      "name": "Telegram Desktop",
+      "category": "Browsers & Comms",
+      "wingetId": "Telegram.TelegramDesktop",
+      "type": "Winget",
+      "detect": "Telegram Desktop"
+    },
+    {
+      "name": "Mozilla Thunderbird",
+      "category": "Browsers & Comms",
+      "wingetId": "Mozilla.Thunderbird",
+      "type": "Winget",
+      "detect": "Mozilla Thunderbird"
+    },
+    {
+      "name": "7-Zip",
+      "category": "Productivity",
+      "wingetId": "7zip.7zip",
+      "type": "Winget",
+      "detect": "7-Zip",
+      "url": "https://www.7-zip.org/a/7z2408-x64.exe",
+      "silentArgs": "/S"
+    },
+    {
+      "name": "WinRAR",
+      "category": "Productivity",
+      "wingetId": "RARLab.WinRAR",
+      "type": "Winget",
+      "detect": "WinRAR"
+    },
+    {
+      "name": "Notepad++",
+      "category": "Productivity",
+      "wingetId": "Notepad++.Notepad++",
+      "type": "Winget",
+      "detect": "Notepad++",
+      "url": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.9/npp.8.6.9.Installer.x64.exe",
+      "silentArgs": "/S"
+    },
+    {
+      "name": "Adobe Acrobat Reader",
+      "category": "Productivity",
+      "wingetId": "Adobe.Acrobat.Reader.64-bit",
+      "type": "Winget",
+      "detect": "Adobe Acrobat",
+      "silentArgs": "/sAll /rs /msi EULA_ACCEPT=YES /norestart"
+    },
+    {
+      "name": "Foxit PDF Reader",
+      "category": "Productivity",
+      "wingetId": "Foxit.FoxitReader",
+      "type": "Winget",
+      "detect": "Foxit PDF Reader|Foxit Reader"
+    },
+    {
+      "name": "Adobe Creative Cloud",
+      "category": "Productivity",
+      "wingetId": "Adobe.CreativeCloud",
+      "type": "Winget",
+      "detect": "Adobe Creative Cloud"
+    },
+    {
+      "name": "Microsoft Office (64-Bit)",
+      "category": "Productivity",
+      "wingetId": "",
+      "type": "MSOffice",
+      "detect": "Microsoft 365 Apps|Microsoft Office|O365BusinessRetail"
+    },
+    {
+      "name": "Outlook Classic",
+      "category": "Productivity",
+      "wingetId": "",
+      "type": "MSOutlook",
+      "detect": "OutlookRetail|Microsoft Outlook"
+    },
+    {
+      "name": "LibreOffice",
+      "category": "Productivity",
+      "wingetId": "TheDocumentFoundation.LibreOffice",
+      "type": "Winget",
+      "detect": "LibreOffice"
+    },
+    {
+      "name": "Microsoft PowerToys",
+      "category": "Productivity",
+      "wingetId": "Microsoft.PowerToys",
+      "type": "Winget",
+      "detect": "PowerToys"
+    },
+    {
+      "name": "Everything Search",
+      "category": "Productivity",
+      "wingetId": "voidtools.Everything",
+      "type": "Winget",
+      "detect": "Everything"
+    },
+    {
+      "name": "ShareX",
+      "category": "Productivity",
+      "wingetId": "ShareX.ShareX",
+      "type": "Winget",
+      "detect": "ShareX"
+    },
+    {
+      "name": "Greenshot",
+      "category": "Productivity",
+      "wingetId": "Greenshot.Greenshot",
+      "type": "Winget",
+      "detect": "Greenshot"
+    },
+    {
+      "name": "Visual Studio Code",
+      "category": "IT & Dev Tools",
+      "wingetId": "Microsoft.VisualStudioCode",
+      "type": "Winget",
+      "detect": "Visual Studio Code"
+    },
+    {
+      "name": "Git for Windows",
+      "category": "IT & Dev Tools",
+      "wingetId": "Git.Git",
+      "type": "Winget",
+      "detect": "Git",
+      "url": "https://github.com/git-for-windows/git/releases/download/v2.46.0.windows.1/Git-2.46.0-64-bit.exe",
+      "silentArgs": "/VERYSILENT /NORESTART"
+    },
+    {
+      "name": "Python 3.12",
+      "category": "IT & Dev Tools",
+      "wingetId": "Python.Python.3.12",
+      "type": "Winget",
+      "detect": "Python 3.12"
+    },
+    {
+      "name": "Node.js LTS",
+      "category": "IT & Dev Tools",
+      "wingetId": "OpenJS.NodeJS.LTS",
+      "type": "Winget",
+      "detect": "Node.js"
+    },
+    {
+      "name": "Java",
+      "category": "IT & Dev Tools",
+      "wingetId": "Oracle.JavaRuntimeEnvironment",
+      "type": "Winget",
+      "detect": "Java 8|Java(TM)|Java Runtime Environment"
+    },
+    {
+      "name": "Windows Terminal",
+      "category": "IT & Dev Tools",
+      "wingetId": "Microsoft.WindowsTerminal",
+      "type": "Winget",
+      "detect": "Windows Terminal"
+    },
+    {
+      "name": "PuTTY",
+      "category": "IT & Dev Tools",
+      "wingetId": "PuTTY.PuTTY",
+      "type": "Winget",
+      "detect": "PuTTY"
+    },
+    {
+      "name": "WinSCP",
+      "category": "IT & Dev Tools",
+      "wingetId": "WinSCP.WinSCP",
+      "type": "Winget",
+      "detect": "WinSCP"
+    },
+    {
+      "name": "Wireshark",
+      "category": "IT & Dev Tools",
+      "wingetId": "WiresharkFoundation.Wireshark",
+      "type": "Winget",
+      "detect": "Wireshark"
+    },
+    {
+      "name": "Twingate Client",
+      "category": "IT & Dev Tools",
+      "wingetId": "Twingate.Client",
+      "type": "Winget",
+      "detect": "Twingate"
+    },
+    {
+      "name": "Perimeter 81 Harmony SASE",
+      "category": "IT & Dev Tools",
+      "wingetId": "Perimeter81.HarmonySASE",
+      "type": "Winget",
+      "detect": "Harmony SASE|Perimeter 81"
+    },
+    {
+      "name": "Tailscale",
+      "category": "IT & Dev Tools",
+      "wingetId": "Tailscale.Tailscale",
+      "type": "Winget",
+      "detect": "Tailscale"
+    },
+    {
+      "name": "AnyDesk",
+      "category": "IT & Dev Tools",
+      "wingetId": "AnyDeskSoftwareGmbH.AnyDesk",
+      "type": "Winget",
+      "detect": "AnyDesk"
+    },
+    {
+      "name": "TeamViewer",
+      "category": "IT & Dev Tools",
+      "wingetId": "TeamViewer.TeamViewer",
+      "type": "Winget",
+      "detect": "TeamViewer"
+    },
+    {
+      "name": "VLC Media Player",
+      "category": "Media & Design",
+      "wingetId": "VideoLAN.VLC",
+      "type": "Winget",
+      "detect": "VLC media player"
+    },
+    {
+      "name": "Spotify",
+      "category": "Media & Design",
+      "wingetId": "Spotify.Spotify",
+      "type": "Winget",
+      "detect": "Spotify"
+    },
+    {
+      "name": "OBS Studio",
+      "category": "Media & Design",
+      "wingetId": "OBSProject.OBSStudio",
+      "type": "Winget",
+      "detect": "OBS Studio"
+    },
+    {
+      "name": "Audacity",
+      "category": "Media & Design",
+      "wingetId": "Audacity.Audacity",
+      "type": "Winget",
+      "detect": "Audacity"
+    },
+    {
+      "name": "HandBrake",
+      "category": "Media & Design",
+      "wingetId": "HandBrake.HandBrake",
+      "type": "Winget",
+      "detect": "HandBrake"
+    },
+    {
+      "name": "GIMP",
+      "category": "Media & Design",
+      "wingetId": "GIMP.GIMP",
+      "type": "Winget",
+      "detect": "GIMP"
+    },
+    {
+      "name": "Inkscape",
+      "category": "Media & Design",
+      "wingetId": "Inkscape.Inkscape",
+      "type": "Winget",
+      "detect": "Inkscape"
+    },
+    {
+      "name": "K-Lite Codec Pack Mega",
+      "category": "Media & Design",
+      "wingetId": "CodecGuide.K-LiteCodecPack.Mega",
+      "type": "Winget",
+      "detect": "K-Lite"
+    },
+    {
+      "name": "Google Drive",
+      "category": "Cloud & Gaming",
+      "wingetId": "Google.Drive",
+      "type": "Winget",
+      "detect": "Google Drive"
+    },
+    {
+      "name": "Dropbox",
+      "category": "Cloud & Gaming",
+      "wingetId": "Dropbox.Dropbox",
+      "type": "Winget",
+      "detect": "Dropbox"
+    },
+    {
+      "name": "Steam",
+      "category": "Cloud & Gaming",
+      "wingetId": "Valve.Steam",
+      "type": "Winget",
+      "detect": "Steam",
+      "url": "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe",
+      "silentArgs": "/S"
+    },
+    {
+      "name": "Epic Games Launcher",
+      "category": "Cloud & Gaming",
+      "wingetId": "EpicGames.EpicGamesLauncher",
+      "type": "Winget",
+      "detect": "Epic Games Launcher"
+    },
+    {
+      "name": "GOG Galaxy",
+      "category": "Cloud & Gaming",
+      "wingetId": "GOG.Galaxy",
+      "type": "Winget",
+      "detect": "GOG GALAXY"
+    },
+    {
+      "name": "CPUID HWMonitor",
+      "category": "Cloud & Gaming",
+      "wingetId": "CPUID.HWMonitor",
+      "type": "Winget",
+      "detect": "CPUID HWMonitor|HWMonitor"
+    },
+    {
+      "name": "CPUID CPU-Z",
+      "category": "Cloud & Gaming",
+      "wingetId": "CPUID.CPU-Z",
+      "type": "Winget",
+      "detect": "CPUID CPU-Z|CPU-Z"
+    },
+    {
+      "name": "TechPowerUp GPU-Z",
+      "category": "Cloud & Gaming",
+      "wingetId": "TechPowerUp.GPU-Z",
+      "type": "Winget",
+      "detect": "TechPowerUp GPU-Z|GPU-Z"
+    },
+    {
+      "name": "MSI Afterburner",
+      "category": "Cloud & Gaming",
+      "wingetId": "Guru3D.Afterburner",
+      "type": "Winget",
+      "detect": "MSI Afterburner"
+    }
+  ]
+}
+
